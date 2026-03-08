@@ -373,7 +373,7 @@ export default function TenantDashboard() {
                           {isRentOverdue ? '⚠️ OVERDUE' : daysLeft !== null ? `${daysLeft} days remaining` : ''}
                         </span>
                       </div>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${activeTenancy.status === 'active' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-muted text-muted-foreground'}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${activeTenancy.status === 'active' ? 'bg-accent/10 text-accent border border-accent/20' : 'bg-muted text-muted-foreground'}`}>
                         {activeTenancy.status}
                       </span>
                     </div>

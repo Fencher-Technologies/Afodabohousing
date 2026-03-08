@@ -307,8 +307,8 @@ export default function ManagerDashboard() {
 
   const overviewStats = [
     { icon: <Building2 className="h-6 w-6" />, label: 'Total Listings', val: properties.length, color: 'text-primary', bg: 'bg-primary/10' },
-    { icon: <CheckCircle className="h-6 w-6" />, label: 'Available', val: available, color: 'text-green-600', bg: 'bg-green-50' },
-    { icon: <Home className="h-6 w-6" />, label: 'Occupied', val: occupied, color: 'text-accent', bg: 'bg-accent/10' },
+    { icon: <CheckCircle className="h-6 w-6" />, label: 'Available', val: available, color: 'text-accent', bg: 'bg-accent/10' },
+    { icon: <Home className="h-6 w-6" />, label: 'Occupied', val: occupied, color: 'text-primary', bg: 'bg-primary/10' },
     { icon: <DollarSign className="h-6 w-6" />, label: 'Payments Pending', val: pendingPayments.length, color: pendingPayments.length > 0 ? 'text-accent' : 'text-muted-foreground', bg: pendingPayments.length > 0 ? 'bg-accent/10' : 'bg-muted' },
   ];
 
@@ -385,7 +385,7 @@ export default function ManagerDashboard() {
                       <SelectTrigger className="mt-1"><SelectValue placeholder="Select property…" /></SelectTrigger>
                       <SelectContent>
                         {properties.filter(p => p.status !== 'inactive').map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.title} <span className={`ml-1 text-xs ${p.status === 'occupied' ? 'text-accent' : 'text-green-600'}`}>({p.status})</span></SelectItem>
+                          <SelectItem key={p.id} value={p.id}>{p.title} <span className={`ml-1 text-xs ${p.status === 'occupied' ? 'text-accent' : 'text-primary'}`}>({p.status})</span></SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -606,9 +606,9 @@ export default function ManagerDashboard() {
               </h3>
               <div className="space-y-3">
                 {[
-                  { label: 'Confirmed Payments', val: payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0), color: 'text-green-600' },
-                  { label: 'Pending Review', val: payments.filter(p => p.status === 'uploaded').reduce((s, p) => s + p.amount, 0), color: 'text-blue-600' },
-                  { label: 'Total Collected', val: payments.filter(p => ['confirmed', 'uploaded'].includes(p.status)).reduce((s, p) => s + p.amount, 0), color: 'text-primary' },
+                  { label: 'Confirmed Payments', val: payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0), color: 'text-accent' },
+                  { label: 'Pending Review', val: payments.filter(p => p.status === 'uploaded').reduce((s, p) => s + p.amount, 0), color: 'text-primary' },
+                  { label: 'Total Collected', val: payments.filter(p => ['confirmed', 'uploaded'].includes(p.status)).reduce((s, p) => s + p.amount, 0), color: 'text-foreground' },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between items-center py-2 border-b border-border last:border-0">
                     <span className="text-sm text-muted-foreground">{r.label}</span>
@@ -777,7 +777,7 @@ export default function ManagerDashboard() {
                     {payments.length === 0 ? (
                       <tr><td colSpan={7} className="py-16 text-center text-muted-foreground">No payment records yet.</td></tr>
                     ) : payments.map(p => (
-                      <tr key={p.id} className={`border-t border-border hover:bg-secondary/50 transition-colors ${p.status === 'uploaded' ? 'bg-blue-50/30' : ''}`}>
+                      <tr key={p.id} className={`border-t border-border hover:bg-secondary/50 transition-colors ${p.status === 'uploaded' ? 'bg-primary/5' : ''}`}>
                         <td className="py-3 px-4 font-semibold text-foreground">{p.tenant_name || 'Unknown'}</td>
                         <td className="py-3 px-4 text-muted-foreground text-xs max-w-[140px] truncate">{p.property_title || 'N/A'}</td>
                         <td className="py-3 px-4 font-bold text-foreground">{p.amount.toLocaleString()}</td>

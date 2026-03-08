@@ -121,7 +121,7 @@ export default function AdminDashboard() {
   const overviewStats = [
     { icon: <Users className="h-6 w-6" />, label: 'Total Users', val: users.length, bg: 'bg-primary/10', color: 'text-primary', sub: `${users.filter(u => u.role === 'tenant').length} tenants · ${users.filter(u => u.role === 'house_manager').length} managers` },
     { icon: <Building2 className="h-6 w-6" />, label: 'All Properties', val: props.length, bg: 'bg-accent/10', color: 'text-accent', sub: `${props.filter(p => p.status === 'available').length} available · ${props.filter(p => p.status === 'occupied').length} occupied` },
-    { icon: <Home className="h-6 w-6" />, label: 'Active Tenancies', val: tenancies.filter(t => t.status === 'active').length, bg: 'bg-green-50', color: 'text-green-600', sub: `${tenancies.filter(t => t.status === 'expired').length} expired` },
+    { icon: <Home className="h-6 w-6" />, label: 'Active Tenancies', val: tenancies.filter(t => t.status === 'active').length, bg: 'bg-accent/10', color: 'text-accent', sub: `${tenancies.filter(t => t.status === 'expired').length} expired` },
     { icon: <DollarSign className="h-6 w-6" />, label: 'Confirmed Revenue', val: `UGX ${(totalRevenue / 1000000).toFixed(2)}M`, bg: 'bg-primary/10', color: 'text-primary', sub: `${pendingPayments.length} awaiting review` },
   ];
 
@@ -414,7 +414,7 @@ export default function AdminDashboard() {
                   {payments.length === 0 ? (
                     <tr><td colSpan={5} className="py-12 text-center text-muted-foreground">No payment records</td></tr>
                   ) : payments.map(p => (
-                    <tr key={p.id} className={`border-t border-border hover:bg-secondary/50 transition-colors ${p.status === 'uploaded' ? 'bg-blue-50/30' : ''}`}>
+                    <tr key={p.id} className={`border-t border-border hover:bg-secondary/50 transition-colors ${p.status === 'uploaded' ? 'bg-primary/5' : ''}`}>
                       <td className="py-3 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                       <td className="py-3 px-4 font-bold text-foreground">{p.amount?.toLocaleString()}</td>
                       <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || 'None'}</td>
