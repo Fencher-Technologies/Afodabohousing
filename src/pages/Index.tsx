@@ -7,187 +7,305 @@ import PropertyCard from '@/components/PropertyCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, MapPin, SlidersHorizontal } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Search, MapPin, SlidersHorizontal, Shield, Home, MessageSquare, Star, ArrowRight, CheckCircle } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
 import Footer from '@/components/Footer';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 
 const DEMO_ACCOUNTS = [
-  { email: 'admin@afodabo.ug', role: 'Admin', color: 'bg-accent/20 text-accent border-accent/30' },
-  { email: 'john@afodabo.ug', role: 'House Manager', color: 'bg-primary/10 text-primary border-primary/30' },
-  { email: 'grace@afodabo.ug', role: 'House Manager', color: 'bg-primary/10 text-primary border-primary/30' },
-  { email: 'sarah@afodabo.ug', role: 'Tenant', color: 'bg-secondary text-secondary-foreground border-border' },
-  { email: 'david@afodabo.ug', role: 'Tenant (rent due)', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+  { email: 'admin@afodabo.ug', role: 'Admin', badge: 'bg-accent/20 text-accent border-accent/30' },
+  { email: 'john@afodabo.ug', role: 'House Manager', badge: 'bg-primary/10 text-primary border-primary/30' },
+  { email: 'grace@afodabo.ug', role: 'House Manager', badge: 'bg-primary/10 text-primary border-primary/30' },
+  { email: 'sarah@afodabo.ug', role: 'Tenant', badge: 'bg-secondary text-secondary-foreground border-border' },
+  { email: 'david@afodabo.ug', role: 'Tenant (rent due)', badge: 'bg-accent/10 text-accent border-accent/20' },
 ];
+
+const FEATURES = [
+  { icon: <Shield className="h-6 w-6" />, title: 'Verified Listings', desc: 'Every property is reviewed and verified before going live — no fake or misleading listings.' },
+  { icon: <MessageSquare className="h-6 w-6" />, title: 'Direct Messaging', desc: 'Communicate directly with house managers without sharing personal numbers until you are ready.' },
+  { icon: <Home className="h-6 w-6" />, title: 'Tenancy Management', desc: 'Digital agreements, rent tracking, payment history and reminders — all automated for you.' },
+  { icon: <CheckCircle className="h-6 w-6" />, title: 'Smart Payments', desc: 'Pay rent online via PesaPal, or upload mobile money proof. Instant SMS confirmation for both parties.' },
+];
+
+const DISTRICTS = ['Kampala', 'Wakiso', 'Mukono', 'Mbarara', 'Gulu', 'Jinja', 'Entebbe', 'Mbale', 'Lira', 'Arua'];
 
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchDistrict, setSearchDistrict] = useState('');
   const [filterType, setFilterType] = useState('all');
-  const [filterPeriod, setFilterPeriod] = useState('all');
   const [searchInput, setSearchInput] = useState('');
+  const [stats, setStats] = useState({ properties: 0, tenancies: 0, districts: 45 });
   const navigate = useNavigate();
 
-  useEffect(() => { fetchProperties(); }, [searchDistrict, filterType, filterPeriod]);
+  useEffect(() => { fetchProperties(); fetchStats(); }, [searchDistrict, filterType]);
 
   const fetchProperties = async () => {
     setLoading(true);
     let query = supabase.from('properties').select('*').eq('status', 'available').order('created_at', { ascending: false });
     if (searchDistrict && searchDistrict !== 'all') query = query.ilike('district', `%${searchDistrict}%`);
     if (filterType && filterType !== 'all') query = query.eq('property_type', filterType as Database['public']['Enums']['property_type']);
-    if (filterPeriod && filterPeriod !== 'all') query = query.eq('rent_period', filterPeriod as Database['public']['Enums']['rent_period']);
-    const { data } = await query.limit(12);
+    const { data } = await query.limit(9);
     if (data) setProperties(data);
     setLoading(false);
   };
 
-  const handleSearch = () => setSearchDistrict(searchInput);
+  const fetchStats = async () => {
+    const [pRes, tRes] = await Promise.all([
+      supabase.from('properties').select('id', { count: 'exact', head: true }),
+      supabase.from('tenancies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    ]);
+    setStats({ properties: pRes.count || 0, tenancies: tRes.count || 0, districts: 45 });
+  };
 
-  const stats = [
-    { value: '45+', label: 'Districts Covered' },
-    { value: '12', label: 'Active Listings' },
-    { value: '2', label: 'Active Tenancies' },
-    { value: 'UGX 1', label: 'Annual Subscription' },
-  ];
+  const handleSearch = () => setSearchDistrict(searchInput);
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* HERO */}
-      <section className="relative min-h-[580px] flex items-center justify-center bg-cover bg-center" style={{ backgroundImage: `url(${heroBg})` }}>
+      {/* ═══ HERO ══════════════════════════════════════════════════════════ */}
+      <section
+        className="relative min-h-[640px] flex items-center justify-center bg-cover bg-center"
+        style={{ backgroundImage: `url(${heroBg})` }}
+      >
         <div className="absolute inset-0 gradient-hero" />
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-          <p className="text-accent font-semibold tracking-widest uppercase text-sm mb-3 animate-fade-in">Uganda's #1 District Relocation Housing App</p>
-          <h1 className="font-display text-5xl md:text-6xl font-bold text-primary-foreground mb-6 text-balance animate-fade-up leading-tight">
-            Find Your Perfect Home in Any Uganda District
+          <Badge className="bg-accent text-accent-foreground mb-4 text-xs font-semibold tracking-widest uppercase px-4 py-1.5">
+            Uganda's #1 District Relocation Housing App
+          </Badge>
+          <h1 className="font-display text-5xl md:text-7xl font-bold text-primary-foreground mb-6 leading-tight tracking-tight">
+            Find Your Perfect<br />
+            <span className="text-gold">Home in Uganda</span>
           </h1>
-          <p className="text-primary-foreground/80 text-lg mb-10 max-w-2xl mx-auto">
-            Search verified rentals across Uganda. Connect with house managers, generate agreements, and manage rent — all in one app.
+          <p className="text-primary-foreground/85 text-xl mb-10 max-w-2xl mx-auto leading-relaxed">
+            Search verified rentals across all 135 districts. Connect with trusted house managers, sign digital agreements, and manage rent — elegantly.
           </p>
-          <div className="bg-card rounded-xl shadow-lg p-3 flex flex-col sm:flex-row gap-3 max-w-2xl mx-auto animate-fade-up">
-            <div className="flex-1 flex items-center gap-2 px-3">
+
+          {/* Search bar */}
+          <div className="bg-card rounded-2xl shadow-2xl p-3 flex flex-col sm:flex-row gap-2 max-w-2xl mx-auto">
+            <div className="flex-1 flex items-center gap-3 px-4">
               <MapPin className="h-5 w-5 text-accent shrink-0" />
               <Input
-                placeholder="Enter district or city (e.g. Kampala)…"
+                placeholder="Enter district, city or area…"
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="border-0 shadow-none focus-visible:ring-0 bg-transparent text-foreground placeholder:text-muted-foreground"
+                className="border-0 shadow-none focus-visible:ring-0 bg-transparent text-foreground placeholder:text-muted-foreground text-base"
               />
             </div>
-            <Button onClick={handleSearch} className="gradient-primary text-primary-foreground px-8 h-11 font-semibold gap-2">
-              <Search className="h-4 w-4" />Search
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-full sm:w-44 border-0 border-l sm:border-l border-border rounded-none sm:rounded-none bg-transparent">
+                <SelectValue placeholder="Any type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="house">House</SelectItem>
+                <SelectItem value="apartment">Apartment</SelectItem>
+                <SelectItem value="self_contained">Self-Contained</SelectItem>
+                <SelectItem value="room">Single Room</SelectItem>
+                <SelectItem value="studio">Studio</SelectItem>
+                <SelectItem value="bungalow">Bungalow</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={handleSearch}
+              className="gradient-primary text-primary-foreground px-8 h-12 font-semibold gap-2 rounded-xl text-base"
+            >
+              <Search className="h-4 w-4" />
+              Search
             </Button>
           </div>
-        </div>
-      </section>
 
-      {/* STATS */}
-      <section className="bg-primary py-10">
-        <div className="container grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          {stats.map(s => (
-            <div key={s.label}>
-              <div className="text-gold text-3xl font-display font-bold">{s.value}</div>
-              <div className="text-primary-foreground/80 text-sm mt-1">{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* DEMO ACCOUNTS */}
-      <section className="bg-secondary py-10 border-b border-border">
-        <div className="container">
-          <div className="text-center mb-5">
-            <h2 className="font-display text-xl font-bold text-foreground">🎯 Try the Demo Accounts</h2>
-            <p className="text-muted-foreground text-sm mt-1">All accounts use password: <code className="bg-card px-2 py-0.5 rounded border border-border font-mono font-bold">Demo@1234</code></p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-3">
-            {DEMO_ACCOUNTS.map(a => (
+          {/* Popular districts */}
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            {DISTRICTS.map(d => (
               <button
-                key={a.email}
-                onClick={() => navigate(`/login`)}
-                className={`border rounded-lg px-4 py-3 text-left hover:shadow-md transition-all ${a.color}`}
+                key={d}
+                onClick={() => { setSearchInput(d); setSearchDistrict(d); }}
+                className="text-xs text-primary-foreground/70 hover:text-primary-foreground bg-primary-foreground/10 hover:bg-primary-foreground/20 px-3 py-1 rounded-full transition-all"
               >
-                <div className="font-semibold text-sm">{a.role}</div>
-                <div className="font-mono text-xs opacity-80 mt-0.5">{a.email}</div>
+                {d}
               </button>
             ))}
           </div>
         </div>
       </section>
 
-      {/* PROPERTIES */}
+      {/* ═══ STATS ══════════════════════════════════════════════════════════ */}
+      <section className="bg-primary py-12">
+        <div className="container grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          {[
+            { val: `${stats.properties}+`, label: 'Active Listings', sub: 'Verified & ready' },
+            { val: `${stats.districts}+`, label: 'Districts Covered', sub: 'Across Uganda' },
+            { val: `${stats.tenancies}+`, label: 'Active Tenancies', sub: 'Happy tenants' },
+            { val: '100%', label: 'Secure Payments', sub: 'Via PesaPal & Mobile Money' },
+          ].map(s => (
+            <div key={s.label} className="space-y-1">
+              <div className="text-gold text-4xl font-display font-bold">{s.val}</div>
+              <div className="text-primary-foreground font-semibold text-sm">{s.label}</div>
+              <div className="text-primary-foreground/60 text-xs">{s.sub}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══ DEMO ACCOUNTS ══════════════════════════════════════════════════ */}
+      <section className="bg-secondary/60 border-b border-border py-10">
+        <div className="container">
+          <div className="text-center mb-5">
+            <h2 className="font-display text-xl font-bold text-foreground">🎯 Try the Demo Accounts</h2>
+            <p className="text-muted-foreground text-sm mt-1.5">
+              All accounts use password:{' '}
+              <code className="bg-card px-2.5 py-1 rounded-lg border border-border font-mono font-bold text-primary">
+                Demo@1234
+              </code>
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-3">
+            {DEMO_ACCOUNTS.map(a => (
+              <button
+                key={a.email}
+                onClick={() => navigate('/login')}
+                className={`border rounded-xl px-5 py-3 text-left hover:shadow-md transition-all group ${a.badge}`}
+              >
+                <div className="font-semibold text-sm">{a.role}</div>
+                <div className="font-mono text-xs opacity-75 mt-0.5 group-hover:opacity-100 transition-opacity">{a.email}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ PROPERTIES ═════════════════════════════════════════════════════ */}
       <section className="container py-16">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
           <div>
-            <h2 className="font-display text-3xl font-bold text-foreground">
-              {searchDistrict ? `Properties in ${searchDistrict}` : 'Available Properties'}
+            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Browse Listings</p>
+            <h2 className="font-display text-4xl font-bold text-foreground leading-tight">
+              {searchDistrict ? `Homes in ${searchDistrict}` : 'Available Properties'}
             </h2>
-            <p className="text-muted-foreground mt-1">{properties.length} properties found</p>
+            <p className="text-muted-foreground mt-2">
+              {properties.length} propert{properties.length !== 1 ? 'ies' : 'y'} matching your search
+            </p>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-40"><SelectValue placeholder="Property type" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="house">House</SelectItem>
-                <SelectItem value="apartment">Apartment</SelectItem>
-                <SelectItem value="self_contained">Self-Contained</SelectItem>
-                <SelectItem value="room">Room</SelectItem>
-                <SelectItem value="studio">Studio</SelectItem>
-                <SelectItem value="bungalow">Bungalow</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-              <SelectTrigger className="w-36"><SelectValue placeholder="Rent period" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Periods</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="quarterly">Quarterly</SelectItem>
-                <SelectItem value="annually">Annually</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Button variant="outline" onClick={() => navigate('/properties')} className="gap-2 self-start md:self-auto">
+            View All Properties
+            <ArrowRight className="h-4 w-4" />
+          </Button>
         </div>
 
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => <div key={i} className="bg-card rounded-lg h-72 animate-pulse border border-border" />)}
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-card rounded-2xl h-80 animate-pulse border border-border" />
+            ))}
           </div>
         ) : properties.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {properties.map((p, i) => <PropertyCard key={p.id} property={p} index={i} />)}
           </div>
         ) : (
-          <div className="text-center py-20 text-muted-foreground">
-            <p className="text-5xl mb-4">🏠</p>
-            <p className="text-lg font-medium">No properties found</p>
-            <p className="text-sm mt-1">Try adjusting your search filters</p>
+          <div className="text-center py-24 text-muted-foreground">
+            <Home className="h-16 w-16 mx-auto mb-4 opacity-20" />
+            <p className="text-xl font-display font-semibold text-foreground">No properties found</p>
+            <p className="text-sm mt-2">Try searching a different district or clearing filters</p>
+            <Button className="mt-5 gradient-primary text-primary-foreground" onClick={() => { setSearchDistrict(''); setSearchInput(''); setFilterType('all'); }}>
+              Clear Filters
+            </Button>
           </div>
         )}
       </section>
 
-      {/* HOW IT WORKS */}
-      <section className="bg-secondary py-16">
-        <div className="container text-center">
-          <h2 className="font-display text-3xl font-bold text-foreground mb-3">How Afodabohousing Works</h2>
-          <p className="text-muted-foreground mb-12 max-w-xl mx-auto">Simple, transparent, built for Uganda</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { icon: '🔍', title: 'Search by District', desc: 'Browse verified properties filtered by district, type, rooms, price and amenities.' },
-              { icon: '📞', title: 'Contact House Manager', desc: 'Call or message directly. Get GPS directions to any listed property.' },
-              { icon: '📝', title: 'Move In & Manage', desc: 'Generate tenancy agreements, upload payment proofs, track rent due dates.' },
-            ].map(step => (
-              <div key={step.title} className="bg-card rounded-xl p-8 shadow-card">
-                <div className="text-5xl mb-4">{step.icon}</div>
-                <h3 className="font-display text-xl font-semibold text-foreground mb-2">{step.title}</h3>
-                <p className="text-muted-foreground text-sm">{step.desc}</p>
+      {/* ═══ WHY AFODABOHOUSING ═════════════════════════════════════════════ */}
+      <section className="bg-secondary py-20">
+        <div className="container">
+          <div className="text-center mb-14">
+            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Why Choose Us</p>
+            <h2 className="font-display text-4xl font-bold text-foreground">
+              Built for Every Ugandan
+            </h2>
+            <p className="text-muted-foreground mt-3 max-w-xl mx-auto text-lg">
+              Whether you are looking for a home or managing properties, Afodabohousing gives you the tools to succeed.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {FEATURES.map(f => (
+              <div
+                key={f.title}
+                className="bg-card rounded-2xl p-8 shadow-card border border-border hover:shadow-lg hover:-translate-y-1 transition-all group"
+              >
+                <div className="text-primary mb-4 bg-primary/10 rounded-xl w-12 h-12 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                  {f.icon}
+                </div>
+                <h3 className="font-display text-lg font-bold text-foreground mb-2">{f.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ HOW IT WORKS ═══════════════════════════════════════════════════ */}
+      <section className="container py-20">
+        <div className="text-center mb-14">
+          <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Simple Process</p>
+          <h2 className="font-display text-4xl font-bold text-foreground">How It Works</h2>
+          <p className="text-muted-foreground mt-3 max-w-xl mx-auto">Three easy steps to your new home</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+          <div className="hidden md:block absolute top-12 left-1/3 right-1/3 h-px bg-border" />
+          {[
+            {
+              step: '01', icon: '🔍', title: 'Search by District',
+              desc: 'Browse thousands of verified rentals filtered by district, type, number of rooms, price range and available amenities.'
+            },
+            {
+              step: '02', icon: '📞', title: 'Contact the Manager',
+              desc: 'Message or call house managers directly from the listing. View photos, room details and get GPS directions.'
+            },
+            {
+              step: '03', icon: '🏡', title: 'Move In & Manage',
+              desc: 'Sign a digital tenancy agreement, pay rent via PesaPal or mobile money, receive SMS confirmations and track everything from your dashboard.'
+            },
+          ].map((s, i) => (
+            <div key={s.step} className="bg-card border border-border rounded-2xl p-8 text-center shadow-card relative">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
+                Step {s.step}
+              </div>
+              <div className="text-5xl mb-5 mt-2">{s.icon}</div>
+              <h3 className="font-display text-xl font-bold text-foreground mb-3">{s.title}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══ CTA ════════════════════════════════════════════════════════════ */}
+      <section className="container pb-20">
+        <div className="gradient-primary rounded-3xl p-12 text-center text-primary-foreground">
+          <h2 className="font-display text-4xl font-bold mb-4">Ready to Find Your Home?</h2>
+          <p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">
+            Join thousands of Ugandans who have found their perfect home through Afodabohousing.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              size="lg"
+              className="bg-gold text-gold-foreground hover:bg-gold/90 font-semibold px-10"
+              onClick={() => navigate('/register')}
+            >
+              Get Started Free
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="bg-transparent border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10 font-semibold px-10"
+              onClick={() => navigate('/properties')}
+            >
+              Browse Properties
+            </Button>
           </div>
         </div>
       </section>
