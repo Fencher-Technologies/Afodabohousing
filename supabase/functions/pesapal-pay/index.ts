@@ -74,7 +74,14 @@ serve(async (req) => {
       })
       const orderData = await res.json()
 
-      if (!orderData.redirect_url) throw new Error(`Order failed: ${JSON.stringify(orderData)}`)
+      if (!orderData.redirect_url) {
+        // Return a 200 with success:false so client can read the error without crashing
+        const pesapalError = orderData?.error?.message || JSON.stringify(orderData)
+        return new Response(
+          JSON.stringify({ success: false, error: pesapalError, raw: orderData }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
 
       return new Response(
         JSON.stringify({ success: true, redirectUrl: orderData.redirect_url, orderId, orderTrackingId: orderData.order_tracking_id }),
