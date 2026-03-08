@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Bed, Bath, Home } from 'lucide-react';
+import { MapPin, Bed, Bath, Home, Sofa } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Database } from '@/integrations/supabase/types';
 import prop1 from '@/assets/property-1.jpg';
@@ -26,6 +26,8 @@ const periodLabels: Record<string, string> = {
 };
 
 function formatUGX(amount: number) {
+  if (amount >= 1000000) return `UGX ${(amount / 1000000).toFixed(1)}M`;
+  if (amount >= 1000) return `UGX ${(amount / 1000).toFixed(0)}K`;
   return `UGX ${amount.toLocaleString()}`;
 }
 
@@ -34,12 +36,12 @@ interface PropertyCardProps {
   index?: number;
 }
 
-export default function PropertyCard({ property, index = 0 }: PropertyCardProps) {
+function PropertyCard({ property, index = 0 }: PropertyCardProps) {
   const imageUrl = property.images?.[0] || fallbackImages[index % 3];
 
   return (
     <Link to={`/properties/${property.id}`} className="group block">
-      <div className="bg-card rounded-lg overflow-hidden border border-border shadow-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+      <div className="bg-card rounded-2xl overflow-hidden border border-border shadow-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
         {/* Image */}
         <div className="relative h-52 overflow-hidden">
           <img
@@ -47,15 +49,15 @@ export default function PropertyCard({ property, index = 0 }: PropertyCardProps)
             alt={property.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-foreground/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="absolute top-3 left-3">
-            <Badge className="bg-accent text-accent-foreground font-medium text-xs">
+            <Badge className="bg-accent text-accent-foreground font-medium text-xs shadow-sm">
               {typeLabels[property.property_type] || property.property_type}
             </Badge>
           </div>
           <div className="absolute top-3 right-3">
             <Badge
-              variant={property.status === 'available' ? 'default' : 'secondary'}
-              className={property.status === 'available' ? 'bg-primary text-primary-foreground' : ''}
+              className={`font-semibold text-xs shadow-sm ${property.status === 'available' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
             >
               {property.status === 'available' ? 'Available' : 'Occupied'}
             </Badge>
@@ -63,18 +65,20 @@ export default function PropertyCard({ property, index = 0 }: PropertyCardProps)
         </div>
 
         {/* Content */}
-        <div className="p-4">
-          <h3 className="font-display font-semibold text-lg text-foreground mb-1 line-clamp-1 group-hover:text-primary transition-colors">
+        <div className="p-5">
+          <h3 className="font-display font-semibold text-base text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
             {property.title}
           </h3>
 
-          <div className="flex items-center gap-1 text-muted-foreground text-sm mb-3">
+          <div className="flex items-center gap-1 text-muted-foreground text-sm mb-4">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-accent" />
-            <span className="line-clamp-1">{property.area ? `${property.area}, ` : ''}{property.district}</span>
+            <span className="line-clamp-1">
+              {property.area ? `${property.area}, ` : ''}{property.district}
+            </span>
           </div>
 
           {/* Room breakdown */}
-          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground mb-4">
             <div className="flex items-center gap-1">
               <Bed className="h-3.5 w-3.5" />
               <span>{property.bedrooms} bed{property.bedrooms !== 1 ? 's' : ''}</span>
@@ -83,25 +87,32 @@ export default function PropertyCard({ property, index = 0 }: PropertyCardProps)
               <Bath className="h-3.5 w-3.5" />
               <span>{property.bathrooms} bath{property.bathrooms !== 1 ? 's' : ''}</span>
             </div>
-            <div className="flex items-center gap-1">
-              <Home className="h-3.5 w-3.5" />
-              <span>{property.sitting_rooms} sitting</span>
-            </div>
+            {property.sitting_rooms > 0 && (
+              <div className="flex items-center gap-1">
+                <Sofa className="h-3.5 w-3.5" />
+                <span>{property.sitting_rooms} sitting</span>
+              </div>
+            )}
           </div>
 
           {/* Price */}
-          <div className="flex items-end justify-between">
+          <div className="flex items-end justify-between border-t border-border pt-3">
             <div>
               <span className="text-xl font-bold text-primary font-display">
                 {formatUGX(property.rent_amount)}
               </span>
               <span className="text-muted-foreground text-sm ml-1">
-                {periodLabels[property.rent_period]}
+                {periodLabels[property.rent_period] || ''}
               </span>
             </div>
+            <span className="text-xs text-muted-foreground bg-secondary px-2.5 py-1 rounded-full capitalize">
+              {property.rent_period}
+            </span>
           </div>
         </div>
       </div>
     </Link>
   );
 }
+
+export default PropertyCard;
