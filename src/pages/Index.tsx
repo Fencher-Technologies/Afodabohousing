@@ -192,17 +192,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="bg-primary text-primary-foreground py-10">
-        <div className="container flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="font-display font-bold text-lg">Afodabohousing</div>
-          <p className="text-primary-foreground/70 text-sm text-center">© {new Date().getFullYear()} Afodabohousing. Uganda's District Relocation Housing Platform.</p>
-          <div className="flex gap-6 text-sm text-primary-foreground/70">
-            <a href="#" className="hover:text-primary-foreground">Privacy</a>
-            <a href="#" className="hover:text-primary-foreground">Terms</a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
