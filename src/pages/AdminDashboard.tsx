@@ -119,8 +119,8 @@ export default function AdminDashboard() {
   );
 
   const overviewStats = [
-    { icon: <Users className="h-6 w-6" />, label: 'Total Users', val: users.length, bg: 'bg-primary/10', color: 'text-primary', sub: `${users.filter(u => u.role === 'tenant').length} tenants · ${users.filter(u => u.role === 'house_manager').length} managers` },
-    { icon: <Building2 className="h-6 w-6" />, label: 'All Properties', val: props.length, bg: 'bg-accent/10', color: 'text-accent', sub: `${props.filter(p => p.status === 'available').length} available · ${props.filter(p => p.status === 'occupied').length} occupied` },
+    { icon: <Users className="h-6 w-6" />, label: 'Total Users', val: users.length, bg: 'bg-primary/10', color: 'text-primary', sub: `${users.filter(u => u.role === 'tenant').length} tenants / ${users.filter(u => u.role === 'house_manager').length} managers` },
+    { icon: <Building2 className="h-6 w-6" />, label: 'All Properties', val: props.length, bg: 'bg-accent/10', color: 'text-accent', sub: `${props.filter(p => p.status === 'available').length} available / ${props.filter(p => p.status === 'occupied').length} occupied` },
     { icon: <Home className="h-6 w-6" />, label: 'Active Tenancies', val: tenancies.filter(t => t.status === 'active').length, bg: 'bg-accent/10', color: 'text-accent', sub: `${tenancies.filter(t => t.status === 'expired').length} expired` },
     { icon: <DollarSign className="h-6 w-6" />, label: 'Confirmed Revenue', val: `UGX ${(totalRevenue / 1000000).toFixed(2)}M`, bg: 'bg-primary/10', color: 'text-primary', sub: `${pendingPayments.length} awaiting review` },
   ];
