@@ -96,7 +96,22 @@ export default function PropertyDetailPage() {
     }
   };
 
-  // Build OpenStreetMap URL from location info
+  // Build Nominatim search URL for OpenStreetMap
+  const getNominatimSearchUrl = (location: string) => {
+    const encoded = encodeURIComponent(location + ', Uganda');
+    return `https://www.openstreetmap.org/search?query=${encoded}`;
+  };
+
+  // Build OSM directions URL
+  const getOSMDirectionsUrl = (location: string) => {
+    return `https://www.openstreetmap.org/directions?to=${encodeURIComponent(location + ', Uganda')}`;
+  };
+
+  // Build embedded OSM iframe URL using the district/area as a search query
+  const getOSMEmbedUrl = (_location: string) => {
+    // Use Uganda-wide view as base; OSM embed does not support search queries
+    return `https://www.openstreetmap.org/export/embed.html?bbox=29.5%2C-1.5%2C35.5%2C4.5&layer=mapnik`;
+  };
   const getOSMSearchUrl = (location: string) => {
     return `https://www.openstreetmap.org/search?query=${encodeURIComponent(location + ', Uganda')}`;
   };
