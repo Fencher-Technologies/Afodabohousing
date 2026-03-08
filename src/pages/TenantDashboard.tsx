@@ -22,10 +22,10 @@ type Payment = Database['public']['Tables']['payments']['Row'];
 type Message = Database['public']['Tables']['messages']['Row'];
 
 const statusBadge = (s: string) => ({
-  pending: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
-  uploaded: 'bg-blue-50 text-blue-700 border border-blue-200',
-  confirmed: 'bg-green-50 text-green-700 border border-green-200',
-  rejected: 'bg-red-50 text-red-700 border border-red-200',
+  pending: 'bg-secondary text-foreground border border-border',
+  uploaded: 'bg-primary/10 text-primary border border-primary/20',
+  confirmed: 'bg-accent/10 text-accent border border-accent/20',
+  rejected: 'bg-destructive/10 text-destructive border border-destructive/20',
 }[s] || 'bg-muted text-muted-foreground');
 
 type Tab = 'overview' | 'payments' | 'messages';

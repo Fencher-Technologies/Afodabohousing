@@ -28,15 +28,15 @@ type Message = Database['public']['Tables']['messages']['Row'];
 const AMENITIES_LIST = ['Water', 'Electricity', 'WiFi', 'Parking', 'Security', 'Garden', 'Generator', 'DSTV', 'Borehole', 'Tiled Floors'];
 
 const statusBadge = (s: string) => ({
-  pending: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
-  uploaded: 'bg-blue-50 text-blue-700 border border-blue-200',
-  confirmed: 'bg-green-50 text-green-700 border border-green-200',
-  rejected: 'bg-red-50 text-red-700 border border-red-200',
-  active: 'bg-green-50 text-green-700 border border-green-200',
-  expired: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
-  occupied: 'bg-blue-50 text-blue-700 border border-blue-200',
-  available: 'bg-green-50 text-green-700 border border-green-200',
-  inactive: 'bg-gray-50 text-gray-500 border border-gray-200',
+  pending: 'bg-secondary text-foreground border border-border',
+  uploaded: 'bg-primary/10 text-primary border border-primary/20',
+  confirmed: 'bg-accent/10 text-accent border border-accent/20',
+  rejected: 'bg-destructive/10 text-destructive border border-destructive/20',
+  active: 'bg-accent/10 text-accent border border-accent/20',
+  expired: 'bg-secondary text-muted-foreground border border-border',
+  occupied: 'bg-primary/10 text-primary border border-primary/20',
+  available: 'bg-accent/10 text-accent border border-accent/20',
+  inactive: 'bg-muted text-muted-foreground border border-border',
 }[s] || 'bg-muted text-muted-foreground');
 
 type Tab = 'overview' | 'properties' | 'tenancies' | 'payments' | 'messages';
