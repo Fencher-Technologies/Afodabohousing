@@ -173,7 +173,7 @@ export default function AdminDashboard() {
           {overviewStats.map(s => (
             <div key={s.label} className="bg-card border border-border rounded-2xl p-6 shadow-card">
               <div className={`${s.bg} ${s.color} w-11 h-11 rounded-xl flex items-center justify-center mb-3`}>{s.icon}</div>
-              <div className="text-2xl font-display font-bold text-foreground">{loading ? '…' : s.val}</div>
+              <div className="text-2xl font-display font-bold text-foreground">{loading ? '...' : s.val}</div>
               <div className="text-sm font-semibold text-foreground mt-0.5">{s.label}</div>
               <div className="text-xs text-muted-foreground mt-0.5">{s.sub}</div>
             </div>
@@ -380,7 +380,7 @@ export default function AdminDashboard() {
                     <tr><td colSpan={6} className="py-12 text-center text-muted-foreground">No tenancies found</td></tr>
                   ) : tenancies.map(t => (
                     <tr key={t.id} className="border-t border-border hover:bg-secondary/50 transition-colors">
-                      <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{t.id.slice(0, 16)}…</td>
+                      <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{t.id.slice(0, 16)}...</td>
                       <td className="py-3 px-4 font-bold text-foreground">UGX {t.rent_amount?.toLocaleString()}</td>
                       <td className="py-3 px-4 capitalize text-muted-foreground">{t.rent_period}</td>
                       <td className="py-3 px-4 text-muted-foreground text-xs">{t.rent_start_date}</td>
