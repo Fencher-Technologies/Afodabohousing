@@ -150,7 +150,7 @@ export default function Footer() {
           <span>© {new Date().getFullYear()} Afodabohousing Ltd. All rights reserved. Registered in Uganda.</span>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-green-400 inline-block animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-accent inline-block animate-pulse" />
               All systems operational
             </span>
             <span>·</span>

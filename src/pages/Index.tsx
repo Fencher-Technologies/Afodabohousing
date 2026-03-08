@@ -7,8 +7,9 @@ import PropertyCard from '@/components/PropertyCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, MapPin, SlidersHorizontal, Loader2 } from 'lucide-react';
+import { Search, MapPin, SlidersHorizontal } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
+import Footer from '@/components/Footer';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 
