@@ -1,1 +1,13 @@
 project_id = "mbomdorypciwkwakxelq"
+
+[functions.send-sms]
+verify_jwt = false
+
+[functions.pesapal-pay]
+verify_jwt = false
+
+[functions.pesapal-ipn]
+verify_jwt = false
+
+[functions.seed-data]
+verify_jwt = false
