@@ -4,13 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import Navbar from '@/components/Navbar';
 import PropertyCard from '@/components/PropertyCard';
+import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, MapPin, SlidersHorizontal, Shield, Home, MessageSquare, Star, ArrowRight, CheckCircle } from 'lucide-react';
+import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
-import Footer from '@/components/Footer';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 
@@ -23,13 +23,50 @@ const DEMO_ACCOUNTS = [
 ];
 
 const FEATURES = [
-  { icon: <Shield className="h-6 w-6" />, title: 'Verified Listings', desc: 'Every property is reviewed and verified before going live — no fake or misleading listings.' },
-  { icon: <MessageSquare className="h-6 w-6" />, title: 'Direct Messaging', desc: 'Communicate directly with house managers without sharing personal numbers until you are ready.' },
-  { icon: <Home className="h-6 w-6" />, title: 'Tenancy Management', desc: 'Digital agreements, rent tracking, payment history and reminders — all automated for you.' },
-  { icon: <CheckCircle className="h-6 w-6" />, title: 'Smart Payments', desc: 'Pay rent online via PesaPal, or upload mobile money proof. Instant SMS confirmation for both parties.' },
+  {
+    icon: <Shield className="h-6 w-6" />,
+    title: 'Verified Listings',
+    desc: 'Every property is reviewed and verified before going live. No fake or misleading listings, guaranteed.',
+  },
+  {
+    icon: <MessageSquare className="h-6 w-6" />,
+    title: 'Direct Messaging',
+    desc: 'Communicate directly with house managers without sharing personal numbers until you are ready.',
+  },
+  {
+    icon: <Home className="h-6 w-6" />,
+    title: 'Tenancy Management',
+    desc: 'Digital agreements, rent tracking, payment history and reminders, all automated for you.',
+  },
+  {
+    icon: <CreditCard className="h-6 w-6" />,
+    title: 'Smart Payments',
+    desc: 'Pay rent online via PesaPal, or upload mobile money proof. Instant SMS confirmation for both parties.',
+  },
 ];
 
 const DISTRICTS = ['Kampala', 'Wakiso', 'Mukono', 'Mbarara', 'Gulu', 'Jinja', 'Entebbe', 'Mbale', 'Lira', 'Arua'];
+
+const HOW_IT_WORKS = [
+  {
+    step: '01',
+    emoji: '🔍',
+    title: 'Search by District',
+    desc: 'Browse thousands of verified rentals filtered by district, type, number of rooms, price range and available amenities.',
+  },
+  {
+    step: '02',
+    emoji: '📞',
+    title: 'Contact the Manager',
+    desc: 'Message or call house managers directly from the listing. View photos, room details and get GPS directions via OpenStreetMap.',
+  },
+  {
+    step: '03',
+    emoji: '🏡',
+    title: 'Move In and Manage',
+    desc: 'Sign a digital tenancy agreement, pay rent via PesaPal or mobile money, receive SMS confirmations and track everything from your dashboard.',
+  },
+];
 
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -66,7 +103,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* ═══ HERO ══════════════════════════════════════════════════════════ */}
+      {/* HERO */}
       <section
         className="relative min-h-[640px] flex items-center justify-center bg-cover bg-center"
         style={{ backgroundImage: `url(${heroBg})` }}
@@ -74,14 +111,14 @@ export default function HomePage() {
         <div className="absolute inset-0 gradient-hero" />
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
           <Badge className="bg-accent text-accent-foreground mb-4 text-xs font-semibold tracking-widest uppercase px-4 py-1.5">
-            Uganda's #1 District Relocation Housing App
+            Uganda's Number One District Relocation Housing App
           </Badge>
           <h1 className="font-display text-5xl md:text-7xl font-bold text-primary-foreground mb-6 leading-tight tracking-tight">
             Find Your Perfect<br />
             <span className="text-gold">Home in Uganda</span>
           </h1>
           <p className="text-primary-foreground/85 text-xl mb-10 max-w-2xl mx-auto leading-relaxed">
-            Search verified rentals across all 135 districts. Connect with trusted house managers, sign digital agreements, and manage rent — elegantly.
+            Search verified rentals across all 135 districts. Connect with trusted house managers, sign digital agreements and manage rent elegantly.
           </p>
 
           {/* Search bar */}
@@ -89,7 +126,7 @@ export default function HomePage() {
             <div className="flex-1 flex items-center gap-3 px-4">
               <MapPin className="h-5 w-5 text-accent shrink-0" />
               <Input
-                placeholder="Enter district, city or area…"
+                placeholder="Enter district, city or area..."
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -125,7 +162,7 @@ export default function HomePage() {
               <button
                 key={d}
                 onClick={() => { setSearchInput(d); setSearchDistrict(d); }}
-                className="text-xs text-primary-foreground/70 hover:text-primary-foreground bg-primary-foreground/10 hover:bg-primary-foreground/20 px-3 py-1 rounded-full transition-all"
+                className="text-xs text-primary-foreground/70 hover:text-primary-foreground bg-primary-foreground/10 hover:bg-primary-foreground/20 px-3 py-1.5 rounded-full transition-all"
               >
                 {d}
               </button>
@@ -134,14 +171,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ STATS ══════════════════════════════════════════════════════════ */}
+      {/* STATS */}
       <section className="bg-primary py-12">
         <div className="container grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
-            { val: `${stats.properties}+`, label: 'Active Listings', sub: 'Verified & ready' },
+            { val: `${stats.properties}+`, label: 'Active Listings', sub: 'Verified and ready' },
             { val: `${stats.districts}+`, label: 'Districts Covered', sub: 'Across Uganda' },
             { val: `${stats.tenancies}+`, label: 'Active Tenancies', sub: 'Happy tenants' },
-            { val: '100%', label: 'Secure Payments', sub: 'Via PesaPal & Mobile Money' },
+            { val: '100%', label: 'Secure Payments', sub: 'Via PesaPal and Mobile Money' },
           ].map(s => (
             <div key={s.label} className="space-y-1">
               <div className="text-gold text-4xl font-display font-bold">{s.val}</div>
@@ -152,11 +189,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ DEMO ACCOUNTS ══════════════════════════════════════════════════ */}
-      <section className="bg-secondary/60 border-b border-border py-10">
+      {/* DEMO ACCOUNTS */}
+      <section className="bg-secondary/60 border-b border-border py-10" id="demo">
         <div className="container">
           <div className="text-center mb-5">
-            <h2 className="font-display text-xl font-bold text-foreground">🎯 Try the Demo Accounts</h2>
+            <h2 className="font-display text-xl font-bold text-foreground">Try the Demo Accounts</h2>
             <p className="text-muted-foreground text-sm mt-1.5">
               All accounts use password:{' '}
               <code className="bg-card px-2.5 py-1 rounded-lg border border-border font-mono font-bold text-primary">
@@ -179,7 +216,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ PROPERTIES ═════════════════════════════════════════════════════ */}
+      {/* PROPERTIES */}
       <section className="container py-16">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
           <div>
@@ -188,7 +225,7 @@ export default function HomePage() {
               {searchDistrict ? `Homes in ${searchDistrict}` : 'Available Properties'}
             </h2>
             <p className="text-muted-foreground mt-2">
-              {properties.length} propert{properties.length !== 1 ? 'ies' : 'y'} matching your search
+              {properties.length} {properties.length !== 1 ? 'properties' : 'property'} matching your search
             </p>
           </div>
           <Button variant="outline" onClick={() => navigate('/properties')} className="gap-2 self-start md:self-auto">
@@ -219,8 +256,8 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* ═══ WHY AFODABOHOUSING ═════════════════════════════════════════════ */}
-      <section className="bg-secondary py-20">
+      {/* WHY AFODABOHOUSING */}
+      <section className="bg-secondary py-20" id="why">
         <div className="container">
           <div className="text-center mb-14">
             <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Why Choose Us</p>
@@ -248,8 +285,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ HOW IT WORKS ═══════════════════════════════════════════════════ */}
-      <section className="container py-20">
+      {/* HOW IT WORKS */}
+      <section className="container py-20" id="how-it-works">
         <div className="text-center mb-14">
           <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Simple Process</p>
           <h2 className="font-display text-4xl font-bold text-foreground">How It Works</h2>
@@ -257,25 +294,12 @@ export default function HomePage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
           <div className="hidden md:block absolute top-12 left-1/3 right-1/3 h-px bg-border" />
-          {[
-            {
-              step: '01', icon: '🔍', title: 'Search by District',
-              desc: 'Browse thousands of verified rentals filtered by district, type, number of rooms, price range and available amenities.'
-            },
-            {
-              step: '02', icon: '📞', title: 'Contact the Manager',
-              desc: 'Message or call house managers directly from the listing. View photos, room details and get GPS directions.'
-            },
-            {
-              step: '03', icon: '🏡', title: 'Move In & Manage',
-              desc: 'Sign a digital tenancy agreement, pay rent via PesaPal or mobile money, receive SMS confirmations and track everything from your dashboard.'
-            },
-          ].map((s, i) => (
+          {HOW_IT_WORKS.map(s => (
             <div key={s.step} className="bg-card border border-border rounded-2xl p-8 text-center shadow-card relative">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
                 Step {s.step}
               </div>
-              <div className="text-5xl mb-5 mt-2">{s.icon}</div>
+              <div className="text-5xl mb-5 mt-2">{s.emoji}</div>
               <h3 className="font-display text-xl font-bold text-foreground mb-3">{s.title}</h3>
               <p className="text-muted-foreground text-sm leading-relaxed">{s.desc}</p>
             </div>
@@ -283,8 +307,27 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ CTA ════════════════════════════════════════════════════════════ */}
-      <section className="container pb-20">
+      {/* FEATURES CALLOUT */}
+      <section className="bg-secondary py-16">
+        <div className="container">
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { icon: '📱', title: 'SMS Notifications', desc: 'Receive instant SMS alerts for rent reminders, payment confirmations and important account updates via EgoSMS.' },
+              { icon: '💳', title: 'PesaPal Payments', desc: 'Pay rent online via Visa, Mastercard, MTN Mobile Money or Airtel Money. All major Ugandan payment methods accepted.' },
+              { icon: '🗺️', title: 'OpenStreetMap Directions', desc: 'Get precise GPS directions to any listed property using OpenStreetMap. No extra apps needed.' },
+            ].map(f => (
+              <div key={f.title} className="bg-card border border-border rounded-2xl p-7 shadow-card text-center">
+                <div className="text-4xl mb-4">{f.icon}</div>
+                <h3 className="font-display text-lg font-bold text-foreground mb-2">{f.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="container py-20">
         <div className="gradient-primary rounded-3xl p-12 text-center text-primary-foreground">
           <h2 className="font-display text-4xl font-bold mb-4">Ready to Find Your Home?</h2>
           <p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">
