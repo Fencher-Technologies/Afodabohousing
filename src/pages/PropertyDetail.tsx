@@ -246,6 +246,7 @@ export default function PropertyDetailPage() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
