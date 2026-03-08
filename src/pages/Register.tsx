@@ -119,7 +119,7 @@ export default function RegisterPage() {
           </Link>
 
           <h1 className="text-3xl font-display font-bold text-foreground mb-1.5">Create your account</h1>
-          <p className="text-muted-foreground mb-6">Join Uganda's trusted housing community — free forever</p>
+          <p className="text-muted-foreground mb-6">Join Uganda's trusted housing community, free forever</p>
 
           {/* Role selector */}
           <div className="grid grid-cols-2 gap-3 mb-6">
@@ -240,7 +240,7 @@ export default function RegisterPage() {
           <div className="max-w-sm">
             <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Uganda's #1 Housing App</p>
             <h2 className="font-display text-5xl font-bold mb-4 leading-tight">
-              Kampala to Gulu — Find Your Next Home
+              From Kampala to Gulu: Find Your Next Home
             </h2>
             <p className="text-primary-foreground/80 text-lg leading-relaxed">
               Join thousands of Ugandans already using Afodabohousing for verified rentals across every district.

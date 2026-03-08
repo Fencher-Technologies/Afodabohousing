@@ -547,7 +547,7 @@ export default function ManagerDashboard() {
                 <div key={t.id} className="flex items-center justify-between py-1.5">
                   <span className="text-sm text-muted-foreground ml-7">
                     <span className="font-semibold text-foreground">{t.tenant_name}</span>
-                    {' '}— expires in{' '}
+                    {' '}expires in{' '}
                     <strong className={days <= 7 ? 'text-destructive' : 'text-accent'}>{days} day{days !== 1 ? 's' : ''}</strong>
                     {' '}({format(new Date(t.rent_end_date), 'MMM dd')})
                   </span>
@@ -630,7 +630,7 @@ export default function ManagerDashboard() {
                     <div key={p.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                       <div>
                         <p className="text-sm font-semibold">{p.tenant_name}</p>
-                        <p className="text-xs text-muted-foreground">UGX {p.amount.toLocaleString()} — {format(new Date(p.created_at), 'MMM dd, yyyy')}</p>
+                        <p className="text-xs text-muted-foreground">UGX {p.amount.toLocaleString()} on {format(new Date(p.created_at), 'MMM dd, yyyy')}</p>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
@@ -714,7 +714,7 @@ export default function ManagerDashboard() {
                           <div className="font-semibold text-foreground">{t.tenant_name || 'Unknown'}</div>
                           {t.tenant_phone && <div className="text-xs text-muted-foreground">{t.tenant_phone}</div>}
                         </td>
-                        <td className="py-3 px-4 text-muted-foreground text-sm max-w-[150px] truncate">{t.property_title || '—'}</td>
+                        <td className="py-3 px-4 text-muted-foreground text-sm max-w-[150px] truncate">{t.property_title || 'N/A'}</td>
                         <td className="py-3 px-4 font-semibold text-foreground">UGX {t.rent_amount.toLocaleString()}</td>
                         <td className="py-3 px-4 capitalize text-muted-foreground">{t.rent_period}</td>
                         <td className="py-3 px-4 text-muted-foreground">{format(new Date(t.rent_end_date), 'MMM dd, yyyy')}</td>
@@ -755,7 +755,7 @@ export default function ManagerDashboard() {
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
                 <p className="font-semibold text-blue-800 flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  {pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''} awaiting your review — tenants are waiting for confirmation
+                  {pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''} awaiting your review. Tenants are waiting for confirmation.
                 </p>
               </div>
             )}
@@ -779,7 +779,7 @@ export default function ManagerDashboard() {
                     ) : payments.map(p => (
                       <tr key={p.id} className={`border-t border-border hover:bg-secondary/50 transition-colors ${p.status === 'uploaded' ? 'bg-blue-50/30' : ''}`}>
                         <td className="py-3 px-4 font-semibold text-foreground">{p.tenant_name || 'Unknown'}</td>
-                        <td className="py-3 px-4 text-muted-foreground text-xs max-w-[140px] truncate">{p.property_title || '—'}</td>
+                        <td className="py-3 px-4 text-muted-foreground text-xs max-w-[140px] truncate">{p.property_title || 'N/A'}</td>
                         <td className="py-3 px-4 font-bold text-foreground">{p.amount.toLocaleString()}</td>
                         <td className="py-3 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                         <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || '—'}</td>

@@ -148,7 +148,7 @@ export default function AdminDashboard() {
               <span className="text-accent font-semibold text-xs uppercase tracking-widest">Super Admin</span>
             </div>
             <h1 className="font-display text-3xl font-bold text-foreground">Admin Control Panel</h1>
-            <p className="text-muted-foreground mt-1">Full platform management — Afodabohousing</p>
+            <p className="text-muted-foreground mt-1">Full platform management for Afodabohousing</p>
           </div>
           <Button variant="outline" size="sm" onClick={fetchAll} className="gap-2">
             <RefreshCcw className="h-4 w-4" />
@@ -275,12 +275,12 @@ export default function AdminDashboard() {
                       <tr key={u.id} className="border-t border-border hover:bg-secondary/50 transition-colors">
                         <td className="py-3 px-4">
                           <div className="font-semibold text-foreground">{u.full_name || 'Unknown'}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{u.id.slice(0, 12)}…</div>
+                          <div className="text-xs text-muted-foreground font-mono">{u.id.slice(0, 12)}...</div>
                         </td>
-                        <td className="py-3 px-4 text-muted-foreground">{u.phone || '—'}</td>
+                        <td className="py-3 px-4 text-muted-foreground">{u.phone || 'N/A'}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${statusBadge(u.role || '')}`}>
-                            {u.role?.replace('_', ' ') || '—'}
+                            {u.role?.replace('_', ' ') || 'N/A'}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-muted-foreground text-xs">{format(new Date(u.created_at), 'MMM dd, yyyy')}</td>
@@ -417,19 +417,12 @@ export default function AdminDashboard() {
                     <tr key={p.id} className={`border-t border-border hover:bg-secondary/50 transition-colors ${p.status === 'uploaded' ? 'bg-blue-50/30' : ''}`}>
                       <td className="py-3 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                       <td className="py-3 px-4 font-bold text-foreground">{p.amount?.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || '—'}</td>
+                      <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || 'None'}</td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${statusBadge(p.status)}`}>{p.status}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        {p.proof_url ? (
-                          <a href={p.proof_url} target="_blank" rel="noopener noreferrer">
-                            <Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
-                              <Eye className="h-3 w-3" />View
-                            </Button>
-                          </a>
+...
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-xs text-muted-foreground">N/A</span>
                         )}
                       </td>
                     </tr>
