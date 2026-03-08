@@ -9,17 +9,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell } from 'lucide-react';
+import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell, Star, TrendingUp } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 
 const DEMO_ACCOUNTS = [
-  { email: 'admin@afodabo.ug', role: 'Admin', badge: 'bg-accent/20 text-accent border-accent/30' },
-  { email: 'john@afodabo.ug', role: 'House Manager', badge: 'bg-primary/10 text-primary border-primary/30' },
-  { email: 'grace@afodabo.ug', role: 'House Manager', badge: 'bg-primary/10 text-primary border-primary/30' },
-  { email: 'sarah@afodabo.ug', role: 'Tenant', badge: 'bg-secondary text-secondary-foreground border-border' },
-  { email: 'david@afodabo.ug', role: 'Tenant (rent due)', badge: 'bg-accent/10 text-accent border-accent/20' },
+  { email: 'admin@afodabo.ug', role: 'Admin', badge: 'bg-accent/20 text-accent border-accent/30', desc: 'Full platform control' },
+  { email: 'john@afodabo.ug', role: 'Manager (John)', badge: 'bg-primary/10 text-primary border-primary/30', desc: '3 properties listed' },
+  { email: 'grace@afodabo.ug', role: 'Manager (Grace)', badge: 'bg-primary/10 text-primary border-primary/30', desc: 'Wakiso properties' },
+  { email: 'sarah@afodabo.ug', role: 'Tenant (Sarah)', badge: 'bg-secondary text-secondary-foreground border-border', desc: 'Active tenancy' },
+  { email: 'david@afodabo.ug', role: 'Tenant (David)', badge: 'bg-gold/20 text-foreground border-gold/30', desc: 'Rent due soon' },
 ];
 
 const FEATURES = [
@@ -40,8 +40,8 @@ const FEATURES = [
   },
   {
     icon: <CreditCard className="h-6 w-6" />,
-    title: 'Smart Payments',
-    desc: 'Pay rent online via PesaPal, or upload mobile money proof. Instant SMS confirmation for both parties.',
+    title: 'Flexible Payments',
+    desc: 'Pay rent via mobile money (MTN, Airtel) or card. Upload proof instantly. Automated SMS confirmation.',
   },
 ];
 
@@ -64,7 +64,7 @@ const HOW_IT_WORKS = [
     step: '03',
     emoji: '🏡',
     title: 'Move In and Manage',
-    desc: 'Sign a digital tenancy agreement, pay rent via PesaPal or mobile money, receive SMS confirmations and track everything from your dashboard.',
+    desc: 'Sign a digital tenancy agreement, pay rent via mobile money or card, receive SMS confirmations and track everything from your dashboard.',
   },
 ];
 
@@ -74,7 +74,7 @@ export default function HomePage() {
   const [searchDistrict, setSearchDistrict] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [searchInput, setSearchInput] = useState('');
-  const [stats, setStats] = useState({ properties: 0, tenancies: 0, districts: 45 });
+  const [stats, setStats] = useState({ properties: 0, tenancies: 0, users: 0 });
   const navigate = useNavigate();
 
   useEffect(() => { fetchProperties(); fetchStats(); }, [searchDistrict, filterType]);
@@ -90,11 +90,12 @@ export default function HomePage() {
   };
 
   const fetchStats = async () => {
-    const [pRes, tRes] = await Promise.all([
+    const [pRes, tRes, uRes] = await Promise.all([
       supabase.from('properties').select('id', { count: 'exact', head: true }),
       supabase.from('tenancies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('user_roles').select('id', { count: 'exact', head: true }),
     ]);
-    setStats({ properties: pRes.count || 0, tenancies: tRes.count || 0, districts: 45 });
+    setStats({ properties: pRes.count || 0, tenancies: tRes.count || 0, users: uRes.count || 0 });
   };
 
   const handleSearch = () => setSearchDistrict(searchInput);
@@ -105,7 +106,7 @@ export default function HomePage() {
 
       {/* HERO */}
       <section
-        className="relative min-h-[640px] flex items-center justify-center bg-cover bg-center"
+        className="relative min-h-[660px] flex items-center justify-center bg-cover bg-center"
         style={{ backgroundImage: `url(${heroBg})` }}
       >
         <div className="absolute inset-0 gradient-hero" />
@@ -175,10 +176,10 @@ export default function HomePage() {
       <section className="bg-primary py-12">
         <div className="container grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
-            { val: `${stats.properties}+`, label: 'Active Listings', sub: 'Verified and ready' },
-            { val: `${stats.districts}+`, label: 'Districts Covered', sub: 'Across Uganda' },
-            { val: `${stats.tenancies}+`, label: 'Active Tenancies', sub: 'Happy tenants' },
-            { val: '100%', label: 'Secure Payments', sub: 'Via PesaPal and Mobile Money' },
+            { val: stats.properties > 0 ? `${stats.properties}+` : '10+', label: 'Active Listings', sub: 'Verified and ready' },
+            { val: '135', label: 'Districts Covered', sub: 'All across Uganda' },
+            { val: stats.tenancies > 0 ? `${stats.tenancies}+` : '2+', label: 'Active Tenancies', sub: 'Happy tenants' },
+            { val: stats.users > 0 ? `${stats.users}+` : '5+', label: 'Registered Users', sub: 'Growing community' },
           ].map(s => (
             <div key={s.label} className="space-y-1">
               <div className="text-gold text-4xl font-display font-bold">{s.val}</div>
@@ -192,10 +193,10 @@ export default function HomePage() {
       {/* DEMO ACCOUNTS */}
       <section className="bg-secondary/60 border-b border-border py-10" id="demo">
         <div className="container">
-          <div className="text-center mb-5">
-            <h2 className="font-display text-xl font-bold text-foreground">Try the Demo Accounts</h2>
+          <div className="text-center mb-6">
+            <h2 className="font-display text-xl font-bold text-foreground">Explore the Platform with Demo Accounts</h2>
             <p className="text-muted-foreground text-sm mt-1.5">
-              All accounts use password:{' '}
+              Click any account below, then sign in with password:{' '}
               <code className="bg-card px-2.5 py-1 rounded-lg border border-border font-mono font-bold text-primary">
                 Demo@1234
               </code>
@@ -206,10 +207,11 @@ export default function HomePage() {
               <button
                 key={a.email}
                 onClick={() => navigate('/login')}
-                className={`border rounded-xl px-5 py-3 text-left hover:shadow-md transition-all group ${a.badge}`}
+                className={`border rounded-2xl px-5 py-3.5 text-left hover:shadow-md transition-all group min-w-[180px] ${a.badge}`}
               >
-                <div className="font-semibold text-sm">{a.role}</div>
-                <div className="font-mono text-xs opacity-75 mt-0.5 group-hover:opacity-100 transition-opacity">{a.email}</div>
+                <div className="font-bold text-sm">{a.role}</div>
+                <div className="font-mono text-xs opacity-70 mt-0.5">{a.email}</div>
+                <div className="text-xs mt-1 opacity-60 group-hover:opacity-90 transition-opacity">{a.desc}</div>
               </button>
             ))}
           </div>
@@ -312,22 +314,62 @@ export default function HomePage() {
         <div className="container">
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { icon: '📱', title: 'SMS Notifications', desc: 'Receive instant SMS alerts for rent reminders, payment confirmations and important account updates via EgoSMS.' },
-              { icon: '💳', title: 'PesaPal Payments', desc: 'Pay rent online via Visa, Mastercard, MTN Mobile Money or Airtel Money. All major Ugandan payment methods accepted.' },
-              { icon: '🗺️', title: 'OpenStreetMap Directions', desc: 'Get precise GPS directions to any listed property using OpenStreetMap. No extra apps needed.' },
+              {
+                icon: <Bell className="h-6 w-6" />,
+                title: 'SMS Notifications',
+                desc: 'Receive instant SMS alerts for rent reminders, payment confirmations and important account updates.',
+              },
+              {
+                icon: <CreditCard className="h-6 w-6" />,
+                title: 'Mobile Money and Cards',
+                desc: 'Pay rent via MTN Mobile Money, Airtel Money, Visa or Mastercard. All major Ugandan payment methods accepted.',
+              },
+              {
+                icon: <MapPin className="h-6 w-6" />,
+                title: 'OpenStreetMap Directions',
+                desc: 'Get precise GPS directions to any listed property using OpenStreetMap. No extra apps needed.',
+              },
             ].map(f => (
-              <div key={f.title} className="bg-card border border-border rounded-2xl p-7 shadow-card text-center">
-                <div className="text-4xl mb-4">{f.icon}</div>
-                <h3 className="font-display text-lg font-bold text-foreground mb-2">{f.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+              <div key={f.title} className="bg-card border border-border rounded-2xl p-7 shadow-card flex gap-4 items-start">
+                <div className="bg-primary/10 text-primary rounded-xl p-3 shrink-0">{f.icon}</div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-foreground mb-1.5">{f.title}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
+      {/* TESTIMONIALS */}
       <section className="container py-20">
+        <div className="text-center mb-12">
+          <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">What Ugandans Say</p>
+          <h2 className="font-display text-4xl font-bold text-foreground">Trusted Across Uganda</h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-6">
+          {[
+            { name: 'Namukasa Grace', role: 'House Manager, Wakiso', quote: 'I listed my 3 properties in under 10 minutes. Tenants contact me directly and I confirm payments instantly. Excellent platform.', rating: 5 },
+            { name: 'Ssekandi James', role: 'Tenant, Kampala', quote: 'Found my apartment in Bukoto within two days. The map feature made it easy to check the location before visiting. Very convenient.', rating: 5 },
+            { name: 'Auma Christine', role: 'Tenant, Gulu', quote: 'Even in Gulu we have listings! I was relocating from Kampala and Afodabohousing made the search stress-free. Highly recommend.', rating: 5 },
+          ].map(t => (
+            <div key={t.name} className="bg-card border border-border rounded-2xl p-7 shadow-card">
+              <div className="flex gap-1 mb-4">
+                {[...Array(t.rating)].map((_, i) => <Star key={i} className="h-4 w-4 text-gold fill-current" />)}
+              </div>
+              <p className="text-muted-foreground text-sm leading-relaxed mb-5 italic">"{t.quote}"</p>
+              <div>
+                <p className="font-semibold text-foreground">{t.name}</p>
+                <p className="text-xs text-muted-foreground">{t.role}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="container pb-20">
         <div className="gradient-primary rounded-3xl p-12 text-center text-primary-foreground">
           <h2 className="font-display text-4xl font-bold mb-4">Ready to Find Your Home?</h2>
           <p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">
