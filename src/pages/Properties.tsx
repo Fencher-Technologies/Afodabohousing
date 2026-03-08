@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Search, SlidersHorizontal, MapPin } from 'lucide-react';
+import Footer from '@/components/Footer';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 
@@ -202,6 +203,7 @@ export default function PropertiesPage() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

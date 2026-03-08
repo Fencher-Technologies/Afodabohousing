@@ -10,6 +10,7 @@ import { MapPin, Bed, Bath, Home, Phone, Mail, ChevronLeft, ChevronRight, Wifi, 
 import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
+import Footer from '@/components/Footer';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 
@@ -245,6 +246,7 @@ export default function PropertyDetailPage() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
