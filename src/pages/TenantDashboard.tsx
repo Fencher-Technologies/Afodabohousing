@@ -22,10 +22,10 @@ type Payment = Database['public']['Tables']['payments']['Row'];
 type Message = Database['public']['Tables']['messages']['Row'];
 
 const statusBadge = (s: string) => ({
-  pending: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
-  uploaded: 'bg-blue-50 text-blue-700 border border-blue-200',
-  confirmed: 'bg-green-50 text-green-700 border border-green-200',
-  rejected: 'bg-red-50 text-red-700 border border-red-200',
+  pending: 'bg-secondary text-foreground border border-border',
+  uploaded: 'bg-primary/10 text-primary border border-primary/20',
+  confirmed: 'bg-accent/10 text-accent border border-accent/20',
+  rejected: 'bg-destructive/10 text-destructive border border-destructive/20',
 }[s] || 'bg-muted text-muted-foreground');
 
 type Tab = 'overview' | 'payments' | 'messages';
@@ -153,13 +153,13 @@ export default function TenantDashboard() {
       const { data: profileData } = await supabase.from('profiles').select('full_name, phone').eq('user_id', user.id).single();
       const nameParts = (profileData?.full_name || 'Tenant').split(' ');
 
-      const response = await supabase.functions.invoke('pesapal-pay', {
+          const response = await supabase.functions.invoke('pesapal-pay', {
         body: {
           action: 'initiate',
           paymentId: `pay-${activeTenancy.id}`,
           amount: activeTenancy.rent_amount,
           currency: 'UGX',
-          description: `Rent for ${activeTenancy.property_title || 'Property'} — ${format(new Date(activeTenancy.rent_end_date), 'MMMM yyyy')}`,
+          description: `Rent for ${activeTenancy.property_title || 'Property'} - ${format(new Date(activeTenancy.rent_end_date), 'MMMM yyyy')}`,
           email: user.email,
           phone: profileData?.phone || '',
           firstName: nameParts[0],
@@ -373,7 +373,7 @@ export default function TenantDashboard() {
                           {isRentOverdue ? '⚠️ OVERDUE' : daysLeft !== null ? `${daysLeft} days remaining` : ''}
                         </span>
                       </div>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${activeTenancy.status === 'active' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-muted text-muted-foreground'}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${activeTenancy.status === 'active' ? 'bg-accent/10 text-accent border border-accent/20' : 'bg-muted text-muted-foreground'}`}>
                         {activeTenancy.status}
                       </span>
                     </div>
@@ -480,8 +480,8 @@ export default function TenantDashboard() {
                       <tr key={p.id} className="border-t border-border hover:bg-secondary/50">
                         <td className="py-3 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                         <td className="py-3 px-4 font-bold text-foreground">{p.amount.toLocaleString()}</td>
-                        <td className="py-3 px-4 text-muted-foreground text-xs">{p.period_start} → {p.period_end}</td>
-                        <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || '—'}</td>
+                        <td className="py-3 px-4 text-muted-foreground text-xs">{p.period_start} to {p.period_end}</td>
+                        <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || 'N/A'}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusBadge(p.status)}`}>{p.status}</span>
                         </td>
@@ -493,10 +493,10 @@ export default function TenantDashboard() {
                               </Button>
                             </a>
                           ) : p.status === 'confirmed' ? (
-                            <span className="text-green-600 text-xs flex items-center gap-1 font-semibold">
+                            <span className="text-primary text-xs flex items-center gap-1 font-semibold">
                               <CheckCircle className="h-3 w-3" />Confirmed
                             </span>
-                          ) : '—'}
+                          ) : <span className="text-muted-foreground text-xs">Pending</span>}
                         </td>
                       </tr>
                     ))}
@@ -539,7 +539,7 @@ export default function TenantDashboard() {
                         {!m.is_read && <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full font-semibold">New</span>}
                       </div>
                       <p className="text-sm text-muted-foreground leading-relaxed">{m.content}</p>
-                      <p className="text-xs text-muted-foreground/60 mt-2">{format(new Date(m.created_at), 'MMMM dd, yyyy · HH:mm')}</p>
+                      <p className="text-xs text-muted-foreground/60 mt-2">{format(new Date(m.created_at), 'MMMM dd, yyyy')} at {format(new Date(m.created_at), 'HH:mm')}</p>
                     </div>
                   </div>
                 </div>
@@ -593,7 +593,7 @@ export default function TenantDashboard() {
                     <>
                       <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                       <p className="text-sm text-muted-foreground font-medium">Click to upload image or PDF</p>
-                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG, PDF — Max 5MB</p>
+                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG or PDF. Max 5MB.</p>
                     </>
                   )}
                 </div>

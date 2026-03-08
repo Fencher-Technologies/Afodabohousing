@@ -28,15 +28,15 @@ type Message = Database['public']['Tables']['messages']['Row'];
 const AMENITIES_LIST = ['Water', 'Electricity', 'WiFi', 'Parking', 'Security', 'Garden', 'Generator', 'DSTV', 'Borehole', 'Tiled Floors'];
 
 const statusBadge = (s: string) => ({
-  pending: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
-  uploaded: 'bg-blue-50 text-blue-700 border border-blue-200',
-  confirmed: 'bg-green-50 text-green-700 border border-green-200',
-  rejected: 'bg-red-50 text-red-700 border border-red-200',
-  active: 'bg-green-50 text-green-700 border border-green-200',
-  expired: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
-  occupied: 'bg-blue-50 text-blue-700 border border-blue-200',
-  available: 'bg-green-50 text-green-700 border border-green-200',
-  inactive: 'bg-gray-50 text-gray-500 border border-gray-200',
+  pending: 'bg-secondary text-foreground border border-border',
+  uploaded: 'bg-primary/10 text-primary border border-primary/20',
+  confirmed: 'bg-accent/10 text-accent border border-accent/20',
+  rejected: 'bg-destructive/10 text-destructive border border-destructive/20',
+  active: 'bg-accent/10 text-accent border border-accent/20',
+  expired: 'bg-secondary text-muted-foreground border border-border',
+  occupied: 'bg-primary/10 text-primary border border-primary/20',
+  available: 'bg-accent/10 text-accent border border-accent/20',
+  inactive: 'bg-muted text-muted-foreground border border-border',
 }[s] || 'bg-muted text-muted-foreground');
 
 type Tab = 'overview' | 'properties' | 'tenancies' | 'payments' | 'messages';
@@ -307,8 +307,8 @@ export default function ManagerDashboard() {
 
   const overviewStats = [
     { icon: <Building2 className="h-6 w-6" />, label: 'Total Listings', val: properties.length, color: 'text-primary', bg: 'bg-primary/10' },
-    { icon: <CheckCircle className="h-6 w-6" />, label: 'Available', val: available, color: 'text-green-600', bg: 'bg-green-50' },
-    { icon: <Home className="h-6 w-6" />, label: 'Occupied', val: occupied, color: 'text-accent', bg: 'bg-accent/10' },
+    { icon: <CheckCircle className="h-6 w-6" />, label: 'Available', val: available, color: 'text-accent', bg: 'bg-accent/10' },
+    { icon: <Home className="h-6 w-6" />, label: 'Occupied', val: occupied, color: 'text-primary', bg: 'bg-primary/10' },
     { icon: <DollarSign className="h-6 w-6" />, label: 'Payments Pending', val: pendingPayments.length, color: pendingPayments.length > 0 ? 'text-accent' : 'text-muted-foreground', bg: pendingPayments.length > 0 ? 'bg-accent/10' : 'bg-muted' },
   ];
 
@@ -385,7 +385,7 @@ export default function ManagerDashboard() {
                       <SelectTrigger className="mt-1"><SelectValue placeholder="Select property…" /></SelectTrigger>
                       <SelectContent>
                         {properties.filter(p => p.status !== 'inactive').map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.title} <span className={`ml-1 text-xs ${p.status === 'occupied' ? 'text-accent' : 'text-green-600'}`}>({p.status})</span></SelectItem>
+                          <SelectItem key={p.id} value={p.id}>{p.title} <span className={`ml-1 text-xs ${p.status === 'occupied' ? 'text-accent' : 'text-primary'}`}>({p.status})</span></SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -523,13 +523,13 @@ export default function ManagerDashboard() {
 
         {/* ── ALERTS ───────────────────────────────────────────────── */}
         {pendingPayments.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6 flex items-center gap-3">
-            <DollarSign className="h-5 w-5 text-blue-600 shrink-0" />
+          <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4 mb-6 flex items-center gap-3">
+            <DollarSign className="h-5 w-5 text-primary shrink-0" />
             <div>
-              <p className="font-semibold text-blue-800">{pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''} awaiting your review</p>
-              <p className="text-sm text-blue-600">Review and confirm or reject payment proofs from your tenants</p>
+              <p className="font-semibold text-foreground">{pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''} awaiting your review</p>
+              <p className="text-sm text-muted-foreground">Review and confirm or reject payment proofs from your tenants</p>
             </div>
-            <Button size="sm" className="ml-auto bg-blue-600 hover:bg-blue-700 text-white shrink-0" onClick={() => setTab('payments')}>
+            <Button size="sm" className="ml-auto gradient-primary text-primary-foreground shrink-0" onClick={() => setTab('payments')}>
               Review Now
             </Button>
           </div>
@@ -606,9 +606,9 @@ export default function ManagerDashboard() {
               </h3>
               <div className="space-y-3">
                 {[
-                  { label: 'Confirmed Payments', val: payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0), color: 'text-green-600' },
-                  { label: 'Pending Review', val: payments.filter(p => p.status === 'uploaded').reduce((s, p) => s + p.amount, 0), color: 'text-blue-600' },
-                  { label: 'Total Collected', val: payments.filter(p => ['confirmed', 'uploaded'].includes(p.status)).reduce((s, p) => s + p.amount, 0), color: 'text-primary' },
+                  { label: 'Confirmed Payments', val: payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0), color: 'text-accent' },
+                  { label: 'Pending Review', val: payments.filter(p => p.status === 'uploaded').reduce((s, p) => s + p.amount, 0), color: 'text-primary' },
+                  { label: 'Total Collected', val: payments.filter(p => ['confirmed', 'uploaded'].includes(p.status)).reduce((s, p) => s + p.amount, 0), color: 'text-foreground' },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between items-center py-2 border-b border-border last:border-0">
                     <span className="text-sm text-muted-foreground">{r.label}</span>
@@ -633,8 +633,8 @@ export default function ManagerDashboard() {
                         <p className="text-xs text-muted-foreground">UGX {p.amount.toLocaleString()} on {format(new Date(p.created_at), 'MMM dd, yyyy')}</p>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
-                          ✓ Confirm
+                        <Button size="sm" className="gradient-primary text-primary-foreground h-8 text-xs" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
+                          Confirm
                         </Button>
                         <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={!!sendingAction} onClick={() => handleRejectPayment(p)}>
                           ✗
@@ -752,9 +752,9 @@ export default function ManagerDashboard() {
         {tab === 'payments' && (
           <div className="space-y-4">
             {pendingPayments.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                <p className="font-semibold text-blue-800 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
+              <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4">
+                <p className="font-semibold text-foreground flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-primary" />
                   {pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''} awaiting your review. Tenants are waiting for confirmation.
                 </p>
               </div>
@@ -777,12 +777,12 @@ export default function ManagerDashboard() {
                     {payments.length === 0 ? (
                       <tr><td colSpan={7} className="py-16 text-center text-muted-foreground">No payment records yet.</td></tr>
                     ) : payments.map(p => (
-                      <tr key={p.id} className={`border-t border-border hover:bg-secondary/50 transition-colors ${p.status === 'uploaded' ? 'bg-blue-50/30' : ''}`}>
+                      <tr key={p.id} className={`border-t border-border hover:bg-secondary/50 transition-colors ${p.status === 'uploaded' ? 'bg-primary/5' : ''}`}>
                         <td className="py-3 px-4 font-semibold text-foreground">{p.tenant_name || 'Unknown'}</td>
                         <td className="py-3 px-4 text-muted-foreground text-xs max-w-[140px] truncate">{p.property_title || 'N/A'}</td>
                         <td className="py-3 px-4 font-bold text-foreground">{p.amount.toLocaleString()}</td>
                         <td className="py-3 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
-                        <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || '—'}</td>
+                        <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || 'N/A'}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusBadge(p.status)}`}>{p.status}</span>
                         </td>
@@ -795,8 +795,8 @@ export default function ManagerDashboard() {
                             )}
                             {p.status === 'uploaded' && (
                               <>
-                                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1 h-7 text-xs" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
-                                  {sendingAction === p.id ? '…' : <><CheckCircle className="h-3 w-3" />Confirm</>}
+                             <Button size="sm" className="gradient-primary text-primary-foreground gap-1 h-7 text-xs" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
+                                  {sendingAction === p.id ? '...' : <><CheckCircle className="h-3 w-3" />Confirm</>}
                                 </Button>
                                 <Button size="sm" variant="destructive" className="gap-1 h-7 text-xs" disabled={!!sendingAction} onClick={() => handleRejectPayment(p)}>
                                   {sendingAction === `reject-${p.id}` ? '…' : <><XCircle className="h-3 w-3" />Reject</>}
@@ -804,7 +804,7 @@ export default function ManagerDashboard() {
                               </>
                             )}
                             {p.status === 'confirmed' && (
-                              <span className="text-green-600 text-xs flex items-center gap-1 font-medium"><CheckCircle className="h-3 w-3" />Confirmed</span>
+                              <span className="text-primary text-xs flex items-center gap-1 font-medium"><CheckCircle className="h-3 w-3" />Confirmed</span>
                             )}
                           </div>
                         </td>

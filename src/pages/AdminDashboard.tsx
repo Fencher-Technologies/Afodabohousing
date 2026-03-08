@@ -20,16 +20,16 @@ interface PaymentRow { id: string; amount: number; status: string; created_at: s
 type Tab = 'overview' | 'users' | 'properties' | 'tenancies' | 'payments';
 
 const statusBadge = (s: string) => ({
-  available: 'bg-green-50 text-green-700 border border-green-200',
-  occupied: 'bg-blue-50 text-blue-700 border border-blue-200',
-  inactive: 'bg-gray-50 text-gray-500 border border-gray-200',
-  active: 'bg-green-50 text-green-700 border border-green-200',
-  expired: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
-  terminated: 'bg-red-50 text-red-700 border border-red-200',
-  pending: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
-  uploaded: 'bg-blue-50 text-blue-700 border border-blue-200',
-  confirmed: 'bg-green-50 text-green-700 border border-green-200',
-  rejected: 'bg-red-50 text-red-700 border border-red-200',
+  available: 'bg-accent/10 text-accent border border-accent/20',
+  occupied: 'bg-primary/10 text-primary border border-primary/20',
+  inactive: 'bg-muted text-muted-foreground border border-border',
+  active: 'bg-accent/10 text-accent border border-accent/20',
+  expired: 'bg-secondary text-muted-foreground border border-border',
+  terminated: 'bg-destructive/10 text-destructive border border-destructive/20',
+  pending: 'bg-secondary text-foreground border border-border',
+  uploaded: 'bg-primary/10 text-primary border border-primary/20',
+  confirmed: 'bg-accent/10 text-accent border border-accent/20',
+  rejected: 'bg-destructive/10 text-destructive border border-destructive/20',
   tenant: 'bg-secondary text-secondary-foreground border border-border',
   house_manager: 'bg-primary/10 text-primary border border-primary/20',
   admin: 'bg-accent/20 text-accent border border-accent/30',
@@ -119,9 +119,9 @@ export default function AdminDashboard() {
   );
 
   const overviewStats = [
-    { icon: <Users className="h-6 w-6" />, label: 'Total Users', val: users.length, bg: 'bg-primary/10', color: 'text-primary', sub: `${users.filter(u => u.role === 'tenant').length} tenants · ${users.filter(u => u.role === 'house_manager').length} managers` },
-    { icon: <Building2 className="h-6 w-6" />, label: 'All Properties', val: props.length, bg: 'bg-accent/10', color: 'text-accent', sub: `${props.filter(p => p.status === 'available').length} available · ${props.filter(p => p.status === 'occupied').length} occupied` },
-    { icon: <Home className="h-6 w-6" />, label: 'Active Tenancies', val: tenancies.filter(t => t.status === 'active').length, bg: 'bg-green-50', color: 'text-green-600', sub: `${tenancies.filter(t => t.status === 'expired').length} expired` },
+    { icon: <Users className="h-6 w-6" />, label: 'Total Users', val: users.length, bg: 'bg-primary/10', color: 'text-primary', sub: `${users.filter(u => u.role === 'tenant').length} tenants / ${users.filter(u => u.role === 'house_manager').length} managers` },
+    { icon: <Building2 className="h-6 w-6" />, label: 'All Properties', val: props.length, bg: 'bg-accent/10', color: 'text-accent', sub: `${props.filter(p => p.status === 'available').length} available / ${props.filter(p => p.status === 'occupied').length} occupied` },
+    { icon: <Home className="h-6 w-6" />, label: 'Active Tenancies', val: tenancies.filter(t => t.status === 'active').length, bg: 'bg-accent/10', color: 'text-accent', sub: `${tenancies.filter(t => t.status === 'expired').length} expired` },
     { icon: <DollarSign className="h-6 w-6" />, label: 'Confirmed Revenue', val: `UGX ${(totalRevenue / 1000000).toFixed(2)}M`, bg: 'bg-primary/10', color: 'text-primary', sub: `${pendingPayments.length} awaiting review` },
   ];
 
@@ -157,12 +157,12 @@ export default function AdminDashboard() {
         </div>
 
         {pendingPayments.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6 flex items-center gap-3">
-            <Clock className="h-5 w-5 text-blue-600 shrink-0" />
-            <p className="font-semibold text-blue-800 flex-1">
+          <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4 mb-6 flex items-center gap-3">
+            <Clock className="h-5 w-5 text-primary shrink-0" />
+            <p className="font-semibold text-foreground flex-1">
               {pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''} across the platform are awaiting manager review
             </p>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shrink-0" onClick={() => setTab('payments')}>
+            <Button size="sm" className="gradient-primary text-primary-foreground shrink-0" onClick={() => setTab('payments')}>
               View
             </Button>
           </div>
@@ -414,7 +414,7 @@ export default function AdminDashboard() {
                   {payments.length === 0 ? (
                     <tr><td colSpan={5} className="py-12 text-center text-muted-foreground">No payment records</td></tr>
                   ) : payments.map(p => (
-                    <tr key={p.id} className={`border-t border-border hover:bg-secondary/50 transition-colors ${p.status === 'uploaded' ? 'bg-blue-50/30' : ''}`}>
+                    <tr key={p.id} className={`border-t border-border hover:bg-secondary/50 transition-colors ${p.status === 'uploaded' ? 'bg-primary/5' : ''}`}>
                       <td className="py-3 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                       <td className="py-3 px-4 font-bold text-foreground">{p.amount?.toLocaleString()}</td>
                       <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || 'None'}</td>

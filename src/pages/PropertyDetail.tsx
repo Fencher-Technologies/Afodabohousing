@@ -96,21 +96,21 @@ export default function PropertyDetailPage() {
     }
   };
 
-  // Build OpenStreetMap URL from location info
-  const getOSMSearchUrl = (location: string) => {
-    return `https://www.openstreetmap.org/search?query=${encodeURIComponent(location + ', Uganda')}`;
+  // Build Nominatim / OSM URLs for this property
+  const getNominatimSearchUrl = (location: string) => {
+    const encoded = encodeURIComponent(location + ', Uganda');
+    return `https://www.openstreetmap.org/search?query=${encoded}`;
   };
 
-  // Build OSM directions URL
   const getOSMDirectionsUrl = (location: string) => {
     return `https://www.openstreetmap.org/directions?to=${encodeURIComponent(location + ', Uganda')}`;
   };
 
-  // Build embedded OSM iframe URL (static, no API key needed)
-  const getOSMEmbedUrl = (location: string) => {
-    const query = encodeURIComponent(location + ', Uganda');
-    return `https://www.openstreetmap.org/export/embed.html?bbox=30.0,0.0,35.0,4.5&layer=mapnik&marker=1&mlat=0.3476&mlon=32.5825&query=${query}`;
+  // OSM embed iframe showing Uganda map; link opens to the precise location via Nominatim
+  const getOSMEmbedUrl = () => {
+    return `https://www.openstreetmap.org/export/embed.html?bbox=29.5%2C-1.5%2C35.5%2C4.5&layer=mapnik`;
   };
+
 
   if (loading) {
     return (
@@ -306,12 +306,12 @@ export default function PropertyDetailPage() {
             <div>
               <h2 className="font-display font-bold text-xl mb-4">Location on Map</h2>
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                {/* OSM Embed */}
+                {/* OSM Embed - Uganda overview with location label */}
                 <div className="relative h-64 bg-secondary">
                   <iframe
                     title={`Map of ${property.district}`}
                     className="w-full h-full border-0"
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=29.5,0.0,35.0,4.5&layer=mapnik`}
+                    src={getOSMEmbedUrl()}
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                   />
@@ -326,7 +326,7 @@ export default function PropertyDetailPage() {
                 </div>
                 <div className="p-4 flex flex-wrap gap-3">
                   <a
-                    href={getOSMSearchUrl(mapLocation || property.district)}
+                    href={getNominatimSearchUrl(mapLocation || property.district)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-sm text-primary font-medium hover:underline"
@@ -334,7 +334,7 @@ export default function PropertyDetailPage() {
                     <ExternalLink className="h-4 w-4" />
                     View on OpenStreetMap
                   </a>
-                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground" aria-hidden>|</span>
                   <a
                     href={getOSMDirectionsUrl(mapLocation || property.district)}
                     target="_blank"
