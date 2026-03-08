@@ -420,7 +420,12 @@ export default function AdminDashboard() {
                       <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || 'None'}</td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${statusBadge(p.status)}`}>{p.status}</span>
-...
+                      </td>
+                      <td className="py-3 px-4">
+                        {p.proof_url ? (
+                          <a href={p.proof_url} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" variant="outline" className="gap-1 h-7 text-xs"><Eye className="h-3 w-3" />View</Button>
+                          </a>
                         ) : (
                           <span className="text-xs text-muted-foreground">N/A</span>
                         )}
