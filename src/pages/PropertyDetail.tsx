@@ -306,12 +306,12 @@ export default function PropertyDetailPage() {
             <div>
               <h2 className="font-display font-bold text-xl mb-4">Location on Map</h2>
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                {/* OSM Embed */}
+                {/* OSM Embed - Uganda overview with location label */}
                 <div className="relative h-64 bg-secondary">
                   <iframe
                     title={`Map of ${property.district}`}
                     className="w-full h-full border-0"
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=29.5,0.0,35.0,4.5&layer=mapnik`}
+                    src={getOSMEmbedUrl()}
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                   />
@@ -326,7 +326,7 @@ export default function PropertyDetailPage() {
                 </div>
                 <div className="p-4 flex flex-wrap gap-3">
                   <a
-                    href={getOSMSearchUrl(mapLocation || property.district)}
+                    href={getNominatimSearchUrl(mapLocation || property.district)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-sm text-primary font-medium hover:underline"
@@ -334,7 +334,7 @@ export default function PropertyDetailPage() {
                     <ExternalLink className="h-4 w-4" />
                     View on OpenStreetMap
                   </a>
-                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground" aria-hidden>|</span>
                   <a
                     href={getOSMDirectionsUrl(mapLocation || property.district)}
                     target="_blank"
