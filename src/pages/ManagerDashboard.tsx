@@ -523,13 +523,13 @@ export default function ManagerDashboard() {
 
         {/* ── ALERTS ───────────────────────────────────────────────── */}
         {pendingPayments.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6 flex items-center gap-3">
-            <DollarSign className="h-5 w-5 text-blue-600 shrink-0" />
+          <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4 mb-6 flex items-center gap-3">
+            <DollarSign className="h-5 w-5 text-primary shrink-0" />
             <div>
-              <p className="font-semibold text-blue-800">{pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''} awaiting your review</p>
-              <p className="text-sm text-blue-600">Review and confirm or reject payment proofs from your tenants</p>
+              <p className="font-semibold text-foreground">{pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''} awaiting your review</p>
+              <p className="text-sm text-muted-foreground">Review and confirm or reject payment proofs from your tenants</p>
             </div>
-            <Button size="sm" className="ml-auto bg-blue-600 hover:bg-blue-700 text-white shrink-0" onClick={() => setTab('payments')}>
+            <Button size="sm" className="ml-auto gradient-primary text-primary-foreground shrink-0" onClick={() => setTab('payments')}>
               Review Now
             </Button>
           </div>
@@ -633,8 +633,8 @@ export default function ManagerDashboard() {
                         <p className="text-xs text-muted-foreground">UGX {p.amount.toLocaleString()} on {format(new Date(p.created_at), 'MMM dd, yyyy')}</p>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
-                          ✓ Confirm
+                        <Button size="sm" className="gradient-primary text-primary-foreground h-8 text-xs" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
+                          Confirm
                         </Button>
                         <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={!!sendingAction} onClick={() => handleRejectPayment(p)}>
                           ✗
@@ -752,9 +752,9 @@ export default function ManagerDashboard() {
         {tab === 'payments' && (
           <div className="space-y-4">
             {pendingPayments.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                <p className="font-semibold text-blue-800 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
+              <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4">
+                <p className="font-semibold text-foreground flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-primary" />
                   {pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''} awaiting your review. Tenants are waiting for confirmation.
                 </p>
               </div>
@@ -782,7 +782,7 @@ export default function ManagerDashboard() {
                         <td className="py-3 px-4 text-muted-foreground text-xs max-w-[140px] truncate">{p.property_title || 'N/A'}</td>
                         <td className="py-3 px-4 font-bold text-foreground">{p.amount.toLocaleString()}</td>
                         <td className="py-3 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
-                        <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || '—'}</td>
+                        <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate">{p.notes || 'N/A'}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusBadge(p.status)}`}>{p.status}</span>
                         </td>
@@ -795,8 +795,8 @@ export default function ManagerDashboard() {
                             )}
                             {p.status === 'uploaded' && (
                               <>
-                                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1 h-7 text-xs" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
-                                  {sendingAction === p.id ? '…' : <><CheckCircle className="h-3 w-3" />Confirm</>}
+                             <Button size="sm" className="gradient-primary text-primary-foreground gap-1 h-7 text-xs" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
+                                  {sendingAction === p.id ? '...' : <><CheckCircle className="h-3 w-3" />Confirm</>}
                                 </Button>
                                 <Button size="sm" variant="destructive" className="gap-1 h-7 text-xs" disabled={!!sendingAction} onClick={() => handleRejectPayment(p)}>
                                   {sendingAction === `reject-${p.id}` ? '…' : <><XCircle className="h-3 w-3" />Reject</>}
@@ -804,7 +804,7 @@ export default function ManagerDashboard() {
                               </>
                             )}
                             {p.status === 'confirmed' && (
-                              <span className="text-green-600 text-xs flex items-center gap-1 font-medium"><CheckCircle className="h-3 w-3" />Confirmed</span>
+                              <span className="text-primary text-xs flex items-center gap-1 font-medium"><CheckCircle className="h-3 w-3" />Confirmed</span>
                             )}
                           </div>
                         </td>
