@@ -42,8 +42,15 @@ export default function RegisterPage() {
     }
 
     if (data.user) {
-      // Assign role
-      await supabase.from('user_roles').insert({ user_id: data.user.id, role });
+      // Assign role using INSERT policy (auth.uid() = user_id)
+      const { error: roleErr } = await supabase
+        .from('user_roles')
+        .insert({ user_id: data.user.id, role });
+
+      if (roleErr) {
+        console.error('Role assignment error:', roleErr.message);
+      }
+
       // Update phone in profile
       if (phone) {
         await supabase.from('profiles').update({ phone }).eq('user_id', data.user.id);
@@ -51,13 +58,12 @@ export default function RegisterPage() {
     }
 
     setLoading(false);
-    toast({ title: 'Account created!', description: 'Please check your email to verify your account.' });
-    navigate('/login');
+    toast({ title: 'Account created!', description: 'Welcome to Afodabohousing!' });
+    navigate(role === 'house_manager' ? '/dashboard/manager' : '/dashboard/tenant');
   };
 
   return (
     <div className="min-h-screen flex">
-      {/* Left panel */}
       <div className="flex-1 flex flex-col justify-center px-6 py-12 bg-background max-w-lg">
         <div className="mx-auto w-full max-w-sm">
           <Link to="/" className="flex items-center gap-2 mb-8">
@@ -70,66 +76,41 @@ export default function RegisterPage() {
 
           {/* Role selector */}
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <button
-              type="button"
-              onClick={() => setRole('tenant')}
-              className={`rounded-lg border-2 p-4 text-center transition-all ${
-                role === 'tenant'
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground hover:border-primary/50'
-              }`}
-            >
-              <span className="text-2xl block mb-1">🏡</span>
-              <span className="text-sm font-semibold block">Tenant</span>
-              <span className="text-xs">Looking for a home</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole('house_manager')}
-              className={`rounded-lg border-2 p-4 text-center transition-all ${
-                role === 'house_manager'
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground hover:border-primary/50'
-              }`}
-            >
-              <span className="text-2xl block mb-1">🏢</span>
-              <span className="text-sm font-semibold block">House Manager</span>
-              <span className="text-xs">Listing a property</span>
-            </button>
+            {([
+              { role: 'tenant' as Role, emoji: '🏡', label: 'Tenant', sub: 'Looking for a home' },
+              { role: 'house_manager' as Role, emoji: '🏢', label: 'House Manager', sub: 'Listing a property' },
+            ]).map(r => (
+              <button type="button" key={r.role} onClick={() => setRole(r.role)}
+                className={`rounded-lg border-2 p-4 text-center transition-all ${role === r.role ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/50'}`}>
+                <span className="text-2xl block mb-1">{r.emoji}</span>
+                <span className="text-sm font-semibold block">{r.label}</span>
+                <span className="text-xs">{r.sub}</span>
+              </button>
+            ))}
           </div>
 
           <form onSubmit={handleRegister} className="space-y-4">
             <div>
               <Label htmlFor="fullName">Full Name</Label>
-              <Input id="fullName" type="text" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} required className="mt-1.5" />
+              <Input id="fullName" type="text" placeholder="John Doe" value={fullName} onChange={e => setFullName(e.target.value)} required className="mt-1.5" />
             </div>
             <div>
               <Label htmlFor="email">Email address</Label>
-              <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="mt-1.5" />
+              <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required className="mt-1.5" />
             </div>
             <div>
               <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" type="tel" placeholder="+256 700 000000" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1.5" />
+              <Input id="phone" type="tel" placeholder="+256 700 000000" value={phone} onChange={e => setPhone(e.target.value)} className="mt-1.5" />
             </div>
             <div>
               <Label htmlFor="password">Password</Label>
               <div className="relative mt-1.5">
-                <Input
-                  id="password"
-                  type={showPw ? 'text' : 'password'}
-                  placeholder="Min. 6 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="pr-10"
-                />
+                <Input id="password" type={showPw ? 'text' : 'password'} placeholder="Min. 6 characters" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} className="pr-10" />
                 <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
-
             <Button type="submit" disabled={loading} className="w-full gradient-primary text-primary-foreground h-11 text-base font-semibold mt-2">
               {loading ? 'Creating account…' : 'Create Account'}
             </Button>
@@ -142,7 +123,6 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* Right hero */}
       <div className="hidden lg:flex flex-1 relative bg-cover bg-center" style={{ backgroundImage: `url(${heroBg})` }}>
         <div className="absolute inset-0 gradient-hero" />
         <div className="relative z-10 flex flex-col justify-end p-12 text-primary-foreground">
