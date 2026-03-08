@@ -157,12 +157,12 @@ export default function AdminDashboard() {
         </div>
 
         {pendingPayments.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6 flex items-center gap-3">
-            <Clock className="h-5 w-5 text-blue-600 shrink-0" />
-            <p className="font-semibold text-blue-800 flex-1">
+          <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4 mb-6 flex items-center gap-3">
+            <Clock className="h-5 w-5 text-primary shrink-0" />
+            <p className="font-semibold text-foreground flex-1">
               {pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''} across the platform are awaiting manager review
             </p>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shrink-0" onClick={() => setTab('payments')}>
+            <Button size="sm" className="gradient-primary text-primary-foreground shrink-0" onClick={() => setTab('payments')}>
               View
             </Button>
           </div>
