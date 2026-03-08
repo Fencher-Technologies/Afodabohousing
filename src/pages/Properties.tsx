@@ -203,7 +203,6 @@ export default function PropertiesPage() {
           </div>
         </div>
       </div>
-      </div>
       <Footer />
     </div>
   );
