@@ -14,16 +14,315 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_read: boolean
+          property_id: string | null
+          receiver_id: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          property_id?: string | null
+          receiver_id: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          property_id?: string | null
+          receiver_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          manager_id: string
+          notes: string | null
+          period_end: string
+          period_start: string
+          proof_url: string | null
+          receipt_url: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          tenancy_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          manager_id: string
+          notes?: string | null
+          period_end: string
+          period_start: string
+          proof_url?: string | null
+          receipt_url?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          tenancy_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          manager_id?: string
+          notes?: string | null
+          period_end?: string
+          period_start?: string
+          proof_url?: string | null
+          receipt_url?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          tenancy_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_tenancy_id_fkey"
+            columns: ["tenancy_id"]
+            isOneToOne: false
+            referencedRelation: "tenancies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      properties: {
+        Row: {
+          address: string | null
+          amenities: string[] | null
+          area: string | null
+          bathrooms: number
+          bedrooms: number
+          city: string | null
+          created_at: string
+          description: string | null
+          district: string
+          id: string
+          images: string[] | null
+          kitchens: number
+          manager_email: string | null
+          manager_id: string
+          manager_phone: string | null
+          property_type: Database["public"]["Enums"]["property_type"]
+          rent_amount: number
+          rent_currency: string
+          rent_period: Database["public"]["Enums"]["rent_period"]
+          sitting_rooms: number
+          status: Database["public"]["Enums"]["property_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          amenities?: string[] | null
+          area?: string | null
+          bathrooms?: number
+          bedrooms?: number
+          city?: string | null
+          created_at?: string
+          description?: string | null
+          district: string
+          id?: string
+          images?: string[] | null
+          kitchens?: number
+          manager_email?: string | null
+          manager_id: string
+          manager_phone?: string | null
+          property_type?: Database["public"]["Enums"]["property_type"]
+          rent_amount: number
+          rent_currency?: string
+          rent_period?: Database["public"]["Enums"]["rent_period"]
+          sitting_rooms?: number
+          status?: Database["public"]["Enums"]["property_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          amenities?: string[] | null
+          area?: string | null
+          bathrooms?: number
+          bedrooms?: number
+          city?: string | null
+          created_at?: string
+          description?: string | null
+          district?: string
+          id?: string
+          images?: string[] | null
+          kitchens?: number
+          manager_email?: string | null
+          manager_id?: string
+          manager_phone?: string | null
+          property_type?: Database["public"]["Enums"]["property_type"]
+          rent_amount?: number
+          rent_currency?: string
+          rent_period?: Database["public"]["Enums"]["rent_period"]
+          sitting_rooms?: number
+          status?: Database["public"]["Enums"]["property_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tenancies: {
+        Row: {
+          agreement_url: string | null
+          created_at: string
+          id: string
+          manager_id: string
+          property_id: string
+          rent_amount: number
+          rent_end_date: string
+          rent_period: Database["public"]["Enums"]["rent_period"]
+          rent_start_date: string
+          status: Database["public"]["Enums"]["tenancy_status"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          agreement_url?: string | null
+          created_at?: string
+          id?: string
+          manager_id: string
+          property_id: string
+          rent_amount: number
+          rent_end_date: string
+          rent_period: Database["public"]["Enums"]["rent_period"]
+          rent_start_date: string
+          status?: Database["public"]["Enums"]["tenancy_status"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          agreement_url?: string | null
+          created_at?: string
+          id?: string
+          manager_id?: string
+          property_id?: string
+          rent_amount?: number
+          rent_end_date?: string
+          rent_period?: Database["public"]["Enums"]["rent_period"]
+          rent_start_date?: string
+          status?: Database["public"]["Enums"]["tenancy_status"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenancies_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "tenant" | "house_manager" | "admin"
+      payment_status: "pending" | "uploaded" | "confirmed" | "rejected"
+      property_status: "available" | "occupied" | "inactive"
+      property_type:
+        | "house"
+        | "apartment"
+        | "self_contained"
+        | "room"
+        | "studio"
+        | "bungalow"
+      rent_period: "monthly" | "quarterly" | "annually"
+      tenancy_status: "active" | "expired" | "terminated"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +449,20 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["tenant", "house_manager", "admin"],
+      payment_status: ["pending", "uploaded", "confirmed", "rejected"],
+      property_status: ["available", "occupied", "inactive"],
+      property_type: [
+        "house",
+        "apartment",
+        "self_contained",
+        "room",
+        "studio",
+        "bungalow",
+      ],
+      rent_period: ["monthly", "quarterly", "annually"],
+      tenancy_status: ["active", "expired", "terminated"],
+    },
   },
 } as const
