@@ -12,14 +12,14 @@ const LINKS = {
   managers: [
     { label: 'List Your Property', to: '/register' },
     { label: 'Manager Dashboard', to: '/dashboard/manager' },
-    { label: 'Manage Tenants', to: '/dashboard/manager' },
+    { label: 'Contact Support', to: '/contact' },
     { label: 'Payment Tracking', to: '/dashboard/manager' },
   ],
   company: [
-    { label: 'About Us', to: '#' },
-    { label: 'Privacy Policy', to: '#' },
-    { label: 'Terms of Service', to: '#' },
-    { label: 'Contact Support', to: '#' },
+    { label: 'About Us', to: '/about' },
+    { label: 'Privacy Policy', to: '/privacy' },
+    { label: 'Terms of Service', to: '/terms' },
+    { label: 'Contact Support', to: '/contact' },
   ],
 };
 
@@ -41,11 +41,11 @@ export default function Footer() {
               <img src={logoImg} alt="Afodabohousing" className="h-12 w-12 object-contain rounded-lg" />
               <div>
                 <div className="font-display font-bold text-xl text-primary-foreground leading-tight">Afodabohousing</div>
-                <div className="text-primary-foreground/60 text-xs">Uganda's #1 District Relocation App</div>
+                <div className="text-primary-foreground/60 text-xs">Uganda's Number One District Relocation App</div>
               </div>
             </Link>
             <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6 max-w-xs">
-              Connecting tenants with verified house managers across all 135 districts of Uganda. Find your perfect home, generate agreements, and manage rent — all in one platform.
+              Connecting tenants with verified house managers across all 135 districts of Uganda. Find your perfect home, generate agreements, and manage rent in one platform.
             </p>
             {/* Contact info */}
             <div className="space-y-2.5 text-sm">
@@ -65,14 +65,16 @@ export default function Footer() {
             {/* Social links */}
             <div className="flex items-center gap-3 mt-6">
               {[
-                { Icon: Facebook, href: '#', label: 'Facebook' },
-                { Icon: Twitter, href: '#', label: 'Twitter' },
-                { Icon: Instagram, href: '#', label: 'Instagram' },
-                { Icon: Youtube, href: '#', label: 'YouTube' },
+                { Icon: Facebook, href: 'https://facebook.com', label: 'Facebook' },
+                { Icon: Twitter, href: 'https://twitter.com', label: 'Twitter' },
+                { Icon: Instagram, href: 'https://instagram.com', label: 'Instagram' },
+                { Icon: Youtube, href: 'https://youtube.com', label: 'YouTube' },
               ].map(({ Icon, href, label }) => (
                 <a
                   key={label}
                   href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   aria-label={label}
                   className="h-9 w-9 rounded-full bg-primary-foreground/10 hover:bg-accent flex items-center justify-center transition-colors"
                 >
@@ -147,12 +149,16 @@ export default function Footer() {
       {/* Bottom bar */}
       <div className="border-t border-primary-foreground/15 bg-primary/80">
         <div className="container flex flex-col sm:flex-row items-center justify-between gap-3 py-4 text-xs text-primary-foreground/55">
-          <span>© {new Date().getFullYear()} Afodabohousing Ltd. All rights reserved. Registered in Uganda.</span>
+          <span>&copy; {new Date().getFullYear()} Afodabohousing Ltd. All rights reserved. Registered in Uganda.</span>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-accent inline-block animate-pulse" />
               All systems operational
             </span>
+            <span>·</span>
+            <Link to="/privacy" className="hover:text-primary-foreground transition-colors">Privacy</Link>
+            <span>·</span>
+            <Link to="/terms" className="hover:text-primary-foreground transition-colors">Terms</Link>
             <span>·</span>
             <a href="mailto:info@afodabohousing.com" className="hover:text-primary-foreground transition-colors">
               info@afodabohousing.com
