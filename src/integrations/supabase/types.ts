@@ -219,6 +219,68 @@ export type Database = {
         }
         Relationships: []
       }
+      rental_units: {
+        Row: {
+          amenities: string[] | null
+          bathrooms: number
+          bedrooms: number
+          created_at: string
+          description: string | null
+          floor_level: string | null
+          id: string
+          kitchens: number
+          property_id: string
+          rent_amount: number
+          rent_currency: string
+          sitting_rooms: number
+          status: Database["public"]["Enums"]["property_status"]
+          unit_number: string
+          updated_at: string
+        }
+        Insert: {
+          amenities?: string[] | null
+          bathrooms?: number
+          bedrooms?: number
+          created_at?: string
+          description?: string | null
+          floor_level?: string | null
+          id?: string
+          kitchens?: number
+          property_id: string
+          rent_amount: number
+          rent_currency?: string
+          sitting_rooms?: number
+          status?: Database["public"]["Enums"]["property_status"]
+          unit_number: string
+          updated_at?: string
+        }
+        Update: {
+          amenities?: string[] | null
+          bathrooms?: number
+          bedrooms?: number
+          created_at?: string
+          description?: string | null
+          floor_level?: string | null
+          id?: string
+          kitchens?: number
+          property_id?: string
+          rent_amount?: number
+          rent_currency?: string
+          sitting_rooms?: number
+          status?: Database["public"]["Enums"]["property_status"]
+          unit_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenancies: {
         Row: {
           agreement_url: string | null

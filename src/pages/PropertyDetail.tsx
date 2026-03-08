@@ -8,20 +8,36 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   MapPin, Bed, Bath, Home, Phone, Mail, ChevronLeft, ChevronRight,
   Wifi, Car, Zap, Droplets, Shield, Send, MessageSquare, Share2,
   Heart, CheckCircle, TreePine, Tv, Waves, Navigation, Sofa,
-  ChefHat, ExternalLink
+  ChefHat, ExternalLink, Building2
 } from 'lucide-react';
 import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
 
 type Property = Database['public']['Tables']['properties']['Row'];
+
+// Minimal rental unit type from DB (may not be in generated types yet)
+interface RentalUnit {
+  id: string;
+  unit_number: string;
+  floor_level?: string | null;
+  bedrooms: number;
+  bathrooms: number;
+  sitting_rooms: number;
+  kitchens: number;
+  rent_amount: number;
+  rent_currency: string;
+  status: string;
+  description?: string | null;
+  amenities?: string[] | null;
+}
 
 const fallbackImages = [prop1, prop2, prop3];
 
@@ -43,6 +59,12 @@ const typeLabels: Record<string, string> = {
   room: 'Single Room', studio: 'Studio', bungalow: 'Bungalow',
 };
 
+const statusColors: Record<string, string> = {
+  available: 'bg-accent/10 text-accent border border-accent/30',
+  occupied: 'bg-destructive/10 text-destructive border border-destructive/30',
+  inactive: 'bg-muted text-muted-foreground border border-border',
+};
+
 function formatUGX(amount: number) {
   if (amount >= 1000000) return `UGX ${(amount / 1000000).toFixed(1)}M`;
   if (amount >= 1000) return `UGX ${(amount / 1000).toFixed(0)}K`;
@@ -52,6 +74,7 @@ function formatUGX(amount: number) {
 export default function PropertyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [property, setProperty] = useState<Property | null>(null);
+  const [units, setUnits] = useState<RentalUnit[]>([]);
   const [loading, setLoading] = useState(true);
   const [imgIdx, setImgIdx] = useState(0);
   const [messageOpen, setMessageOpen] = useState(false);
@@ -64,8 +87,13 @@ export default function PropertyDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    supabase.from('properties').select('*').eq('id', id).single().then(({ data }) => {
-      setProperty(data);
+    Promise.all([
+      supabase.from('properties').select('*').eq('id', id).single(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from('rental_units').select('*').eq('property_id', id).order('unit_number'),
+    ]).then(([propRes, unitsRes]) => {
+      setProperty(propRes.data);
+      setUnits(unitsRes.data || []);
       setLoading(false);
     });
   }, [id]);
@@ -96,27 +124,36 @@ export default function PropertyDetailPage() {
     }
   };
 
-  // Build Nominatim / OSM URLs for this property
-  const getNominatimSearchUrl = (location: string) => {
-    const encoded = encodeURIComponent(location + ', Uganda');
-    return `https://www.openstreetmap.org/search?query=${encoded}`;
+  // Build OSM search/embed URLs using district + area
+  const buildOSMQuery = (p: Property) =>
+    [p.area, p.city, p.district, 'Uganda'].filter(Boolean).join(', ');
+
+  const getOSMSearchUrl = (p: Property) =>
+    `https://www.openstreetmap.org/search?query=${encodeURIComponent(buildOSMQuery(p))}`;
+
+  const getOSMDirectionsUrl = (p: Property) =>
+    `https://www.openstreetmap.org/directions?to=${encodeURIComponent(buildOSMQuery(p))}`;
+
+  // Use Nominatim geocoding URL embedded in iframe via overpass embed
+  const getOSMEmbedUrl = (p: Property) => {
+    // Build a search-based embed that zooms to the district
+    const q = encodeURIComponent(`${p.district} District, Uganda`);
+    return `https://nominatim.openstreetmap.org/search?q=${q}&format=html`;
   };
 
-  const getOSMDirectionsUrl = (location: string) => {
-    return `https://www.openstreetmap.org/directions?to=${encodeURIComponent(location + ', Uganda')}`;
+  // Alternative: use leaflet/OSM tile embed with known Uganda bbox for the district
+  const getOSMTileEmbed = (p: Property) => {
+    // Use a simple marker-based Leaflet embed URL
+    const location = encodeURIComponent(buildOSMQuery(p));
+    // Embed using geoapify or umap for simplicity; fall back to standard OSM export
+    return `https://www.openstreetmap.org/export/embed.html?bbox=29.5%2C-1.5%2C35.5%2C4.5&layer=mapnik&marker=${encodeURIComponent(p.district + ', Uganda')}`;
   };
-
-  // OSM embed iframe showing Uganda map; link opens to the precise location via Nominatim
-  const getOSMEmbedUrl = () => {
-    return `https://www.openstreetmap.org/export/embed.html?bbox=29.5%2C-1.5%2C35.5%2C4.5&layer=mapnik`;
-  };
-
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="container py-16 max-w-5xl">
+        <div className="container py-16 max-w-6xl">
           <div className="animate-pulse space-y-6">
             <div className="h-10 bg-muted rounded w-1/3" />
             <div className="h-[440px] bg-muted rounded-3xl" />
@@ -151,13 +188,13 @@ export default function PropertyDetailPage() {
   const totalImages = images.length;
   const periodLabel = { monthly: 'per month', quarterly: 'per quarter', annually: 'per year' }[property.rent_period] || '';
   const fullLocation = [property.address, property.area, property.city, property.district].filter(Boolean).join(', ');
-  const mapLocation = [property.area, property.city, property.district].filter(Boolean).join(', ');
+  const availableUnits = units.filter(u => u.status === 'available');
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container py-8 max-w-5xl mx-auto px-4">
+      <div className="container py-8 max-w-6xl mx-auto px-4">
         {/* Back */}
         <button
           onClick={() => navigate(-1)}
@@ -168,7 +205,7 @@ export default function PropertyDetailPage() {
         </button>
 
         {/* Image Gallery */}
-        <div className="relative rounded-3xl overflow-hidden h-80 md:h-[480px] mb-8 bg-muted shadow-lg">
+        <div className="relative rounded-3xl overflow-hidden h-80 md:h-[500px] mb-8 bg-muted shadow-lg">
           <img src={images[imgIdx]} alt={property.title} className="w-full h-full object-cover" />
 
           {totalImages > 1 && (
@@ -209,7 +246,7 @@ export default function PropertyDetailPage() {
               {typeLabels[property.property_type]}
             </Badge>
             <Badge className={`font-semibold shadow ${property.status === 'available' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-              {property.status === 'available' ? 'Available Now' : 'Occupied'}
+              {property.status === 'available' ? 'Available Now' : property.status === 'occupied' ? 'Occupied' : 'Inactive'}
             </Badge>
           </div>
 
@@ -253,28 +290,86 @@ export default function PropertyDetailPage() {
                 </div>
                 <div className="text-sm text-muted-foreground mt-1.5 capitalize">
                   Paid {property.rent_period} in {property.rent_currency}
+                  {units.length > 0 && (
+                    <span className="ml-3 text-accent font-semibold">
+                      {availableUnits.length}/{units.length} units available
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Room details */}
-            <div>
-              <h2 className="font-display font-bold text-xl mb-4">Property Details</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { icon: <Bed className="h-5 w-5" />, label: 'Bedrooms', val: property.bedrooms },
-                  { icon: <Bath className="h-5 w-5" />, label: 'Bathrooms', val: property.bathrooms },
-                  { icon: <Sofa className="h-5 w-5" />, label: 'Sitting Rooms', val: property.sitting_rooms },
-                  { icon: <ChefHat className="h-5 w-5" />, label: 'Kitchens', val: property.kitchens },
-                ].map(r => (
-                  <div key={r.label} className="bg-card border border-border rounded-2xl p-5 text-center shadow-sm hover:shadow-md transition-shadow">
-                    <div className="text-accent mx-auto mb-2 flex justify-center">{r.icon}</div>
-                    <div className="text-3xl font-bold font-display text-foreground">{r.val}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{r.label}</div>
-                  </div>
-                ))}
+            {/* Room details (for the main property / single-unit view) */}
+            {units.length === 0 && (
+              <div>
+                <h2 className="font-display font-bold text-xl mb-4">Property Details</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { icon: <Bed className="h-5 w-5" />, label: 'Bedrooms', val: property.bedrooms },
+                    { icon: <Bath className="h-5 w-5" />, label: 'Bathrooms', val: property.bathrooms },
+                    { icon: <Sofa className="h-5 w-5" />, label: 'Sitting Rooms', val: property.sitting_rooms },
+                    { icon: <ChefHat className="h-5 w-5" />, label: 'Kitchens', val: property.kitchens },
+                  ].map(r => (
+                    <div key={r.label} className="bg-card border border-border rounded-2xl p-5 text-center shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-accent mx-auto mb-2 flex justify-center">{r.icon}</div>
+                      <div className="text-3xl font-bold font-display text-foreground">{r.val}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{r.label}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Multi-unit listing */}
+            {units.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-5">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  <h2 className="font-display font-bold text-xl">Rental Units ({units.length} total)</h2>
+                  <Badge className="bg-accent/10 text-accent border border-accent/30 text-xs">
+                    {availableUnits.length} available
+                  </Badge>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {units.map(unit => (
+                    <div
+                      key={unit.id}
+                      className={`bg-card border rounded-2xl p-5 shadow-sm transition-all ${unit.status === 'available' ? 'border-accent/30 hover:shadow-md' : 'border-border opacity-75'}`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <p className="font-bold text-foreground text-base">Unit {unit.unit_number}</p>
+                          {unit.floor_level && <p className="text-xs text-muted-foreground">{unit.floor_level}</p>}
+                        </div>
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusColors[unit.status] || 'bg-muted text-muted-foreground'}`}>
+                          {unit.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                        <span className="flex items-center gap-1"><Bed className="h-3.5 w-3.5" />{unit.bedrooms} bed</span>
+                        <span className="flex items-center gap-1"><Bath className="h-3.5 w-3.5" />{unit.bathrooms} bath</span>
+                        {unit.sitting_rooms > 0 && <span className="flex items-center gap-1"><Sofa className="h-3.5 w-3.5" />{unit.sitting_rooms} sitting</span>}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-lg font-bold text-primary font-display">{formatUGX(unit.rent_amount)}</span>
+                          <span className="text-muted-foreground text-xs ml-1">/mo</span>
+                        </div>
+                        {unit.status === 'available' && user && (
+                          <Button size="sm" className="gradient-primary text-primary-foreground text-xs gap-1" onClick={() => setMessageOpen(true)}>
+                            <MessageSquare className="h-3 w-3" />
+                            Enquire
+                          </Button>
+                        )}
+                      </div>
+                      {unit.description && (
+                        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{unit.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Description */}
             {property.description && (
@@ -304,42 +399,43 @@ export default function PropertyDetailPage() {
 
             {/* OpenStreetMap Location */}
             <div>
-              <h2 className="font-display font-bold text-xl mb-4">Location on Map</h2>
-              <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                {/* OSM Embed - Uganda overview with location label */}
-                <div className="relative h-64 bg-secondary">
+              <h2 className="font-display font-bold text-xl mb-4">Location</h2>
+              <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                <div className="relative h-72 bg-secondary">
                   <iframe
-                    title={`Map of ${property.district}`}
+                    title={`Map of ${property.district}, Uganda`}
                     className="w-full h-full border-0"
-                    src={getOSMEmbedUrl()}
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=29.5%2C-1.5%2C35.5%2C4.5&layer=mapnik`}
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
+                    sandbox="allow-scripts allow-same-origin"
                   />
+                  {/* Overlay with location info */}
                   <div className="absolute inset-0 pointer-events-none flex items-end">
-                    <div className="w-full bg-gradient-to-t from-card/80 to-transparent p-3">
+                    <div className="w-full bg-gradient-to-t from-card/90 to-transparent p-4">
                       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                         <MapPin className="h-4 w-4 text-accent" />
-                        {fullLocation || property.district + ', Uganda'}
+                        {fullLocation || `${property.district}, Uganda`}
                       </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">Click links below to search exact location on OpenStreetMap</p>
                     </div>
                   </div>
                 </div>
-                <div className="p-4 flex flex-wrap gap-3">
+                <div className="p-4 flex flex-wrap gap-4 border-t border-border bg-secondary/30">
                   <a
-                    href={getNominatimSearchUrl(mapLocation || property.district)}
+                    href={getOSMSearchUrl(property)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-primary font-medium hover:underline"
+                    className="inline-flex items-center gap-2 text-sm text-primary font-semibold hover:underline"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    View on OpenStreetMap
+                    Search on OpenStreetMap
                   </a>
-                  <span className="text-muted-foreground" aria-hidden>|</span>
                   <a
-                    href={getOSMDirectionsUrl(mapLocation || property.district)}
+                    href={getOSMDirectionsUrl(property)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-accent font-medium hover:underline"
+                    className="inline-flex items-center gap-2 text-sm text-accent font-semibold hover:underline"
                   >
                     <Navigation className="h-4 w-4" />
                     Get Directions
@@ -379,6 +475,9 @@ export default function PropertyDetailPage() {
                     <DialogContent className="max-w-md">
                       <DialogHeader>
                         <DialogTitle className="font-display text-xl">Message House Manager</DialogTitle>
+                        <DialogDescription>
+                          Send a message about {property.title}. The manager will respond in your inbox.
+                        </DialogDescription>
                       </DialogHeader>
                       <div className="bg-secondary rounded-xl p-3 text-sm mt-3">
                         <p className="font-semibold text-foreground">{property.title}</p>
@@ -394,99 +493,66 @@ export default function PropertyDetailPage() {
                             onChange={e => setMessageText(e.target.value)}
                             rows={4}
                             required
-                            placeholder="Hello, I am interested in this property. Could you please tell me more about availability and when I can come for a viewing?"
+                            placeholder="Hello, I am interested in this property. Is it still available?..."
                             className="mt-1"
                           />
                         </div>
-                        <Button
-                          type="submit"
-                          disabled={sending}
-                          className="w-full gradient-primary text-primary-foreground gap-2"
-                        >
-                          {sending ? 'Sending...' : <><Send className="h-4 w-4" />Send Message</>}
+                        <Button type="submit" disabled={sending} className="w-full gradient-primary text-primary-foreground gap-2">
+                          <Send className="h-4 w-4" />
+                          {sending ? 'Sending...' : 'Send Message'}
                         </Button>
                       </form>
                     </DialogContent>
                   </Dialog>
 
                   {property.manager_email && (
-                    <a
-                      href={`mailto:${property.manager_email}?subject=Enquiry: ${encodeURIComponent(property.title)}`}
-                      className="block w-full"
-                    >
+                    <a href={`mailto:${property.manager_email}?subject=Inquiry: ${encodeURIComponent(property.title)}`} className="block w-full">
                       <Button variant="outline" className="w-full gap-2 h-11">
                         <Mail className="h-4 w-4" />
-                        Send Email
+                        Email Manager
                       </Button>
                     </a>
-                  )}
-
-                  {/* OpenStreetMap Directions */}
-                  {fullLocation && (
-                    <a
-                      href={getOSMDirectionsUrl(mapLocation || property.district)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block w-full"
-                    >
-                      <Button variant="outline" className="w-full gap-2 h-11 text-muted-foreground">
-                        <Navigation className="h-4 w-4 text-accent" />
-                        Get GPS Directions
-                      </Button>
-                    </a>
-                  )}
-
-                  {!property.manager_phone && !property.manager_email && (
-                    <p className="text-muted-foreground text-sm text-center py-3">
-                      Contact details not provided for this listing.
-                    </p>
                   )}
                 </div>
               ) : (
-                <div className="text-center space-y-3">
-                  <div className="bg-muted rounded-xl p-4 text-sm text-muted-foreground">
-                    <Shield className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    Sign in to view contact details, send messages and get GPS directions.
+                <div className="space-y-3">
+                  <div className="bg-secondary rounded-xl p-4 text-center">
+                    <p className="text-sm text-muted-foreground mb-3">Sign in to contact this manager and view full details</p>
+                    <Button className="w-full gradient-primary text-primary-foreground" onClick={() => navigate('/login')}>
+                      Sign In to Contact
+                    </Button>
                   </div>
-                  <Button
-                    className="w-full gradient-primary text-primary-foreground h-11 font-semibold"
-                    onClick={() => navigate('/login')}
-                  >
-                    Sign In to Contact
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full h-11"
-                    onClick={() => navigate('/register')}
-                  >
+                  <Button variant="outline" className="w-full" onClick={() => navigate('/register')}>
                     Create Free Account
                   </Button>
                 </div>
               )}
 
-              {/* Share */}
-              <div className="mt-4 pt-4 border-t border-border">
-                <Button variant="ghost" className="w-full gap-2 text-muted-foreground text-sm" onClick={handleShare}>
-                  <Share2 className="h-4 w-4" />
-                  Share This Listing
-                </Button>
+              {/* Key details summary */}
+              <div className="mt-6 pt-5 border-t border-border space-y-3">
+                <h4 className="font-semibold text-sm text-foreground">Quick Details</h4>
+                {[
+                  { label: 'Type', val: typeLabels[property.property_type] || property.property_type },
+                  { label: 'District', val: property.district },
+                  { label: 'Rent Period', val: property.rent_period, capitalize: true },
+                  { label: 'Currency', val: property.rent_currency },
+                  ...(units.length > 0 ? [{ label: 'Total Units', val: String(units.length) }, { label: 'Available', val: String(availableUnits.length) }] : [
+                    { label: 'Bedrooms', val: String(property.bedrooms) },
+                    { label: 'Bathrooms', val: String(property.bathrooms) },
+                  ]),
+                ].map(r => (
+                  <div key={r.label} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{r.label}</span>
+                    <span className={`font-medium text-foreground ${r.capitalize ? 'capitalize' : ''}`}>{r.val}</span>
+                  </div>
+                ))}
               </div>
-            </div>
 
-            {/* Safety info */}
-            <div className="bg-secondary border border-border rounded-2xl p-5">
-              <div className="flex items-start gap-3">
-                <Shield className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Safe Renting Tips</p>
-                  <ul className="text-xs text-muted-foreground mt-2 space-y-1.5">
-                    <li className="flex items-start gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" /> Always visit the property before paying</li>
-                    <li className="flex items-start gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" /> Request a written tenancy agreement</li>
-                    <li className="flex items-start gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" /> Pay via PesaPal or upload mobile money proof</li>
-                    <li className="flex items-start gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" /> Report fraud to info@afodabohousing.com</li>
-                  </ul>
-                </div>
-              </div>
+              {/* Share */}
+              <Button variant="outline" className="w-full mt-4 gap-2" onClick={handleShare}>
+                <Share2 className="h-4 w-4" />
+                Share This Listing
+              </Button>
             </div>
           </div>
         </div>
