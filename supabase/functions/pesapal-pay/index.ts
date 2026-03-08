@@ -6,7 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const PESAPAL_BASE = 'https://pay.pesapal.com/v3/api'
+// Use sandbox for testing, live for production
+const PESAPAL_ENV = Deno.env.get('PESAPAL_ENV') || 'sandbox'
+const PESAPAL_BASE = PESAPAL_ENV === 'live'
+  ? 'https://pay.pesapal.com/v3/api'
+  : 'https://cybqa.pesapal.com/pesapalv3/api'
 
 async function getPesapalToken(consumerKey: string, consumerSecret: string): Promise<string> {
   const res = await fetch(`${PESAPAL_BASE}/Auth/RequestToken`, {

@@ -157,7 +157,13 @@ export default function TenantDashboard() {
           callbackUrl: `${window.location.origin}/dashboard/tenant?payment=success`,
         },
       });
-      if (response.data?.redirectUrl) {
+      if (response.error) {
+        const msg = response.error?.message || 'Payment gateway error';
+        toast({ title: 'Payment Error', description: msg.includes('amount_exceeds') ? 'Payment limit exceeded on this gateway account. Please upload a mobile money proof instead.' : msg, variant: 'destructive' });
+        setPaymentLoading(false);
+        return;
+      }
+      if (response.data?.success && response.data?.redirectUrl) {
         await supabase.from('payments').insert({
           tenancy_id: activeTenancy.id, tenant_id: user.id, manager_id: activeTenancy.manager_id,
           amount: activeTenancy.rent_amount, currency: 'UGX',
@@ -167,10 +173,16 @@ export default function TenantDashboard() {
         window.open(response.data.redirectUrl, '_blank');
         toast({ title: 'Payment page opened!', description: 'Complete your payment via mobile money or card in the new window.' });
       } else {
-        toast({ title: 'Payment Error', description: 'Could not initiate online payment. Please upload proof instead.', variant: 'destructive' });
+        const errMsg = response.data?.error || 'Could not initiate online payment.';
+        const friendly = errMsg.includes('amount_exceeds') || errMsg.includes('exceeds limit')
+          ? 'Your rent amount exceeds the current payment gateway limit. Please send payment via mobile money and upload proof below.'
+          : errMsg.includes('PesaPal auth') ? 'Payment gateway credentials not configured. Please contact support.'
+          : 'Could not initiate online payment. Please upload your mobile money proof instead.';
+        toast({ title: 'Payment Gateway Unavailable', description: friendly, variant: 'destructive' });
       }
-    } catch {
-      toast({ title: 'Payment Error', description: 'Could not connect to payment gateway. Please upload proof of mobile money transfer.', variant: 'destructive' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast({ title: 'Payment Error', description: msg || 'Could not connect to payment gateway. Please upload proof of mobile money transfer.', variant: 'destructive' });
     }
     setPaymentLoading(false); fetchData();
   };
