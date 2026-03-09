@@ -656,6 +656,66 @@ export default function AdminDashboard() {
           </div>
         </main>
       </div>
+
+      {/* Edit Property Dialog */}
+      <Dialog open={!!editDialogProp} onOpenChange={o => { if (!o) setEditDialogProp(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Edit Property</DialogTitle>
+            <DialogDescription>Update listing details for this property.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditPropertySave} className="space-y-4 mt-4">
+            <div>
+              <Label>Title</Label>
+              <Input value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} required className="mt-1" />
+            </div>
+            <div>
+              <Label>District</Label>
+              <Input value={editForm.district} onChange={e => setEditForm(f => ({ ...f, district: e.target.value }))} required className="mt-1" />
+            </div>
+            <div>
+              <Label>Rent Amount (UGX)</Label>
+              <Input type="number" min={0} value={editForm.rent_amount || ''} onChange={e => setEditForm(f => ({ ...f, rent_amount: Number(e.target.value) }))} required className="mt-1" />
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v as 'available' | 'occupied' | 'inactive' }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="occupied">Occupied</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" disabled={sendingAction.startsWith('edit-')} className="w-full gradient-primary text-primary-foreground">
+              {sendingAction.startsWith('edit-') ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Property Confirmation */}
+      <AlertDialog open={!!deleteConfirmProp} onOpenChange={o => { if (!o) setDeleteConfirmProp(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Property</AlertDialogTitle>
+            <AlertDialogDescription>
+              Permanently delete <strong>{deleteConfirmProp?.title}</strong>? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteProperty}
+              disabled={sendingAction.startsWith('delete-')}
+            >
+              {sendingAction.startsWith('delete-') ? 'Deleting...' : 'Delete Property'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
