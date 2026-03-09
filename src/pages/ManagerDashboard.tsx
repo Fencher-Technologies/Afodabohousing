@@ -1218,7 +1218,7 @@ export default function ManagerDashboard() {
               <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => setImageFiles(Array.from(e.target.files || []))} />
             </div>
             <Button type="submit" disabled={uploading} className="w-full gradient-primary text-primary-foreground">
-              {uploading ? 'Uploading & Publishing...' : 'Publish Listing'}
+              {uploading ? 'Saving...' : editingProperty ? 'Save Changes' : 'Publish Listing'}
             </Button>
           </form>
         </DialogContent>
@@ -1257,6 +1257,29 @@ export default function ManagerDashboard() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Property Confirmation */}
+      <AlertDialog open={!!deleteConfirmProperty} onOpenChange={o => { if (!o) setDeleteConfirmProperty(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Property</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete <strong>{deleteConfirmProperty?.title}</strong>?
+              This will remove it from all listings. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteProperty}
+              disabled={sendingAction.startsWith('delete-')}
+            >
+              {sendingAction.startsWith('delete-') ? 'Deleting...' : 'Delete Property'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
