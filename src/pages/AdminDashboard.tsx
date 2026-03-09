@@ -110,6 +110,31 @@ export default function AdminDashboard() {
     toast({ title: 'Property reactivated!' }); setSendingAction(''); fetchAll();
   };
 
+  const handleDeleteProperty = async () => {
+    if (!deleteConfirmProp) return;
+    setSendingAction(`delete-${deleteConfirmProp.id}`);
+    const { error } = await supabase.from('properties').delete().eq('id', deleteConfirmProp.id);
+    setSendingAction('');
+    if (error) { toast({ title: 'Error deleting property', description: error.message, variant: 'destructive' }); }
+    else { toast({ title: 'Property deleted' }); fetchAll(); }
+    setDeleteConfirmProp(null);
+  };
+
+  const handleEditPropertySave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editDialogProp) return;
+    setSendingAction(`edit-${editDialogProp.id}`);
+    const { error } = await supabase.from('properties').update({
+      title: editForm.title,
+      district: editForm.district,
+      rent_amount: Number(editForm.rent_amount),
+      status: editForm.status as PropRow['status'],
+    }).eq('id', editDialogProp.id);
+    setSendingAction('');
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
+    else { toast({ title: 'Property updated!' }); setEditDialogProp(null); fetchAll(); }
+  };
+
   const handleConfirmPayment = async (id: string) => {
     setSendingAction(`confirm-${id}`);
     await supabase.from('payments').update({ status: 'confirmed' }).eq('id', id);
