@@ -10,7 +10,7 @@ We automatically collect certain technical data when you use the platform, inclu
   },
   {
     title: '2. How We Use Your Information',
-    content: `Your information is used to operate and improve Afodabohousing, including verifying your identity, facilitating tenancy agreements, processing payments through PesaPal, sending SMS notifications via EgoSMS (rent reminders, payment confirmations and welcome messages), and providing customer support.
+    content: `Your information is used to operate and improve Afodabo Housing, including verifying your identity, facilitating tenancy agreements, processing payments through PesaPal, sending SMS notifications via EgoSMS (rent reminders, payment confirmations and welcome messages), and providing customer support.
 
 We do not sell your personal data to third parties.`,
   },
@@ -22,7 +22,7 @@ You may opt out of SMS notifications by contacting info@afodabohousing.com.`,
   },
   {
     title: '4. Payment Security',
-    content: `Online payments are processed by PesaPal, a licensed payment service provider in Uganda and East Africa. Afodabohousing does not store your card or mobile money details. Payment proof images uploaded to the platform are stored securely and accessible only to the relevant tenant, house manager and platform administrators.`,
+    content: `Online payments are processed by PesaPal, a licensed payment service provider in Uganda and East Africa. Afodabo Housing does not store your card or mobile money details. Payment proof images uploaded to the platform are stored securely and accessible only to the relevant tenant, house manager and platform administrators.`,
   },
   {
     title: '5. Data Sharing',
@@ -46,7 +46,7 @@ You may opt out of SMS notifications by contacting info@afodabohousing.com.`,
   },
   {
     title: '10. Contact',
-    content: `For any privacy-related questions or concerns, contact our Data Officer at info@afodabohousing.com or write to Afodabohousing Ltd, Kampala, Uganda.`,
+    content: `For any privacy-related questions or concerns, contact our Data Officer at info@afodabohousing.com or write to Afodabo Housing Ltd, Kampala, Uganda.`,
   },
 ];
 
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
       <div className="container py-14 max-w-4xl">
         <div className="bg-card border border-border rounded-2xl p-8 shadow-card mb-8">
           <p className="text-muted-foreground leading-relaxed text-base">
-            Afodabohousing Ltd ("we", "us" or "our") operates the Afodabohousing platform at afodabohousing.com. This Privacy Policy explains how we collect, use, protect and share information about you when you use our services. By creating an account or using our platform, you agree to the practices described in this policy.
+            Afodabo Housing Ltd ("we", "us" or "our") operates the Afodabo Housing platform at afodabohousing.com. This Privacy Policy explains how we collect, use, protect and share information about you when you use our services. By creating an account or using our platform, you agree to the practices described in this policy.
           </p>
         </div>
 

@@ -59,9 +59,9 @@ export default function Navbar() {
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <img src={logoImg} alt="Afodabohousing" className="h-9 w-9 object-contain rounded-lg" />
+          <img src={logoImg} alt="Afodabo Housing" className="h-9 w-9 object-contain rounded-lg" />
           <div className="hidden sm:block">
-            <div className="font-display font-bold text-base text-primary leading-tight">Afodabohousing</div>
+            <div className="font-display font-bold text-base text-primary leading-tight">Afodabo Housing</div>
             <div className="text-muted-foreground text-xs leading-tight">Uganda's Housing Platform</div>
           </div>
         </Link>

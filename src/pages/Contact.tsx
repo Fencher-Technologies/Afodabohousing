@@ -11,7 +11,7 @@ import { Mail, Phone, MapPin, Clock, Send, MessageSquare, HeadphonesIcon } from 
 
 const FAQS = [
   {
-    q: 'How do I list my property on Afodabohousing?',
+    q: 'How do I list my property on Afodabo Housing?',
     a: 'Register as a House Manager, then go to your Manager Dashboard and click "Add Property". Fill in the details, upload photos and publish your listing. It goes live immediately after review.',
   },
   {
@@ -19,7 +19,7 @@ const FAQS = [
     a: 'Log in as a Tenant, go to your Dashboard and click "Pay Online". You will be redirected to PesaPal where you can pay via Visa, Mastercard, MTN Mobile Money or Airtel Money.',
   },
   {
-    q: 'Is Afodabohousing available across Uganda?',
+    q: 'Is Afodabo Housing available across Uganda?',
     a: 'Yes. We cover all 135 districts of Uganda. You can search by district name in the search bar or browse from the properties page.',
   },
   {
