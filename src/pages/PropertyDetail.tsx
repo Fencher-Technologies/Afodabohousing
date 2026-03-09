@@ -323,48 +323,105 @@ export default function PropertyDetailPage() {
             {/* Multi-unit listing */}
             {units.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-5">
+                <div className="flex items-center gap-2 mb-4">
                   <Building2 className="h-5 w-5 text-primary" />
-                  <h2 className="font-display font-bold text-xl">Rental Units ({units.length} total)</h2>
-                  <Badge className="bg-accent/10 text-accent border border-accent/30 text-xs">
-                    {availableUnits.length} available
-                  </Badge>
+                  <h2 className="font-display font-bold text-xl">Rental Units</h2>
                 </div>
+
+                {/* Summary bar */}
+                <div className="grid grid-cols-3 gap-3 mb-5">
+                  <div className="bg-card border border-border rounded-xl p-3.5 text-center">
+                    <div className="text-2xl font-display font-bold text-foreground">{units.length}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Total Units</div>
+                  </div>
+                  <div className="bg-accent/8 border border-accent/20 rounded-xl p-3.5 text-center">
+                    <div className="text-2xl font-display font-bold text-accent">{availableUnits.length}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Available</div>
+                  </div>
+                  <div className="bg-card border border-border rounded-xl p-3.5 text-center">
+                    <div className="text-2xl font-display font-bold text-foreground">{units.length - availableUnits.length}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Occupied</div>
+                  </div>
+                </div>
+
                 <div className="grid sm:grid-cols-2 gap-4">
                   {units.map(unit => (
                     <div
                       key={unit.id}
-                      className={`bg-card border rounded-2xl p-5 shadow-sm transition-all ${unit.status === 'available' ? 'border-accent/30 hover:shadow-md' : 'border-border opacity-75'}`}
+                      className={`bg-card border rounded-2xl overflow-hidden shadow-sm transition-all ${
+                        unit.status === 'available'
+                          ? 'border-accent/30 hover:shadow-md hover:-translate-y-0.5'
+                          : 'border-border opacity-70'
+                      }`}
                     >
-                      <div className="flex items-start justify-between mb-3">
+                      {/* Unit header */}
+                      <div className={`px-5 py-3 flex items-center justify-between ${unit.status === 'available' ? 'bg-accent/8' : 'bg-muted/50'}`}>
                         <div>
-                          <p className="font-bold text-foreground text-base">Unit {unit.unit_number}</p>
+                          <p className="font-bold text-foreground text-sm">Unit {unit.unit_number}</p>
                           {unit.floor_level && <p className="text-xs text-muted-foreground">{unit.floor_level}</p>}
                         </div>
                         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusColors[unit.status] || 'bg-muted text-muted-foreground'}`}>
                           {unit.status}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                        <span className="flex items-center gap-1"><Bed className="h-3.5 w-3.5" />{unit.bedrooms} bed</span>
-                        <span className="flex items-center gap-1"><Bath className="h-3.5 w-3.5" />{unit.bathrooms} bath</span>
-                        {unit.sitting_rooms > 0 && <span className="flex items-center gap-1"><Sofa className="h-3.5 w-3.5" />{unit.sitting_rooms} sitting</span>}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-lg font-bold text-primary font-display">{formatUGX(unit.rent_amount)}</span>
-                          <span className="text-muted-foreground text-xs ml-1">/mo</span>
+
+                      <div className="p-5">
+                        {/* Room stats */}
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          {[
+                            { icon: <Bed className="h-3.5 w-3.5" />, val: unit.bedrooms, label: 'Bed' },
+                            { icon: <Bath className="h-3.5 w-3.5" />, val: unit.bathrooms, label: 'Bath' },
+                            ...(unit.sitting_rooms > 0 ? [{ icon: <Sofa className="h-3.5 w-3.5" />, val: unit.sitting_rooms, label: 'Sitting' }] : []),
+                            ...(unit.kitchens > 0 ? [{ icon: <ChefHat className="h-3.5 w-3.5" />, val: unit.kitchens, label: 'Kitchen' }] : []),
+                          ].map(r => (
+                            <div key={r.label} className="flex items-center gap-1.5 text-xs text-muted-foreground bg-secondary rounded-lg px-2.5 py-1.5">
+                              <span className="text-primary">{r.icon}</span>
+                              <span className="font-semibold text-foreground">{r.val}</span>
+                              <span>{r.label}</span>
+                            </div>
+                          ))}
                         </div>
-                        {unit.status === 'available' && user && (
-                          <Button size="sm" className="gradient-primary text-primary-foreground text-xs gap-1" onClick={() => setMessageOpen(true)}>
-                            <MessageSquare className="h-3 w-3" />
-                            Enquire
-                          </Button>
+
+                        {/* Amenities chips */}
+                        {unit.amenities && unit.amenities.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-3">
+                            {unit.amenities.slice(0, 4).map(a => (
+                              <span key={a} className="flex items-center gap-1 text-xs bg-primary/8 text-primary px-2 py-0.5 rounded-full">
+                                {amenityIcons[a] && <span className="opacity-70">{amenityIcons[a]}</span>}
+                                {a}
+                              </span>
+                            ))}
+                            {unit.amenities.length > 4 && (
+                              <span className="text-xs text-muted-foreground px-2 py-0.5">+{unit.amenities.length - 4} more</span>
+                            )}
+                          </div>
                         )}
+
+                        {unit.description && (
+                          <p className="text-xs text-muted-foreground mb-3 leading-relaxed line-clamp-2">{unit.description}</p>
+                        )}
+
+                        <div className="flex items-center justify-between pt-2 border-t border-border">
+                          <div>
+                            <span className="text-xl font-bold text-primary font-display">{formatUGX(unit.rent_amount)}</span>
+                            <span className="text-muted-foreground text-xs ml-1">/mo</span>
+                          </div>
+                          {unit.status === 'available' ? (
+                            user ? (
+                              <Button size="sm" className="gradient-primary text-primary-foreground text-xs gap-1.5 h-8" onClick={() => setMessageOpen(true)}>
+                                <MessageSquare className="h-3 w-3" />
+                                Enquire
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="outline" className="text-xs h-8 gap-1.5" onClick={() => navigate('/login')}>
+                                Login to enquire
+                              </Button>
+                            )
+                          ) : (
+                            <span className="text-xs text-muted-foreground font-medium">Not available</span>
+                          )}
+                        </div>
                       </div>
-                      {unit.description && (
-                        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{unit.description}</p>
-                      )}
                     </div>
                   ))}
                 </div>
