@@ -128,7 +128,7 @@ export default function AdminDashboard() {
       title: editForm.title,
       district: editForm.district,
       rent_amount: Number(editForm.rent_amount),
-      status: editForm.status as PropRow['status'],
+      status: editForm.status,
     }).eq('id', editDialogProp.id);
     setSendingAction('');
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
