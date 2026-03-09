@@ -110,8 +110,8 @@ export default function HomePage() {
         style={{ backgroundImage: `url(${heroBg})` }}
       >
         <div className="absolute inset-0 gradient-hero" />
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-          <Badge className="bg-accent text-accent-foreground mb-4 text-xs font-semibold tracking-widest uppercase px-4 py-1.5">
+        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto pt-8 md:pt-0">
+          <Badge className="bg-accent text-accent-foreground mb-4 text-xs font-semibold tracking-widest uppercase px-3 py-1.5 whitespace-normal text-center leading-snug max-w-xs sm:max-w-none mx-auto block sm:inline-block">
             Uganda's Number One District Relocation Housing App
           </Badge>
           <h1 className="font-display text-5xl md:text-7xl font-bold text-primary-foreground mb-6 leading-tight tracking-tight">
