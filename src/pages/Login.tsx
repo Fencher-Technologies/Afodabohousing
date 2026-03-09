@@ -86,9 +86,9 @@ export default function LoginPage() {
       <div className="flex-1 flex flex-col justify-center px-6 py-12 bg-background max-w-[520px]">
         <div className="mx-auto w-full max-w-sm">
           <Link to="/" className="flex items-center gap-3 mb-10">
-            <img src={logoImg} alt="Afodabohousing" className="h-11 w-11 rounded-xl" />
+            <img src={logoImg} alt="Afodabo Housing" className="h-11 w-11 rounded-xl" />
             <div>
-              <div className="font-display font-bold text-lg text-primary leading-tight">Afodabohousing</div>
+              <div className="font-display font-bold text-lg text-primary leading-tight">Afodabo Housing</div>
               <div className="text-muted-foreground text-xs">Uganda's Housing Platform</div>
             </div>
           </Link>

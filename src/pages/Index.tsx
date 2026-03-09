@@ -258,7 +258,7 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* WHY AFODABOHOUSING */}
+      {/* WHY AFODABO HOUSING */}
       <section className="bg-secondary py-20" id="why">
         <div className="container">
           <div className="text-center mb-14">
@@ -267,7 +267,7 @@ export default function HomePage() {
               Built for Every Ugandan
             </h2>
             <p className="text-muted-foreground mt-3 max-w-xl mx-auto text-lg">
-              Whether you are looking for a home or managing properties, Afodabohousing gives you the tools to succeed.
+              Whether you are looking for a home or managing properties, Afodabo Housing gives you the tools to succeed.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -352,7 +352,7 @@ export default function HomePage() {
           {[
             { name: 'Namukasa Grace', role: 'House Manager, Wakiso', quote: 'I listed my 3 properties in under 10 minutes. Tenants contact me directly and I confirm payments instantly. Excellent platform.', rating: 5 },
             { name: 'Ssekandi James', role: 'Tenant, Kampala', quote: 'Found my apartment in Bukoto within two days. The map feature made it easy to check the location before visiting. Very convenient.', rating: 5 },
-            { name: 'Auma Christine', role: 'Tenant, Gulu', quote: 'Even in Gulu we have listings! I was relocating from Kampala and Afodabohousing made the search stress-free. Highly recommend.', rating: 5 },
+            { name: 'Auma Christine', role: 'Tenant, Gulu', quote: 'Even in Gulu we have listings! I was relocating from Kampala and Afodabo Housing made the search stress-free. Highly recommend.', rating: 5 },
           ].map(t => (
             <div key={t.name} className="bg-card border border-border rounded-2xl p-7 shadow-card">
               <div className="flex gap-1 mb-4">
@@ -373,7 +373,7 @@ export default function HomePage() {
         <div className="gradient-primary rounded-3xl p-12 text-center text-primary-foreground">
           <h2 className="font-display text-4xl font-bold mb-4">Ready to Find Your Home?</h2>
           <p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">
-            Join thousands of Ugandans who have found their perfect home through Afodabohousing.
+            Join thousands of Ugandans who have found their perfect home through Afodabo Housing.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button

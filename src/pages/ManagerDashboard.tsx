@@ -274,7 +274,7 @@ export default function ManagerDashboard() {
     await supabase.from('properties').update({ status: 'occupied' }).eq('id', tenancyForm.property_id);
     const { data: tenantProfile } = await supabase.from('profiles').select('phone').eq('user_id', tenantId).single();
     if (tenantProfile?.phone) {
-      await sendSMS(tenantProfile.phone, `Welcome to ${prop?.title || 'your new home'}! Your tenancy with Afodabohousing has been activated. Rent: UGX ${(Number(tenancyForm.rent_amount) || prop?.rent_amount || 0).toLocaleString()}. Contact: +256788100145`);
+      await sendSMS(tenantProfile.phone, `Welcome to ${prop?.title || 'your new home'}! Your tenancy with Afodabo Housing has been activated. Rent: UGX ${(Number(tenancyForm.rent_amount) || prop?.rent_amount || 0).toLocaleString()}. Contact: +256788100145`);
     }
     toast({ title: 'Tenancy created!', description: 'Tenant has been linked and notified via SMS.' });
     setTenancyDialogOpen(false);
@@ -288,7 +288,7 @@ export default function ManagerDashboard() {
     const { error } = await supabase.from('payments').update({ status: 'confirmed', receipt_url: `receipt-${payment.id}` }).eq('id', payment.id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); setSendingAction(''); return; }
     const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-    if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! UGX ${payment.amount.toLocaleString()} for ${format(new Date(payment.period_start), 'MMM yyyy')} has been confirmed by your house manager. - Afodabohousing`);
+    if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! UGX ${payment.amount.toLocaleString()} for ${format(new Date(payment.period_start), 'MMM yyyy')} has been confirmed by your house manager. - Afodabo Housing`);
     toast({ title: 'Payment confirmed', description: 'Tenant notified via SMS.' });
     setSendingAction(''); fetchData();
   };
@@ -298,7 +298,7 @@ export default function ManagerDashboard() {
     const { error } = await supabase.from('payments').update({ status: 'rejected' }).eq('id', payment.id);
     if (error) { toast({ title: 'Error', variant: 'destructive' }); setSendingAction(''); return; }
     const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-    if (profile?.phone) await sendSMS(profile.phone, `Your rent payment proof (UGX ${payment.amount.toLocaleString()}) was rejected. Please re-upload a clearer proof or contact your manager. - Afodabohousing`);
+    if (profile?.phone) await sendSMS(profile.phone, `Your rent payment proof (UGX ${payment.amount.toLocaleString()}) was rejected. Please re-upload a clearer proof or contact your manager. - Afodabo Housing`);
     toast({ title: 'Payment rejected', description: 'Tenant notified via SMS.', variant: 'destructive' });
     setSendingAction(''); fetchData();
   };
@@ -307,7 +307,7 @@ export default function ManagerDashboard() {
     if (!tenancy.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
     setSendingAction(`remind-${tenancy.id}`);
     const days = differenceInDays(new Date(tenancy.rent_end_date), new Date());
-    await sendSMS(tenancy.tenant_phone, `RENT REMINDER: Your rent of UGX ${tenancy.rent_amount.toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay and upload proof on Afodabohousing. Contact: ${user?.email}`);
+    await sendSMS(tenancy.tenant_phone, `RENT REMINDER: Your rent of UGX ${tenancy.rent_amount.toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay and upload proof on Afodabo Housing. Contact: ${user?.email}`);
     toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${tenancy.tenant_name}` });
     setSendingAction('');
   };

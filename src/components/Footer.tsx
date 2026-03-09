@@ -51,9 +51,9 @@ export default function Footer() {
           {/* Brand column */}
           <div className="lg:col-span-2">
             <ScrollLink to="/" className="flex items-center gap-3 mb-5">
-              <img src={logoImg} alt="Afodabohousing" className="h-12 w-12 object-contain rounded-lg" />
+              <img src={logoImg} alt="Afodabo Housing" className="h-12 w-12 object-contain rounded-lg" />
               <div>
-                <div className="font-display font-bold text-xl text-primary-foreground leading-tight">Afodabohousing</div>
+                <div className="font-display font-bold text-xl text-primary-foreground leading-tight">Afodabo Housing</div>
                 <div className="text-primary-foreground/60 text-xs">Uganda's Number One District Relocation App</div>
               </div>
             </ScrollLink>

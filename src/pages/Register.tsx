@@ -86,7 +86,7 @@ export default function RegisterPage() {
           await supabase.functions.invoke('send-sms', {
             body: {
               phone,
-              message: `Welcome to Afodabohousing! Your account has been created as ${role === 'house_manager' ? 'House Manager' : 'Tenant'}. Start ${role === 'house_manager' ? 'listing properties' : 'browsing homes'} at afodabohousing.com. - info@afodabohousing.com`,
+              message: `Welcome to Afodabo Housing! Your account has been created as ${role === 'house_manager' ? 'House Manager' : 'Tenant'}. Start ${role === 'house_manager' ? 'listing properties' : 'browsing homes'} at afodabohousing.com. - info@afodabohousing.com`,
             },
           });
         } catch (e) {
@@ -98,7 +98,7 @@ export default function RegisterPage() {
     setLoading(false);
     toast({
       title: '✓ Account created!',
-      description: `Welcome to Afodabohousing! ${role === 'house_manager' ? 'Start listing your properties.' : 'Browse homes and find your perfect place.'}`,
+      description: `Welcome to Afodabo Housing! ${role === 'house_manager' ? 'Start listing your properties.' : 'Browse homes and find your perfect place.'}`,
     });
     navigate(role === 'house_manager' ? '/dashboard/manager' : '/dashboard/tenant');
   };
@@ -111,9 +111,9 @@ export default function RegisterPage() {
       <div className="flex-1 flex flex-col justify-center px-6 py-12 bg-background max-w-[560px] overflow-y-auto">
         <div className="mx-auto w-full max-w-sm">
           <Link to="/" className="flex items-center gap-3 mb-8">
-            <img src={logoImg} alt="Afodabohousing" className="h-11 w-11 rounded-xl" />
+            <img src={logoImg} alt="Afodabo Housing" className="h-11 w-11 rounded-xl" />
             <div>
-              <div className="font-display font-bold text-lg text-primary leading-tight">Afodabohousing</div>
+              <div className="font-display font-bold text-lg text-primary leading-tight">Afodabo Housing</div>
               <div className="text-muted-foreground text-xs">Uganda's Housing Platform</div>
             </div>
           </Link>
@@ -243,7 +243,7 @@ export default function RegisterPage() {
               From Kampala to Gulu: Find Your Next Home
             </h2>
             <p className="text-primary-foreground/80 text-lg leading-relaxed">
-              Join thousands of Ugandans already using Afodabohousing for verified rentals across every district.
+              Join thousands of Ugandans already using Afodabo Housing for verified rentals across every district.
             </p>
           </div>
         </div>

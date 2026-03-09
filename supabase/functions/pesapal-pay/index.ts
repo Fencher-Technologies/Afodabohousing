@@ -61,7 +61,7 @@ serve(async (req) => {
           id: orderId,
           currency,
           amount: Number(amount),
-          description: description || 'Rent Payment - Afodabohousing',
+          description: description || 'Rent Payment - Afodabo Housing',
           callback_url: callbackUrl || 'https://afodabohousing.com/payment/callback',
           notification_id: ipnId,
           billing_address: {
