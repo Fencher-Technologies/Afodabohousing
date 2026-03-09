@@ -64,6 +64,8 @@ export default function ManagerDashboard() {
   const [messages, setMessages] = useState<(Message & { sender_name?: string; receiver_name?: string; property_title?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [propDialogOpen, setPropDialogOpen] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [deleteConfirmProperty, setDeleteConfirmProperty] = useState<Property | null>(null);
   const [tenancyDialogOpen, setTenancyDialogOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('overview');
   const [sendingAction, setSendingAction] = useState('');
@@ -72,7 +74,6 @@ export default function ManagerDashboard() {
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
   const [selectedPropertyForUnit, setSelectedPropertyForUnit] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // New: compose message to tenant
   const [composeDialog, setComposeDialog] = useState<{ open: boolean; tenantId: string; tenantName: string; propertyId?: string }>({ open: false, tenantId: '', tenantName: '' });
   const [composeText, setComposeText] = useState('');
   const [composePropId, setComposePropId] = useState('');
