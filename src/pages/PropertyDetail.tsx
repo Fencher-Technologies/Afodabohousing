@@ -454,28 +454,15 @@ export default function PropertyDetailPage() {
               </div>
             )}
 
-            {/* OpenStreetMap Location */}
+            {/* Location */}
             <div>
               <h2 className="font-display font-bold text-xl mb-4">Location</h2>
               <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-                <div className="relative h-72 bg-secondary">
-                  <iframe
-                    title={`Map of ${property.district}, Uganda`}
-                    className="w-full h-full border-0"
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=29.5%2C-1.5%2C35.5%2C4.5&layer=mapnik`}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    sandbox="allow-scripts allow-same-origin"
-                  />
-                  {/* Overlay with location info */}
-                  <div className="absolute inset-0 pointer-events-none flex items-end">
-                    <div className="w-full bg-gradient-to-t from-card/90 to-transparent p-4">
-                      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                        <MapPin className="h-4 w-4 text-accent" />
-                        {fullLocation || `${property.district}, Uganda`}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">Click links below to search exact location on OpenStreetMap</p>
-                    </div>
+                <div className="h-40 bg-secondary flex flex-col items-center justify-center gap-3">
+                  <MapPin className="h-10 w-10 text-accent opacity-40" />
+                  <div className="text-center">
+                    <p className="font-semibold text-foreground text-sm">{fullLocation || `${property.district}, Uganda`}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Open a map app below to find exact location</p>
                   </div>
                 </div>
                 <div className="p-4 flex flex-wrap gap-4 border-t border-border bg-secondary/30">
