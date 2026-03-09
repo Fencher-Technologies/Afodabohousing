@@ -11,12 +11,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload, MessageSquare,
   TrendingUp, Send, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
-  CreditCard, Pencil, LogOut, Menu, X, ArrowUpRight, BarChart2
+  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
