@@ -64,6 +64,9 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState('');
   const [sendingAction, setSendingAction] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [deleteConfirmProp, setDeleteConfirmProp] = useState<PropRow | null>(null);
+  const [editDialogProp, setEditDialogProp] = useState<PropRow | null>(null);
+  const [editForm, setEditForm] = useState({ title: '', district: '', rent_amount: 0, status: 'available' });
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
