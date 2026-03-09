@@ -175,19 +175,58 @@ export default function ManagerDashboard() {
         imageUrls.push(urlData.publicUrl);
       }
     }
-    const { error } = await supabase.from('properties').insert({
-      ...form, manager_id: user.id, images: imageUrls,
-      rent_amount: Number(form.rent_amount),
-      property_type: form.property_type as Database['public']['Enums']['property_type'],
-      rent_period: form.rent_period as Database['public']['Enums']['rent_period'],
-    });
-    setUploading(false);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Property published!', description: 'Your listing is now live.' });
+    if (editingProperty) {
+      // Edit mode
+      const { error } = await supabase.from('properties').update({
+        ...form,
+        rent_amount: Number(form.rent_amount),
+        property_type: form.property_type as Database['public']['Enums']['property_type'],
+        rent_period: form.rent_period as Database['public']['Enums']['rent_period'],
+        ...(imageUrls.length > 0 ? { images: imageUrls } : {}),
+      }).eq('id', editingProperty.id);
+      setUploading(false);
+      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+      toast({ title: 'Property updated!', description: 'Your listing has been updated.' });
+    } else {
+      // Add mode
+      const { error } = await supabase.from('properties').insert({
+        ...form, manager_id: user.id, images: imageUrls,
+        rent_amount: Number(form.rent_amount),
+        property_type: form.property_type as Database['public']['Enums']['property_type'],
+        rent_period: form.rent_period as Database['public']['Enums']['rent_period'],
+      });
+      setUploading(false);
+      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+      toast({ title: 'Property published!', description: 'Your listing is now live.' });
+    }
     setPropDialogOpen(false);
+    setEditingProperty(null);
     setForm({ title: '', description: '', property_type: 'house', district: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] });
     setImageFiles([]);
     fetchData();
+  };
+
+  const handleEditProperty = (p: Property) => {
+    setEditingProperty(p);
+    setForm({
+      title: p.title, description: p.description || '', property_type: p.property_type,
+      district: p.district, city: p.city || '', area: p.area || '', address: p.address || '',
+      bedrooms: p.bedrooms, sitting_rooms: p.sitting_rooms, kitchens: p.kitchens, bathrooms: p.bathrooms,
+      rent_amount: p.rent_amount, rent_period: p.rent_period, manager_phone: p.manager_phone || '',
+      manager_email: p.manager_email || '', amenities: p.amenities || [],
+    });
+    setImageFiles([]);
+    setPropDialogOpen(true);
+  };
+
+  const handleDeleteProperty = async () => {
+    if (!deleteConfirmProperty) return;
+    setSendingAction(`delete-${deleteConfirmProperty.id}`);
+    const { error } = await supabase.from('properties').delete().eq('id', deleteConfirmProperty.id);
+    setSendingAction('');
+    if (error) { toast({ title: 'Error deleting property', description: error.message, variant: 'destructive' }); }
+    else { toast({ title: 'Property deleted', description: 'The listing has been removed.' }); fetchData(); }
+    setDeleteConfirmProperty(null);
   };
 
   const handleAddUnit = async (e: React.FormEvent) => {
