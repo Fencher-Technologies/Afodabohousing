@@ -5,12 +5,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   Users, Home, DollarSign, Building2, Search, Shield, TrendingUp,
   CheckCircle, Clock, XCircle, RefreshCcw, Eye, Bell,
   AlertTriangle, BarChart3, ArrowUpRight, LayoutDashboard,
-  LogOut, Menu, X, ChevronRight, Activity
+  LogOut, Menu, X, ChevronRight, Activity, Pencil, Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +64,9 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState('');
   const [sendingAction, setSendingAction] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [deleteConfirmProp, setDeleteConfirmProp] = useState<PropRow | null>(null);
+  const [editDialogProp, setEditDialogProp] = useState<PropRow | null>(null);
+  const [editForm, setEditForm] = useState({ title: '', district: '', rent_amount: 0, status: 'available' as 'available' | 'occupied' | 'inactive' });
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -100,6 +108,31 @@ export default function AdminDashboard() {
     setSendingAction(`activate-${id}`);
     await supabase.from('properties').update({ status: 'available' }).eq('id', id);
     toast({ title: 'Property reactivated!' }); setSendingAction(''); fetchAll();
+  };
+
+  const handleDeleteProperty = async () => {
+    if (!deleteConfirmProp) return;
+    setSendingAction(`delete-${deleteConfirmProp.id}`);
+    const { error } = await supabase.from('properties').delete().eq('id', deleteConfirmProp.id);
+    setSendingAction('');
+    if (error) { toast({ title: 'Error deleting property', description: error.message, variant: 'destructive' }); }
+    else { toast({ title: 'Property deleted' }); fetchAll(); }
+    setDeleteConfirmProp(null);
+  };
+
+  const handleEditPropertySave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editDialogProp) return;
+    setSendingAction(`edit-${editDialogProp.id}`);
+    const { error } = await supabase.from('properties').update({
+      title: editForm.title,
+      district: editForm.district,
+      rent_amount: Number(editForm.rent_amount),
+      status: editForm.status,
+    }).eq('id', editDialogProp.id);
+    setSendingAction('');
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
+    else { toast({ title: 'Property updated!' }); setEditDialogProp(null); fetchAll(); }
   };
 
   const handleConfirmPayment = async (id: string) => {
@@ -473,12 +506,18 @@ export default function AdminDashboard() {
                             <td className="py-3.5 px-4 font-bold text-foreground">UGX {p.rent_amount?.toLocaleString()}</td>
                             <td className="py-3.5 px-4"><span className={`px-2 py-0.5 rounded-full text-xs font-bold capitalize ${statusBadge(p.status)}`}>{p.status}</span></td>
                             <td className="py-3.5 px-4">
-                              <div className="flex gap-1.5">
+                              <div className="flex gap-1.5 flex-wrap">
                                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate(`/properties/${p.id}`)}>
                                   <Eye className="h-3 w-3" />View
                                 </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => {
+                                  setEditDialogProp(p);
+                                  setEditForm({ title: p.title, district: p.district, rent_amount: p.rent_amount, status: p.status as 'available' | 'occupied' | 'inactive' });
+                                }}>
+                                  <Pencil className="h-3 w-3" />Edit
+                                </Button>
                                 {p.status !== 'inactive' ? (
-                                  <Button size="sm" variant="destructive" className="h-7 text-xs" disabled={sendingAction === p.id} onClick={() => handleDeactivateProperty(p.id)}>
+                                  <Button size="sm" variant="secondary" className="h-7 text-xs" disabled={sendingAction === p.id} onClick={() => handleDeactivateProperty(p.id)}>
                                     {sendingAction === p.id ? '...' : 'Deactivate'}
                                   </Button>
                                 ) : (
@@ -486,6 +525,9 @@ export default function AdminDashboard() {
                                     {sendingAction === `activate-${p.id}` ? '...' : 'Activate'}
                                   </Button>
                                 )}
+                                <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={() => setDeleteConfirmProp(p)}>
+                                  <Trash2 className="h-3 w-3" />Delete
+                                </Button>
                               </div>
                             </td>
                           </tr>
@@ -614,6 +656,66 @@ export default function AdminDashboard() {
           </div>
         </main>
       </div>
+
+      {/* Edit Property Dialog */}
+      <Dialog open={!!editDialogProp} onOpenChange={o => { if (!o) setEditDialogProp(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Edit Property</DialogTitle>
+            <DialogDescription>Update listing details for this property.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditPropertySave} className="space-y-4 mt-4">
+            <div>
+              <Label>Title</Label>
+              <Input value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} required className="mt-1" />
+            </div>
+            <div>
+              <Label>District</Label>
+              <Input value={editForm.district} onChange={e => setEditForm(f => ({ ...f, district: e.target.value }))} required className="mt-1" />
+            </div>
+            <div>
+              <Label>Rent Amount (UGX)</Label>
+              <Input type="number" min={0} value={editForm.rent_amount || ''} onChange={e => setEditForm(f => ({ ...f, rent_amount: Number(e.target.value) }))} required className="mt-1" />
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v as 'available' | 'occupied' | 'inactive' }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="occupied">Occupied</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" disabled={sendingAction.startsWith('edit-')} className="w-full gradient-primary text-primary-foreground">
+              {sendingAction.startsWith('edit-') ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Property Confirmation */}
+      <AlertDialog open={!!deleteConfirmProp} onOpenChange={o => { if (!o) setDeleteConfirmProp(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Property</AlertDialogTitle>
+            <AlertDialogDescription>
+              Permanently delete <strong>{deleteConfirmProp?.title}</strong>? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteProperty}
+              disabled={sendingAction.startsWith('delete-')}
+            >
+              {sendingAction.startsWith('delete-') ? 'Deleting...' : 'Delete Property'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -11,12 +11,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload, MessageSquare,
   TrendingUp, Send, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
-  CreditCard, Pencil, LogOut, Menu, X, ArrowUpRight, BarChart2
+  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
@@ -63,6 +64,8 @@ export default function ManagerDashboard() {
   const [messages, setMessages] = useState<(Message & { sender_name?: string; receiver_name?: string; property_title?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [propDialogOpen, setPropDialogOpen] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [deleteConfirmProperty, setDeleteConfirmProperty] = useState<Property | null>(null);
   const [tenancyDialogOpen, setTenancyDialogOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('overview');
   const [sendingAction, setSendingAction] = useState('');
@@ -71,7 +74,6 @@ export default function ManagerDashboard() {
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
   const [selectedPropertyForUnit, setSelectedPropertyForUnit] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // New: compose message to tenant
   const [composeDialog, setComposeDialog] = useState<{ open: boolean; tenantId: string; tenantName: string; propertyId?: string }>({ open: false, tenantId: '', tenantName: '' });
   const [composeText, setComposeText] = useState('');
   const [composePropId, setComposePropId] = useState('');
@@ -173,19 +175,58 @@ export default function ManagerDashboard() {
         imageUrls.push(urlData.publicUrl);
       }
     }
-    const { error } = await supabase.from('properties').insert({
-      ...form, manager_id: user.id, images: imageUrls,
-      rent_amount: Number(form.rent_amount),
-      property_type: form.property_type as Database['public']['Enums']['property_type'],
-      rent_period: form.rent_period as Database['public']['Enums']['rent_period'],
-    });
-    setUploading(false);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Property published!', description: 'Your listing is now live.' });
+    if (editingProperty) {
+      // Edit mode
+      const { error } = await supabase.from('properties').update({
+        ...form,
+        rent_amount: Number(form.rent_amount),
+        property_type: form.property_type as Database['public']['Enums']['property_type'],
+        rent_period: form.rent_period as Database['public']['Enums']['rent_period'],
+        ...(imageUrls.length > 0 ? { images: imageUrls } : {}),
+      }).eq('id', editingProperty.id);
+      setUploading(false);
+      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+      toast({ title: 'Property updated!', description: 'Your listing has been updated.' });
+    } else {
+      // Add mode
+      const { error } = await supabase.from('properties').insert({
+        ...form, manager_id: user.id, images: imageUrls,
+        rent_amount: Number(form.rent_amount),
+        property_type: form.property_type as Database['public']['Enums']['property_type'],
+        rent_period: form.rent_period as Database['public']['Enums']['rent_period'],
+      });
+      setUploading(false);
+      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+      toast({ title: 'Property published!', description: 'Your listing is now live.' });
+    }
     setPropDialogOpen(false);
+    setEditingProperty(null);
     setForm({ title: '', description: '', property_type: 'house', district: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] });
     setImageFiles([]);
     fetchData();
+  };
+
+  const handleEditProperty = (p: Property) => {
+    setEditingProperty(p);
+    setForm({
+      title: p.title, description: p.description || '', property_type: p.property_type,
+      district: p.district, city: p.city || '', area: p.area || '', address: p.address || '',
+      bedrooms: p.bedrooms, sitting_rooms: p.sitting_rooms, kitchens: p.kitchens, bathrooms: p.bathrooms,
+      rent_amount: p.rent_amount, rent_period: p.rent_period, manager_phone: p.manager_phone || '',
+      manager_email: p.manager_email || '', amenities: p.amenities || [],
+    });
+    setImageFiles([]);
+    setPropDialogOpen(true);
+  };
+
+  const handleDeleteProperty = async () => {
+    if (!deleteConfirmProperty) return;
+    setSendingAction(`delete-${deleteConfirmProperty.id}`);
+    const { error } = await supabase.from('properties').delete().eq('id', deleteConfirmProperty.id);
+    setSendingAction('');
+    if (error) { toast({ title: 'Error deleting property', description: error.message, variant: 'destructive' }); }
+    else { toast({ title: 'Property deleted', description: 'The listing has been removed.' }); fetchData(); }
+    setDeleteConfirmProperty(null);
   };
 
   const handleAddUnit = async (e: React.FormEvent) => {
@@ -710,26 +751,32 @@ export default function ManagerDashboard() {
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${statusBadge(p.status)}`}>{p.status}</span>
                               </td>
                               <td className="py-3.5 px-4">
-                                <div className="flex gap-1.5">
-                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate(`/properties/${p.id}`)}>
-                                    <Eye className="h-3 w-3" />View
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant={p.status !== 'inactive' ? 'destructive' : 'default'}
-                                    className={`h-7 text-xs ${p.status === 'inactive' ? 'gradient-primary text-primary-foreground' : ''}`}
-                                    disabled={!!sendingAction}
-                                    onClick={async () => {
-                                      setSendingAction(p.id);
-                                      await supabase.from('properties').update({ status: p.status !== 'inactive' ? 'inactive' : 'available' }).eq('id', p.id);
-                                      toast({ title: p.status !== 'inactive' ? 'Property deactivated' : 'Property activated' });
-                                      setSendingAction(''); fetchData();
-                                    }}
-                                  >
-                                    {sendingAction === p.id ? '...' : p.status !== 'inactive' ? 'Deactivate' : 'Activate'}
-                                  </Button>
-                                </div>
-                              </td>
+                                 <div className="flex gap-1.5 flex-wrap">
+                                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate(`/properties/${p.id}`)}>
+                                     <Eye className="h-3 w-3" />View
+                                   </Button>
+                                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleEditProperty(p)}>
+                                     <Pencil className="h-3 w-3" />Edit
+                                   </Button>
+                                   <Button
+                                     size="sm"
+                                     variant={p.status !== 'inactive' ? 'secondary' : 'default'}
+                                     className={`h-7 text-xs ${p.status === 'inactive' ? 'gradient-primary text-primary-foreground' : ''}`}
+                                     disabled={!!sendingAction}
+                                     onClick={async () => {
+                                       setSendingAction(p.id);
+                                       await supabase.from('properties').update({ status: p.status !== 'inactive' ? 'inactive' : 'available' }).eq('id', p.id);
+                                       toast({ title: p.status !== 'inactive' ? 'Property deactivated' : 'Property activated' });
+                                       setSendingAction(''); fetchData();
+                                     }}
+                                   >
+                                     {sendingAction === p.id ? '...' : p.status !== 'inactive' ? 'Deactivate' : 'Activate'}
+                                   </Button>
+                                   <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={() => setDeleteConfirmProperty(p)}>
+                                     <Trash2 className="h-3 w-3" />Delete
+                                   </Button>
+                                 </div>
+                               </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1079,12 +1126,12 @@ export default function ManagerDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Property Dialog */}
-      <Dialog open={propDialogOpen} onOpenChange={setPropDialogOpen}>
+      {/* Add / Edit Property Dialog */}
+      <Dialog open={propDialogOpen} onOpenChange={o => { setPropDialogOpen(o); if (!o) setEditingProperty(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl">List New Property</DialogTitle>
-            <DialogDescription>Fill in the details to publish your listing on Afodabohousing.</DialogDescription>
+            <DialogTitle className="font-display text-xl">{editingProperty ? 'Edit Property' : 'List New Property'}</DialogTitle>
+            <DialogDescription>{editingProperty ? 'Update your listing details below.' : 'Fill in the details to publish your listing on Afodabohousing.'}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddProperty} className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1171,7 +1218,7 @@ export default function ManagerDashboard() {
               <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => setImageFiles(Array.from(e.target.files || []))} />
             </div>
             <Button type="submit" disabled={uploading} className="w-full gradient-primary text-primary-foreground">
-              {uploading ? 'Uploading & Publishing...' : 'Publish Listing'}
+              {uploading ? 'Saving...' : editingProperty ? 'Save Changes' : 'Publish Listing'}
             </Button>
           </form>
         </DialogContent>
@@ -1210,6 +1257,29 @@ export default function ManagerDashboard() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Property Confirmation */}
+      <AlertDialog open={!!deleteConfirmProperty} onOpenChange={o => { if (!o) setDeleteConfirmProperty(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Property</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete <strong>{deleteConfirmProperty?.title}</strong>?
+              This will remove it from all listings. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteProperty}
+              disabled={sendingAction.startsWith('delete-')}
+            >
+              {sendingAction.startsWith('delete-') ? 'Deleting...' : 'Delete Property'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
