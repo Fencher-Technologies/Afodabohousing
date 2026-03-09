@@ -751,26 +751,32 @@ export default function ManagerDashboard() {
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${statusBadge(p.status)}`}>{p.status}</span>
                               </td>
                               <td className="py-3.5 px-4">
-                                <div className="flex gap-1.5">
-                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate(`/properties/${p.id}`)}>
-                                    <Eye className="h-3 w-3" />View
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant={p.status !== 'inactive' ? 'destructive' : 'default'}
-                                    className={`h-7 text-xs ${p.status === 'inactive' ? 'gradient-primary text-primary-foreground' : ''}`}
-                                    disabled={!!sendingAction}
-                                    onClick={async () => {
-                                      setSendingAction(p.id);
-                                      await supabase.from('properties').update({ status: p.status !== 'inactive' ? 'inactive' : 'available' }).eq('id', p.id);
-                                      toast({ title: p.status !== 'inactive' ? 'Property deactivated' : 'Property activated' });
-                                      setSendingAction(''); fetchData();
-                                    }}
-                                  >
-                                    {sendingAction === p.id ? '...' : p.status !== 'inactive' ? 'Deactivate' : 'Activate'}
-                                  </Button>
-                                </div>
-                              </td>
+                                 <div className="flex gap-1.5 flex-wrap">
+                                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate(`/properties/${p.id}`)}>
+                                     <Eye className="h-3 w-3" />View
+                                   </Button>
+                                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleEditProperty(p)}>
+                                     <Pencil className="h-3 w-3" />Edit
+                                   </Button>
+                                   <Button
+                                     size="sm"
+                                     variant={p.status !== 'inactive' ? 'secondary' : 'default'}
+                                     className={`h-7 text-xs ${p.status === 'inactive' ? 'gradient-primary text-primary-foreground' : ''}`}
+                                     disabled={!!sendingAction}
+                                     onClick={async () => {
+                                       setSendingAction(p.id);
+                                       await supabase.from('properties').update({ status: p.status !== 'inactive' ? 'inactive' : 'available' }).eq('id', p.id);
+                                       toast({ title: p.status !== 'inactive' ? 'Property deactivated' : 'Property activated' });
+                                       setSendingAction(''); fetchData();
+                                     }}
+                                   >
+                                     {sendingAction === p.id ? '...' : p.status !== 'inactive' ? 'Deactivate' : 'Activate'}
+                                   </Button>
+                                   <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={() => setDeleteConfirmProperty(p)}>
+                                     <Trash2 className="h-3 w-3" />Delete
+                                   </Button>
+                                 </div>
+                               </td>
                             </tr>
                           ))}
                         </tbody>
