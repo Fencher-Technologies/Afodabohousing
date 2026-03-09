@@ -1226,7 +1226,7 @@ export default function ManagerDashboard() {
 
       {/* Add Unit Dialog */}
       <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-xl">Add Rental Unit</DialogTitle>
             <DialogDescription>Add an individual rentable unit to a multi-unit property.</DialogDescription>
