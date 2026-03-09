@@ -1126,12 +1126,12 @@ export default function ManagerDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Property Dialog */}
-      <Dialog open={propDialogOpen} onOpenChange={setPropDialogOpen}>
+      {/* Add / Edit Property Dialog */}
+      <Dialog open={propDialogOpen} onOpenChange={o => { setPropDialogOpen(o); if (!o) setEditingProperty(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl">List New Property</DialogTitle>
-            <DialogDescription>Fill in the details to publish your listing on Afodabohousing.</DialogDescription>
+            <DialogTitle className="font-display text-xl">{editingProperty ? 'Edit Property' : 'List New Property'}</DialogTitle>
+            <DialogDescription>{editingProperty ? 'Update your listing details below.' : 'Fill in the details to publish your listing on Afodabohousing.'}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddProperty} className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
