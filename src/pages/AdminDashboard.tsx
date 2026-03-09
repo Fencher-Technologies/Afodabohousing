@@ -506,12 +506,18 @@ export default function AdminDashboard() {
                             <td className="py-3.5 px-4 font-bold text-foreground">UGX {p.rent_amount?.toLocaleString()}</td>
                             <td className="py-3.5 px-4"><span className={`px-2 py-0.5 rounded-full text-xs font-bold capitalize ${statusBadge(p.status)}`}>{p.status}</span></td>
                             <td className="py-3.5 px-4">
-                              <div className="flex gap-1.5">
+                              <div className="flex gap-1.5 flex-wrap">
                                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate(`/properties/${p.id}`)}>
                                   <Eye className="h-3 w-3" />View
                                 </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => {
+                                  setEditDialogProp(p);
+                                  setEditForm({ title: p.title, district: p.district, rent_amount: p.rent_amount, status: p.status as 'available' | 'occupied' | 'inactive' });
+                                }}>
+                                  <Pencil className="h-3 w-3" />Edit
+                                </Button>
                                 {p.status !== 'inactive' ? (
-                                  <Button size="sm" variant="destructive" className="h-7 text-xs" disabled={sendingAction === p.id} onClick={() => handleDeactivateProperty(p.id)}>
+                                  <Button size="sm" variant="secondary" className="h-7 text-xs" disabled={sendingAction === p.id} onClick={() => handleDeactivateProperty(p.id)}>
                                     {sendingAction === p.id ? '...' : 'Deactivate'}
                                   </Button>
                                 ) : (
@@ -519,6 +525,9 @@ export default function AdminDashboard() {
                                     {sendingAction === `activate-${p.id}` ? '...' : 'Activate'}
                                   </Button>
                                 )}
+                                <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={() => setDeleteConfirmProp(p)}>
+                                  <Trash2 className="h-3 w-3" />Delete
+                                </Button>
                               </div>
                             </td>
                           </tr>
