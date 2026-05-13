@@ -90,12 +90,12 @@ export default function HomePage() {
   };
 
   const fetchStats = async () => {
-    const [pRes, tRes, uRes] = await Promise.all([
+    const [pRes, lRes, uRes] = await Promise.all([
       supabase.from('properties').select('id', { count: 'exact', head: true }),
-      supabase.from('tenancies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-      supabase.from('user_roles').select('id', { count: 'exact', head: true }),
+      supabase.from('leases').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }),
     ]);
-    setStats({ properties: pRes.count || 0, tenancies: tRes.count || 0, users: uRes.count || 0 });
+    setStats({ properties: pRes.count || 0, tenancies: lRes.count || 0, users: uRes.count || 0 });
   };
 
   const handleSearch = () => setSearchDistrict(searchInput);

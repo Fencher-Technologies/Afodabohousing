@@ -87,32 +87,17 @@ export default function PropertyDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    Promise.all([
-      supabase.from('properties').select('*').eq('id', id).single(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from('rental_units').select('*').eq('property_id', id).order('unit_number'),
-    ]).then(([propRes, unitsRes]) => {
-      setProperty(propRes.data);
-      setUnits(unitsRes.data || []);
-      setLoading(false);
-    });
+    supabase.from('properties').select('*').eq('id', id).single()
+      .then(({ data }) => {
+        setProperty(data);
+        setLoading(false);
+      });
   }, [id]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!property || !user || !messageText.trim()) return;
-    setSending(true);
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: property.manager_id,
-      content: messageText,
-      property_id: property.id,
-    });
-    setSending(false);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Message sent!', description: 'The house manager will get back to you shortly.' });
+    toast({ title: 'Messaging unavailable', description: 'Chat feature is not available in this version.' });
     setMessageOpen(false);
-    setMessageText('');
   };
 
   const handleShare = () => {

@@ -106,28 +106,14 @@ export default function ManagerDashboard() {
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
-    const [propsRes, leaseRes, payRes, msgRes] = await Promise.all([
+    const [propsRes, leaseRes, payRes] = await Promise.all([
       supabase.from('properties').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
       supabase.from('leases').select('*, tenants!inner(first_name, last_name, email)').eq('owner_id', user.id).order('created_at', { ascending: false }),
       listPayments().catch(() => ({ items: [], total: 0 })),
-      supabase.from('messages').select('*').or(`receiver_id.eq.${user.id},sender_id.eq.${user.id}`).order('created_at', { ascending: false }),
     ]);
 
     const myLeases = leaseRes.data || [];
     const allPayments = payRes.items || [];
-    const allMessages = msgRes.data || [];
-
-    const tenantIds = myLeases.map(l => l.tenant_id);
-    const userIds = [...new Set([
-      ...allMessages.map(m => m.sender_id),
-      ...allMessages.map(m => m.receiver_id),
-    ])];
-
-    const profileMap: Record<string, { name: string; phone: string }> = {};
-    if (userIds.length) {
-      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, phone').in('user_id', userIds);
-      profiles?.forEach(p => { profileMap[p.user_id] = { name: p.full_name || 'Unknown', phone: p.phone || '' }; });
-    }
 
     const propMap: Record<string, string> = {};
     propsRes.data?.forEach(p => { propMap[p.id] = p.title; });
@@ -145,12 +131,7 @@ export default function ManagerDashboard() {
         ((myLeases.find(l => l.tenant_id === p.tenant_id) as any)?.tenants?.last_name || '') : '',
       property_title: propMap[myLeases.find(l => l.tenant_id === p.tenant_id)?.property_id || ''] || '',
     })));
-    setMessages(allMessages.map(m => ({
-      ...m,
-      sender_name: m.sender_id === user.id ? 'You' : profileMap[m.sender_id]?.name || 'Tenant',
-      receiver_name: m.receiver_id === user.id ? 'You' : profileMap[m.receiver_id]?.name || 'Tenant',
-      property_title: m.property_id ? propMap[m.property_id] : undefined,
-    })));
+    setMessages([]);
     setLoading(false);
   };
 
@@ -230,26 +211,8 @@ export default function ManagerDashboard() {
 
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPropertyForUnit) return;
-    setSendingAction('add-unit');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any).from('rental_units').insert({
-      property_id: selectedPropertyForUnit,
-      unit_number: unitForm.unit_number,
-      floor_level: unitForm.floor_level || null,
-      bedrooms: unitForm.bedrooms,
-      bathrooms: unitForm.bathrooms,
-      sitting_rooms: unitForm.sitting_rooms,
-      kitchens: unitForm.kitchens,
-      rent_amount: Number(unitForm.rent_amount),
-      description: unitForm.description || null,
-      status: 'available',
-    });
-    setSendingAction('');
-    if (error) { toast({ title: 'Error adding unit', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Unit added!', description: `Unit ${unitForm.unit_number} is now listed.` });
+    toast({ title: 'Units feature unavailable', description: 'Sub-unit management has been removed from this version.' });
     setUnitDialogOpen(false);
-    setUnitForm({ unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 0, kitchens: 1, rent_amount: 0, description: '' });
   };
 
   const handleCreateTenancy = async (e: React.FormEvent) => {
@@ -332,56 +295,21 @@ export default function ManagerDashboard() {
     setSendingAction('');
   };
 
-  const handleRejectPayment = async (payment: Payment) => {
-    setSendingAction(`reject-${payment.id}`);
-    const { error } = await supabase.from('payments').update({ status: 'rejected' }).eq('id', payment.id);
-    if (error) { toast({ title: 'Error', variant: 'destructive' }); setSendingAction(''); return; }
-    const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-    if (profile?.phone) await sendSMS(profile.phone, `Your rent payment proof (UGX ${payment.amount.toLocaleString()}) was rejected. Please re-upload a clearer proof or contact your manager. - Afodabo Housing`);
-    toast({ title: 'Payment rejected', description: 'Tenant notified via SMS.', variant: 'destructive' });
-    setSendingAction(''); fetchData();
-  };
-
-  const sendRentReminder = async (lease: typeof leases[0]) => {
-    if (!lease.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
-    setSendingAction(`remind-${lease.id}`);
-    const days = differenceInDays(new Date(lease.end_date), new Date());
-    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${lease.monthly_rent.toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Afodabo Housing. Contact: ${user?.email}`);
-    toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${lease.tenant_name}` });
-    setSendingAction('');
-  };
-
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !replyText.trim()) return;
-    setSendingAction('reply');
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id, receiver_id: replyDialog.receiverId,
-      content: replyText, property_id: replyDialog.propertyId || null,
-    });
-    if (error) { toast({ title: 'Error sending message', description: error.message, variant: 'destructive' }); setSendingAction(''); return; }
-    toast({ title: 'Message sent!' });
+    toast({ title: 'Messaging unavailable', description: 'Chat feature is not available in this version.' });
     setReplyDialog({ open: false, receiverId: '', name: '' });
-    setReplyText(''); setSendingAction(''); fetchData();
   };
 
   const handleCompose = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !composeText.trim() || !composeDialog.tenantId) return;
-    setSendingAction('compose');
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id, receiver_id: composeDialog.tenantId,
-      content: composeText, property_id: composePropId || null,
-    });
-    if (error) { toast({ title: 'Error sending message', description: error.message, variant: 'destructive' }); setSendingAction(''); return; }
-    toast({ title: 'Message sent to tenant!' });
+    toast({ title: 'Messaging unavailable', description: 'Chat feature is not available in this version.' });
     setComposeDialog({ open: false, tenantId: '', tenantName: '' });
-    setComposeText(''); setComposePropId(''); setSendingAction(''); fetchData();
+    setComposeText(''); setComposePropId('');
   };
 
   const markMessageRead = async (msgId: string) => {
-    await supabase.from('messages').update({ is_read: true }).eq('id', msgId);
-    fetchData();
+    // Messages table removed — no-op
   };
 
   const toggleAmenity = (a: string) =>
@@ -860,10 +788,13 @@ export default function ManagerDashboard() {
                           </td></tr>
                         ) : leases.map(t => {
                           const days = differenceInDays(new Date(t.end_date), new Date());
-
-                          <span className="font-bold text-foreground">UGX {t.monthly_rent.toLocaleString()}</span>
-
-                          <div className="text-sm text-foreground">{format(new Date(t.end_date), 'MMM dd, yyyy')}</div>
+                          return (
+                            <tr key={t.id} className="hover:bg-muted/20 transition-colors border-b border-border/30">
+                              <td className="py-3.5 px-4">
+                                <span className="font-bold text-foreground">UGX {t.monthly_rent.toLocaleString()}</span>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <div className="text-sm text-foreground">{format(new Date(t.end_date), 'MMM dd, yyyy')}</div>
                                 <div className={`text-xs font-semibold ${days < 0 ? 'text-destructive' : days <= 7 ? 'text-destructive' : days <= 14 ? 'text-accent' : 'text-muted-foreground'}`}>
                                   {days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`}
                                 </div>
@@ -1130,14 +1061,6 @@ export default function ManagerDashboard() {
               <div><Label>Start Date</Label><Input type="date" value={tenancyForm.start_date} onChange={e => setTenancyForm(f => ({ ...f, start_date: e.target.value }))} required className="mt-1" /></div>
               <div><Label>End Date</Label><Input type="date" value={tenancyForm.end_date} onChange={e => setTenancyForm(f => ({ ...f, end_date: e.target.value }))} required className="mt-1" /></div>
               <div><Label>Monthly Rent (UGX)</Label><Input type="number" value={tenancyForm.monthly_rent || ''} onChange={e => setTenancyForm(f => ({ ...f, monthly_rent: Number(e.target.value) }))} className="mt-1" /></div>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="quarterly">Quarterly</SelectItem>
-                    <SelectItem value="annually">Annually</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             <Button type="submit" disabled={sendingAction === 'creating'} className="w-full gradient-primary text-primary-foreground">
               {sendingAction === 'creating' ? 'Creating...' : 'Create Tenancy & Notify Tenant'}

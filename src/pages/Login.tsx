@@ -36,10 +36,9 @@ export default function LoginPage() {
       return;
     }
 
-    // Role is fetched by AuthContext via onAuthStateChange — navigate immediately
-    // Fetch role once here just for redirect decision (fast single query)
+    // Fetch role from profiles for redirect decision
     const { data: roleData } = await supabase
-      .from('user_roles')
+      .from('profiles')
       .select('role')
       .eq('user_id', data.user.id)
       .maybeSingle();
@@ -47,7 +46,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (roleData?.role === 'admin') navigate('/dashboard/admin');
-    else if (roleData?.role === 'house_manager') navigate('/dashboard/manager');
+    else if (roleData?.role === 'owner' || roleData?.role === 'house_manager') navigate('/dashboard/manager');
     else navigate('/dashboard/tenant');
   };
 
@@ -68,7 +67,7 @@ export default function LoginPage() {
     }
 
     const { data: roleData } = await supabase
-      .from('user_roles')
+      .from('profiles')
       .select('role')
       .eq('user_id', data.user.id)
       .maybeSingle();
@@ -76,7 +75,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (roleData?.role === 'admin') navigate('/dashboard/admin');
-    else if (roleData?.role === 'house_manager') navigate('/dashboard/manager');
+    else if (roleData?.role === 'owner' || roleData?.role === 'house_manager') navigate('/dashboard/manager');
     else navigate('/dashboard/tenant');
   };
 

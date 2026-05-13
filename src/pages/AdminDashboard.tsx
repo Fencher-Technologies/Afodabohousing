@@ -543,17 +543,12 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* TENANCIES */}
+            {/* LEASES */}
             {tab === 'leases' && (
               <div className="space-y-5">
                 <div>
-                  <h2 className="font-display font-bold text-xl">All Tenancies</h2>
+                  <h2 className="font-display font-bold text-xl">All Leases</h2>
                   <p className="text-sm text-muted-foreground">{leases.length} total · {leases.filter(l => l.status === 'active').length} active · {leases.filter(l => l.status === 'expired').length} expired</p>
-                        <div className="flex gap-2">
-                          <span className="text-xs text-muted-foreground font-medium">Status</span>
-                        </div>
-                      </div>
-                    </div>
                     <div className="overflow-x-auto border border-border/30 rounded-sm">
                       <table className="w-full text-sm">
                         <thead>

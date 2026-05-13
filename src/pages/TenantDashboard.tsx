@@ -53,10 +53,9 @@ export default function TenantDashboard() {
     if (!user) return;
     setLoading(true);
 
-    const [tenantResult, payResult, msgResult] = await Promise.all([
+    const [tenantResult, payResult] = await Promise.all([
       supabase.from('tenants').select('*, leases!inner(*, properties(*))').eq('user_id', user.id).maybeSingle(),
       listPayments().catch(() => ({ items: [], total: 0 })),
-      supabase.from('messages').select('*').or(`receiver_id.eq.${user.id},sender_id.eq.${user.id}`).order('created_at', { ascending: false }),
     ]);
 
     const tenant = tenantResult.data;
@@ -66,19 +65,7 @@ export default function TenantDashboard() {
     setActiveLease(lease);
 
     setPayments(payResult.items || []);
-
-    const msgData = msgResult.data || [];
-    const msgUserIds = [...new Set(msgData.flatMap(m => [m.sender_id, m.receiver_id]))].filter(id => id !== user.id);
-    const profileMap: Record<string, string> = {};
-    if (msgUserIds.length) {
-      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', msgUserIds);
-      profiles?.forEach(p => { profileMap[p.user_id] = p.full_name || 'User'; });
-    }
-    setMessages(msgData.map(m => ({
-      ...m,
-      sender_name: m.sender_id === user.id ? 'You' : profileMap[m.sender_id] || 'Manager',
-      receiver_name: m.receiver_id === user.id ? 'You' : profileMap[m.receiver_id] || 'Manager',
-    })));
+    setMessages([]);
     setLoading(false);
   };
 
@@ -129,19 +116,8 @@ export default function TenantDashboard() {
   };
 
   const handleSendMessage = async () => {
-    if (!messageText.trim() || !user || !activeLease) return;
-    setSendingMessage(true);
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: activeLease.owner_id,
-      property_id: activeLease.property_id,
-      content: messageText,
-    });
     setSendingMessage(false);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    setMessageText('');
-    toast({ title: 'Message sent!' });
-    fetchData();
+    toast({ title: 'Messaging unavailable', description: 'Chat feature is not available in this version.' });
   };
 
   if (loading) {

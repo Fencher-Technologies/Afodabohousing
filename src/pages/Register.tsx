@@ -68,17 +68,8 @@ export default function RegisterPage() {
     }
 
     if (data.user) {
-      // Assign role
-      const { error: roleErr } = await supabase
-        .from('user_roles')
-        .insert({ user_id: data.user.id, role });
-
-      if (roleErr) console.error('Role assignment error:', roleErr.message);
-
-      // Save phone
-      if (phone) {
-        await supabase.from('profiles').update({ phone, full_name: fullName }).eq('user_id', data.user.id);
-      }
+      // Assign role on profiles
+      await supabase.from('profiles').update({ role, phone, full_name: fullName }).eq('user_id', data.user.id);
 
       // Send welcome SMS
       if (phone) {
