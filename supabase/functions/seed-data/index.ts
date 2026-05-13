@@ -62,8 +62,7 @@ serve(async (req) => {
       userIds[u.email] = userId;
 
       // Ensure profile & role exist
-      await supabase.from("profiles").upsert({ user_id: userId, full_name: u.name, phone: u.phone }, { onConflict: "user_id" });
-      await supabase.from("user_roles").upsert({ user_id: userId, role: u.role }, { onConflict: "user_id,role" });
+      await supabase.from("profiles").upsert({ user_id: userId, full_name: u.name, phone: u.phone, role: u.role }, { onConflict: "user_id" });
     }
 
     const johnId = userIds["john@afodabo.ug"];
@@ -71,11 +70,20 @@ serve(async (req) => {
     const sarahId = userIds["sarah@afodabo.ug"];
     const davidId = userIds["david@afodabo.ug"];
 
-    // ── 2. Properties ────────────────────────────────────────────────────
+    // ── 2. Create tenant records ──────────────────────────────────────────
+    const tenantData: { owner_id: string; user_id: string; first_name: string; last_name: string; email: string }[] = [];
+    if (sarahId && johnId) tenantData.push({ owner_id: johnId, user_id: sarahId, first_name: "Sarah", last_name: "Nakato", email: "sarah@afodabo.ug" });
+    if (davidId && graceId) tenantData.push({ owner_id: graceId, user_id: davidId, first_name: "David", last_name: "Okello", email: "david@afodabo.ug" });
+
+    const { data: insertedTenants } = await supabase.from("tenants").insert(tenantData).select("id, user_id, owner_id");
+    const sarahTenant = insertedTenants?.find(t => t.user_id === sarahId);
+    const davidTenant = insertedTenants?.find(t => t.user_id === davidId);
+
+    // ── 3. Properties ────────────────────────────────────────────────────
     const propertiesData = [
       // John's properties
       {
-        manager_id: johnId, title: "3-Bedroom Family House in Ntinda", property_type: "house",
+        owner_id: johnId, title: "3-Bedroom Family House in Ntinda", property_type: "house",
         district: "Kampala", city: "Kampala", area: "Ntinda",
         address: "Plot 45, Ntinda Road, Kampala",
         bedrooms: 3, sitting_rooms: 1, kitchens: 1, bathrooms: 2,
@@ -86,7 +94,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        manager_id: johnId, title: "Modern 2-Bed Apartment, Bukoto", property_type: "apartment",
+        owner_id: johnId, title: "Modern 2-Bed Apartment, Bukoto", property_type: "apartment",
         district: "Kampala", city: "Kampala", area: "Bukoto",
         address: "Block B, Palm Gardens, Bukoto",
         bedrooms: 2, sitting_rooms: 1, kitchens: 1, bathrooms: 1,
@@ -97,7 +105,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        manager_id: johnId, title: "Self-Contained Room in Kireka", property_type: "self_contained",
+        owner_id: johnId, title: "Self-Contained Room in Kireka", property_type: "self_contained",
         district: "Wakiso", city: "Kireka", area: "Kireka",
         address: "Zone B, Kireka Town",
         bedrooms: 1, sitting_rooms: 0, kitchens: 1, bathrooms: 1,
@@ -108,7 +116,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        manager_id: johnId, title: "Studio Apartment – Kiwatule", property_type: "studio",
+        owner_id: johnId, title: "Studio Apartment – Kiwatule", property_type: "studio",
         district: "Kampala", city: "Kampala", area: "Kiwatule",
         address: "Kiwatule Shopping Centre Area",
         bedrooms: 1, sitting_rooms: 0, kitchens: 1, bathrooms: 1,
@@ -119,7 +127,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        manager_id: johnId, title: "Executive 4-Bed Bungalow, Naguru", property_type: "bungalow",
+        owner_id: johnId, title: "Executive 4-Bed Bungalow, Naguru", property_type: "bungalow",
         district: "Kampala", city: "Kampala", area: "Naguru",
         address: "Plot 12, Naguru Hill Drive",
         bedrooms: 4, sitting_rooms: 2, kitchens: 2, bathrooms: 3,
@@ -130,7 +138,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        manager_id: johnId, title: "Single Room – Nansana", property_type: "room",
+        owner_id: johnId, title: "Single Room – Nansana", property_type: "room",
         district: "Wakiso", city: "Nansana", area: "Nansana",
         address: "Nansana Trading Centre",
         bedrooms: 1, sitting_rooms: 0, kitchens: 0, bathrooms: 1,
@@ -213,112 +221,97 @@ serve(async (req) => {
     const { data: insertedProps, error: propsErr } = await supabase
       .from("properties")
       .insert(propertiesData)
-      .select("id, title, manager_id, status");
+      .select("id, title, owner_id, status");
 
     if (propsErr) {
       throw new Error("Properties insert failed: " + propsErr.message);
     }
 
-    // ── 3. Tenancies ────────────────────────────────────────────────────
-    // Find the occupied properties
-    const ntindaHouse = insertedProps?.find(p => p.title.includes("Ntinda") && p.manager_id === johnId);
-    const mbararaApt = insertedProps?.find(p => p.title.includes("Mbarara") && p.manager_id === graceId);
+    // ── 4. Leases ──────────────────────────────────────────────────────
+    const ntindaHouse = insertedProps?.find(p => p.title.includes("Ntinda") && p.owner_id === johnId);
+    const mbararaApt = insertedProps?.find(p => p.title.includes("Mbarara") && p.owner_id === graceId);
 
     const today = new Date();
     const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400000).toISOString().split("T")[0];
     const subDays = (d: Date, n: number) => new Date(d.getTime() - n * 86400000).toISOString().split("T")[0];
 
-    const tenanciesData = [];
+    const leasesData = [];
 
-    if (ntindaHouse && sarahId && johnId) {
-      tenanciesData.push({
+    if (ntindaHouse && sarahTenant && johnId) {
+      leasesData.push({
+        owner_id: johnId,
         property_id: ntindaHouse.id,
-        tenant_id: sarahId,
-        manager_id: johnId,
-        rent_start_date: subDays(today, 45),
-        rent_end_date: addDays(today, 45), // 45 days from now (not urgent yet)
-        rent_amount: 1800000,
-        rent_period: "monthly",
+        tenant_id: sarahTenant.id,
+        start_date: subDays(today, 45),
+        end_date: addDays(today, 45),
+        monthly_rent: 1800000,
+        security_deposit: 1800000,
         status: "active",
       });
     }
 
-    if (mbararaApt && davidId && graceId) {
-      tenanciesData.push({
+    if (mbararaApt && davidTenant && graceId) {
+      leasesData.push({
+        owner_id: graceId,
         property_id: mbararaApt.id,
-        tenant_id: davidId,
-        manager_id: graceId,
-        rent_start_date: subDays(today, 75),
-        rent_end_date: addDays(today, 10), // 10 days — rent due soon!
-        rent_amount: 900000,
-        rent_period: "monthly",
+        tenant_id: davidTenant.id,
+        start_date: subDays(today, 75),
+        end_date: addDays(today, 10),
+        monthly_rent: 900000,
+        security_deposit: 900000,
         status: "active",
       });
     }
 
-    const { data: insertedTenancies } = await supabase.from("tenancies").insert(tenanciesData).select("id, tenant_id, manager_id");
+    const { data: insertedLeases } = await supabase.from("leases").insert(leasesData).select("id, owner_id, tenant_id");
 
-    // ── 4. Payments ────────────────────────────────────────────────────
+    // ── 5. Payments ────────────────────────────────────────────────────
     const paymentsData = [];
+    const sarahLease = insertedLeases?.find(l => l.tenant_id === sarahTenant?.id);
+    const davidLease = insertedLeases?.find(l => l.tenant_id === davidTenant?.id);
 
-    const sarahTenancy = insertedTenancies?.find(t => t.tenant_id === sarahId);
-    const davidTenancy = insertedTenancies?.find(t => t.tenant_id === davidId);
-
-    if (sarahTenancy) {
-      // Sarah's previous payment - confirmed 45 days ago
+    if (sarahLease && sarahTenant) {
       paymentsData.push({
-        tenancy_id: sarahTenancy.id,
-        tenant_id: sarahId,
-        manager_id: johnId,
+        lease_id: sarahLease.id,
+        tenant_id: sarahTenant.id,
         amount: 1800000,
-        currency: "UGX",
-        period_start: subDays(today, 75),
-        period_end: subDays(today, 46),
+        payment_type: "rent",
         status: "confirmed",
+        due_date: subDays(today, 46),
+        paid_date: subDays(today, 46),
+        transaction_id: "MTN2025031501234",
         notes: "Payment received via MTN Mobile Money. TXN#: MTN2025031501234",
-        proof_url: "https://placehold.co/600x400?text=MTN+Mobile+Money+Receipt",
-        receipt_url: "https://placehold.co/600x400?text=Official+Receipt",
       });
-      // Sarah's current payment - uploaded but pending confirmation
       paymentsData.push({
-        tenancy_id: sarahTenancy.id,
-        tenant_id: sarahId,
-        manager_id: johnId,
+        lease_id: sarahLease.id,
+        tenant_id: sarahTenant.id,
         amount: 1800000,
-        currency: "UGX",
-        period_start: subDays(today, 45),
-        period_end: addDays(today, 45),
+        payment_type: "rent",
         status: "uploaded",
+        due_date: addDays(today, 45),
         notes: "Paid via Airtel Money. Reference: AIRTEL202503220001",
-        proof_url: "https://placehold.co/600x400?text=Airtel+Money+Screenshot",
       });
     }
 
-    if (davidTenancy) {
-      // David's last payment - confirmed 2 months ago
+    if (davidLease && davidTenant) {
       paymentsData.push({
-        tenancy_id: davidTenancy.id,
-        tenant_id: davidId,
-        manager_id: graceId,
+        lease_id: davidLease.id,
+        tenant_id: davidTenant.id,
         amount: 900000,
-        currency: "UGX",
-        period_start: subDays(today, 75),
-        period_end: subDays(today, 46),
+        payment_type: "rent",
         status: "confirmed",
+        due_date: subDays(today, 46),
+        paid_date: subDays(today, 46),
+        transaction_id: "DFCU-2025-0892",
         notes: "Bank transfer. Ref: DFCU-2025-0892",
-        proof_url: "https://placehold.co/600x400?text=Bank+Slip",
-        receipt_url: "https://placehold.co/600x400?text=Official+Receipt",
       });
-      // David's current period - pending (rent due soon, not paid yet)
       paymentsData.push({
-        tenancy_id: davidTenancy.id,
-        tenant_id: davidId,
-        manager_id: graceId,
+        lease_id: davidLease.id,
+        tenant_id: davidTenant.id,
         amount: 900000,
-        currency: "UGX",
-        period_start: subDays(today, 45),
-        period_end: addDays(today, 10),
+        payment_type: "rent",
         status: "pending",
+        due_date: addDays(today, 10),
         notes: null,
       });
     }
@@ -340,7 +333,8 @@ serve(async (req) => {
         ],
         summary: {
           properties: insertedProps?.length || 0,
-          tenancies: tenanciesData.length,
+          leases: leasesData.length,
+          tenants: insertedTenants?.length || 0,
           payments: paymentsData.length,
         },
       }),

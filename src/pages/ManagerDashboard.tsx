@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { listPayments, updatePayment, createPayment, PaymentData } from '@/services/payments';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload, MessageSquare,
@@ -22,32 +23,31 @@ import {
 import { format, differenceInDays } from 'date-fns';
 
 type Property = Database['public']['Tables']['properties']['Row'];
-type Tenancy = Database['public']['Tables']['tenancies']['Row'];
-type Payment = Database['public']['Tables']['payments']['Row'];
+type LeaseRow = Database['public']['Tables']['leases']['Row'];
 type Message = Database['public']['Tables']['messages']['Row'];
 
 const AMENITIES_LIST = ['Water', 'Electricity', 'WiFi', 'Parking', 'Security', 'Garden', 'Generator', 'DSTV', 'Borehole', 'Tiled Floors'];
 const DISTRICTS_LIST = ['Kampala', 'Wakiso', 'Mukono', 'Mbarara', 'Gulu', 'Jinja', 'Entebbe', 'Mbale', 'Lira', 'Arua', 'Fort Portal', 'Masaka', 'Kabale', 'Hoima', 'Kasese', 'Soroti', 'Tororo'];
 
 const statusBadge = (s: string) => ({
-  pending: 'bg-muted text-muted-foreground border border-border',
-  uploaded: 'bg-primary/10 text-primary border border-primary/20',
-  confirmed: 'bg-accent/10 text-accent border border-accent/20',
-  rejected: 'bg-destructive/10 text-destructive border border-destructive/20',
-  active: 'bg-accent/10 text-accent border border-accent/20',
-  expired: 'bg-muted text-muted-foreground border border-border',
-  occupied: 'bg-primary/10 text-primary border border-primary/20',
-  available: 'bg-accent/10 text-accent border border-accent/20',
-  inactive: 'bg-muted text-muted-foreground border border-border',
-  terminated: 'bg-destructive/10 text-destructive border border-destructive/20',
-}[s] ?? 'bg-muted text-muted-foreground');
+  pending: 'status-pending',
+  uploaded: 'status-uploaded',
+  confirmed: 'status-confirmed',
+  rejected: 'status-rejected',
+  active: 'status-confirmed',
+  expired: 'status-pending',
+  occupied: 'status-uploaded',
+  available: 'status-confirmed',
+  inactive: 'status-pending',
+  terminated: 'status-rejected',
+}[s] ?? 'status-pending');
 
-type Tab = 'overview' | 'properties' | 'tenancies' | 'payments' | 'messages';
+type Tab = 'overview' | 'properties' | 'tenants' | 'payments' | 'messages';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: 'properties', label: 'Properties', icon: <Building2 className="h-4 w-4" /> },
-  { id: 'tenancies', label: 'Tenants', icon: <Users className="h-4 w-4" /> },
+  { id: 'tenants', label: 'Tenants', icon: <Users className="h-4 w-4" /> },
   { id: 'payments', label: 'Payments', icon: <DollarSign className="h-4 w-4" /> },
   { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-4 w-4" /> },
 ];
@@ -59,8 +59,8 @@ export default function ManagerDashboard() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [properties, setProperties] = useState<Property[]>([]);
-  const [tenancies, setTenancies] = useState<(Tenancy & { tenant_name?: string; tenant_phone?: string; property_title?: string })[]>([]);
-  const [payments, setPayments] = useState<(Payment & { tenant_name?: string; property_title?: string })[]>([]);
+  const [leases, setLeases] = useState<(LeaseRow & { tenant_name?: string; tenant_phone?: string; property_title?: string })[]>([]);
+  const [payments, setPayments] = useState<(PaymentData & { tenant_name?: string; property_title?: string })[]>([]);
   const [messages, setMessages] = useState<(Message & { sender_name?: string; receiver_name?: string; property_title?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [propDialogOpen, setPropDialogOpen] = useState(false);
@@ -91,8 +91,8 @@ export default function ManagerDashboard() {
   });
 
   const [tenancyForm, setTenancyForm] = useState({
-    property_id: '', tenant_email: '', rent_start_date: '', rent_end_date: '',
-    rent_amount: 0, rent_period: 'monthly',
+    property_id: '', tenant_email: '', start_date: '', end_date: '',
+    monthly_rent: 0,
   });
 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -106,28 +106,26 @@ export default function ManagerDashboard() {
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
-    const [propsRes, tenRes, payRes, msgRes] = await Promise.all([
-      supabase.from('properties').select('*').eq('manager_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('tenancies').select('*').eq('manager_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('payments').select('*').eq('manager_id', user.id).order('created_at', { ascending: false }),
-      // Fetch ALL messages involving this manager (sent OR received)
+    const [propsRes, leaseRes, payRes, msgRes] = await Promise.all([
+      supabase.from('properties').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('leases').select('*, tenants!inner(first_name, last_name, email)').eq('owner_id', user.id).order('created_at', { ascending: false }),
+      listPayments().catch(() => ({ items: [], total: 0 })),
       supabase.from('messages').select('*').or(`receiver_id.eq.${user.id},sender_id.eq.${user.id}`).order('created_at', { ascending: false }),
     ]);
 
-    const myTenancies = tenRes.data || [];
-    const myPayments = payRes.data || [];
+    const myLeases = leaseRes.data || [];
+    const allPayments = payRes.items || [];
     const allMessages = msgRes.data || [];
 
-    const uniqueIds = [...new Set([
-      ...myTenancies.map(t => t.tenant_id),
-      ...myPayments.map(p => p.tenant_id),
+    const tenantIds = myLeases.map(l => l.tenant_id);
+    const userIds = [...new Set([
       ...allMessages.map(m => m.sender_id),
       ...allMessages.map(m => m.receiver_id),
     ])];
 
     const profileMap: Record<string, { name: string; phone: string }> = {};
-    if (uniqueIds.length) {
-      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, phone').in('user_id', uniqueIds);
+    if (userIds.length) {
+      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, phone').in('user_id', userIds);
       profiles?.forEach(p => { profileMap[p.user_id] = { name: p.full_name || 'Unknown', phone: p.phone || '' }; });
     }
 
@@ -135,16 +133,17 @@ export default function ManagerDashboard() {
     propsRes.data?.forEach(p => { propMap[p.id] = p.title; });
 
     setProperties(propsRes.data || []);
-    setTenancies(myTenancies.map(t => ({
-      ...t,
-      tenant_name: profileMap[t.tenant_id]?.name,
-      tenant_phone: profileMap[t.tenant_id]?.phone,
-      property_title: propMap[t.property_id],
+    setLeases(myLeases.map(l => ({
+      ...l,
+      tenant_name: (l.tenants as any)?.first_name + ' ' + (l.tenants as any)?.last_name,
+      property_title: propMap[l.property_id],
     })));
-    setPayments(myPayments.map(p => ({
+    setPayments(allPayments.map(p => ({
       ...p,
-      tenant_name: profileMap[p.tenant_id]?.name,
-      property_title: propMap[myTenancies.find(t => t.id === p.tenancy_id)?.property_id || ''],
+      tenant_name: myLeases.find(l => l.tenant_id === p.tenant_id && l.owner_id === user.id) ?
+        ((myLeases.find(l => l.tenant_id === p.tenant_id) as any)?.tenants?.first_name || '') + ' ' +
+        ((myLeases.find(l => l.tenant_id === p.tenant_id) as any)?.tenants?.last_name || '') : '',
+      property_title: propMap[myLeases.find(l => l.tenant_id === p.tenant_id)?.property_id || ''] || '',
     })));
     setMessages(allMessages.map(m => ({
       ...m,
@@ -190,7 +189,7 @@ export default function ManagerDashboard() {
     } else {
       // Add mode
       const { error } = await supabase.from('properties').insert({
-        ...form, manager_id: user.id, images: imageUrls,
+        ...form, owner_id: user.id, images: imageUrls,
         rent_amount: Number(form.rent_amount),
         property_type: form.property_type as Database['public']['Enums']['property_type'],
         rent_period: form.rent_period as Database['public']['Enums']['rent_period'],
@@ -257,40 +256,80 @@ export default function ManagerDashboard() {
     e.preventDefault();
     if (!user) return;
     setSendingAction('creating');
-    const { data: tenantId } = await supabase.rpc('get_user_id_by_email', { _email: tenancyForm.tenant_email });
-    if (!tenantId) {
+    const { data: userId } = await supabase.rpc('get_user_id_by_email', { _email: tenancyForm.tenant_email });
+    if (!userId) {
       toast({ title: 'Tenant not found', description: 'No registered account for that email.', variant: 'destructive' });
       setSendingAction(''); return;
     }
     const prop = properties.find(p => p.id === tenancyForm.property_id);
-    const { error } = await supabase.from('tenancies').insert({
-      property_id: tenancyForm.property_id, tenant_id: tenantId, manager_id: user.id,
-      rent_start_date: tenancyForm.rent_start_date, rent_end_date: tenancyForm.rent_end_date,
-      rent_amount: Number(tenancyForm.rent_amount) || prop?.rent_amount || 0,
-      rent_period: tenancyForm.rent_period as Database['public']['Enums']['rent_period'],
-      status: 'active',
+    const monthlyRent = Number(tenancyForm.monthly_rent) || prop?.monthly_rent || prop?.rent_amount || 0;
+    const profile = await supabase.from('profiles').select('full_name, phone').eq('user_id', userId).single();
+    const name = profile.data?.full_name || 'Tenant';
+    const nameParts = name.split(' ');
+    const firstName = nameParts[0] || name;
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    const { data: existingTenant } = await supabase.from('tenants').select('id').eq('user_id', userId).eq('owner_id', user.id).maybeSingle();
+    let tenantId = existingTenant?.id;
+    if (!tenantId) {
+      const { data: newTenant } = await supabase.from('tenants').insert({
+        owner_id: user.id, user_id: userId, first_name: firstName, last_name: lastName,
+        email: tenancyForm.tenant_email, status: 'active',
+      }).select('id').single();
+      tenantId = newTenant?.id;
+    }
+    if (!tenantId) { toast({ title: 'Error', description: 'Could not create tenant record', variant: 'destructive' }); setSendingAction(''); return; }
+
+    const { error } = await supabase.from('leases').insert({
+      owner_id: user.id, property_id: tenancyForm.property_id, tenant_id: tenantId,
+      start_date: tenancyForm.start_date, end_date: tenancyForm.end_date,
+      monthly_rent: monthlyRent, security_deposit: monthlyRent, status: 'active',
     });
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); setSendingAction(''); return; }
     await supabase.from('properties').update({ status: 'occupied' }).eq('id', tenancyForm.property_id);
-    const { data: tenantProfile } = await supabase.from('profiles').select('phone').eq('user_id', tenantId).single();
-    if (tenantProfile?.phone) {
-      await sendSMS(tenantProfile.phone, `Welcome to ${prop?.title || 'your new home'}! Your tenancy with Afodabo Housing has been activated. Rent: UGX ${(Number(tenancyForm.rent_amount) || prop?.rent_amount || 0).toLocaleString()}. Contact: +256788100145`);
+    if (profile.data?.phone) {
+      await sendSMS(profile.data.phone, `Welcome to ${prop?.title || 'your new home'}! Your lease with Afodabo Housing has been activated. Rent: UGX ${monthlyRent.toLocaleString()}.`);
     }
-    toast({ title: 'Tenancy created!', description: 'Tenant has been linked and notified via SMS.' });
+    toast({ title: 'Lease created!', description: 'Tenant linked and notified via SMS.' });
     setTenancyDialogOpen(false);
-    setTenancyForm({ property_id: '', tenant_email: '', rent_start_date: '', rent_end_date: '', rent_amount: 0, rent_period: 'monthly' });
+    setTenancyForm({ property_id: '', tenant_email: '', start_date: '', end_date: '', monthly_rent: 0 });
     setSendingAction('');
     fetchData();
   };
 
-  const handleConfirmPayment = async (payment: Payment) => {
-    setSendingAction(payment.id);
-    const { error } = await supabase.from('payments').update({ status: 'confirmed', receipt_url: `receipt-${payment.id}` }).eq('id', payment.id);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); setSendingAction(''); return; }
-    const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-    if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! UGX ${payment.amount.toLocaleString()} for ${format(new Date(payment.period_start), 'MMM yyyy')} has been confirmed by your house manager. - Afodabo Housing`);
-    toast({ title: 'Payment confirmed', description: 'Tenant notified via SMS.' });
+  const handleConfirmPayment = async (payment: PaymentData) => {
+    setSendingAction(`confirm-${payment.id}`);
+    try {
+      await updatePayment(payment.id!, { status: 'confirmed', paid_date: new Date().toISOString().split('T')[0] });
+      const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
+      if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! UGX ${payment.amount.toLocaleString()} has been confirmed. - Afodabo Housing`);
+      toast({ title: 'Payment confirmed', description: 'Tenant notified via SMS.' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
     setSendingAction(''); fetchData();
+  };
+
+  const handleRejectPayment = async (payment: PaymentData) => {
+    setSendingAction(`reject-${payment.id}`);
+    try {
+      await updatePayment(payment.id!, { status: 'rejected' });
+      const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
+      if (profile?.phone) await sendSMS(profile.phone, `Your rent payment (UGX ${payment.amount.toLocaleString()}) was rejected. - Afodabo Housing`);
+      toast({ title: 'Payment rejected', description: 'Tenant notified via SMS.', variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+    setSendingAction(''); fetchData();
+  };
+
+  const sendRentReminder = async (lease: typeof leases[0]) => {
+    if (!lease.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
+    setSendingAction(`remind-${lease.id}`);
+    const days = differenceInDays(new Date(lease.end_date), new Date());
+    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${lease.monthly_rent.toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Afodabo Housing. Contact: ${user?.email}`);
+    toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${lease.tenant_name}` });
+    setSendingAction('');
   };
 
   const handleRejectPayment = async (payment: Payment) => {
@@ -303,12 +342,12 @@ export default function ManagerDashboard() {
     setSendingAction(''); fetchData();
   };
 
-  const sendRentReminder = async (tenancy: typeof tenancies[0]) => {
-    if (!tenancy.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
-    setSendingAction(`remind-${tenancy.id}`);
-    const days = differenceInDays(new Date(tenancy.rent_end_date), new Date());
-    await sendSMS(tenancy.tenant_phone, `RENT REMINDER: Your rent of UGX ${tenancy.rent_amount.toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay and upload proof on Afodabo Housing. Contact: ${user?.email}`);
-    toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${tenancy.tenant_name}` });
+  const sendRentReminder = async (lease: typeof leases[0]) => {
+    if (!lease.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
+    setSendingAction(`remind-${lease.id}`);
+    const days = differenceInDays(new Date(lease.end_date), new Date());
+    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${lease.monthly_rent.toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Afodabo Housing. Contact: ${user?.email}`);
+    toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${lease.tenant_name}` });
     setSendingAction('');
   };
 
@@ -353,15 +392,15 @@ export default function ManagerDashboard() {
   const pendingPayments = payments.filter(p => p.status === 'uploaded');
   const unreadMessages = messages.filter(m => !m.is_read && m.receiver_id === user?.id).length;
   const confirmedRevenue = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0);
-  const dueSoonTenancies = tenancies.filter(t => {
-    if (t.status !== 'active') return false;
-    const d = differenceInDays(new Date(t.rent_end_date), new Date());
+  const dueSoonLeases = leases.filter(l => {
+    if (l.status !== 'active') return false;
+    const d = differenceInDays(new Date(l.end_date), new Date());
     return d <= 14 && d >= 0;
   });
 
   const statCards = [
     { label: 'Total Listings', val: properties.length, sub: `${available} available · ${occupied} occupied`, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
-    { label: 'Active Tenants', val: tenancies.filter(t => t.status === 'active').length, sub: `${dueSoonTenancies.length} rent due soon`, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10', trend: null },
+    { label: 'Active Tenants', val: leases.filter(t => t.status === 'active').length, sub: `${dueSoonTenancies.length} rent due soon`, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10', trend: null },
     { label: 'Revenue Confirmed', val: `UGX ${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
     { label: 'Unread Messages', val: unreadMessages, sub: `${messages.length} total conversations`, icon: <MessageSquare className="h-5 w-5" />, color: unreadMessages > 0 ? 'text-accent' : 'text-muted-foreground', bg: unreadMessages > 0 ? 'bg-accent/10' : 'bg-muted', trend: null },
   ];
@@ -499,7 +538,7 @@ export default function ManagerDashboard() {
                   <p className="font-semibold text-foreground text-sm mb-2">{dueSoonTenancies.length} tenant{dueSoonTenancies.length > 1 ? 's' : ''} with rent expiring within 14 days</p>
                   <div className="flex flex-wrap gap-2">
                     {dueSoonTenancies.map(t => {
-                      const d = differenceInDays(new Date(t.rent_end_date), new Date());
+                      const d = differenceInDays(new Date(t.end_date), new Date());
                       return (
                         <div key={t.id} className="flex items-center gap-1.5 bg-card rounded-lg px-3 py-1 border border-border text-xs">
                           <span className="font-semibold">{t.tenant_name}</span>
@@ -788,12 +827,12 @@ export default function ManagerDashboard() {
             )}
 
             {/* TENANCIES */}
-            {tab === 'tenancies' && (
+            {tab === 'leases' && (
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-display font-bold text-xl">Tenants</h2>
-                    <p className="text-sm text-muted-foreground">{tenancies.filter(t => t.status === 'active').length} active · {tenancies.filter(t => t.status !== 'active').length} historical</p>
+                    <p className="text-sm text-muted-foreground">{leases.filter(t => t.status === 'active').length} active · {leases.filter(t => t.status !== 'active').length} historical</p>
                   </div>
                   <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => setTenancyDialogOpen(true)}>
                     <UserPlus className="h-3.5 w-3.5" /> Add Tenant
@@ -813,34 +852,18 @@ export default function ManagerDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {tenancies.length === 0 ? (
+                        {leases.length === 0 ? (
                           <tr><td colSpan={6} className="py-16 text-center text-muted-foreground">
                             <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
                             <p className="font-display font-semibold text-foreground">No tenants linked yet</p>
                             <p className="text-xs mt-1">Use "Add Tenant" to link a registered user to a property</p>
                           </td></tr>
-                        ) : tenancies.map(t => {
-                          const days = differenceInDays(new Date(t.rent_end_date), new Date());
-                          return (
-                            <tr key={t.id} className="border-b border-border hover:bg-muted/30 transition-colors last:border-0">
-                              <td className="py-3.5 px-4">
-                                <div className="flex items-center gap-2.5">
-                                  <div className="h-8 w-8 rounded-lg bg-accent/10 text-accent font-bold text-xs flex items-center justify-center shrink-0">
-                                    {(t.tenant_name || 'T').charAt(0)}
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-foreground">{t.tenant_name || 'Unknown Tenant'}</p>
-                                    {t.tenant_phone && <p className="text-xs text-muted-foreground">{t.tenant_phone}</p>}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-3.5 px-4 text-muted-foreground text-sm max-w-[180px] truncate">{t.property_title || 'N/A'}</td>
-                              <td className="py-3.5 px-4">
-                                <span className="font-bold text-foreground">UGX {t.rent_amount.toLocaleString()}</span>
-                                <span className="text-xs text-muted-foreground ml-1 capitalize">/{t.rent_period.slice(0, 2)}</span>
-                              </td>
-                              <td className="py-3.5 px-4">
-                                <div className="text-sm text-foreground">{format(new Date(t.rent_end_date), 'MMM dd, yyyy')}</div>
+                        ) : leases.map(t => {
+                          const days = differenceInDays(new Date(t.end_date), new Date());
+
+                          <span className="font-bold text-foreground">UGX {t.monthly_rent.toLocaleString()}</span>
+
+                          <div className="text-sm text-foreground">{format(new Date(t.end_date), 'MMM dd, yyyy')}</div>
                                 <div className={`text-xs font-semibold ${days < 0 ? 'text-destructive' : days <= 7 ? 'text-destructive' : days <= 14 ? 'text-accent' : 'text-muted-foreground'}`}>
                                   {days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`}
                                 </div>
@@ -962,9 +985,9 @@ export default function ManagerDashboard() {
                     <h2 className="font-display font-bold text-xl">Messages</h2>
                     <p className="text-sm text-muted-foreground">{unreadMessages} unread · conversations with tenants</p>
                   </div>
-                  {tenancies.filter(t => t.status === 'active').length > 0 && (
+                  {leases.filter(t => t.status === 'active').length > 0 && (
                     <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => {
-                      const active = tenancies.find(t => t.status === 'active');
+                      const active = leases.find(t => t.status === 'active');
                       if (active) { setComposeDialog({ open: true, tenantId: active.tenant_id, tenantName: active.tenant_name || 'Tenant', propertyId: active.property_id }); setComposePropId(active.property_id); }
                     }}>
                       <Pencil className="h-3.5 w-3.5" /> New Message
@@ -1047,17 +1070,17 @@ export default function ManagerDashboard() {
             <DialogDescription>Send a message to your tenant. They will see it in their dashboard.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCompose} className="space-y-4 mt-4">
-            {tenancies.filter(t => t.status === 'active').length > 1 && (
+            {leases.filter(t => t.status === 'active').length > 1 && (
               <div>
                 <Label>Select Tenant</Label>
                 <Select value={composeDialog.tenantId} onValueChange={v => {
-                  const t = tenancies.find(ten => ten.tenant_id === v);
+                  const t = leases.find(ten => ten.tenant_id === v);
                   setComposeDialog(d => ({ ...d, tenantId: v, tenantName: t?.tenant_name || 'Tenant', propertyId: t?.property_id }));
                   setComposePropId(t?.property_id || '');
                 }}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {tenancies.filter(t => t.status === 'active').map(t => (
+                    {leases.filter(t => t.status === 'active').map(t => (
                       <SelectItem key={t.tenant_id} value={t.tenant_id}>{t.tenant_name} — {t.property_title}</SelectItem>
                     ))}
                   </SelectContent>
@@ -1088,7 +1111,7 @@ export default function ManagerDashboard() {
               <Label>Property</Label>
               <Select value={tenancyForm.property_id} onValueChange={v => {
                 const p = properties.find(pr => pr.id === v);
-                setTenancyForm(f => ({ ...f, property_id: v, rent_amount: p?.rent_amount || 0, rent_period: p?.rent_period || 'monthly' }));
+                setTenancyForm(f => ({ ...f, property_id: v, monthly_rent: p?.monthly_rent || p?.rent_amount || 0 }));
               }}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Select property..." /></SelectTrigger>
                 <SelectContent>
@@ -1104,12 +1127,9 @@ export default function ManagerDashboard() {
               <p className="text-xs text-muted-foreground mt-1">Tenant must already have an Afodabohousing account</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Start Date</Label><Input type="date" value={tenancyForm.rent_start_date} onChange={e => setTenancyForm(f => ({ ...f, rent_start_date: e.target.value }))} required className="mt-1" /></div>
-              <div><Label>End Date</Label><Input type="date" value={tenancyForm.rent_end_date} onChange={e => setTenancyForm(f => ({ ...f, rent_end_date: e.target.value }))} required className="mt-1" /></div>
-              <div><Label>Rent Amount (UGX)</Label><Input type="number" value={tenancyForm.rent_amount || ''} onChange={e => setTenancyForm(f => ({ ...f, rent_amount: Number(e.target.value) }))} className="mt-1" /></div>
-              <div>
-                <Label>Period</Label>
-                <Select value={tenancyForm.rent_period} onValueChange={v => setTenancyForm(f => ({ ...f, rent_period: v }))}>
+              <div><Label>Start Date</Label><Input type="date" value={tenancyForm.start_date} onChange={e => setTenancyForm(f => ({ ...f, start_date: e.target.value }))} required className="mt-1" /></div>
+              <div><Label>End Date</Label><Input type="date" value={tenancyForm.end_date} onChange={e => setTenancyForm(f => ({ ...f, end_date: e.target.value }))} required className="mt-1" /></div>
+              <div><Label>Monthly Rent (UGX)</Label><Input type="number" value={tenancyForm.monthly_rent || ''} onChange={e => setTenancyForm(f => ({ ...f, monthly_rent: Number(e.target.value) }))} className="mt-1" /></div>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="monthly">Monthly</SelectItem>

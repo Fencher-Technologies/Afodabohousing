@@ -6,6 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const PESAPAL_ENV = Deno.env.get('PESAPAL_ENV') || 'sandbox'
+const PESAPAL_BASE = PESAPAL_ENV === 'live'
+  ? 'https://pay.pesapal.com/v3/api'
+  : 'https://cybqa.pesapal.com/pesapalv3/api'
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
@@ -38,7 +43,7 @@ serve(async (req) => {
     }
 
     // Get PesaPal token and check transaction status
-    const authRes = await fetch('https://pay.pesapal.com/v3/api/Auth/RequestToken', {
+    const authRes = await fetch(`${PESAPAL_BASE}/Auth/RequestToken`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ consumer_key: CONSUMER_KEY, consumer_secret: CONSUMER_SECRET }),
@@ -46,7 +51,7 @@ serve(async (req) => {
     const authData = await authRes.json()
     const token = authData.token
 
-    const statusRes = await fetch(`https://pay.pesapal.com/v3/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`, {
+    const statusRes = await fetch(`${PESAPAL_BASE}/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`, {
       headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${token}` },
     })
     const statusData = await statusRes.json()
@@ -60,8 +65,9 @@ serve(async (req) => {
         .from('payments')
         .update({
           status: 'confirmed',
+          paid_date: new Date().toISOString().split('T')[0],
+          transaction_id: orderTrackingId,
           notes: `PesaPal: ${orderTrackingId}`,
-          receipt_url: orderTrackingId,
         })
         .eq('id', paymentId)
     }

@@ -31,7 +31,7 @@ export const useAuth = () => {
 const fetchRoleFromDB = async (userId: string): Promise<UserRole> => {
   try {
     const { data } = await supabase
-      .from('user_roles')
+      .from('profiles')
       .select('role')
       .eq('user_id', userId)
       .maybeSingle();

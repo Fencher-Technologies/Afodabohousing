@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { listPayments, updatePayment, PaymentData } from '@/services/payments';
 import {
   Users, Home, DollarSign, Building2, Search, Shield, TrendingUp,
   CheckCircle, Clock, XCircle, RefreshCcw, Eye, Bell,
@@ -21,11 +22,11 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 
 interface UserRow { id: string; email?: string; full_name?: string; phone?: string; role?: string; created_at: string; }
-interface PropRow { id: string; title: string; district: string; rent_amount: number; status: string; property_type: string; manager_id: string; }
-interface TenancyRow { id: string; property_id: string; tenant_id: string; manager_id: string; rent_amount: number; status: string; rent_end_date: string; rent_period: string; rent_start_date: string; }
-interface PaymentRow { id: string; amount: number; status: string; created_at: string; tenant_id: string; manager_id: string; notes?: string; proof_url?: string; }
+interface PropRow { id: string; title: string; district: string; rent_amount: number; status: string; property_type: string; owner_id: string; }
+interface LeaseRow { id: string; property_id: string; tenant_id: string; owner_id: string; monthly_rent: number; status: string; end_date: string; start_date: string; }
+interface PaymentRow { id: string; amount: number; status: string; created_at: string; tenant_id: string; notes?: string; }
 
-type Tab = 'overview' | 'users' | 'properties' | 'tenancies' | 'payments';
+type Tab = 'overview' | 'users' | 'properties' | 'leases' | 'payments';
 
 const statusBadge = (s: string) => ({
   available: 'bg-accent/10 text-accent border border-accent/20',
@@ -47,7 +48,7 @@ const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: 'users', label: 'Users', icon: <Users className="h-4 w-4" /> },
   { id: 'properties', label: 'Properties', icon: <Building2 className="h-4 w-4" /> },
-  { id: 'tenancies', label: 'Tenancies', icon: <Home className="h-4 w-4" /> },
+  { id: 'leases', label: 'Leases', icon: <Home className="h-4 w-4" /> },
   { id: 'payments', label: 'Payments', icon: <DollarSign className="h-4 w-4" /> },
 ];
 
@@ -58,8 +59,8 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('overview');
   const [users, setUsers] = useState<UserRow[]>([]);
   const [props, setProps] = useState<PropRow[]>([]);
-  const [tenancies, setTenancies] = useState<TenancyRow[]>([]);
-  const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [leases, setLeases] = useState<LeaseRow[]>([]);
+  const [payments, setPayments] = useState<PaymentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [userSearch, setUserSearch] = useState('');
   const [sendingAction, setSendingAction] = useState('');
@@ -76,25 +77,22 @@ export default function AdminDashboard() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [rolesRes, propsRes, tenRes, payRes] = await Promise.all([
-      supabase.from('user_roles').select('user_id, role, created_at'),
+    const [profilesRes, propsRes, leaseRes, payRes] = await Promise.all([
+      supabase.from('profiles').select('user_id, full_name, phone, role').order('created_at', { ascending: false }),
       supabase.from('properties').select('*').order('created_at', { ascending: false }),
-      supabase.from('tenancies').select('*').order('created_at', { ascending: false }),
-      supabase.from('payments').select('*').order('created_at', { ascending: false }),
+      supabase.from('leases').select('*').order('created_at', { ascending: false }),
+      listPayments().catch(() => ({ items: [], total: 0 })),
     ]);
 
-    if (rolesRes.data) {
-      const allProfiles = await supabase.from('profiles').select('user_id, full_name, phone');
-      const profileMap: Record<string, { full_name?: string; phone?: string }> = {};
-      allProfiles.data?.forEach(p => { profileMap[p.user_id] = { full_name: p.full_name ?? undefined, phone: p.phone ?? undefined }; });
-      setUsers(rolesRes.data.map(r => ({
-        id: r.user_id, full_name: profileMap[r.user_id]?.full_name, phone: profileMap[r.user_id]?.phone,
-        role: r.role, created_at: r.created_at,
+    if (profilesRes.data) {
+      setUsers(profilesRes.data.map(p => ({
+        id: p.user_id, email: '', full_name: p.full_name || undefined, phone: p.phone || undefined,
+        role: p.role || undefined, created_at: p.created_at,
       })));
     }
     if (propsRes.data) setProps(propsRes.data as PropRow[]);
-    if (tenRes.data) setTenancies(tenRes.data as TenancyRow[]);
-    if (payRes.data) setPayments(payRes.data as PaymentRow[]);
+    if (leaseRes.data) setLeases(leaseRes.data as LeaseRow[]);
+    setPayments(payRes.items || []);
     setLoading(false);
   };
 
@@ -137,20 +135,26 @@ export default function AdminDashboard() {
 
   const handleConfirmPayment = async (id: string) => {
     setSendingAction(`confirm-${id}`);
-    await supabase.from('payments').update({ status: 'confirmed' }).eq('id', id);
-    toast({ title: 'Payment confirmed!' }); setSendingAction(''); fetchAll();
+    try {
+      await updatePayment(id, { status: 'confirmed', paid_date: new Date().toISOString().split('T')[0] });
+      toast({ title: 'Payment confirmed!' });
+    } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
+    setSendingAction(''); fetchAll();
   };
 
   const handleRejectPayment = async (id: string) => {
     setSendingAction(`reject-${id}`);
-    await supabase.from('payments').update({ status: 'rejected' }).eq('id', id);
-    toast({ title: 'Payment rejected', variant: 'destructive' }); setSendingAction(''); fetchAll();
+    try {
+      await updatePayment(id, { status: 'rejected' });
+      toast({ title: 'Payment rejected', variant: 'destructive' });
+    } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
+    setSendingAction(''); fetchAll();
   };
 
-  const handleTerminateTenancy = async (id: string) => {
+  const handleTerminateLease = async (id: string) => {
     setSendingAction(`term-${id}`);
-    await supabase.from('tenancies').update({ status: 'terminated' }).eq('id', id);
-    toast({ title: 'Tenancy terminated' }); setSendingAction(''); fetchAll();
+    await supabase.from('leases').update({ status: 'terminated' }).eq('id', id);
+    toast({ title: 'Lease terminated' }); setSendingAction(''); fetchAll();
   };
 
   const totalRevenue = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0);
@@ -279,7 +283,7 @@ export default function AdminDashboard() {
                   {[
                     { icon: <Users className="h-5 w-5" />, label: 'Total Users', val: users.length, sub: `${users.filter(u => u.role === 'tenant').length} tenants · ${users.filter(u => u.role === 'house_manager').length} managers`, bg: 'bg-primary/10', color: 'text-primary' },
                     { icon: <Building2 className="h-5 w-5" />, label: 'All Properties', val: props.length, sub: `${props.filter(p => p.status === 'available').length} available · ${props.filter(p => p.status === 'occupied').length} occupied`, bg: 'bg-accent/10', color: 'text-accent' },
-                    { icon: <Home className="h-5 w-5" />, label: 'Active Tenancies', val: tenancies.filter(t => t.status === 'active').length, sub: `${tenancies.filter(t => t.status === 'expired').length} expired · ${tenancies.filter(t => t.status === 'terminated').length} terminated`, bg: 'bg-accent/10', color: 'text-accent' },
+                    { icon: <Home className="h-5 w-5" />, label: 'Active Leases', val: leases.filter(l => l.status === 'active').length, sub: `${leases.filter(l => l.status === 'expired').length} expired · ${leases.filter(l => l.status === 'terminated').length} terminated`, bg: 'bg-accent/10', color: 'text-accent' },
                     { icon: <DollarSign className="h-5 w-5" />, label: 'Confirmed Revenue', val: `UGX ${totalRevenue >= 1000000 ? (totalRevenue / 1000000).toFixed(2) + 'M' : totalRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, bg: 'bg-primary/10', color: 'text-primary' },
                   ].map(s => (
                     <div key={s.label} className="bg-card border border-border rounded-2xl p-5 shadow-card hover:shadow-md transition-all group">
@@ -540,49 +544,54 @@ export default function AdminDashboard() {
             )}
 
             {/* TENANCIES */}
-            {tab === 'tenancies' && (
+            {tab === 'leases' && (
               <div className="space-y-5">
                 <div>
                   <h2 className="font-display font-bold text-xl">All Tenancies</h2>
-                  <p className="text-sm text-muted-foreground">{tenancies.length} total · {tenancies.filter(t => t.status === 'active').length} active · {tenancies.filter(t => t.status === 'expired').length} expired</p>
-                </div>
-                <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-card">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-secondary border-b border-border">
-                          <th className="text-left py-3 px-4 font-semibold">ID</th>
-                          <th className="text-left py-3 px-4 font-semibold">Rent Amount</th>
-                          <th className="text-left py-3 px-4 font-semibold">Period</th>
-                          <th className="text-left py-3 px-4 font-semibold">Start</th>
-                          <th className="text-left py-3 px-4 font-semibold">Expires</th>
-                          <th className="text-left py-3 px-4 font-semibold">Status</th>
-                          <th className="text-left py-3 px-4 font-semibold">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tenancies.length === 0 ? (
-                          <tr><td colSpan={7} className="py-12 text-center text-muted-foreground">No tenancies yet</td></tr>
-                        ) : tenancies.map(t => (
-                          <tr key={t.id} className="border-b border-border hover:bg-muted/30 transition-colors last:border-0">
-                            <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">{t.id.slice(0, 14)}…</td>
-                            <td className="py-3.5 px-4 font-bold text-foreground">UGX {t.rent_amount?.toLocaleString()}</td>
-                            <td className="py-3.5 px-4 capitalize text-muted-foreground">{t.rent_period}</td>
-                            <td className="py-3.5 px-4 text-muted-foreground text-xs">{t.rent_start_date}</td>
-                            <td className="py-3.5 px-4 text-muted-foreground text-xs">{t.rent_end_date}</td>
-                            <td className="py-3.5 px-4"><span className={`px-2 py-0.5 rounded-full text-xs font-bold capitalize ${statusBadge(t.status)}`}>{t.status}</span></td>
-                            <td className="py-3.5 px-4">
-                              {t.status === 'active' && (
-                                <Button size="sm" variant="destructive" className="h-7 text-xs" disabled={sendingAction === `term-${t.id}`} onClick={() => handleTerminateTenancy(t.id)}>
-                                  {sendingAction === `term-${t.id}` ? '...' : 'Terminate'}
-                                </Button>
-                              )}
-                            </td>
+                  <p className="text-sm text-muted-foreground">{leases.length} total · {leases.filter(l => l.status === 'active').length} active · {leases.filter(l => l.status === 'expired').length} expired</p>
+                        <div className="flex gap-2">
+                          <span className="text-xs text-muted-foreground font-medium">Status</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto border border-border/30 rounded-sm">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/50 font-body text-xs uppercase tracking-wider text-muted-foreground">
+                            <th className="text-left py-3 px-4 font-medium">Property</th>
+                            <th className="text-left py-3 px-4 font-medium">Tenant</th>
+                            <th className="text-left py-3 px-4 font-medium">Rent</th>
+                            <th className="text-left py-3 px-4 font-medium">Period</th>
+                            <th className="text-left py-3 px-4 font-medium">Status</th>
+                            <th className="text-right py-3 px-4 font-medium">Action</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-border/30">
+                          {leases.length === 0 ? (
+                          <tr><td colSpan={7} className="py-12 text-center text-muted-foreground">No leases yet</td></tr>
+                        ) : leases.map(l => (
+                            <tr key={l.id} className="hover:bg-muted/20 transition-colors">
+                              <td className="py-3 px-4 font-body font-medium">{l.property_id?.slice(0, 8)}...</td>
+                              <td className="py-3 px-4 font-body text-muted-foreground">{l.tenant_id?.slice(0, 8)}...</td>
+                              <td className="py-3 px-4 font-body">UGX {l.monthly_rent.toLocaleString()}</td>
+                              <td className="py-3 px-4 font-body text-muted-foreground text-xs">
+                                {format(new Date(l.start_date), 'MMM dd')} – {format(new Date(l.end_date), 'MMM dd, yyyy')}
+                              </td>
+                              <td className="py-3 px-4 font-body">
+                                <span className={statusBadge(l.status)}>{l.status}</span>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                {l.status === 'active' && (
+                                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleTerminateLease(l.id)} disabled={sendingAction === `term-${l.id}`}>
+                                    Terminate
+                                  </Button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                 </div>
               </div>
             )}
@@ -639,10 +648,8 @@ export default function AdminDashboard() {
                                     <XCircle className="h-3 w-3" />Reject
                                   </Button>
                                 </div>
-                              ) : p.proof_url ? (
-                                <a href={p.proof_url} target="_blank" rel="noopener noreferrer">
-                                  <Button size="sm" variant="outline" className="gap-1 h-7 text-xs"><Eye className="h-3 w-3" />Proof</Button>
-                                </a>
+                              ) : p.transaction_id ? (
+                                <span className="text-xs text-muted-foreground font-mono">{p.transaction_id}</span>
                               ) : <span className="text-xs text-muted-foreground">—</span>}
                             </td>
                           </tr>
