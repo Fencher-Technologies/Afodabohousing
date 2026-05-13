@@ -12,7 +12,7 @@ from models import (
 )
 from services import MaintenanceRequestService, get_maintenance_request_service
 
-router = APIRouter(prefix="/maintenance-requests", tags=["maintenance_requests"])
+router = APIRouter(prefix="/maintenance", tags=["maintenance"])
 
 
 class PaginatedResponse(BaseModel):

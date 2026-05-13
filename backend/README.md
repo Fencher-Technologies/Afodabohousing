@@ -40,8 +40,8 @@ FastAPI backend for the Afodabo Housing rental management platform.
 | GET | `/auth/me` | Yes | Current user info + roles |
 | GET | `/auth/profile` | Yes | Get user profile |
 | PATCH | `/auth/profile` | Yes | Update user profile |
-| GET | `/auth/roles` | Yes | Get current user roles |
-| POST | `/auth/roles` | Admin | Assign role to user |
+| GET | `/auth/roles` | Yes | Get current user role from profiles |
+| POST | `/auth/roles` | Admin | Assign role to user (updates profiles.role) |
 
 ### Properties
 | Method | Path | Auth | Description |
@@ -83,11 +83,11 @@ FastAPI backend for the Afodabo Housing rental management platform.
 ### Maintenance Requests
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/maintenance-requests/property/{property_id}` | Yes | List requests for a property |
-| GET | `/maintenance-requests/{id}` | Yes | Get request by ID |
-| POST | `/maintenance-requests` | Yes | Create request |
-| PATCH | `/maintenance-requests/{id}` | Yes | Update request |
-| DELETE | `/maintenance-requests/{id}` | Yes | Delete request |
+| GET | `/maintenance/property/{property_id}` | Yes | List requests for a property |
+| GET | `/maintenance/{id}` | Yes | Get request by ID |
+| POST | `/maintenance` | Yes | Create request |
+| PATCH | `/maintenance/{id}` | Yes | Update request |
+| DELETE | `/maintenance/{id}` | Yes | Delete request |
 
 ## Running
 
@@ -105,3 +105,5 @@ uv run pytest
 ## Environment Variables
 
 See `.env.example` for all configuration options.
+
+

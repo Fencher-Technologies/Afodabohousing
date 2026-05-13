@@ -10,7 +10,7 @@ from supabase import Client
 
 from config import get_settings
 
-from .database import get_supabase_client
+from .database import get_service_client, get_supabase_client
 
 security = HTTPBearer()
 
@@ -163,3 +163,22 @@ def get_optional_user(
         return None
     except Exception:
         return None
+
+
+def require_admin(
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
+) -> CurrentUser:
+    try:
+        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
+        data = result.data if hasattr(result, "data") else result
+        role = data[0] if isinstance(data, list) and data else data
+    except Exception:
+        role = None
+
+    if role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user

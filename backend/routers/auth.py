@@ -3,7 +3,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 from supabase import Client
 
-from dependencies import CurrentUser, get_current_user, get_supabase_client
+from dependencies import (
+    CurrentUser,
+    get_current_user,
+    get_service_client,
+    get_supabase_client,
+    require_admin,
+)
 from models import ProfileResponse, ProfileUpdate
 from services import AuthService, get_auth_service
 
@@ -49,12 +55,26 @@ def signup(
     data: SignUpRequest,
     service: AuthService = Depends(get_auth_svc),
 ) -> TokenResponse:
-    result = service.sign_up(
-        email=data.email,
-        password=data.password,
-        full_name=data.full_name,
-        phone=data.phone,
-    )
+    try:
+        result = service.sign_up(
+            email=data.email,
+            password=data.password,
+            full_name=data.full_name,
+            phone=data.phone,
+        )
+    except Exception as e:
+        msg = str(e)
+        # Extract the Supabase error message from the HTTP error
+        if hasattr(e, "response") and e.response is not None:
+            try:
+                body = e.response.json()
+                msg = body.get("msg", body.get("error_description", body.get("error", msg)))
+            except Exception:
+                msg = str(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
     if not result.get("session"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -83,7 +103,20 @@ def signin(
     data: SignInRequest,
     service: AuthService = Depends(get_auth_svc),
 ) -> TokenResponse:
-    result = service.sign_in(email=data.email, password=data.password)
+    try:
+        result = service.sign_in(email=data.email, password=data.password)
+    except Exception as e:
+        msg = str(e)
+        if hasattr(e, "response") and e.response is not None:
+            try:
+                body = e.response.json()
+                msg = body.get("msg", body.get("error_description", body.get("error", msg)))
+            except Exception:
+                msg = str(e)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=msg,
+        )
     return TokenResponse(
         access_token=result["session"].access_token,
         user=result["user"].model_dump() if hasattr(result["user"], "model_dump") else result["user"],
@@ -122,17 +155,25 @@ def reset_password(
 @router.get("/me", response_model=UserResponse)
 def get_current_user_info(
     current_user: CurrentUser = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
+    supabase: Client = Depends(get_service_client),
 ) -> UserResponse:
+    role = current_user.role
+    user_metadata = None
+    try:
+        result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+        if result.data:
+            role = result.data[0].get("role", role)
+    except Exception:
+        pass
     try:
         user = supabase.auth.get_user()
         user_metadata = user.user.model_dump().get("user_metadata") if user else None
     except Exception:
-        user_metadata = None
+        pass
     return UserResponse(
         id=current_user.id,
         email=current_user.email,
-        role=current_user.role,
+        role=role,
         user_metadata=user_metadata,
     )
 
@@ -159,4 +200,27 @@ def update_profile(
     if not response.data:
         raise HTTPException(status_code=404, detail="Profile not found")
     return ProfileResponse(**response.data[0])
+
+
+@router.get("/roles")
+def get_roles(
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+) -> dict:
+    result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+    role = result.data[0].get("role") if result.data else current_user.role
+    return {"user_id": current_user.id, "email": current_user.email, "role": role}
+
+
+@router.post("/roles")
+def assign_role(
+    data: RoleAssignRequest,
+    admin_user: CurrentUser = Depends(require_admin),
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    payload = {"role": data.role}
+    result = supabase.table("profiles").update(payload).eq("user_id", data.user_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="User profile not found")
+    return {"message": "Role assigned", "user_id": data.user_id, "role": data.role}
 
