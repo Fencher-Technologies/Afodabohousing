@@ -16,9 +16,12 @@ from routers import (
     auth_router,
     leases_router,
     maintenance_requests_router,
+    messages_router,
     payments_router,
     properties_router,
+    rental_units_router,
     tenants_router,
+    webhooks_router,
 )
 
 settings = get_settings()
@@ -27,6 +30,23 @@ logging.basicConfig(
     format='{"time":"%(asctime)s","level":"%(levelname)s","name":"%(name)s","message":"%(message)s"}',
 )
 logger = logging.getLogger(__name__)
+
+
+if settings.sentry_dsn:
+    try:
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            environment=settings.environment,
+            traces_sample_rate=0.25,
+            profiles_sample_rate=0.1,
+        )
+        logger.info("Sentry initialized")
+    except Exception as e:
+        logger.warning("Failed to initialize Sentry: %s", str(e))
+
+
+_scheduler_started = False
 
 _metrics: dict = {
     "requests_total": 0,
@@ -102,8 +122,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _scheduler_started
     logger.info(f"Starting Rental Management API v{app.version}")
+    if settings.environment != "test" and not _scheduler_started:
+        try:
+            from services.scheduler import start_scheduler, stop_scheduler
+            start_scheduler()
+            _scheduler_started = True
+        except Exception as e:
+            logger.warning("Failed to start background scheduler: %s", str(e))
     yield
+    if _scheduler_started:
+        try:
+            from services.scheduler import stop_scheduler
+            stop_scheduler()
+        except Exception:
+            pass
     logger.info("Shutting down Rental Management API")
 
 
@@ -150,8 +184,11 @@ app.include_router(auth_router)
 app.include_router(properties_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)
+app.include_router(messages_router)
 app.include_router(payments_router)
+app.include_router(rental_units_router)
 app.include_router(maintenance_requests_router)
+app.include_router(webhooks_router)
 
 
 @app.get("/health")

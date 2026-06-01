@@ -197,7 +197,7 @@ class MockTableBuilder:
                     "amount": 1500000,
                     "payment_type": "rent",
                     "payment_method": "mobile_money",
-                    "status": "confirmed",
+                    "status": "completed",
                     "due_date": "2026-02-01",
                     "paid_date": "2026-02-01",
                     "transaction_id": "txn-001",

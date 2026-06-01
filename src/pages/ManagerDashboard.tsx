@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { listPayments, updatePayment, createPayment, PaymentData } from '@/services/payments';
+import VoiceRecorder from '@/components/VoiceRecorder';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload, MessageSquare,
@@ -77,6 +78,8 @@ export default function ManagerDashboard() {
   const [composeDialog, setComposeDialog] = useState<{ open: boolean; tenantId: string; tenantName: string; propertyId?: string }>({ open: false, tenantId: '', tenantName: '' });
   const [composeText, setComposeText] = useState('');
   const [composePropId, setComposePropId] = useState('');
+  const [composeVoiceUrl, setComposeVoiceUrl] = useState<string | null>(null);
+  const [replyVoiceUrl, setReplyVoiceUrl] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: '', description: '', property_type: 'house', district: '', city: '',
@@ -108,7 +111,7 @@ export default function ManagerDashboard() {
     setLoading(true);
     const [propsRes, leaseRes, payRes] = await Promise.all([
       supabase.from('properties').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('leases').select('*, tenants!inner(first_name, last_name, email)').eq('owner_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('leases').select('*, tenants!inner(first_name, last_name, email, user_id)').eq('owner_id', user.id).order('created_at', { ascending: false }),
       listPayments().catch(() => ({ items: [], total: 0 })),
     ]);
 
@@ -131,7 +134,17 @@ export default function ManagerDashboard() {
         ((myLeases.find(l => l.tenant_id === p.tenant_id) as any)?.tenants?.last_name || '') : '',
       property_title: propMap[myLeases.find(l => l.tenant_id === p.tenant_id)?.property_id || ''] || '',
     })));
-    setMessages([]);
+    if (user) {
+      const msgRes = await supabase.from('messages').select('*, profiles!sender_id(full_name)').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false });
+      const profileMap: Record<string, string> = {};
+      msgRes.data?.forEach(m => { profileMap[m.sender_id] = m.profiles?.full_name || 'Unknown'; });
+      setMessages((msgRes.data || []).map(m => ({
+        ...m,
+        sender_name: m.sender_id === user.id ? 'You' : profileMap[m.sender_id],
+        receiver_name: m.receiver_id === user.id ? 'You' : profileMap[m.receiver_id],
+        property_title: propMap[m.property_id] || '',
+      })));
+    } else { setMessages([]); }
     setLoading(false);
   };
 
@@ -211,8 +224,27 @@ export default function ManagerDashboard() {
 
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({ title: 'Units feature unavailable', description: 'Sub-unit management has been removed from this version.' });
+    if (!user || !selectedPropertyForUnit) return;
+    setSendingAction('add-unit');
+    const { error } = await supabase.from('rental_units').insert({
+      property_id: selectedPropertyForUnit,
+      owner_id: user.id,
+      unit_number: unitForm.unit_number,
+      floor_level: unitForm.floor_level || null,
+      bedrooms: unitForm.bedrooms,
+      bathrooms: unitForm.bathrooms,
+      sitting_rooms: unitForm.sitting_rooms,
+      kitchens: unitForm.kitchens,
+      rent_amount: Number(unitForm.rent_amount),
+      description: unitForm.description || null,
+      status: 'available',
+    });
+    setSendingAction('');
+    if (error) { toast({ title: 'Error adding unit', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Unit added!', description: `Unit ${unitForm.unit_number} is now listed.` });
     setUnitDialogOpen(false);
+    setUnitForm({ unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 0, kitchens: 1, rent_amount: 0, description: '' });
+    setSelectedPropertyForUnit('');
   };
 
   const handleCreateTenancy = async (e: React.FormEvent) => {
@@ -297,19 +329,51 @@ export default function ManagerDashboard() {
 
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({ title: 'Messaging unavailable', description: 'Chat feature is not available in this version.' });
+    if (!user || !replyDialog.receiverId || (!replyText.trim() && !replyVoiceUrl)) return;
+    setSendingAction('reply');
+    const { error } = await supabase.from('messages').insert({
+      sender_id: user.id,
+      receiver_id: replyDialog.receiverId,
+      property_id: replyDialog.propertyId || null,
+      content: replyText.trim() || null,
+      voice_note_url: replyVoiceUrl,
+    });
+    setSendingAction('');
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Reply sent!' });
+    setReplyText('');
+    setReplyVoiceUrl(null);
     setReplyDialog({ open: false, receiverId: '', name: '' });
+    fetchData();
   };
 
   const handleCompose = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({ title: 'Messaging unavailable', description: 'Chat feature is not available in this version.' });
+    if (!user || !composeDialog.tenantId || (!composeText.trim() && !composeVoiceUrl)) return;
+    setSendingAction('compose');
+    const tenant = leases.find(t => t.tenant_id === composeDialog.tenantId);
+    const receiverId = tenant?.tenants?.user_id;
+    if (!receiverId) { toast({ title: 'Error', description: 'Tenant user not found. They may not have registered yet.', variant: 'destructive' }); setSendingAction(''); return; }
+    const { error } = await supabase.from('messages').insert({
+      sender_id: user.id,
+      receiver_id: receiverId,
+      property_id: composeDialog.propertyId || null,
+      content: composeText.trim() || null,
+      voice_note_url: composeVoiceUrl,
+    });
+    setSendingAction('');
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Message sent!' });
+    setComposeText('');
+    setComposeVoiceUrl(null);
+    setComposePropId('');
     setComposeDialog({ open: false, tenantId: '', tenantName: '' });
-    setComposeText(''); setComposePropId('');
+    fetchData();
   };
 
   const markMessageRead = async (msgId: string) => {
-    // Messages table removed — no-op
+    const { error } = await supabase.from('messages').update({ is_read: true }).eq('id', msgId);
+    if (!error) setMessages(prev => prev.map(m => m.id === msgId ? { ...m, is_read: true } : m));
   };
 
   const toggleAmenity = (a: string) =>
@@ -950,7 +1014,8 @@ export default function ManagerDashboard() {
                               {!m.is_read && isFromTenant && <span className="bg-primary text-primary-foreground text-xs font-bold px-1.5 py-0.5 rounded-full">New</span>}
                               {m.property_title && <span className="text-xs text-muted-foreground hidden sm:inline">· {m.property_title}</span>}
                             </div>
-                            <p className="text-sm text-muted-foreground leading-relaxed">{m.content}</p>
+                            {m.content && <p className="text-sm text-muted-foreground leading-relaxed">{m.content}</p>}
+                            {m.voice_note_url && <audio src={m.voice_note_url} controls className="h-8 mt-1" />}
                             <p className="text-xs text-muted-foreground/50 mt-1.5">{format(new Date(m.created_at), 'MMM dd, yyyy · HH:mm')}</p>
                           </div>
                           <div className="flex gap-2 shrink-0">
@@ -985,8 +1050,9 @@ export default function ManagerDashboard() {
             <DialogDescription>Send an in-app message to this tenant.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleReply} className="space-y-4 mt-4">
-            <Textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={4} required placeholder="Type your reply..." />
-            <Button type="submit" disabled={sendingAction === 'reply'} className="w-full gradient-primary text-primary-foreground">
+            <Textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={4} placeholder="Type your reply (or record voice)..." />
+            <VoiceRecorder onRecordingComplete={setReplyVoiceUrl} onClear={() => setReplyVoiceUrl(null)} audioUrl={replyVoiceUrl} />
+            <Button type="submit" disabled={sendingAction === 'reply' || (!replyText.trim() && !replyVoiceUrl)} className="w-full gradient-primary text-primary-foreground">
               {sendingAction === 'reply' ? 'Sending...' : 'Send Message'}
             </Button>
           </form>
@@ -1020,10 +1086,11 @@ export default function ManagerDashboard() {
             )}
             <div>
               <Label>Message</Label>
-              <Textarea value={composeText} onChange={e => setComposeText(e.target.value)} rows={4} required placeholder="Type your message to the tenant..." className="mt-1" maxLength={500} />
+              <Textarea value={composeText} onChange={e => setComposeText(e.target.value)} rows={4} placeholder="Type your message to the tenant (or record voice)..." className="mt-1" maxLength={500} />
               <p className="text-xs text-muted-foreground mt-1">{composeText.length}/500</p>
             </div>
-            <Button type="submit" disabled={sendingAction === 'compose' || !composeDialog.tenantId} className="w-full gradient-primary text-primary-foreground">
+            <VoiceRecorder onRecordingComplete={setComposeVoiceUrl} onClear={() => setComposeVoiceUrl(null)} audioUrl={composeVoiceUrl} />
+            <Button type="submit" disabled={sendingAction === 'compose' || !composeDialog.tenantId || (!composeText.trim() && !composeVoiceUrl)} className="w-full gradient-primary text-primary-foreground">
               {sendingAction === 'compose' ? 'Sending...' : 'Send Message'}
             </Button>
           </form>

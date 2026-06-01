@@ -180,7 +180,7 @@ class TestPayments:
     def test_get_payment(self, client: TestClient):
         resp = client.get(f"/payments/{PID_PAYMENT}")
         assert resp.status_code == 200
-        assert resp.json()["status"] == "confirmed"
+        assert resp.json()["status"] == "completed"
 
     def test_get_payment_not_found(self, client: TestClient):
         resp = client.get("/payments/00000000-0000-0000-0000-00000000ffff")
@@ -198,7 +198,7 @@ class TestPayments:
         assert resp.status_code == 201
 
     def test_update_payment(self, client: TestClient):
-        resp = client.patch(f"/payments/{PID_PAYMENT}", json={"status": "confirmed"})
+        resp = client.patch(f"/payments/{PID_PAYMENT}", json={"status": "completed"})
         assert resp.status_code == 200
 
 

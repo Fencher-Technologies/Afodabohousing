@@ -24,6 +24,21 @@ class Settings(BaseSettings):
 
     supabase_client_timeout: int = 30
 
+    # Sentry
+    sentry_dsn: str = ""
+
+    # Pesapal
+    pesapal_consumer_key: str = ""
+    pesapal_consumer_secret: str = ""
+    pesapal_environment: str = "sandbox"
+
+    # SMS
+    sms_provider_api_key: str = ""
+    sms_provider_url: str = "https://api.example.com/sms/send"
+
+    # Webhooks
+    webhook_secret: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

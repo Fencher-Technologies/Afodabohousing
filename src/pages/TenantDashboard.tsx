@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import Footer from '@/components/Footer';
+import VoiceRecorder from '@/components/VoiceRecorder';
 import { listPayments, createPayment, PaymentData } from '@/services/payments';
 import {
   Home, DollarSign, Bell, Upload, CheckCircle, AlertCircle,
@@ -42,6 +43,7 @@ export default function TenantDashboard() {
   const [memoDialog, setMemoDialog] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [voiceUrl, setVoiceUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -65,7 +67,10 @@ export default function TenantDashboard() {
     setActiveLease(lease);
 
     setPayments(payResult.items || []);
-    setMessages([]);
+    if (user) {
+      const msgRes = await supabase.from('messages').select('*, profiles!sender_id(full_name)').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false });
+      setMessages((msgRes.data || []).map(m => ({ ...m, sender_name: m.sender_id === user.id ? 'You' : m.profiles?.full_name || 'Tenant', receiver_name: m.receiver_id === user.id ? 'You' : '' })));
+    } else { setMessages([]); }
     setLoading(false);
   };
 
@@ -116,8 +121,20 @@ export default function TenantDashboard() {
   };
 
   const handleSendMessage = async () => {
+    if (!user || !activeLease?.owner_id || (!messageText.trim() && !voiceUrl)) { setSendingMessage(false); return; }
+    const { error } = await supabase.from('messages').insert({
+      sender_id: user.id,
+      receiver_id: activeLease.owner_id,
+      property_id: activeLease.property_id,
+      content: messageText.trim() || null,
+      voice_note_url: voiceUrl,
+    });
     setSendingMessage(false);
-    toast({ title: 'Messaging unavailable', description: 'Chat feature is not available in this version.' });
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Message sent!' });
+    setMessageText('');
+    setVoiceUrl(null);
+    fetchData();
   };
 
   if (loading) {
@@ -328,18 +345,21 @@ export default function TenantDashboard() {
 
             {/* Message input */}
             {activeLease && (
-              <div className="flex gap-2">
-                <Input
-                  value={messageText}
-                  onChange={e => setMessageText(e.target.value)}
-                  placeholder="Type your message..."
-                  className="font-body text-sm rounded-sm"
-                  onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                />
-                <Button onClick={handleSendMessage} disabled={sendingMessage || !messageText.trim()}
-                  className="bg-primary text-primary-foreground font-body text-sm rounded-sm h-10 px-4">
-                  <Send className="h-4 w-4" />
-                </Button>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    value={messageText}
+                    onChange={e => setMessageText(e.target.value)}
+                    placeholder="Type your message..."
+                    className="font-body text-sm rounded-sm"
+                    onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                  />
+                  <Button onClick={handleSendMessage} disabled={sendingMessage || (!messageText.trim() && !voiceUrl)}
+                    className="bg-primary text-primary-foreground font-body text-sm rounded-sm h-10 px-4">
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+                <VoiceRecorder onRecordingComplete={setVoiceUrl} onClear={() => setVoiceUrl(null)} audioUrl={voiceUrl} />
               </div>
             )}
 
@@ -359,7 +379,8 @@ export default function TenantDashboard() {
                       {format(new Date(m.created_at), 'MMM dd, h:mm a')}
                     </p>
                   </div>
-                  <p className="font-body text-sm mt-2">{m.content}</p>
+                  {m.content && <p className="font-body text-sm mt-2">{m.content}</p>}
+                  {m.voice_note_url && <audio src={m.voice_note_url} controls className="h-8 mt-2" />}
                 </div>
               ))}
             </div>

@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from urllib.request import urlopen
 
@@ -11,6 +12,8 @@ from supabase import Client
 from config import get_settings
 
 from .database import get_service_client, get_supabase_client
+
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
@@ -169,12 +172,21 @@ def require_admin(
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_service_client),
 ) -> CurrentUser:
+    role = None
     try:
         result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
         data = result.data if hasattr(result, "data") else result
         role = data[0] if isinstance(data, list) and data else data
     except Exception:
-        role = None
+        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
+
+    if role != "admin":
+        try:
+            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+            if result.data:
+                role = result.data[0].get("role")
+        except Exception:
+            logger.error("Failed to check admin role from profiles table", exc_info=True)
 
     if role != "admin":
         raise HTTPException(

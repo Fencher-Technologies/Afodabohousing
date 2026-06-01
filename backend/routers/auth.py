@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
@@ -12,6 +14,8 @@ from dependencies import (
 )
 from models import ProfileResponse, ProfileUpdate
 from services import AuthService, get_auth_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -89,8 +93,8 @@ def signup(
             supabase.table("profiles").update({"full_name": data.full_name}).eq(
                 "user_id", user_data.get("id")
             ).execute()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to update profile full_name after signup: %s", str(e))
 
     return TokenResponse(
         access_token=result["session"].access_token,
@@ -163,13 +167,13 @@ def get_current_user_info(
         result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
         if result.data:
             role = result.data[0].get("role", role)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to fetch profile role: %s", str(e))
     try:
         user = supabase.auth.get_user()
         user_metadata = user.user.model_dump().get("user_metadata") if user else None
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to fetch user metadata: %s", str(e))
     return UserResponse(
         id=current_user.id,
         email=current_user.email,

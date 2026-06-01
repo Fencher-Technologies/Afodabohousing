@@ -5,9 +5,11 @@ from .maintenance_request import (
     MaintenanceRequestResponse,
     MaintenanceRequestUpdate,
 )
+from .message import Message, MessageCreate, MessageResponse, MessageUpdate
 from .payment import Payment, PaymentCreate, PaymentResponse, PaymentUpdate
 from .profile import Profile, ProfileCreate, ProfileResponse, ProfileUpdate
 from .property import Property, PropertyCreate, PropertyResponse, PropertyUpdate
+from .rental_unit import RentalUnit, RentalUnitCreate, RentalUnitResponse, RentalUnitUpdate
 from .tenant import Tenant, TenantCreate, TenantResponse, TenantUpdate
 
 __all__ = [
@@ -35,4 +37,12 @@ __all__ = [
     "MaintenanceRequestCreate",
     "MaintenanceRequestUpdate",
     "MaintenanceRequestResponse",
+    "Message",
+    "MessageCreate",
+    "MessageUpdate",
+    "MessageResponse",
+    "RentalUnit",
+    "RentalUnitCreate",
+    "RentalUnitUpdate",
+    "RentalUnitResponse",
 ]

@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import VoiceRecorder from '@/components/VoiceRecorder';
 import {
   MapPin, Bed, Bath, Home, Phone, Mail, ChevronLeft, ChevronRight,
   Wifi, Car, Zap, Droplets, Shield, Send, MessageSquare, Share2,
@@ -81,22 +82,40 @@ export default function PropertyDetailPage() {
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     if (!id) return;
-    supabase.from('properties').select('*').eq('id', id).single()
-      .then(({ data }) => {
-        setProperty(data);
-        setLoading(false);
-      });
+    (async () => {
+      const { data: prop } = await supabase.from('properties').select('*').eq('id', id).single();
+      setProperty(prop);
+      if (prop) {
+        const { data: unitData } = await supabase.from('rental_units').select('*').eq('property_id', id).eq('is_active', true);
+        setUnits(unitData || []);
+      }
+      setLoading(false);
+    })();
   }, [id]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({ title: 'Messaging unavailable', description: 'Chat feature is not available in this version.' });
+    if (!user || !property?.owner_id || (!messageText.trim() && !audioUrl)) return;
+    setSending(true);
+    const { error } = await supabase.from('messages').insert({
+      sender_id: user.id,
+      receiver_id: property.owner_id,
+      property_id: property.id,
+      content: messageText.trim() || null,
+      voice_note_url: audioUrl,
+    });
+    setSending(false);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Message sent!', description: 'The house manager will respond in your inbox.' });
+    setMessageText('');
+    setAudioUrl(null);
     setMessageOpen(false);
   };
 
@@ -521,12 +540,12 @@ export default function PropertyDetailPage() {
                             value={messageText}
                             onChange={e => setMessageText(e.target.value)}
                             rows={4}
-                            required
                             placeholder="Hello, I am interested in this property. Is it still available?..."
                             className="mt-1"
                           />
                         </div>
-                        <Button type="submit" disabled={sending} className="w-full gradient-primary text-primary-foreground gap-2">
+                        <VoiceRecorder onRecordingComplete={setAudioUrl} onClear={() => setAudioUrl(null)} audioUrl={audioUrl} />
+                        <Button type="submit" disabled={sending || (!messageText.trim() && !audioUrl)} className="w-full gradient-primary text-primary-foreground gap-2">
                           <Send className="h-4 w-4" />
                           {sending ? 'Sending...' : 'Send Message'}
                         </Button>
