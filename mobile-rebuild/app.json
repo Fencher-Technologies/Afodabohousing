@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Afodabo Housing Mobile Rebuild",
+    "slug": "afodabo-housing-mobile-rebuild",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAF8F5"
+    },
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FAF8F5"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.afodabohousing.mobile.rebuild"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
