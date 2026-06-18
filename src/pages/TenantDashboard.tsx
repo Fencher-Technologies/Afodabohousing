@@ -11,8 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import { listPayments, createPayment, PaymentData } from '@/services/payments';
 import {
-  Home, DollarSign, MessageSquare, Send, Upload, CheckCircle, X,
-  Calendar, MapPin, Phone, Mail, ChevronRight, LogOut, Building2, Clock, Image
+  Home, MessageSquare, Send, Upload, CheckCircle, X,
+  Calendar, MapPin, Phone, Mail, ChevronRight, Building2, Clock, Image
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
@@ -20,12 +20,12 @@ type Tab = 'home' | 'payments' | 'messages';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'home', label: 'Home', icon: <Home className="h-5 w-5" /> },
-  { id: 'payments', label: 'Payments', icon: <DollarSign className="h-5 w-5" /> },
+  { id: 'payments', label: 'Payments', icon: <span className="text-[10px] font-extrabold h-5 w-5 flex items-center justify-center">UGX</span> },
   { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
 ];
 
 export default function TenantDashboard() {
-  const { user, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -48,9 +48,10 @@ export default function TenantDashboard() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) { navigate('/login'); return; }
     fetchData();
-  }, [user]);
+  }, [user, authLoading]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -202,14 +203,9 @@ export default function TenantDashboard() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {unreadMessages > 0 && (
-            <span className="h-2 w-2 rounded-full bg-primary" />
-          )}
-          <button onClick={signOut} className="text-muted-foreground hover:text-foreground p-1.5">
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
+        {unreadMessages > 0 && (
+          <span className="h-2 w-2 rounded-full bg-primary" />
+        )}
       </header>
 
       {/* Content */}
@@ -278,7 +274,7 @@ export default function TenantDashboard() {
             {activeLease && (
               <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
                 <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-primary" /> Rent Overview
+                  <span className="text-xs font-extrabold text-primary h-4 w-4 flex items-center justify-center">UGX</span> Rent Overview
                 </h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
@@ -315,7 +311,7 @@ export default function TenantDashboard() {
                           ? item.status === 'confirmed' ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent'
                           : item.isUnread ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
                       }`}>
-                        {item.type === 'payment' ? <DollarSign className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
+                        {item.type === 'payment' ? <span className="text-[9px] font-extrabold">UGX</span> : <MessageSquare className="h-4 w-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold">{item.title}</p>
@@ -446,7 +442,7 @@ export default function TenantDashboard() {
               </div>
               {payments.length === 0 ? (
                 <div className="text-center py-10 px-5">
-                  <DollarSign className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                  <span className="text-lg font-extrabold text-muted-foreground/30 h-10 w-10 flex items-center justify-center mx-auto mb-3">UGX</span>
                   <p className="text-sm font-medium">No payments yet</p>
                   {activeLease && (
                     <p className="text-xs text-muted-foreground mt-1">Tap "Pay Rent" to make your first payment.</p>

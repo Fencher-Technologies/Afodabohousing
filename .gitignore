@@ -24,4 +24,6 @@ dist-ssr
 *.sw?
 .env
 backend/.env
+backend/**/__pycache__
+docs/Integration_Guide.docx
 Afodabo_Housing_Backend_Documentation.docx
