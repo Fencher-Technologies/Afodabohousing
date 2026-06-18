@@ -384,7 +384,7 @@ export default function ManagerDashboard() {
   const pendingPayments = payments.filter(p => p.status === 'uploaded');
   const unreadMessages = messages.filter(m => !m.is_read && m.receiver_id === user?.id).length;
   const confirmedRevenue = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0);
-  const dueSoonLeases = leases.filter(l => {
+  const dueSoonTenancies = leases.filter(l => {
     if (l.status !== 'active') return false;
     const d = differenceInDays(new Date(l.end_date), new Date());
     return d <= 14 && d >= 0;
