@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -7,6 +7,7 @@ import { ConversationListItem } from '../../components/messaging/ConversationLis
 import { MessageBubble } from '../../components/messaging/MessageBubble';
 import { MessageComposer } from '../../components/messaging/MessageComposer';
 import { PageHeader } from '../../components/common/PageHeader';
+import { ScrollableScreenContainer } from '../../components/common/ScrollableScreenContainer';
 import { useAuth } from '../../context/AuthContext';
 import {
   useMarkTenantMessagesRead,
@@ -71,7 +72,7 @@ export function TenantMessagesScreen() {
   }
 
   return (
-    <ScrollView
+    <ScrollableScreenContainer
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
@@ -82,7 +83,6 @@ export function TenantMessagesScreen() {
           tintColor={colors.primary}
         />
       }
-      style={styles.screen}
     >
       <PageHeader
         label="Conversations"
@@ -134,7 +134,7 @@ export function TenantMessagesScreen() {
             : 'Could not send message.'}
         </Text>
       ) : null}
-    </ScrollView>
+    </ScrollableScreenContainer>
   );
 }
 

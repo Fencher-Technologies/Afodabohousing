@@ -178,7 +178,7 @@ def send_message(
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
 ) -> MessageResponse:
-    payload = data.model_dump(exclude_none=True)
+    payload = data.model_dump(exclude_none=True, mode="json")
     payload["sender_id"] = current_user.id
 
     result = supabase.table("messages").insert(payload).execute()
@@ -212,7 +212,7 @@ def update_message(
     if msg["receiver_id"] != current_user.id:
         raise HTTPException(status_code=403, detail="Only the receiver can update this message")
 
-    payload = data.model_dump(exclude_none=True)
+    payload = data.model_dump(exclude_none=True, mode="json")
     if not payload:
         raise HTTPException(status_code=400, detail="No fields to update")
 

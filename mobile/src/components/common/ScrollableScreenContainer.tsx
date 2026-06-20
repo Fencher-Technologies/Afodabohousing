@@ -1,5 +1,11 @@
 import React from 'react';
-import { ScrollView, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  type RefreshControlProps,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Edge } from 'react-native-safe-area-context';
 import { colors, spacing } from '../../theme';
@@ -10,14 +16,16 @@ interface ScrollableScreenContainerProps {
   contentContainerStyle?: StyleProp<ViewStyle>;
   edges?: Edge[];
   padded?: boolean;
+  refreshControl?: React.ReactElement<RefreshControlProps>;
 }
 
 export function ScrollableScreenContainer({
   bottomPadding = spacing.xxl,
   children,
   contentContainerStyle,
-  edges,
+  edges = ['top', 'left', 'right'],
   padded = true,
+  refreshControl,
 }: ScrollableScreenContainerProps) {
   const insets = useSafeAreaInsets();
 
@@ -31,6 +39,7 @@ export function ScrollableScreenContainer({
           contentContainerStyle,
         ]}
         keyboardShouldPersistTaps="handled"
+        refreshControl={refreshControl}
         showsVerticalScrollIndicator={false}
       >
         {children}

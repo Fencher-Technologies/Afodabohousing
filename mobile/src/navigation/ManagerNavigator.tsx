@@ -66,7 +66,8 @@ export function ManagerNavigator() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [activeRoute, setActiveRoute] = useState<keyof ManagerTabParamList>('Home');
   const tabNavigationRef = useRef<BottomTabNavigationProp<ManagerTabParamList> | null>(null);
-  const bottomInset = Math.max(insets.bottom, 10);
+  const bottomInset = Math.max(insets.bottom, 12);
+  const tabBarHeight = 66 + bottomInset;
   const drawerResponder = useMemo(
     () =>
       PanResponder.create({
@@ -144,10 +145,10 @@ export function ManagerNavigator() {
                 backgroundColor: colors.surface,
                 borderTopColor: colors.border,
                 borderTopWidth: 1,
-                height: 64 + bottomInset,
+                height: tabBarHeight,
                 paddingBottom: bottomInset,
-                paddingHorizontal: 6,
-                paddingTop: 7,
+                paddingHorizontal: 8,
+                paddingTop: 8,
               },
             };
           }}

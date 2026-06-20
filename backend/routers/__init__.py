@@ -6,6 +6,7 @@ from .payments import router as payments_router
 from .properties import router as properties_router
 from .rental_units import router as rental_units_router
 from .tenants import router as tenants_router
+from .uploads import router as uploads_router
 from .webhooks import router as webhooks_router
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "properties_router",
     "rental_units_router",
     "tenants_router",
+    "uploads_router",
     "webhooks_router",
 ]

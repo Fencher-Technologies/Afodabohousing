@@ -25,6 +25,7 @@ class SignUpRequest(BaseModel):
     password: str
     full_name: str | None = None
     phone: str | None = None
+    role: str = "tenant"
 
 
 class SignInRequest(BaseModel):
@@ -34,6 +35,8 @@ class SignInRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str | None = None
+    role: str | None = None
     token_type: str = "bearer"
     user: dict
 
@@ -50,15 +53,39 @@ class RoleAssignRequest(BaseModel):
     role: str
 
 
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
 def get_auth_svc(supabase: Client = Depends(get_supabase_client)) -> AuthService:
     return get_auth_service(supabase)
+
+
+def _resolve_role(service_supabase: Client, user_id: str) -> str | None:
+    try:
+        result = service_supabase.table("user_roles").select("role").eq("user_id", user_id).execute()
+        if result.data:
+            return result.data[0].get("role")
+        profile_result = service_supabase.table("profiles").select("role").eq("user_id", user_id).execute()
+        if profile_result.data:
+            return profile_result.data[0].get("role")
+    except Exception as e:
+        logger.warning("Failed to resolve user role for %s: %s", user_id, str(e))
+    return None
 
 
 @router.post("/signup", response_model=TokenResponse)
 def signup(
     data: SignUpRequest,
     service: AuthService = Depends(get_auth_svc),
+    service_supabase: Client = Depends(get_service_client),
 ) -> TokenResponse:
+    if data.role not in {"tenant", "house_manager", "admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid role",
+        )
+
     try:
         result = service.sign_up(
             email=data.email,
@@ -87,17 +114,36 @@ def signup(
     user = result["user"]
     user_data = user.model_dump() if hasattr(user, "model_dump") else user
 
-    if data.full_name:
-        try:
-            supabase = get_supabase_client()
-            supabase.table("profiles").update({"full_name": data.full_name}).eq(
-                "user_id", user_data.get("id")
-            ).execute()
-        except Exception as e:
-            logger.warning("Failed to update profile full_name after signup: %s", str(e))
+    try:
+        profile_payload = {
+            "email": data.email,
+            "full_name": data.full_name,
+            "phone": data.phone,
+            "user_id": user_data.get("id"),
+        }
+        service_supabase.table("profiles").upsert(profile_payload, on_conflict="user_id").execute()
+    except Exception as e:
+        logger.warning("Failed to upsert profile after signup: %s", str(e))
+
+    try:
+        service_supabase.table("profiles").update({"role": data.role}).eq(
+            "user_id", user_data.get("id")
+        ).execute()
+    except Exception as e:
+        logger.warning("Failed to update profile role after signup: %s", str(e))
+
+    try:
+        service_supabase.table("user_roles").upsert(
+            {"user_id": user_data.get("id"), "role": data.role},
+            on_conflict="user_id",
+        ).execute()
+    except Exception as e:
+        logger.warning("Failed to upsert user role after signup: %s", str(e))
 
     return TokenResponse(
         access_token=result["session"].access_token,
+        refresh_token=getattr(result["session"], "refresh_token", None),
+        role=data.role,
         user=user_data,
     )
 
@@ -106,6 +152,7 @@ def signup(
 def signin(
     data: SignInRequest,
     service: AuthService = Depends(get_auth_svc),
+    service_supabase: Client = Depends(get_service_client),
 ) -> TokenResponse:
     try:
         result = service.sign_in(email=data.email, password=data.password)
@@ -121,9 +168,13 @@ def signin(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=msg,
         )
+    user_data = result["user"].model_dump() if hasattr(result["user"], "model_dump") else result["user"]
+    role = _resolve_role(service_supabase, str(user_data.get("id")))
     return TokenResponse(
         access_token=result["session"].access_token,
-        user=result["user"].model_dump() if hasattr(result["user"], "model_dump") else result["user"],
+        refresh_token=getattr(result["session"], "refresh_token", None),
+        role=role,
+        user=user_data,
     )
 
 
@@ -131,11 +182,47 @@ def signin(
 def signin_form(
     form_data: OAuth2PasswordRequestForm = Depends(),
     service: AuthService = Depends(get_auth_svc),
+    service_supabase: Client = Depends(get_service_client),
 ) -> TokenResponse:
     result = service.sign_in(email=form_data.username, password=form_data.password)
+    user_data = result["user"].model_dump() if hasattr(result["user"], "model_dump") else result["user"]
+    role = _resolve_role(service_supabase, str(user_data.get("id")))
     return TokenResponse(
         access_token=result["session"].access_token,
-        user=result["user"].model_dump() if hasattr(result["user"], "model_dump") else result["user"],
+        refresh_token=getattr(result["session"], "refresh_token", None),
+        role=role,
+        user=user_data,
+    )
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(
+    data: RefreshRequest,
+    service: AuthService = Depends(get_auth_svc),
+    service_supabase: Client = Depends(get_service_client),
+) -> TokenResponse:
+    try:
+        result = service.refresh_session(data.refresh_token)
+    except Exception as e:
+        msg = str(e)
+        if hasattr(e, "response") and e.response is not None:
+            try:
+                body = e.response.json()
+                msg = body.get("msg", body.get("error_description", body.get("error", msg)))
+            except Exception:
+                msg = str(e)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=msg,
+        )
+
+    user_data = result["user"].model_dump() if hasattr(result["user"], "model_dump") else result["user"]
+    role = _resolve_role(service_supabase, str(user_data.get("id")))
+    return TokenResponse(
+        access_token=result["session"].access_token,
+        refresh_token=getattr(result["session"], "refresh_token", None),
+        role=role,
+        user=user_data,
     )
 
 
@@ -164,11 +251,15 @@ def get_current_user_info(
     role = current_user.role
     user_metadata = None
     try:
-        result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+        result = supabase.table("user_roles").select("role").eq("user_id", current_user.id).execute()
         if result.data:
             role = result.data[0].get("role", role)
+        else:
+            profile_result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+            if profile_result.data:
+                role = profile_result.data[0].get("role", role)
     except Exception as e:
-        logger.warning("Failed to fetch profile role: %s", str(e))
+        logger.warning("Failed to fetch current user role: %s", str(e))
     try:
         user = supabase.auth.get_user()
         user_metadata = user.user.model_dump().get("user_metadata") if user else None
@@ -199,7 +290,7 @@ def update_profile(
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
 ) -> ProfileResponse:
-    payload = data.model_dump(exclude_none=True)
+    payload = data.model_dump(exclude_none=True, mode="json")
     response = supabase.table("profiles").update(payload).eq("user_id", current_user.id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Profile not found")
@@ -209,9 +300,9 @@ def update_profile(
 @router.get("/roles")
 def get_roles(
     current_user: CurrentUser = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
+    supabase: Client = Depends(get_service_client),
 ) -> dict:
-    result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+    result = supabase.table("user_roles").select("role").eq("user_id", current_user.id).execute()
     role = result.data[0].get("role") if result.data else current_user.role
     return {"user_id": current_user.id, "email": current_user.email, "role": role}
 
@@ -222,9 +313,16 @@ def assign_role(
     admin_user: CurrentUser = Depends(require_admin),
     supabase: Client = Depends(get_service_client),
 ) -> dict:
-    payload = {"role": data.role}
-    result = supabase.table("profiles").update(payload).eq("user_id", data.user_id).execute()
-    if not result.data:
+    if data.role not in {"tenant", "house_manager", "admin"}:
+        raise HTTPException(status_code=400, detail="Invalid role")
+
+    profile_result = supabase.table("profiles").update({"role": data.role}).eq("user_id", data.user_id).execute()
+    supabase.table("user_roles").upsert(
+        {"user_id": data.user_id, "role": data.role},
+        on_conflict="user_id",
+    ).execute()
+
+    if not profile_result.data:
         raise HTTPException(status_code=404, detail="User profile not found")
     return {"message": "Role assigned", "user_id": data.user_id, "role": data.role}
 

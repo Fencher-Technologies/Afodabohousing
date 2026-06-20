@@ -1,8 +1,9 @@
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, StyleSheet, View } from 'react-native';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { LoadingState } from '../../components/common/LoadingState';
 import { PageHeader } from '../../components/common/PageHeader';
+import { ScrollableScreenContainer } from '../../components/common/ScrollableScreenContainer';
 import { PaymentDetailPreview } from '../../components/payment/PaymentDetailPreview';
 import { PaymentHistoryCard } from '../../components/payment/PaymentHistoryCard';
 import { PaymentProofUploadAction } from '../../components/payment/PaymentProofUploadAction';
@@ -51,7 +52,7 @@ export function TenantPaymentsScreen() {
   const hasFilteredPayments = paymentsQuery.filteredPayments.length > 0;
 
   return (
-    <ScrollView
+    <ScrollableScreenContainer
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
@@ -62,7 +63,6 @@ export function TenantPaymentsScreen() {
           tintColor={colors.primary}
         />
       }
-      style={styles.screen}
     >
       <PageHeader
         label="Rent Payments"
@@ -100,7 +100,7 @@ export function TenantPaymentsScreen() {
           title="No payments yet"
         />
       )}
-    </ScrollView>
+    </ScrollableScreenContainer>
   );
 }
 

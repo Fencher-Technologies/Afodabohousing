@@ -334,54 +334,6 @@ async function saveProfile(payload: SaveProfilePayload) {
   });
 }
 
-async function saveTenantRecord(userId: string) {
-  const { data: existingTenant, error: readTenantError } = await supabase
-    .from('tenants')
-    .select('id')
-    .eq('user_id', userId)
-    .limit(1)
-    .maybeSingle();
-
-  if (readTenantError) {
-    console.error('[auth-debug] tenant record save result', {
-      error: readTenantError.message,
-      stage: 'read-existing',
-      success: false,
-      userId,
-    });
-    throw new Error(`Could not check your tenant record. ${readTenantError.message}`);
-  }
-
-  if (existingTenant) {
-    console.info('[auth-debug] tenant record save result', {
-      stage: 'existing',
-      success: true,
-      userId,
-    });
-    return;
-  }
-
-  const { error: insertTenantError } = await supabase.from('tenants').insert({
-    user_id: userId,
-  });
-
-  if (insertTenantError) {
-    console.error('[auth-debug] tenant record save result', {
-      error: insertTenantError.message,
-      stage: 'insert',
-      success: false,
-      userId,
-    });
-    throw new Error(`Could not save your tenant record. ${insertTenantError.message}`);
-  }
-
-  console.info('[auth-debug] tenant record save result', {
-    stage: 'insert',
-    success: true,
-    userId,
-  });
-}
-
 async function saveAccountRecords(
   userId: string,
   role: AppRole,
@@ -390,14 +342,12 @@ async function saveAccountRecords(
   const results = await Promise.allSettled([
     saveUserRole(userId, role),
     profilePayload ? saveProfile(profilePayload) : Promise.resolve(),
-    role === 'tenant' ? saveTenantRecord(userId) : Promise.resolve(),
   ]);
 
   console.info('[auth-debug] account persistence summary', {
     profileSaved: results[1].status === 'fulfilled',
     role,
     roleSaved: results[0].status === 'fulfilled',
-    tenantRecordSaved: results[2].status === 'fulfilled',
     userId,
   });
 
@@ -405,7 +355,7 @@ async function saveAccountRecords(
     if (result.status === 'rejected') {
       console.warn('[auth-debug] account persistence fallback active', {
         error: getErrorMessage(result.reason),
-        record: index === 0 ? 'user_roles' : index === 1 ? 'profiles' : 'tenants',
+        record: index === 0 ? 'user_roles' : 'profiles',
         userId,
       });
     }

@@ -34,7 +34,8 @@ const tabLabels: Record<keyof TenantTabParamList, string> = {
 
 export function TenantNavigator() {
   const insets = useSafeAreaInsets();
-  const bottomInset = Math.max(insets.bottom, 10);
+  const bottomInset = Math.max(insets.bottom, 12);
+  const tabBarHeight = 66 + bottomInset;
 
   return (
     <TenantTabs.Navigator
@@ -84,14 +85,17 @@ export function TenantNavigator() {
         ),
         tabBarLabelPosition: 'below-icon',
         tabBarShowLabel: true,
+        sceneStyle: {
+          backgroundColor: colors.background,
+        },
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 64 + bottomInset,
+          height: tabBarHeight,
           paddingBottom: bottomInset,
-          paddingHorizontal: 6,
-          paddingTop: 7,
+          paddingHorizontal: 8,
+          paddingTop: 8,
         },
       })}
     >

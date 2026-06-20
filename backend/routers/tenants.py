@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from supabase import Client
 
-from dependencies import CurrentUser, get_current_user, get_supabase_client
+from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client
 from models import TenantCreate, TenantResponse, TenantUpdate
 from services import TenantService, get_tenant_service
 
@@ -36,6 +36,62 @@ def list_tenants(
         skip=skip,
         limit=limit,
     )
+
+
+@router.get("/resolve-by-email", response_model=TenantResponse)
+def resolve_tenant_by_email(
+    email: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    service: TenantService = Depends(get_tenant_svc),
+    service_supabase: Client = Depends(get_service_client),
+) -> TenantResponse:
+    normalized_email = email.strip().lower()
+
+    existing = (
+        service_supabase.table("tenants")
+        .select("*")
+        .eq("owner_id", current_user.id)
+        .eq("email", normalized_email)
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        return TenantResponse(**existing.data[0])
+
+    profile_result = (
+        service_supabase.table("profiles")
+        .select("user_id, full_name, phone")
+        .eq("email", normalized_email)
+        .limit(1)
+        .execute()
+    )
+    profile = profile_result.data[0] if profile_result.data else None
+    user_id = profile.get("user_id") if profile else None
+
+    if not user_id:
+        raise HTTPException(status_code=404, detail="No registered user matched that email address")
+
+    full_name = (profile.get("full_name") or "").strip() if profile else ""
+    name_parts = [part for part in full_name.split() if part]
+    if name_parts:
+        first_name = name_parts[0]
+        last_name = " ".join(name_parts[1:]) or "Tenant"
+    else:
+        first_name = normalized_email.split("@")[0].replace(".", " ").strip().title() or "Tenant"
+        last_name = "Tenant"
+
+    tenant = service.create(
+        TenantCreate(
+            email=normalized_email,
+            first_name=first_name,
+            last_name=last_name,
+            phone=profile.get("phone") if profile else None,
+            status="active",
+            user_id=user_id,
+        ),
+        current_user.id,
+    )
+    return TenantResponse(**tenant)
 
 
 @router.get("/{tenant_id}", response_model=TenantResponse)

@@ -1,8 +1,9 @@
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, StyleSheet, View } from 'react-native';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { LoadingState } from '../../components/common/LoadingState';
 import { PageHeader } from '../../components/common/PageHeader';
+import { ScrollableScreenContainer } from '../../components/common/ScrollableScreenContainer';
 import { TenantPaymentPreviewCard } from '../../components/tenant/TenantPaymentPreviewCard';
 import { TenantQuickActions } from '../../components/tenant/TenantQuickActions';
 import { TenantRentSummaryCard } from '../../components/tenant/TenantRentSummaryCard';
@@ -62,7 +63,7 @@ export function TenantHomeScreen() {
   }
 
   return (
-    <ScrollView
+    <ScrollableScreenContainer
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
@@ -73,7 +74,6 @@ export function TenantHomeScreen() {
           tintColor={colors.primary}
         />
       }
-      style={styles.screen}
     >
       <PageHeader
         label="Tenant Home"
@@ -92,7 +92,7 @@ export function TenantHomeScreen() {
       <TenantTenancyCard tenancy={summary.activeTenancy} />
       <TenantPaymentPreviewCard payments={summary.recentPayments} />
       <TenantQuickActions />
-    </ScrollView>
+    </ScrollableScreenContainer>
   );
 }
 
