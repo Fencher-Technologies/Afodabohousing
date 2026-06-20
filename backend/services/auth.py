@@ -1,7 +1,7 @@
 from supabase import Client
 
-from config import get_settings
 from .base import with_retry
+from config import get_settings
 
 settings = get_settings()
 
