@@ -13,6 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from config import get_settings
 from dependencies.database import get_supabase_client
 from routers import (
+    admin_router,
     auth_router,
     leases_router,
     maintenance_requests_router,
@@ -181,6 +182,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
+app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(properties_router)
 app.include_router(tenants_router)

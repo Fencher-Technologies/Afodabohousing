@@ -7,13 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import logoImg from '@/assets/logo.png';
 import heroBg from '@/assets/hero-bg.jpg';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Zap } from 'lucide-react';
-
-const DEMO = [
-  { email: 'admin@afodabo.ug', role: 'Admin', desc: 'Full platform control' },
-  { email: 'john@afodabo.ug', role: 'Manager', desc: 'Manage properties and tenants' },
-  { email: 'sarah@afodabo.ug', role: 'Tenant', desc: 'Pay rent and view tenancy' },
-];
+import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -36,46 +30,28 @@ export default function LoginPage() {
       return;
     }
 
-    // Fetch role from profiles for redirect decision
-    const { data: roleData } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, status')
       .eq('user_id', data.user.id)
       .maybeSingle();
 
-    setLoading(false);
-
-    if (roleData?.role === 'admin') navigate('/dashboard/admin');
-    else if (roleData?.role === 'owner' || roleData?.role === 'house_manager') navigate('/dashboard/manager');
-    else navigate('/dashboard/tenant');
-  };
-
-  const quickLogin = async (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('Demo@1234');
-    setLoading(true);
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: demoEmail,
-      password: 'Demo@1234',
-    });
-
-    if (error) {
+    if (profile?.status && profile.status !== 'active') {
+      await supabase.auth.signOut();
       setLoading(false);
-      toast({ title: 'Demo login failed', description: error.message, variant: 'destructive' });
+      toast({
+        title: 'Account not active',
+        description: `Your account is ${profile.status}. Please contact your administrator.`,
+        variant: 'destructive',
+      });
       return;
     }
 
-    const { data: roleData } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('user_id', data.user.id)
-      .maybeSingle();
-
     setLoading(false);
 
-    if (roleData?.role === 'admin') navigate('/dashboard/admin');
-    else if (roleData?.role === 'owner' || roleData?.role === 'house_manager') navigate('/dashboard/manager');
+    const role = profile?.role || 'tenant';
+    if (role === 'super_admin') navigate('/dashboard/super-admin');
+    else if (role === 'house_manager') navigate('/dashboard/manager');
     else navigate('/dashboard/tenant');
   };
 
@@ -156,38 +132,6 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-primary font-semibold hover:underline">Create account</Link>
-          </p>
-
-          {/* Demo accounts */}
-          <div className="mt-8 pt-6 border-t border-border">
-            <div className="flex items-center gap-2 mb-3 justify-center">
-              <Zap className="h-3.5 w-3.5 text-accent" />
-              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-widest">Quick Demo Access</p>
-            </div>
-            <div className="space-y-2">
-              {DEMO.map(d => (
-                <button
-                  key={d.email}
-                  onClick={() => quickLogin(d.email)}
-                  disabled={loading}
-                  className="w-full text-left flex items-center justify-between bg-secondary hover:bg-muted rounded-xl px-4 py-3 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div>
-                    <span className="text-xs font-bold text-foreground">{d.role}</span>
-                    <span className="text-xs text-muted-foreground ml-2">{d.desc}</span>
-                  </div>
-                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-                </button>
-              ))}
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                Password: <code className="bg-card border border-border px-2 py-0.5 rounded font-mono text-primary font-bold">Demo@1234</code>
-              </p>
-            </div>
-          </div>
         </div>
       </div>
 

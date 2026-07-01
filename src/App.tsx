@@ -12,6 +12,9 @@ import PropertyDetailPage from "./pages/PropertyDetail";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import TenantDashboard from "./pages/TenantDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import AcceptInvitePage from "./pages/AcceptInvite";
+import ProtectedRoute from "./components/ProtectedRoute";
 import AboutPage from "./pages/About";
 import ContactPage from "./pages/Contact";
 import PrivacyPage from "./pages/Privacy";
@@ -31,10 +34,12 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/accept-invite" element={<AcceptInvitePage />} />
             <Route path="/properties" element={<PropertiesPage />} />
             <Route path="/properties/:id" element={<PropertyDetailPage />} />
-            <Route path="/dashboard/manager" element={<ManagerDashboard />} />
-            <Route path="/dashboard/tenant" element={<TenantDashboard />} />
+            <Route path="/dashboard/super-admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
+            <Route path="/dashboard/manager" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerDashboard /></ProtectedRoute>} />
+            <Route path="/dashboard/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
             <Route path="/dashboard/admin" element={<AdminDashboard />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
