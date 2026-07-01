@@ -1,0 +1,23 @@
+export type RootStackParamList = {
+  About: undefined;
+  Contact: undefined;
+  EditProfile: undefined;
+  Login: undefined;
+  ManagerConversation: { participantId: string };
+  ManagerCreateProperty: undefined;
+  ManagerCreateTenancy: undefined;
+  ManagerEditProperty: { propertyId: string };
+  ManagerProperties: undefined;
+  ManagerPropertyDetails: { propertyId: string };
+  ManagerTenancies: undefined;
+  ManagerTenancyDetails: { tenancyId: string };
+  Main: undefined;
+  Onboarding: undefined;
+  PropertyDetails: { propertyId: string };
+  Privacy: undefined;
+  Register: undefined;
+  RoleUnavailable: undefined;
+  TenantConversation: { participantId: string };
+  TenantPayments: undefined;
+  Terms: undefined;
+};
