@@ -49,22 +49,39 @@ class PropertyService(BaseService):
         return response.data or [], total
 
     @with_retry
-    def get_public_listings(
-        self, skip: int = 0, limit: int = 100
+    def get_all_for_tenant(
+        self, tenant_id: UUID, skip: int = 0, limit: int = 100
     ) -> tuple[list[dict[str, Any]], int]:
         count_resp = (
             self.supabase.table(self._table)
             .select("*", count="exact")
-            .eq("status", "available")
-            .eq("is_active", True)
+            .eq("tenant_id", str(tenant_id))
             .execute()
         )
         total = count_resp.count if hasattr(count_resp, "count") else 0
 
         response = (
             self.table.select("*")
-            .eq("status", "available")
-            .eq("is_active", True)
+            .eq("tenant_id", str(tenant_id))
+            .order("created_at", desc=True)
+            .range(skip, skip + limit - 1)
+            .execute()
+        )
+        return response.data or [], total
+
+    @with_retry
+    def get_public_listings(
+        self, skip: int = 0, limit: int = 100
+    ) -> tuple[list[dict[str, Any]], int]:
+        count_resp = (
+            self.supabase.table(self._table)
+            .select("*", count="exact")
+            .execute()
+        )
+        total = count_resp.count if hasattr(count_resp, "count") else 0
+
+        response = (
+            self.table.select("*")
             .order("created_at", desc=True)
             .range(skip, skip + limit - 1)
             .execute()
@@ -86,15 +103,13 @@ class PropertyService(BaseService):
         response = (
             self.table.select("*")
             .eq("id", str(property_id))
-            .eq("status", "available")
-            .eq("is_active", True)
             .execute()
         )
         return response.data[0] if response.data else None
 
     @with_retry
     def create(self, data: PropertyCreate, owner_id: UUID) -> dict[str, Any]:
-        payload = data.model_dump(exclude_none=True)
+        payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
         response = self.table.insert(payload).execute()
         return response.data[0]
@@ -103,7 +118,7 @@ class PropertyService(BaseService):
     def update(
         self, property_id: UUID, data: PropertyUpdate, owner_id: UUID
     ) -> dict[str, Any] | None:
-        payload = data.model_dump(exclude_none=True)
+        payload = data.model_dump(exclude_none=True, mode="json")
         if not payload:
             return self.get_by_id(property_id, owner_id)
         response = (
@@ -163,7 +178,7 @@ class TenantService(BaseService):
 
     @with_retry
     def create(self, data: TenantCreate, owner_id: UUID) -> dict[str, Any]:
-        payload = data.model_dump(exclude_none=True)
+        payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
         response = self.table.insert(payload).execute()
         return response.data[0]
@@ -172,7 +187,7 @@ class TenantService(BaseService):
     def update(
         self, tenant_id: UUID, data: TenantUpdate, owner_id: UUID
     ) -> dict[str, Any] | None:
-        payload = data.model_dump(exclude_none=True)
+        payload = data.model_dump(exclude_none=True, mode="json")
         if not payload:
             return self.get_by_id(tenant_id, owner_id)
         response = (
@@ -198,6 +213,27 @@ class LeaseService(BaseService):
     def __init__(self, supabase: Client):
         super().__init__(supabase)
         self._table = "leases"
+
+    @with_retry
+    def get_all_for_tenant(
+        self, tenant_id: UUID, skip: int = 0, limit: int = 100
+    ) -> tuple[list[dict[str, Any]], int]:
+        count_resp = (
+            self.supabase.table(self._table)
+            .select("*", count="exact")
+            .eq("tenant_id", str(tenant_id))
+            .execute()
+        )
+        total = count_resp.count if hasattr(count_resp, "count") else 0
+
+        response = (
+            self.table.select("*")
+            .eq("tenant_id", str(tenant_id))
+            .order("created_at", desc=True)
+            .range(skip, skip + limit - 1)
+            .execute()
+        )
+        return response.data or [], total
 
     @with_retry
     def get_all(
@@ -232,7 +268,7 @@ class LeaseService(BaseService):
 
     @with_retry
     def create(self, data: LeaseCreate, owner_id: UUID) -> dict[str, Any]:
-        payload = data.model_dump(exclude_none=True)
+        payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
         response = self.table.insert(payload).execute()
         return response.data[0]
@@ -241,7 +277,7 @@ class LeaseService(BaseService):
     def update(
         self, lease_id: UUID, data: LeaseUpdate, owner_id: UUID
     ) -> dict[str, Any] | None:
-        payload = data.model_dump(exclude_none=True)
+        payload = data.model_dump(exclude_none=True, mode="json")
         if not payload:
             return self.get_by_id(lease_id, owner_id)
         response = (
@@ -328,13 +364,13 @@ class PaymentService(BaseService):
 
     @with_retry
     def create(self, data: PaymentCreate) -> dict[str, Any]:
-        payload = data.model_dump(exclude_none=True)
+        payload = data.model_dump(exclude_none=True, mode="json")
         response = self.table.insert(payload).execute()
         return response.data[0]
 
     @with_retry
     def update(self, payment_id: UUID, data: PaymentUpdate) -> dict[str, Any] | None:
-        payload = data.model_dump(exclude_none=True)
+        payload = data.model_dump(exclude_none=True, mode="json")
         if not payload:
             return self.get_by_id(payment_id)
         response = (
@@ -381,7 +417,7 @@ class MaintenanceRequestService(BaseService):
 
     @with_retry
     def create(self, data: MaintenanceRequestCreate) -> dict[str, Any]:
-        payload = data.model_dump(exclude_none=True)
+        payload = data.model_dump(exclude_none=True, mode="json")
         response = self.table.insert(payload).execute()
         return response.data[0]
 
@@ -389,7 +425,7 @@ class MaintenanceRequestService(BaseService):
     def update(
         self, request_id: UUID, data: MaintenanceRequestUpdate
     ) -> dict[str, Any] | None:
-        payload = data.model_dump(exclude_none=True)
+        payload = data.model_dump(exclude_none=True, mode="json")
         if not payload:
             return self.get_by_id(request_id)
         response = (

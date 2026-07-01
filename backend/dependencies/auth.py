@@ -1,28 +1,18 @@
-import json
 import logging
-import time
-from urllib.request import urlopen
 
+import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from pydantic import BaseModel
 from supabase import Client
 
-from config import get_settings
+from services.base import with_retry
 
 from .database import get_service_client, get_supabase_client
 
 logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
-
-
-class TokenPayload(BaseModel):
-    sub: str
-    email: str | None = None
-    role: str = "authenticated"
-    exp: int
 
 
 class CurrentUser(BaseModel):
@@ -33,105 +23,49 @@ class CurrentUser(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
 
-_jwks_cache: dict | None = None
-_jwks_cache_time: float = 0
-JWKS_CACHE_TTL = 3600
+def _is_upstream_connectivity_error(exc: Exception) -> bool:
+    if isinstance(exc, (httpx.ConnectError, httpx.ReadError, httpx.TimeoutException)):
+        return True
+
+    message = str(exc).lower()
+    return (
+        "getaddrinfo failed" in message
+        or "forcibly closed by the remote host" in message
+        or "temporary failure in name resolution" in message
+    )
 
 
-def _get_jwks(supabase_url: str) -> dict:
-    global _jwks_cache, _jwks_cache_time
-    current_time = time.time()
+@with_retry
+def _get_user_with_retry(supabase: Client, token: str):
+    return supabase.auth.get_user(token)
 
-    if _jwks_cache and (current_time - _jwks_cache_time) < JWKS_CACHE_TTL:
-        return _jwks_cache
 
-    jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
+def _resolve_user_via_supabase(token: str, supabase: Client) -> CurrentUser:
     try:
-        with urlopen(jwks_url, timeout=10) as response:
-            _jwks_cache = json.loads(response.read())
-            _jwks_cache_time = current_time
-            return _jwks_cache
-    except Exception:
-        if _jwks_cache:
-            return _jwks_cache
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Unable to fetch JWKS",
-        )
-
-
-def _verify_token(token: str, settings) -> TokenPayload:
-    try:
-        unverified_header = jwt.get_unverified_header(token)
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token header",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    jwks = _get_jwks(settings.supabase_url)
-
-    try:
-        rsa_key = {}
-        for key in jwks.get("keys", []):
-            if key.get("kid") == unverified_header.get("kid"):
-                rsa_key = {
-                    "kty": key["kty"],
-                    "kid": key["kid"],
-                    "use": key.get("use"),
-                    "n": key["n"],
-                    "e": key["e"],
-                }
-                break
-
-        if not rsa_key:
+        response = _get_user_with_retry(supabase, token)
+    except Exception as exc:
+        logger.warning("Supabase token lookup failed", exc_info=True)
+        if _is_upstream_connectivity_error(exc):
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Unable to find appropriate key",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication service is temporarily unavailable. Please try again.",
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
 
-        payload = jwt.decode(
-            token,
-            rsa_key,
-            algorithms=["RS256"],
-            audience=settings.supabase_anon_key,
-            issuer=f"{settings.supabase_url}/auth/v1",
-        )
-        return TokenPayload(**payload)
-    except jwt.ExpiredSignatureError:
+    user = getattr(response, "user", None)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except jwt.JWTClaimsError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid claims: {str(e)}",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    supabase: Client = Depends(get_supabase_client),
-) -> CurrentUser:
-    settings = get_settings()
-    token = credentials.credentials
-
-    try:
-        payload = _verify_token(token, settings)
-    except HTTPException:
-        raise
-    except Exception:
+    user_data = user.model_dump() if hasattr(user, "model_dump") else user
+    if not isinstance(user_data, dict):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
@@ -139,10 +73,17 @@ def get_current_user(
         )
 
     return CurrentUser(
-        id=payload.sub,
-        email=payload.email or "",
-        role=payload.role,
+        id=str(user_data.get("id") or ""),
+        email=user_data.get("email") or "",
+        role=user_data.get("role") or "authenticated",
     )
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    supabase: Client = Depends(get_supabase_client),
+) -> CurrentUser:
+    return _resolve_user_via_supabase(credentials.credentials, supabase)
 
 
 def get_optional_user(
@@ -154,17 +95,9 @@ def get_optional_user(
     if not credentials:
         return None
 
-    settings = get_settings()
     try:
-        payload = _verify_token(credentials.credentials, settings)
-        return CurrentUser(
-            id=payload.sub,
-            email=payload.email or "",
-            role=payload.role,
-        )
+        return _resolve_user_via_supabase(credentials.credentials, supabase)
     except HTTPException:
-        return None
-    except Exception:
         return None
 
 

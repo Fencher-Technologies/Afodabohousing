@@ -21,6 +21,7 @@ from routers import (
     properties_router,
     rental_units_router,
     tenants_router,
+    uploads_router,
     webhooks_router,
 )
 
@@ -188,6 +189,7 @@ app.include_router(messages_router)
 app.include_router(payments_router)
 app.include_router(rental_units_router)
 app.include_router(maintenance_requests_router)
+app.include_router(uploads_router)
 app.include_router(webhooks_router)
 
 

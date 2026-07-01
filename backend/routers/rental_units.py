@@ -71,7 +71,7 @@ def create_unit(
     if not prop.data or str(prop.data[0]["owner_id"]) != current_user.id:
         raise HTTPException(status_code=403, detail="You don't own this property")
 
-    payload = data.model_dump(exclude_none=True)
+    payload = data.model_dump(exclude_none=True, mode="json")
     payload["owner_id"] = current_user.id
     result = supabase.table("rental_units").insert(payload).execute()
     return RentalUnitResponse(**result.data[0])
@@ -90,7 +90,7 @@ def update_unit(
     if str(existing.data[0]["owner_id"]) != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    payload = data.model_dump(exclude_none=True)
+    payload = data.model_dump(exclude_none=True, mode="json")
     if not payload:
         return RentalUnitResponse(**existing.data[0])
 

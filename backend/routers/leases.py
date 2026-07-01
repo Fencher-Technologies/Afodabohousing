@@ -27,9 +27,19 @@ def list_leases(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
     service: LeaseService = Depends(get_lease_svc),
 ) -> PaginatedResponse:
-    leases, total = service.get_all(current_user.id, skip, limit)
+    tenant = (
+        supabase.table("tenants")
+        .select("id")
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if tenant.data:
+        leases, total = service.get_all_for_tenant(tenant.data[0]["id"], skip, limit)
+    else:
+        leases, total = service.get_all(current_user.id, skip, limit)
     return PaginatedResponse(
         items=[LeaseResponse(**lease) for lease in leases],
         total=total,

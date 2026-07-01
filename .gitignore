@@ -27,3 +27,7 @@ backend/.env
 backend/**/__pycache__
 docs/Integration_Guide.docx
 Afodabo_Housing_Backend_Documentation.docx
+
+mobile/.expo/
+mobile/android/
+mobile/ios/

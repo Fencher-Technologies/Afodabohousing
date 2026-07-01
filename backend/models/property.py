@@ -9,6 +9,7 @@ class Property(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     owner_id: UUID
+    title: str
     address: str
     city: str
     state: str
@@ -24,12 +25,15 @@ class Property(BaseModel):
     description: str | None = None
     amenities: list[str] | None = None
     images: list[str] | None = None
+    manager_email: str | None = None
+    manager_phone: str | None = None
     is_active: bool = True
     created_at: datetime
     updated_at: datetime
 
 
 class PropertyCreate(BaseModel):
+    title: str
     address: str
     city: str
     state: str
@@ -45,10 +49,13 @@ class PropertyCreate(BaseModel):
     description: str | None = None
     amenities: list[str] | None = None
     images: list[str] | None = None
+    manager_email: str | None = None
+    manager_phone: str | None = None
     is_active: bool = True
 
 
 class PropertyUpdate(BaseModel):
+    title: str | None = None
     address: str | None = None
     city: str | None = None
     state: str | None = None
@@ -64,6 +71,8 @@ class PropertyUpdate(BaseModel):
     description: str | None = None
     amenities: list[str] | None = None
     images: list[str] | None = None
+    manager_email: str | None = None
+    manager_phone: str | None = None
     is_active: bool | None = None
 
 
@@ -71,6 +80,7 @@ class PropertyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     owner_id: UUID
+    title: str
     address: str
     city: str
     state: str
@@ -86,6 +96,8 @@ class PropertyResponse(BaseModel):
     description: str | None = None
     amenities: list[str] | None = None
     images: list[str] | None = None
+    manager_email: str | None = None
+    manager_phone: str | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
