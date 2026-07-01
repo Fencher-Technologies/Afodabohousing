@@ -11,7 +11,6 @@ import PropertiesPage from "./pages/Properties";
 import PropertyDetailPage from "./pages/PropertyDetail";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import TenantDashboard from "./pages/TenantDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import AcceptInvitePage from "./pages/AcceptInvite";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -40,7 +39,6 @@ const App = () => (
             <Route path="/dashboard/super-admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
             <Route path="/dashboard/manager" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerDashboard /></ProtectedRoute>} />
             <Route path="/dashboard/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
-            <Route path="/dashboard/admin" element={<AdminDashboard />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />

@@ -15,7 +15,7 @@ import heroBg from '@/assets/hero-bg.jpg';
 type Property = Database['public']['Tables']['properties']['Row'];
 
 const DEMO_ACCOUNTS = [
-  { email: 'admin@afodabo.ug', role: 'Admin', badge: 'bg-accent/20 text-accent border-accent/30', desc: 'Full platform control' },
+  { email: 'admin@afodabo.ug', role: 'Super Admin', badge: 'bg-accent/20 text-accent border-accent/30', desc: 'Full platform control' },
   { email: 'john@afodabo.ug', role: 'Manager (John)', badge: 'bg-primary/10 text-primary border-primary/30', desc: '3 properties listed' },
   { email: 'grace@afodabo.ug', role: 'Manager (Grace)', badge: 'bg-primary/10 text-primary border-primary/30', desc: 'Wakiso properties' },
   { email: 'sarah@afodabo.ug', role: 'Tenant (Sarah)', badge: 'bg-secondary text-secondary-foreground border-border', desc: 'Active tenancy' },

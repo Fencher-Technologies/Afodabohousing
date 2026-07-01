@@ -1,6 +1,16 @@
+import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings
+
+
+def _find_env_file() -> str:
+    """Resolve .env path whether running from repo root or backend/ directory."""
+    candidates = ["backend/.env", ".env"]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return ".env"
 
 
 class Settings(BaseSettings):
@@ -11,7 +21,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8081"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080", "http://localhost:3000", "http://localhost:8081"]
     environment: str = "development"
 
     rate_limit_enabled: bool = True
@@ -40,8 +50,9 @@ class Settings(BaseSettings):
     webhook_secret: str = ""
 
     class Config:
-        env_file = ".env"
+        env_file = _find_env_file()
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 @lru_cache

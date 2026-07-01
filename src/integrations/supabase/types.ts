@@ -115,27 +115,42 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          created_by: string | null
+          email: string
           full_name: string | null
           id: string
+          manager_id: string | null
           phone: string | null
+          role: string | null
+          status: string
           updated_at: string
           user_id: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          created_by?: string | null
+          email?: string
           full_name?: string | null
           id?: string
+          manager_id?: string | null
           phone?: string | null
+          role?: string | null
+          status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
+          created_by?: string | null
+          email?: string
           full_name?: string | null
           id?: string
+          manager_id?: string | null
           phone?: string | null
+          role?: string | null
+          status?: string
           updated_at?: string
           user_id?: string
         }
@@ -233,7 +248,7 @@ export type Database = {
           rent_amount: number
           rent_currency: string
           sitting_rooms: number
-          status: Database["public"]["Enums"]["property_status"]
+          status: string
           unit_number: string
           updated_at: string
         }
@@ -250,7 +265,7 @@ export type Database = {
           rent_amount: number
           rent_currency?: string
           sitting_rooms?: number
-          status?: Database["public"]["Enums"]["property_status"]
+          status?: string
           unit_number: string
           updated_at?: string
         }
@@ -267,7 +282,7 @@ export type Database = {
           rent_amount?: number
           rent_currency?: string
           sitting_rooms?: number
-          status?: Database["public"]["Enums"]["property_status"]
+          status?: string
           unit_number?: string
           updated_at?: string
         }
@@ -371,7 +386,7 @@ export type Database = {
       get_user_id_by_email: { Args: { _email: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
-        Returns: Database["public"]["Enums"]["app_role"]
+        Returns: string
       }
       has_role: {
         Args: {
@@ -382,7 +397,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "tenant" | "house_manager" | "admin"
+      app_role: "tenant" | "house_manager" | "super_admin" | "admin"
       payment_status: "pending" | "uploaded" | "confirmed" | "rejected"
       property_status: "available" | "occupied" | "inactive"
       property_type:
@@ -521,7 +536,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["tenant", "house_manager", "admin"],
+      app_role: ["tenant", "house_manager", "super_admin", "admin"],
       payment_status: ["pending", "uploaded", "confirmed", "rejected"],
       property_status: ["available", "occupied", "inactive"],
       property_type: [

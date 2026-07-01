@@ -4,19 +4,16 @@ FastAPI backend for the Afodabo Housing rental management platform.
 
 ## Architecture
 
-- **Framework**: FastAPI (async Python)
+- **Framework**: FastAPI (Python)
 - **Database**: Supabase (PostgreSQL with Row-Level Security)
-- **Auth**: Protected routes validate bearer tokens against Supabase Auth using the existing project credentials
-- **Roles**: Stored on `profiles.role` and enforced by Supabase RLS
-
-## Key Design Decisions
-
-1. **Schema alignment**: Models match the current Supabase schema (properties, tenants, leases, payments, maintenance requests)
-2. **Resilience**: Retry with exponential backoff + jitter on all Supabase calls
-3. **Observability**: Per-request structured JSON logging, real-time latency metrics, request ID tracking
-4. **Rate limiting**: Configurable per-client-IP rate limiting middleware
-5. **Auth**: Token validation is delegated to Supabase Auth so the backend stays aligned with the project's real token format without extra secrets
-6. **Client caching**: Supabase client instances are cached and reused (not recreated per request)
+- **Auth**: Bearer tokens validated against Supabase Auth; role-based access control via `profiles.role`
+- **Role hierarchy**: `super_admin` → `house_manager` → `tenant`
+  - `super_admin`: full access to all data + create managers
+  - `house_manager`: CRUD own properties, leases, tenants
+  - `tenant`: view own leases, make payments, submit maintenance requests
+- **Invite-only registration**: Public signup restricted to `tenant` role; `house_manager` and `super_admin` created via invite or direct creation
+- **Resilience**: Retry with exponential backoff + jitter on all Supabase calls
+- **Observability**: Per-request structured JSON logging, request ID tracking, metrics endpoint
 
 ## API Endpoints
 
@@ -32,30 +29,40 @@ FastAPI backend for the Afodabo Housing rental management platform.
 
 ### Auth
 
-| Method | Path                   | Auth  | Description                                 |
-| ------ | ---------------------- | ----- | ------------------------------------------- |
-| POST   | `/auth/signup`         | No    | Register new user                           |
-| POST   | `/auth/signin`         | No    | Email/password sign-in                      |
-| POST   | `/auth/signin/form`    | No    | OAuth2 form-based sign-in                   |
-| POST   | `/auth/signout`        | Yes   | Sign out                                    |
-| POST   | `/auth/reset-password` | No    | Request password reset                      |
-| GET    | `/auth/me`             | Yes   | Current user info + roles                   |
-| GET    | `/auth/profile`        | Yes   | Get user profile                            |
-| PATCH  | `/auth/profile`        | Yes   | Update user profile                         |
-| GET    | `/auth/roles`          | Yes   | Get current user role from profiles         |
-| POST   | `/auth/roles`          | Admin | Assign role to user (updates profiles.role) |
+| Method | Path                   | Auth          | Description                                 |
+| ------ | ---------------------- | ------------- | ------------------------------------------- |
+| POST   | `/auth/signup`         | No            | Register new user (tenant role only)        |
+| POST   | `/auth/signin`         | No            | Email/password sign-in                      |
+| POST   | `/auth/signin/form`    | No            | OAuth2 form-based sign-in                   |
+| POST   | `/auth/signout`        | Yes           | Sign out                                    |
+| POST   | `/auth/reset-password` | No            | Request password reset                      |
+| POST   | `/auth/invite`         | Super Admin   | Create invitation token                     |
+| POST   | `/auth/accept-invite`  | No (token)    | Accept invitation, create account + session |
+| GET    | `/auth/me`             | Yes           | Current user info with full profile         |
+| GET    | `/auth/profile`        | Yes           | Get user profile                            |
+| PATCH  | `/auth/profile`        | Yes           | Update user profile                         |
+| GET    | `/auth/roles`          | Yes           | Get current user role                       |
+
+### Admin (super_admin only)
+
+| Method | Path                              | Description                               |
+| ------ | --------------------------------- | ----------------------------------------- |
+| POST   | `/admin/create-manager`           | Create house_manager account + temp pass  |
+| GET    | `/admin/users`                    | List all users (filterable by `?role=`)   |
+| PATCH  | `/admin/users/{user_id}/status`   | Suspend or activate a user                |
+| GET    | `/admin/stats`                    | Dashboard stats (financial/property/user) |
 
 ### Properties
 
-| Method | Path                      | Auth | Description                    |
-| ------ | ------------------------- | ---- | ------------------------------ |
-| GET    | `/properties`             | Yes  | List my properties (paginated) |
-| GET    | `/properties/public`      | No   | List public listings           |
-| GET    | `/properties/{id}`        | Yes  | Get my property by ID          |
-| GET    | `/properties/public/{id}` | No   | Get public property listing    |
-| POST   | `/properties`             | Yes  | Create property                |
-| PATCH  | `/properties/{id}`        | Yes  | Update my property             |
-| DELETE | `/properties/{id}`        | Yes  | Delete my property             |
+| Method | Path                      | Auth  | Description                    |
+| ------ | ------------------------- | ----- | ------------------------------ |
+| GET    | `/properties`             | Yes   | List my properties (paginated) |
+| GET    | `/properties/public`      | No    | List public listings           |
+| GET    | `/properties/{id}`        | Yes   | Get my property by ID          |
+| GET    | `/properties/public/{id}` | No    | Get public property listing    |
+| POST   | `/properties`             | Yes   | Create property                |
+| PATCH  | `/properties/{id}`        | Yes   | Update my property             |
+| DELETE | `/properties/{id}`        | Yes   | Delete my property             |
 
 ### Tenants
 
@@ -99,17 +106,38 @@ FastAPI backend for the Afodabo Housing rental management platform.
 ## Running
 
 ```bash
-uv sync
-uv run uvicorn main:app --reload
-uv run python -m uvicorn main:app --reload
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+# or: uv sync
+
+uvicorn main:app --reload
+# Server starts at http://localhost:8000
+# API docs at http://localhost:8000/docs
 ```
 
 ## Testing
 
 ```bash
-uv run pytest
+cd backend
+source .venv/bin/activate
+pytest
 ```
 
 ## Environment Variables
 
-See `.env.example` for all configuration options.
+See `backend/.env.example` (or `backend/.env` for local overrides).
+
+| Variable                     | Default                                       | Description                  |
+| ---------------------------- | --------------------------------------------- | ---------------------------- |
+| `SUPABASE_URL`               | —                                             | Supabase project URL         |
+| `SUPABASE_ANON_KEY`          | —                                             | Supabase anon/public key     |
+| `SUPABASE_SERVICE_ROLE_KEY`  | —                                             | Supabase service_role key    |
+| `SECRET_KEY`                 | `change-me-in-production`                     | JWT secret                   |
+| `ENVIRONMENT`                | `development`                                 | `development`/`production`   |
+| `CORS_ORIGINS`               | `["http://localhost:5173","http://localhost:8080"]` | Allowed CORS origins   |
+| `DATABASE_URL`               | —                                             | Direct DB connection string  |
+| `PESAPAL_CONSUMER_KEY`       | —                                             | PesaPal API key              |
+| `PESAPAL_CONSUMER_SECRET`    | —                                             | PesaPal API secret           |
+| `PESAPAL_ENVIRONMENT`        | `sandbox`                                     | `sandbox` or `live`          |

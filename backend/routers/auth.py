@@ -120,10 +120,10 @@ def signup(
     service: AuthService = Depends(get_auth_svc),
     service_supabase: Client = Depends(get_service_client),
 ) -> TokenResponse:
-    if data.role not in {"tenant", "house_manager", "admin"}:
+    if data.role != "tenant":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid role",
+            detail="Public signup is only available for the tenant role",
         )
 
     try:
@@ -317,7 +317,7 @@ def accept_invite(
     if invitation.get("manager_id"):
         profile_payload["manager_id"] = invitation["manager_id"]
 
-    supabase.table("profiles").insert(profile_payload).execute()
+    supabase.table("profiles").upsert(profile_payload, on_conflict="user_id").execute()
 
     supabase.table("invitations").update({"status": "accepted"}).eq("id", invitation["id"]).execute()
 

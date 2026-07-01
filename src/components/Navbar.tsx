@@ -26,12 +26,12 @@ export default function Navbar() {
 
   const dashboardPath =
     role === 'house_manager' ? '/dashboard/manager' :
-    role === 'admin' ? '/dashboard/admin' :
+    role === 'super_admin' ? '/dashboard/super-admin' :
     '/dashboard/tenant';
 
   const dashboardLabel =
     role === 'house_manager' ? 'Manager Dashboard' :
-    role === 'admin' ? 'Admin Panel' :
+    role === 'super_admin' ? 'Super Admin' :
     'My Dashboard';
 
   // Close dropdowns on outside click
@@ -152,7 +152,7 @@ export default function Navbar() {
           </div>
 
           {/* Dashboard link */}
-          {user && role !== 'admin' && (
+          {user && role !== 'super_admin' && (
             <Link
               to={dashboardPath}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isActive(dashboardPath) ? 'bg-secondary text-foreground' : 'text-foreground/80 hover:text-foreground hover:bg-secondary'}`}
@@ -162,14 +162,14 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* Admin link */}
-          {role === 'admin' && (
+          {/* Super Admin link */}
+          {role === 'super_admin' && (
             <Link
-              to="/dashboard/admin"
+              to="/dashboard/super-admin"
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-accent hover:bg-accent/10 transition-colors"
             >
               <Shield className="h-4 w-4" />
-              Admin Panel
+              Super Admin
             </Link>
           )}
         </div>
@@ -185,7 +185,7 @@ export default function Navbar() {
                 className="gap-2"
               >
                 <LayoutDashboard className="h-4 w-4" />
-                {role === 'admin' ? 'Admin' : 'Dashboard'}
+                {role === 'super_admin' ? 'Super Admin' : 'Dashboard'}
               </Button>
               <Button
                 variant="ghost"
@@ -247,10 +247,10 @@ export default function Navbar() {
               {dashboardLabel}
             </Link>
           )}
-          {role === 'admin' && (
-            <Link to="/dashboard/admin" className="flex items-center gap-3 py-3 px-3 rounded-xl text-sm font-medium text-accent hover:bg-accent/10 transition-colors">
+          {role === 'super_admin' && (
+            <Link to="/dashboard/super-admin" className="flex items-center gap-3 py-3 px-3 rounded-xl text-sm font-medium text-accent hover:bg-accent/10 transition-colors">
               <Shield className="h-4 w-4" />
-              Admin Panel
+              Super Admin
             </Link>
           )}
 

@@ -240,7 +240,7 @@ class TestAuth:
     def test_get_profile(self, client: TestClient):
         resp = client.get("/auth/profile")
         assert resp.status_code == 200
-        assert resp.json()["role"] == "admin"
+        assert resp.json()["role"] == "super_admin"
 
     def test_update_profile(self, client: TestClient):
         resp = client.patch("/auth/profile", json={"full_name": "Updated Name"})

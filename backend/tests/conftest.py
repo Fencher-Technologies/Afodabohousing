@@ -230,8 +230,9 @@ class MockTableBuilder:
                     "id": PID_PROFILE,
                     "user_id": UID_OWNER,
                     "email": "test@test.com",
-                    "role": "admin",
+                    "role": "super_admin",
                     "full_name": "Test User",
+                    "status": "active",
                     "created_at": "2026-01-01T00:00:00Z",
                     "updated_at": "2026-01-01T00:00:00Z",
                 }
@@ -246,7 +247,7 @@ class MockSupabaseClient:
     def rpc(self, name, params=None):
         mock = MagicMock()
         if name == "get_user_role":
-            mock.execute.return_value = MockResponse(data=["admin"])
+            mock.execute.return_value = MockResponse(data=["super_admin"])
         else:
             mock.execute.return_value = MockResponse(data=[])
         return mock
@@ -275,7 +276,7 @@ def test_user() -> CurrentUser:
 
 @pytest.fixture
 def admin_user() -> CurrentUser:
-    return CurrentUser(id=UID_ADMIN, email="admin@test.com", role="admin")
+    return CurrentUser(id=UID_ADMIN, email="admin@test.com", role="super_admin", status="active")
 
 
 @pytest.fixture
