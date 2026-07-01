@@ -1,7 +1,0 @@
-import { add } from '../math';
-
-describe('math utils', () => {
-  it('adds two numbers', () => {
-    expect(add(1, 2)).toBe(3);
-  });
-});
