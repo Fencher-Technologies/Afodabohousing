@@ -166,7 +166,6 @@ export type Database = {
           city: string | null
           created_at: string
           description: string | null
-          district: string
           id: string
           images: string[] | null
           kitchens: number
@@ -178,11 +177,13 @@ export type Database = {
           rent_currency: string
           rent_period: Database["public"]["Enums"]["rent_period"]
           sitting_rooms: number
+          state: string | null
           status: Database["public"]["Enums"]["property_status"]
           title: string
           updated_at: string
+          zip_code: string | null
         }
-        Insert: {
+Insert: {
           address?: string | null
           amenities?: string[] | null
           area?: string | null
@@ -191,21 +192,22 @@ export type Database = {
           city?: string | null
           created_at?: string
           description?: string | null
-          district: string
           id?: string
           images?: string[] | null
           kitchens?: number
           manager_email?: string | null
           manager_id: string
-          manager_phone?: string | null
+          manager_phone: string | null
           property_type?: Database["public"]["Enums"]["property_type"]
           rent_amount: number
           rent_currency?: string
           rent_period?: Database["public"]["Enums"]["rent_period"]
           sitting_rooms?: number
+          state?: string | null
           status?: Database["public"]["Enums"]["property_status"]
           title: string
           updated_at?: string
+          zip_code?: string | null
         }
         Update: {
           address?: string | null
