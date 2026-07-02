@@ -73,7 +73,7 @@ function PropertyCard({ property, index = 0 }: PropertyCardProps) {
           <div className="flex items-center gap-1 text-muted-foreground text-sm mb-4">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-accent" />
             <span className="line-clamp-1">
-              {property.area ? `${property.area}, ` : ''}{property.district}
+              {property.area ? `${property.area}, ` : ''}{property.state || property.city || 'Uganda'}
             </span>
           </div>
 

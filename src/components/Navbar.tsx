@@ -89,21 +89,21 @@ export default function Navbar() {
                     <div className="text-xs text-muted-foreground">Verified listings across Uganda</div>
                   </div>
                 </Link>
-                <Link to="/properties?district=Kampala" className="flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors">
+                <Link to="/properties?state=Central" className="flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors">
                   <div className="bg-accent/10 text-accent rounded-lg p-1.5"><MapPin className="h-4 w-4" /></div>
                   <div>
                     <div className="text-sm font-semibold text-foreground">Kampala</div>
                     <div className="text-xs text-muted-foreground">Capital city listings</div>
                   </div>
                 </Link>
-                <Link to="/properties?district=Wakiso" className="flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors">
+                <Link to="/properties?state=Central" className="flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors">
                   <div className="bg-accent/10 text-accent rounded-lg p-1.5"><MapPin className="h-4 w-4" /></div>
                   <div>
                     <div className="text-sm font-semibold text-foreground">Wakiso</div>
                     <div className="text-xs text-muted-foreground">Entebbe, Kajjansi area</div>
                   </div>
                 </Link>
-                <Link to="/properties?district=Mbarara" className="flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors">
+                <Link to="/properties?state=Western" className="flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors">
                   <div className="bg-accent/10 text-accent rounded-lg p-1.5"><MapPin className="h-4 w-4" /></div>
                   <div>
                     <div className="text-sm font-semibold text-foreground">Mbarara</div>
@@ -112,7 +112,7 @@ export default function Navbar() {
                 </Link>
                 <div className="border-t border-border mt-2 pt-2 mx-2">
                   <Link to="/properties" className="block px-2 py-2 text-xs text-primary font-semibold hover:underline text-center">
-                    View all districts
+                    View all states
                   </Link>
                 </div>
               </div>
