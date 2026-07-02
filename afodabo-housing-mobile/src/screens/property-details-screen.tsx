@@ -12,17 +12,16 @@ import { Screen } from '../components/screen';
 import { useAuth } from '../context/auth-context';
 import { fetchPropertyDetails } from '../services/properties';
 import { sendTenantMessage } from '../services/tenant';
+import propertyImage1 from '../../assets/brand/property-1.jpg';
+import propertyImage2 from '../../assets/brand/property-2.jpg';
+import propertyImage3 from '../../assets/brand/property-3.jpg';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import { formatUGX, formatUGXFull, propertyTypeLabel } from '../utils/format';
 import type { RootStackParamList } from '../navigation/types';
 
 type PropertyDetailsRoute = RouteProp<RootStackParamList, 'PropertyDetails'>;
 
-const fallbackImages = [
-  require('../../assets/brand/property-1.jpg'),
-  require('../../assets/brand/property-2.jpg'),
-  require('../../assets/brand/property-3.jpg'),
-];
+const fallbackImages = [propertyImage1, propertyImage2, propertyImage3];
 
 export function PropertyDetailsScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();

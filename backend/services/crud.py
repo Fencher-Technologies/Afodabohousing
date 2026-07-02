@@ -111,6 +111,7 @@ class PropertyService(BaseService):
     @with_retry
     def create(self, data: PropertyCreate, owner_id: UUID) -> dict[str, Any]:
         payload = data.model_dump(exclude_none=True, mode="json")
+        payload.setdefault("title", data.title or data.address)
         payload["owner_id"] = str(owner_id)
         response = self.table.insert(payload).execute()
         return response.data[0]

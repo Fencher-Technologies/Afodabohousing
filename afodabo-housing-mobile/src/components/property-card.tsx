@@ -1,14 +1,13 @@
 import React, { memo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import propertyImage1 from '../../assets/brand/property-1.jpg';
+import propertyImage2 from '../../assets/brand/property-2.jpg';
+import propertyImage3 from '../../assets/brand/property-3.jpg';
 import type { PropertyRow } from '../types/supabase';
 import { colors, radii, shadows, spacing, typography } from '../theme/tokens';
 import { formatUGX, propertyTypeLabel, rentPeriodSuffix } from '../utils/format';
 
-const fallbackImages = [
-  require('../../assets/brand/property-1.jpg'),
-  require('../../assets/brand/property-2.jpg'),
-  require('../../assets/brand/property-3.jpg'),
-];
+const fallbackImages = [propertyImage1, propertyImage2, propertyImage3];
 
 interface PropertyCardProps {
   index?: number;

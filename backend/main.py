@@ -252,7 +252,7 @@ async def health_check() -> dict:
     }
 
 
-@app.get("/health/ready")
+@app.get("/health/ready", response_model=None)
 async def readiness_check() -> dict[str, str] | JSONResponse:
     try:
         supabase = get_supabase_client()

@@ -33,7 +33,7 @@ class Property(BaseModel):
 
 
 class PropertyCreate(BaseModel):
-    title: str
+    title: str | None = None
     address: str
     city: str
     state: str

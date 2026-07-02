@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { StackScreenProps } from '@react-navigation/stack';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/button';
+import heroImage from '../../assets/brand/hero-bg.jpg';
+import logoImage from '../../assets/brand/logo.png';
 import { useAuth } from '../context/auth-context';
 import type { RootStackParamList } from '../navigation/types';
 import { markOnboardingSeen } from '../services/onboarding-storage';
@@ -42,9 +44,6 @@ export function OnboardingScreen({
   const isFirst = index === 0;
   const isLast = index === slides.length - 1;
 
-  const logo = useMemo(() => require('../../assets/brand/logo.png'), []);
-  const hero = useMemo(() => require('../../assets/brand/hero-bg.jpg'), []);
-
   const complete = async (target: 'Login' | 'Main' | 'Register') => {
     await markOnboardingSeen();
 
@@ -67,7 +66,7 @@ export function OnboardingScreen({
       <View style={styles.screen}>
         <View style={styles.topBar}>
           <View style={styles.brandRow}>
-            <Image source={logo} style={styles.logo} />
+            <Image source={logoImage} style={styles.logo} />
             <Text style={styles.brand}>Afodabo Housing</Text>
           </View>
           <Pressable
@@ -82,14 +81,14 @@ export function OnboardingScreen({
         </View>
 
         <View style={styles.content}>
-          <ImageBackground imageStyle={styles.visualImage} source={hero} style={styles.visual}>
+          <ImageBackground imageStyle={styles.visualImage} source={heroImage} style={styles.visual}>
             <View style={styles.visualOverlay} />
             <View style={styles.visualInner}>
               <View style={styles.visualBadge}>
                 <Text style={styles.visualBadgeText}>{slide.kicker}</Text>
               </View>
               <View style={styles.visualOrb}>
-                <Image source={logo} style={styles.visualLogo} />
+                <Image source={logoImage} style={styles.visualLogo} />
               </View>
               <Text style={styles.visualCaption}>
                 Trusted rentals, clearer next steps, real workflow depth.

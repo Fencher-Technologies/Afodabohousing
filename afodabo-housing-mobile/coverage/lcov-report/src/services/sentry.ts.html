@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/hooks/tenant/use-tenant-payments.ts</title>
+    <title>Code coverage report for src/services/sentry.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../../../prettify.css" />
-    <link rel="stylesheet" href="../../../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../../../sort-arrow-sprite.png);
+            background-image: url(../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">src/hooks/tenant</a> use-tenant-payments.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/services</a> sentry.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/18</span>
-            </div>
-        
-            
-            <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
-                <span class="quiet">Branches</span>
                 <span class='fraction'>0/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/16</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/9</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/15</span>
+                <span class='fraction'>0/12</span>
             </div>
         
             
@@ -110,45 +110,7 @@
 <a name='L45'></a><a href='#L45'>45</a>
 <a name='L46'></a><a href='#L46'>46</a>
 <a name='L47'></a><a href='#L47'>47</a>
-<a name='L48'></a><a href='#L48'>48</a>
-<a name='L49'></a><a href='#L49'>49</a>
-<a name='L50'></a><a href='#L50'>50</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L48'></a><a href='#L48'>48</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -160,55 +122,87 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import type { PaymentRow } from '../../types/supabase';
-import { fetchTenantDashboard } from '../../services/tenant';
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import * as Sentry from '@sentry/react-native';
 &nbsp;
-type PaymentStatusFilter = 'all' | PaymentRow['status'];
+let initialized = <span class="cstat-no" title="statement not covered" >false;</span>
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >useTenantPayments(</span>userId?: string) {
-  const [statusFilter, setStatusFilter] = <span class="cstat-no" title="statement not covered" >useState&lt;PaymentStatusFilter&gt;('all');</span>
-  const query = <span class="cstat-no" title="statement not covered" >useQuery({</span>
-    enabled: Boolean(userId),
-    queryFn: <span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >fetchTenantDashboard(userId as string),</span>
-    queryKey: ['tenant-dashboard', userId],
+export interface SentryUserContext {
+  email: string;
+  id: string;
+  role?: string | null;
+  username?: string | null;
+}
+&nbsp;
+export function <span class="fstat-no" title="function not covered" >initializeSentry(</span>) {
+  const dsn = <span class="cstat-no" title="statement not covered" >process.env.EXPO_PUBLIC_SENTRY_DSN;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (!dsn || initialized) {</span>
+<span class="cstat-no" title="statement not covered" >    return;</span>
+  }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  Sentry.init({</span>
+    dsn,
+    debug: __DEV__,
+    enableAutoSessionTracking: true,
+    environment: process.env.EXPO_PUBLIC_APP_ENV ?? (__DEV__ ? 'development' : 'production'),
+    sendDefaultPii: true,
+    tracesSampleRate: 0.1,
   });
 &nbsp;
-  const payments = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >query.data?.payments ?? [],</span> [query.data?.payments]);</span>
-  const filteredPayments = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    if (statusFilter === 'all') {</span>
-<span class="cstat-no" title="statement not covered" >      return payments;</span>
-    }
+<span class="cstat-no" title="statement not covered" >  initialized = true;</span>
+}
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    return payments.filter(<span class="fstat-no" title="function not covered" >(p</span>ayment) =&gt; <span class="cstat-no" title="statement not covered" >payment.status === statusFilter)</span>;</span>
-  }, [payments, statusFilter]);
+export function <span class="fstat-no" title="function not covered" >setSentryUser(</span>user: SentryUserContext | null) {
+<span class="cstat-no" title="statement not covered" >  if (!initialized) {</span>
+<span class="cstat-no" title="statement not covered" >    return;</span>
+  }
 &nbsp;
-  const summary = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-    const confirmed = <span class="cstat-no" title="statement not covered" >payments.filter(<span class="fstat-no" title="function not covered" >(p</span>ayment) =&gt; <span class="cstat-no" title="statement not covered" >payment.status === 'confirmed')</span>;</span>
-    const pending = <span class="cstat-no" title="statement not covered" >payments.filter(</span>
-<span class="fstat-no" title="function not covered" >      (p</span>ayment) =&gt; <span class="cstat-no" title="statement not covered" >payment.status === 'pending' || payment.status === 'uploaded',</span>
-    );
+<span class="cstat-no" title="statement not covered" >  if (!user) {</span>
+<span class="cstat-no" title="statement not covered" >    Sentry.setUser(null);</span>
+<span class="cstat-no" title="statement not covered" >    return;</span>
+  }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    return {</span>
-      confirmedCount: confirmed.length,
-      latestDate: payments[0]?.created_at ?? null,
-      pendingCount: pending.length,
-      totalPaid: confirmed.reduce(<span class="fstat-no" title="function not covered" >(s</span>um, payment) =&gt; <span class="cstat-no" title="statement not covered" >sum + payment.amount,</span> 0),
-    };
-  }, [payments]);
-&nbsp;
-<span class="cstat-no" title="statement not covered" >  return {</span>
-    ...query,
-    filteredPayments,
-    latestPayment: payments[0] ?? null,
-    payments,
-    statusFilter,
-    summary,
-    tenancies: query.data?.tenancies ?? [],
-    setStatusFilter,
-  };
+<span class="cstat-no" title="statement not covered" >  Sentry.setUser({</span>
+    email: user.email,
+    id: user.id,
+    username: user.username ?? undefined,
+    role: user.role ?? undefined,
+  });
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -219,14 +213,14 @@ export function <span class="fstat-no" title="function not covered" >useTenantPa
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
                 at 2026-07-02T16:58:03.444Z
             </div>
-        <script src="../../../prettify.js"></script>
+        <script src="../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../../../sorter.js"></script>
-        <script src="../../../block-navigation.js"></script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
     </body>
 </html>
     
