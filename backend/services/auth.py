@@ -1,7 +1,8 @@
 from supabase import Client
 
-from .base import with_retry
 from config import get_settings
+
+from .base import with_retry
 
 settings = get_settings()
 
@@ -54,8 +55,8 @@ class AuthService:
             return None
 
     @with_retry
-    def reset_password(self, email: str) -> dict:
-        return self.supabase.auth.reset_password_email(email)
+    def reset_password(self, email: str) -> None:
+        self.supabase.auth.reset_password_email(email)
 
 
 def get_auth_service(supabase: Client) -> AuthService:

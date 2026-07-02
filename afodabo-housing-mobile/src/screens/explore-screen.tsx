@@ -10,6 +10,7 @@ import { PropertyCard } from '../components/property-card';
 import { Screen } from '../components/screen';
 import { SelectField } from '../components/select-field';
 import { fetchProperties } from '../services/properties';
+import heroImage from '../../assets/brand/hero-bg.jpg';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import {
   AMENITIES,
@@ -121,7 +122,7 @@ export function ExploreScreen() {
       <View style={styles.headerWrapper}>
         <ImageBackground
           imageStyle={styles.heroImage}
-          source={require('../../assets/brand/hero-bg.jpg')}
+          source={heroImage}
           style={styles.hero}
         >
           <View style={styles.heroOverlay} />

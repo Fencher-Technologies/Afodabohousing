@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -136,6 +137,7 @@ class MockTableBuilder:
                 {
                     "id": PID_PROP,
                     "owner_id": UID_OWNER,
+                    "title": "Sample Property",
                     "address": "123 Main St",
                     "city": "Kampala",
                     "state": "Central",

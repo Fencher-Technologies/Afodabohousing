@@ -113,3 +113,10 @@ uv run pytest
 ## Environment Variables
 
 See `.env.example` for all configuration options.
+
+### Sentry
+
+Set `SENTRY_ENDPOINT` or `SENTRY_DSN` to the Sentry DSN from your project settings.
+Leave it empty locally if you do not want crash reporting enabled.
+
+For automated tests, keep `TESTING=true` so Sentry stays disabled.

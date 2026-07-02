@@ -8,6 +8,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import logoImage from '../../assets/brand/logo.png';
 import { useAuth } from '../context/auth-context';
 import { hasSeenOnboarding } from '../services/onboarding-storage';
 import { colors, typography } from '../theme/tokens';
@@ -46,7 +47,7 @@ const Tab = createBottomTabNavigator();
 function LoadingScreen() {
   return (
     <View style={styles.loadingScreen}>
-      <Image source={require('../../assets/brand/logo.png')} style={styles.logo} />
+      <Image source={logoImage} style={styles.logo} />
       <Text style={styles.loadingTitle}>Afodabo Housing</Text>
       <Text style={styles.loadingSubtitle}>Opening your account</Text>
       <ActivityIndicator color={colors.primary} size="large" style={styles.spinner} />

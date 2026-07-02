@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Badge } from '../components/badge';
 import { Screen } from '../components/screen';
+import logoImage from '../../assets/brand/logo.png';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 
 const values = [
@@ -38,7 +39,7 @@ export function AboutScreen() {
   return (
     <Screen>
       <View style={styles.hero}>
-        <Image source={require('../../assets/brand/logo.png')} style={styles.logo} />
+        <Image source={logoImage} style={styles.logo} />
         <Badge tone="accent">Our Story</Badge>
         <Text style={styles.title}>Built for Every Ugandan</Text>
         <Text style={styles.subtitle}>
