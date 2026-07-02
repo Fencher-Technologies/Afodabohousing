@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+from types import ModuleType
 from typing import Any
 
 from config import get_settings
 
+_sentry_sdk: ModuleType | None = None
 try:
-    import sentry_sdk
+    import sentry_sdk as _imported_sentry_sdk
 except Exception:  # pragma: no cover - Sentry is optional in local/dev envs.
-    sentry_sdk = None
+    pass
+else:
+    _sentry_sdk = _imported_sentry_sdk
+
+sentry_sdk = _sentry_sdk
 
 
 def _get_sentry_endpoint() -> str:

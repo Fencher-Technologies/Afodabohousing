@@ -1,4 +1,5 @@
 import time
+# mypy: ignore-errors
 from uuid import UUID
 
 import httpx

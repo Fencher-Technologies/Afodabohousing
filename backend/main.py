@@ -253,7 +253,7 @@ async def health_check() -> dict:
 
 
 @app.get("/health/ready")
-async def readiness_check() -> dict:
+async def readiness_check() -> dict[str, str] | JSONResponse:
     try:
         supabase = get_supabase_client()
         supabase.table("properties").select("id").limit(1).execute()
