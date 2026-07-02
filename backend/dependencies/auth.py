@@ -6,8 +6,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from supabase import Client
 
-from services.observability import set_sentry_user
 from services.base import with_retry
+from services.observability import set_sentry_user
 
 from .database import get_service_client, get_supabase_client
 

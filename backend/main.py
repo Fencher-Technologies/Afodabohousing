@@ -13,11 +13,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import get_settings
 from dependencies.database import get_supabase_client
-from services.observability import (
-    capture_sentry_exception,
-    init_sentry,
-    set_sentry_request_context,
-)
 from routers import (
     auth_router,
     leases_router,
@@ -29,6 +24,11 @@ from routers import (
     tenants_router,
     uploads_router,
     webhooks_router,
+)
+from services.observability import (
+    capture_sentry_exception,
+    init_sentry,
+    set_sentry_request_context,
 )
 
 settings = get_settings()
