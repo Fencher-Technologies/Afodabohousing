@@ -143,7 +143,7 @@ export default function LoginPage() {
             <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Trusted across Uganda</p>
             <h2 className="font-display text-5xl font-bold mb-4 leading-tight">Find Your Perfect Home in Uganda</h2>
             <p className="text-primary-foreground/80 text-lg leading-relaxed">
-              Verified listings across 135 districts. Secure payments. Digital agreements. All in one platform.
+              Verified listings across all states of Uganda. Secure payments. Digital agreements. All in one platform.
             </p>
           </div>
         </div>

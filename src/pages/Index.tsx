@@ -52,7 +52,7 @@ const HOW_IT_WORKS = [
     step: '01',
     emoji: '🔍',
     title: 'Search by District',
-    desc: 'Browse thousands of verified rentals filtered by district, type, number of rooms, price range and available amenities.',
+    desc: 'Browse thousands of verified rentals filtered by state, type, number of rooms, price range and available amenities.',
   },
   {
     step: '02',
@@ -82,7 +82,7 @@ export default function HomePage() {
   const fetchProperties = async () => {
     setLoading(true);
     let query = supabase.from('properties').select('*').eq('status', 'available').order('created_at', { ascending: false });
-    if (searchDistrict && searchDistrict !== 'all') query = query.ilike('district', `%${searchDistrict}%`);
+    if (searchDistrict && searchDistrict !== 'all') query = query.ilike('state', `%${searchDistrict}%`);
     if (filterType && filterType !== 'all') query = query.eq('property_type', filterType as Database['public']['Enums']['property_type']);
     const { data } = await query.limit(9);
     if (data) setProperties(data);
@@ -119,7 +119,7 @@ export default function HomePage() {
             <span className="text-gold">Home in Uganda</span>
           </h1>
           <p className="text-primary-foreground/85 text-xl mb-10 max-w-2xl mx-auto leading-relaxed">
-            Search verified rentals across all 135 districts. Connect with trusted house managers, sign digital agreements and manage rent elegantly.
+            Search verified rentals across all states of Uganda. Connect with trusted house managers, sign digital agreements and manage rent elegantly.
           </p>
 
           {/* Search bar */}
@@ -127,7 +127,7 @@ export default function HomePage() {
             <div className="flex-1 flex items-center gap-3 px-4">
               <MapPin className="h-5 w-5 text-accent shrink-0" />
               <Input
-                placeholder="Enter district, city or area..."
+                placeholder="Enter state, city or area..."
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -157,7 +157,7 @@ export default function HomePage() {
             </Button>
           </div>
 
-          {/* Popular districts */}
+          {/* Popular states */}
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             {DISTRICTS.map(d => (
               <button
@@ -250,7 +250,7 @@ export default function HomePage() {
           <div className="text-center py-24 text-muted-foreground">
             <Home className="h-16 w-16 mx-auto mb-4 opacity-20" />
             <p className="text-xl font-display font-semibold text-foreground">No properties found</p>
-            <p className="text-sm mt-2">Try searching a different district or clearing filters</p>
+            <p className="text-sm mt-2">Try searching a different state or clearing filters</p>
             <Button className="mt-5 gradient-primary text-primary-foreground" onClick={() => { setSearchDistrict(''); setSearchInput(''); setFilterType('all'); }}>
               Clear Filters
             </Button>
