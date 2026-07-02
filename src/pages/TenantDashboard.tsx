@@ -199,7 +199,7 @@ export default function TenantDashboard() {
               {property?.title || 'My Dashboard'}
             </h1>
             <p className="text-xs text-muted-foreground truncate">
-              {property?.district ? `${property.district} · UGX ${property.rent_amount?.toLocaleString()}/mo` : 'No active lease'}
+              {property?.state ? `${property.state} · UGX ${property.rent_amount?.toLocaleString()}/mo` : 'No active lease'}
             </p>
           </div>
         </div>
@@ -222,7 +222,7 @@ export default function TenantDashboard() {
                     <h2 className="text-lg font-bold mt-0.5">{property?.title || 'Property'}</h2>
                     {property && (
                       <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <MapPin className="h-3.5 w-3.5" /> {property.district}{property.area ? ` · ${property.area}` : ''}
+                        <MapPin className="h-3.5 w-3.5" /> {property.state}{property.area ? ` · ${property.area}` : ''}
                       </p>
                     )}
                   </div>
@@ -353,7 +353,7 @@ export default function TenantDashboard() {
                   </div>
                   <div className="bg-muted/50 rounded-xl p-3">
                     <p className="text-xs text-muted-foreground">District</p>
-                    <p className="font-bold">{property.district}</p>
+                    <p className="font-bold">{property.state}</p>
                   </div>
                 </div>
                 {property.amenities && property.amenities.length > 0 && (
