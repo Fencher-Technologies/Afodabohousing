@@ -13,10 +13,9 @@ import Footer from '@/components/Footer';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 
-const UGANDA_DISTRICTS = [
-  'All Districts', 'Kampala', 'Wakiso', 'Mukono', 'Gulu', 'Mbarara', 'Jinja', 'Entebbe',
-  'Mbale', 'Lira', 'Arua', 'Kasese', 'Fort Portal', 'Masaka', 'Soroti',
-  'Kabale', 'Hoima', 'Tororo', 'Iganga', 'Bushenyi', 'Mityana',
+const UGANDA_STATES = [
+  'All States', 'Central', 'Eastern', 'Western', 'Northern', 'North Eastern', 'South Western', 'Buganda', 'Kigezi',
+  'Ankole', 'Toro', 'Busoga', 'Lango', 'Acholi', 'Karamoja', 'West Nile', 'Bunyoro', 'Tooro',
 ];
 
 export default function PropertiesPage() {
@@ -25,22 +24,22 @@ export default function PropertiesPage() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
 
-  const [district, setDistrict] = useState(searchParams.get('district') || '');
+  const [state, setState] = useState(searchParams.get('state') || '');
   const [propType, setPropType] = useState(searchParams.get('type') || 'all');
   const [period, setPeriod] = useState(searchParams.get('period') || 'all');
   const [minPrice, setMinPrice] = useState(searchParams.get('min') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('max') || '');
-  const [districtInput, setDistrictInput] = useState(district);
+  const [stateInput, setStateInput] = useState(state);
 
   useEffect(() => {
     fetchProperties();
-  }, [district, propType, period, minPrice, maxPrice]);
+  }, [state, propType, period, minPrice, maxPrice]);
 
   const fetchProperties = async () => {
     setLoading(true);
     let query = supabase.from('properties').select('*', { count: 'exact' }).eq('status', 'available');
 
-    if (district) query = query.ilike('district', `%${district}%`);
+    if (state) query = query.ilike('state', `%${state}%`);
     if (propType !== 'all') query = query.eq('property_type', propType as Database['public']['Enums']['property_type']);
     if (period !== 'all') query = query.eq('rent_period', period as Database['public']['Enums']['rent_period']);
     if (minPrice) query = query.gte('rent_amount', Number(minPrice));
@@ -53,17 +52,17 @@ export default function PropertiesPage() {
   };
 
   const handleSearch = () => {
-    setDistrict(districtInput);
+    setState(stateInput);
     const params: Record<string, string> = {};
-    if (districtInput) params.district = districtInput;
+    if (stateInput) params.state = stateInput;
     if (propType !== 'all') params.type = propType;
     if (period !== 'all') params.period = period;
     setSearchParams(params);
   };
 
   const clearFilters = () => {
-    setDistrict(''); setPropType('all'); setPeriod('all');
-    setMinPrice(''); setMaxPrice(''); setDistrictInput('');
+    setState(''); setPropType('all'); setPeriod('all');
+    setMinPrice(''); setMaxPrice(''); setStateInput('');
     setSearchParams({});
   };
 
@@ -80,9 +79,9 @@ export default function PropertiesPage() {
             <div className="flex-1 flex items-center gap-2 px-3">
               <MapPin className="h-4 w-4 text-accent shrink-0" />
               <Input
-                placeholder="District or city…"
-                value={districtInput}
-                onChange={e => setDistrictInput(e.target.value)}
+                placeholder="State or city…"
+                value={stateInput}
+                onChange={e => setStateInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
                 className="border-0 shadow-none focus-visible:ring-0 bg-transparent"
               />
@@ -110,12 +109,12 @@ export default function PropertiesPage() {
 
               <div className="space-y-5">
                 <div>
-                  <Label className="text-sm mb-2 block">District</Label>
-                  <Select value={district || 'all'} onValueChange={v => setDistrict(v === 'all' ? '' : v)}>
-                    <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
+                  <Label className="text-sm mb-2 block">State</Label>
+                  <Select value={state || 'all'} onValueChange={v => setState(v === 'all' ? '' : v)}>
+                    <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
                     <SelectContent>
-                      {UGANDA_DISTRICTS.map(d => (
-                        <SelectItem key={d} value={d === 'All Districts' ? 'all' : d}>{d}</SelectItem>
+                      {UGANDA_STATES.map(s => (
+                        <SelectItem key={s} value={s === 'All States' ? 'all' : s}>{s}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -181,7 +180,7 @@ export default function PropertiesPage() {
           <div className="flex-1">
             <p className="text-muted-foreground text-sm mb-5">
               Showing <strong className="text-foreground">{total}</strong> properties
-              {district ? ` in ${district}` : ' across Uganda'}
+              {state ? ` in ${state}` : ' across Uganda'}
             </p>
 
             {loading ? (
