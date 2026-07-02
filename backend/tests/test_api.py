@@ -31,6 +31,31 @@ class TestHealth:
         assert resp.status_code == 200
         assert "endpoints" in resp.json()
 
+    def test_http_errors_are_standardized(self, client: TestClient):
+        resp = client.post(
+            "/auth/signup",
+            json={"email": "new@example.com", "password": "secret123", "role": "invalid"},
+        )
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data["detail"] == "Invalid role"
+        assert data["status_code"] == 400
+        assert data["error"] == "http_exception"
+        assert data["request_id"]
+
+    def test_validation_errors_are_standardized(self, client: TestClient):
+        resp = client.post(
+            "/auth/signup",
+            json={"email": "not-an-email", "password": "secret123", "role": "tenant"},
+        )
+        assert resp.status_code == 422
+        data = resp.json()
+        assert data["detail"] == "Request validation failed"
+        assert data["status_code"] == 422
+        assert data["error"] == "validation_error"
+        assert data["request_id"]
+        assert isinstance(data["errors"], list)
+
 
 class TestProperties:
     def test_list_properties(self, client: TestClient):

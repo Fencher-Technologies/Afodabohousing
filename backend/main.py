@@ -5,13 +5,19 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from json import dumps
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import get_settings
 from dependencies.database import get_supabase_client
+from services.observability import (
+    capture_sentry_exception,
+    init_sentry,
+    set_sentry_request_context,
+)
 from routers import (
     auth_router,
     leases_router,
@@ -33,18 +39,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-if settings.sentry_dsn:
-    try:
-        import sentry_sdk
-        sentry_sdk.init(
-            dsn=settings.sentry_dsn,
-            environment=settings.environment,
-            traces_sample_rate=0.25,
-            profiles_sample_rate=0.1,
-        )
-        logger.info("Sentry initialized")
-    except Exception as e:
-        logger.warning("Failed to initialize Sentry: %s", str(e))
+init_sentry()
 
 
 _scheduler_started = False
@@ -62,6 +57,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
+        set_sentry_request_context(request_id, request.method, request.url.path)
         start = time.monotonic()
         response = await call_next(request)
         elapsed = time.monotonic() - start
@@ -121,6 +117,31 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+def _error_response(
+    *,
+    request_id: str,
+    status_code: int,
+    detail: str,
+    error: str,
+    extra: dict | None = None,
+    headers: dict[str, str] | None = None,
+) -> JSONResponse:
+    payload = {
+        "detail": detail,
+        "error": error,
+        "request_id": request_id,
+        "status_code": status_code,
+    }
+    if extra:
+        payload.update(extra)
+
+    response_headers = {"X-Request-ID": request_id}
+    if headers:
+        response_headers.update(headers)
+
+    return JSONResponse(status_code=status_code, headers=response_headers, content=payload)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _scheduler_started
@@ -165,6 +186,7 @@ app.add_middleware(RateLimitMiddleware)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", "unknown")
+    capture_sentry_exception(exc)
     logger.error(
         dumps({
             "request_id": request_id,
@@ -174,10 +196,38 @@ async def global_exception_handler(request: Request, exc: Exception):
         }),
         exc_info=True,
     )
-    return JSONResponse(
+    return _error_response(
+        request_id=request_id,
         status_code=500,
-        headers={"X-Request-ID": request_id},
-        content={"detail": "Internal server error", "request_id": request_id},
+        detail="Internal server error",
+        error="internal_server_error",
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    request_id = getattr(request.state, "request_id", "unknown")
+    if exc.status_code >= 500:
+        capture_sentry_exception(exc)
+
+    return _error_response(
+        request_id=request_id,
+        status_code=exc.status_code,
+        detail=str(exc.detail),
+        error="http_exception",
+        headers=dict(exc.headers or {}),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    request_id = getattr(request.state, "request_id", "unknown")
+    return _error_response(
+        request_id=request_id,
+        status_code=422,
+        detail="Request validation failed",
+        error="validation_error",
+        extra={"errors": exc.errors()},
     )
 
 

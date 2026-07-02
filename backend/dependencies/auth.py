@@ -6,6 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from supabase import Client
 
+from services.observability import set_sentry_user
 from services.base import with_retry
 
 from .database import get_service_client, get_supabase_client
@@ -72,11 +73,21 @@ def _resolve_user_via_supabase(token: str, supabase: Client) -> CurrentUser:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return CurrentUser(
+    current_user = CurrentUser(
         id=str(user_data.get("id") or ""),
         email=user_data.get("email") or "",
         role=user_data.get("role") or "authenticated",
     )
+
+    set_sentry_user(
+        {
+            "id": current_user.id,
+            "email": current_user.email,
+            "role": current_user.role,
+        }
+    )
+
+    return current_user
 
 
 def get_current_user(
