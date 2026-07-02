@@ -203,7 +203,7 @@ export default function ManagerDashboard() {
     setEditingProperty(p);
     setForm({
       title: p.title, description: p.description || '', property_type: p.property_type,
-      district: p.district, city: p.city || '', area: p.area || '', address: p.address || '',
+      district: p.state || p.city, city: p.city || '', area: p.area || '', address: p.address || '',
       bedrooms: p.bedrooms, sitting_rooms: p.sitting_rooms, kitchens: p.kitchens, bathrooms: p.bathrooms,
       rent_amount: p.rent_amount, rent_period: p.rent_period, manager_phone: p.manager_phone || '',
       manager_email: p.manager_email || '', amenities: p.amenities || [],
@@ -708,7 +708,7 @@ export default function ManagerDashboard() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-foreground truncate">{p.title}</p>
-                              <p className="text-xs text-muted-foreground">{p.district} · UGX {p.rent_amount.toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">{p.state || p.city} · UGX {p.rent_amount.toLocaleString()}</p>
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize shrink-0 ${statusBadge(p.status)}`}>{p.status}</span>
                           </div>
@@ -773,7 +773,7 @@ export default function ManagerDashboard() {
                                   </div>
                                 </div>
                               </td>
-                              <td className="py-3.5 px-4 text-muted-foreground">{p.district}{p.area ? ` · ${p.area}` : ''}</td>
+                              <td className="py-3.5 px-4 text-muted-foreground">{p.state || p.city}{p.area ? ` · ${p.area}` : ''}</td>
                               <td className="py-3.5 px-4">
                                 <span className="font-bold text-foreground">UGX {p.rent_amount.toLocaleString()}</span>
                                 <span className="text-xs text-muted-foreground ml-1 capitalize">/{p.rent_period.slice(0, 2)}</span>
@@ -1166,7 +1166,7 @@ export default function ManagerDashboard() {
               <div>
                 <Label>District</Label>
                 <Select value={form.district} onValueChange={v => setForm({ ...form, district: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select district..." /></SelectTrigger>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select location..." /></SelectTrigger>
                   <SelectContent>{DISTRICTS_LIST.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
