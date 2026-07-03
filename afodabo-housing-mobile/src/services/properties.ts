@@ -67,9 +67,7 @@ export async function fetchProperties(filters: PropertyFilters = {}) {
     query: { limit: 100, skip: 0 },
   });
 
-  let properties = response.items
-    .map(mapBackendPropertyToPropertyRow)
-    .filter((property) => property.status === 'available');
+  let properties = response.items.map(mapBackendPropertyToPropertyRow);
 
   if (filters.district) {
     const district = filters.district.toLowerCase();

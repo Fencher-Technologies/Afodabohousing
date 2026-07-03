@@ -117,6 +117,26 @@ Update this file after every meaningful implementation change.
 - Verifying the newly restored backend-first registration, explore, dashboard, messaging, upload, and payment flows against live data.
 - Continuing to close the remaining product-spec gaps around support/feedback handling and any backend-native reporting that still needs first-class API support beyond the mobile-generated document workflows.
 
+## Completed This Session
+
+- Added password visibility toggles to the `InputField` component — all password fields (login, register) now show an eye/eye-off icon to toggle secure entry, managed via internal state so screens require zero changes.
+- Added `cursorColor={colors.primary}` to `TextInput` inside `InputField` so the cursor is clearly visible when tapping any input field (email, password, etc.).
+- Added `keyboardShouldPersistTaps="handled"` to the `Screen` component's `ScrollView` so tapping into fields works reliably when the keyboard is open and the user can scroll to reach all form fields.
+- Implemented **Tenancy Health color-coding** across manager and tenant screens:
+  - Created `src/utils/tenancy-health.ts` — client-side utility computing 5-color health status (green/yellow/orange/red/gray) from `rent_start_date`/`rent_end_date` using `date-fns/differenceInDays`, also returns progress percentage for the progress bar.
+  - **Manager dashboard** — replaced split "Due To Pay" / "Overdue Rent" cards with a single consolidated **Tenancy Health** card listing all active tenancies sorted by urgency, each row with a colored dot.
+  - **Manager tenancies list** — added a 4px colored left border strip on each card matching health status, plus "X days remaining" text in the matching color.
+  - **Manager tenancy details** — added a health status row (colored dot + label + days remaining) and a compact progress bar showing period elapsed percentage.
+  - **Tenant dashboard** — upgraded "Days Remaining" stat from 3-color to full 5-color scheme; added a **Tenancy Progress** card with progress bar and health-colored days remaining.
+  - Corrected labels to match spec: Healthy (green), Approaching (yellow), Warning (orange), Critical (red), Expired (gray strikethrough).
+  - Added `textDecorationLine: 'line-through'` to all expired text across all 4 screens (stat value, progress text, badges, health row, health card rows).
+  - Added optional `textDecorationLine` prop to the shared `Badge` component.
+  - No backend changes, no new dependencies, no new screens.
+- Fixed bug where properties still showed as "Available" after a tenancy was created:
+  - **Backend** (`backend/services/crud.py`): `LeaseService.create()` now updates `properties.status = 'occupied'` when a lease is created with `status: 'active'`.
+  - **Mobile** (`src/services/properties.ts`): Removed client-side `.filter(status === 'available')` so occupied properties still appear in Explore listings.
+  - The existing `PropertyCard` already had a status badge — "Available" (green) vs "occupied" (gray) — so no card changes needed.
+
 ## Next Up
 
 - Improve interaction polish:

@@ -271,6 +271,10 @@ class LeaseService(BaseService):
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
         response = self.table.insert(payload).execute()
+        if data.status == "active":
+            self.supabase.table("properties").update({"status": "occupied"}).eq(
+                "id", str(data.property_id)
+            ).execute()
         return response.data[0]
 
     @with_retry

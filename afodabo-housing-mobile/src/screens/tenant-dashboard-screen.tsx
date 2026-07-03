@@ -2,7 +2,6 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
-import { differenceInDays } from 'date-fns';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
@@ -30,6 +29,7 @@ import {
 import { uploadPaymentProof } from '../services/uploads';
 import { colors, radii, shadows, spacing, typography } from '../theme/tokens';
 import { formatDateLabel, formatUGXFull } from '../utils/format';
+import { getTenancyHealth } from '../utils/tenancy-health';
 
 type TenantView = 'overview' | 'payments';
 type BlockedAction = 'pay' | 'upload' | null;
@@ -64,14 +64,14 @@ export function TenantDashboardScreen() {
   const messages = dashboardQuery.data?.messages ?? [];
   const confirmedPayments = payments.filter((payment) => payment.status === 'confirmed');
   const totalPaid = confirmedPayments.reduce((sum, payment) => sum + payment.amount, 0);
-  const daysLeft = activeTenancy
-    ? differenceInDays(new Date(activeTenancy.rent_end_date), new Date())
-    : null;
   const unreadMessages = messages.filter(
     (message) => !message.is_read && message.receiver_id === user?.id,
   ).length;
-  const isRentOverdue = daysLeft !== null && daysLeft < 0;
-  const isRentDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
+  const health = activeTenancy
+    ? getTenancyHealth(activeTenancy.rent_start_date, activeTenancy.rent_end_date)
+    : null;
+  const isRentOverdue = health !== null && health.daysRemaining < 0;
+  const isRentDueSoon = health !== null && health.daysRemaining >= 0 && health.daysRemaining <= 14;
 
   const stats = [
     {
@@ -81,14 +81,16 @@ export function TenantDashboardScreen() {
       label: 'Tenancy Status',
       tone: activeTenancy ? colors.accent : colors.error,
       value: activeTenancy ? 'Active' : 'No Active',
+      strikethrough: false,
     },
     {
       helper: activeTenancy ? formatDateLabel(activeTenancy.rent_end_date) : 'No active tenancy',
       icon: 'calendar' as const,
       iconBackground: '#E9F0EC',
       label: 'Days Remaining',
-      tone: isRentOverdue ? colors.error : isRentDueSoon ? colors.accent : colors.primary,
-      value: daysLeft === null ? '—' : isRentOverdue ? 'Overdue' : `${daysLeft}d`,
+      tone: health?.color ?? colors.textMuted,
+      value: health === null ? '—' : health.daysRemaining > 0 ? `${health.daysRemaining}d` : health.label,
+      strikethrough: health?.status === 'expired',
     },
     {
       helper: `${confirmedPayments.length} confirmed payments`,
@@ -302,7 +304,7 @@ export function TenantDashboardScreen() {
             <View style={[styles.alertCard, styles.alertWarning]}>
               <View style={styles.alertContent}>
                 <Text style={styles.alertTitle}>
-                  Rent Due in {daysLeft} Day{daysLeft === 1 ? '' : 's'}
+                  Rent Due in {health?.daysRemaining} Day{health?.daysRemaining === 1 ? '' : 's'}
                 </Text>
                 <Text style={styles.alertText}>
                   UGX {activeTenancy?.rent_amount.toLocaleString()} due on{' '}
@@ -336,12 +338,46 @@ export function TenantDashboardScreen() {
                 <View style={[styles.iconBadge, { backgroundColor: stat.iconBackground }]}>
                   <Feather color={stat.tone} name={stat.icon} size={22} />
                 </View>
-                <Text style={[styles.statValue, { color: stat.tone }]}>{stat.value}</Text>
+                <Text
+                  style={[
+                    styles.statValue,
+                    { color: stat.tone },
+                    stat.strikethrough && { textDecorationLine: 'line-through' },
+                  ]}
+                >
+                  {stat.value}
+                </Text>
                 <Text style={styles.statHeading}>{stat.label}</Text>
                 <Text style={styles.statLabel}>{stat.helper}</Text>
               </View>
             ))}
           </View>
+
+          {health ? (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Tenancy Progress</Text>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${health.progressPercent}%`, backgroundColor: health.color },
+                  ]}
+                />
+              </View>
+              <View style={styles.progressLabels}>
+                <Text style={styles.progressText}>{health.progressPercent}% of tenancy period elapsed</Text>
+                <Text
+                  style={[
+                    styles.progressDays,
+                    { color: health.color },
+                    health.status === 'expired' && { textDecorationLine: 'line-through' },
+                  ]}
+                >
+                  {health.daysRemaining > 0 ? `${health.daysRemaining} days left` : health.label}
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Quick Actions</Text>
@@ -391,8 +427,21 @@ export function TenantDashboardScreen() {
                 Ends: {formatDateLabel(activeTenancy.rent_end_date)}
               </Text>
               <View style={styles.badgeRow}>
-                <Badge tone={daysLeft !== null && daysLeft <= 14 ? 'warning' : 'success'}>
-                  {daysLeft !== null ? `${daysLeft} days remaining` : 'Active'}
+                <Badge
+                  textDecorationLine={
+                    health?.status === 'expired' ? 'line-through' : undefined
+                  }
+                  tone={
+                    health?.status === 'expired'
+                      ? 'default'
+                      : health?.status === 'overdue' || health?.status === 'attention'
+                        ? 'warning'
+                        : 'success'
+                  }
+                >
+                  {health?.daysRemaining !== undefined && health.daysRemaining > 0
+                    ? `${health.daysRemaining} days remaining`
+                    : health?.label ?? 'Active'}
                 </Badge>
                 <Badge tone="primary">{activeTenancy.rent_period}</Badge>
               </View>
@@ -785,5 +834,30 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     justifyContent: 'space-between',
     padding: spacing.md,
+  },
+  progressTrack: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 6,
+    height: 10,
+    overflow: 'hidden',
+    marginTop: spacing.sm,
+  },
+  progressFill: {
+    borderRadius: 6,
+    height: '100%',
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+  },
+  progressText: {
+    color: colors.textMuted,
+    fontFamily: typography.body,
+    fontSize: 12,
+  },
+  progressDays: {
+    fontFamily: typography.bodyStrong,
+    fontSize: 12,
   },
 });

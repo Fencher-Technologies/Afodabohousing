@@ -17,6 +17,7 @@ import { sendRentReminder } from '../services/manager';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import type { RootStackParamList } from '../navigation/types';
 import { formatDateLabel, formatUGXFull } from '../utils/format';
+import { getTenancyHealth } from '../utils/tenancy-health';
 
 export function ManagerTenancyDetailsScreen({
   route,
@@ -57,6 +58,9 @@ export function ManagerTenancyDetailsScreen({
   }
 
   const tenancy = tenancyQuery.tenancy;
+  const health = tenancy
+    ? getTenancyHealth(tenancy.rent_start_date, tenancy.rent_end_date)
+    : null;
 
   if (!tenancy) {
     return (
@@ -75,6 +79,45 @@ export function ManagerTenancyDetailsScreen({
         subtitle={`${tenancy.tenant_name || 'Tenant'} • ${tenancy.status}`}
         title={tenancy.property_title || 'Tenancy'}
       />
+
+      {health ? (
+        <View style={styles.card}>
+          <View style={styles.healthRow}>
+            <View style={[styles.healthDot, { backgroundColor: health.color }]} />
+            <Text
+              style={[
+                styles.healthLabel,
+                { color: health.color },
+                health.status === 'expired' && { textDecorationLine: 'line-through' },
+              ]}
+            >
+              {health.label}
+            </Text>
+            <Text
+              style={[
+                styles.healthDays,
+                health.status === 'expired' && { textDecorationLine: 'line-through' },
+              ]}
+            >
+              {health.daysRemaining > 0
+                ? `${health.daysRemaining} days remaining`
+                : 'Period expired'}
+            </Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${health.progressPercent}%`, backgroundColor: health.color },
+              ]}
+            />
+          </View>
+          <View style={styles.progressLabels}>
+            <Text style={styles.progressText}>{health.progressPercent}% elapsed</Text>
+            <Text style={styles.progressText}>{health.totalDays} days total</Text>
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.value}>{formatUGXFull(tenancy.rent_amount)}</Text>
@@ -207,5 +250,44 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontFamily: typography.display,
     fontSize: 28,
+  },
+  healthRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  healthDot: {
+    borderRadius: 6,
+    height: 12,
+    width: 12,
+  },
+  healthLabel: {
+    fontFamily: typography.bodyStrong,
+    fontSize: 15,
+  },
+  healthDays: {
+    color: colors.textSecondary,
+    fontFamily: typography.body,
+    fontSize: 13,
+    marginLeft: 'auto',
+  },
+  progressTrack: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 6,
+    height: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    borderRadius: 6,
+    height: '100%',
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  progressText: {
+    color: colors.textMuted,
+    fontFamily: typography.body,
+    fontSize: 12,
   },
 });

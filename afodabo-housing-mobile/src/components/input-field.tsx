@@ -1,5 +1,6 @@
-import React from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 
 interface InputFieldProps {
@@ -23,20 +24,39 @@ export function InputField({
   secureTextEntry,
   value,
 }: InputFieldProps) {
+  const [hidePassword, setHidePassword] = useState(secureTextEntry ?? false);
+  const showToggle = secureTextEntry && !multiline;
+
   return (
     <View style={styles.wrapper}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput
-        autoCapitalize={autoCapitalize}
-        keyboardType={keyboardType}
-        multiline={multiline}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.textMuted}
-        secureTextEntry={secureTextEntry}
-        style={[styles.input, multiline ? styles.multiline : null]}
-        value={value}
-      />
+      <View style={styles.inputContainer}>
+        <TextInput
+          autoCapitalize={autoCapitalize}
+          cursorColor={colors.primary}
+          keyboardType={keyboardType}
+          multiline={multiline}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textMuted}
+          secureTextEntry={hidePassword}
+          style={[styles.input, multiline ? styles.multiline : null, showToggle ? styles.inputWithToggle : null]}
+          value={value}
+        />
+        {showToggle ? (
+          <Pressable
+            hitSlop={8}
+            onPress={() => setHidePassword((prev) => !prev)}
+            style={styles.toggle}
+          >
+            <Ionicons
+              color={colors.textMuted}
+              name={hidePassword ? 'eye-off' : 'eye'}
+              size={22}
+            />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -54,6 +74,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
   },
+  inputContainer: {
+    position: 'relative',
+  },
+  inputWithToggle: {
+    paddingRight: 44,
+  },
   label: {
     color: colors.textSecondary,
     fontFamily: typography.bodyStrong,
@@ -63,6 +89,15 @@ const styles = StyleSheet.create({
   multiline: {
     minHeight: 104,
     textAlignVertical: 'top',
+  },
+  toggle: {
+    alignItems: 'center',
+    bottom: 0,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    width: 30,
   },
   wrapper: {
     gap: 2,

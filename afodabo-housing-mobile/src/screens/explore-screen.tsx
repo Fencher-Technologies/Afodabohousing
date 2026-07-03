@@ -228,7 +228,7 @@ export function ExploreScreen() {
 
         <View style={styles.listHeading}>
           <Text style={styles.sectionTitle}>
-            {districtFilter ? `Homes in ${districtFilter}` : 'Available Properties'}
+            {districtFilter ? `Homes in ${districtFilter}` : 'Properties'}
           </Text>
           <Text style={styles.sectionSubtitle}>
             {propertiesQuery.data?.count || 0} results ready to explore

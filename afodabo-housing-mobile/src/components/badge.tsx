@@ -5,9 +5,10 @@ import { colors, radii, typography } from '../theme/tokens';
 interface BadgeProps {
   children: React.ReactNode;
   tone?: 'accent' | 'default' | 'gold' | 'primary' | 'success' | 'warning';
+  textDecorationLine?: 'underline' | 'line-through' | 'underline line-through' | 'none';
 }
 
-export function Badge({ children, tone = 'default' }: BadgeProps) {
+export function Badge({ children, tone = 'default', textDecorationLine }: BadgeProps) {
   const palette = {
     accent: { backgroundColor: '#F9E2D6', color: colors.accent },
     default: { backgroundColor: colors.surfaceMuted, color: colors.textSecondary },
@@ -19,7 +20,7 @@ export function Badge({ children, tone = 'default' }: BadgeProps) {
 
   return (
     <View style={[styles.badge, { backgroundColor: palette.backgroundColor }]}>
-      <Text style={[styles.text, { color: palette.color }]}>{children}</Text>
+      <Text style={[styles.text, { color: palette.color }, textDecorationLine && { textDecorationLine }]}>{children}</Text>
     </View>
   );
 }

@@ -14,6 +14,7 @@ import { sendRentReminder } from '../services/manager';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import type { RootStackParamList } from '../navigation/types';
 import { formatDateLabel, formatUGXFull } from '../utils/format';
+import { getTenancyHealth } from '../utils/tenancy-health';
 
 export function ManagerTenanciesScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
@@ -81,56 +82,83 @@ export function ManagerTenanciesScreen() {
           title="No tenancies yet"
         />
       ) : (
-        tenanciesQuery.tenancies.map((tenancy) => (
-          <View key={tenancy.id} style={styles.card}>
-            <Text style={styles.rowTitle}>{tenancy.property_title || tenancy.property_id}</Text>
-            <Text style={styles.cardText}>Tenant: {tenancy.tenant_name || tenancy.tenant_id}</Text>
-            <Text style={styles.cardText}>Phone: {tenancy.tenant_phone || 'Not available'}</Text>
-            <Text style={styles.cardText}>Rent: {formatUGXFull(tenancy.rent_amount)}</Text>
-            <Text style={styles.cardText}>
-              {formatDateLabel(tenancy.rent_start_date)} to {formatDateLabel(tenancy.rent_end_date)}
-            </Text>
-            <Badge tone={tenancy.status === 'active' ? 'success' : 'default'}>
-              {tenancy.status}
-            </Badge>
-            <View style={styles.buttonCluster}>
-              <Button
-                onPress={() =>
-                  navigation.navigate('ManagerTenancyDetails', {
-                    tenancyId: tenancy.id,
-                  })
-                }
-                variant="outline"
-              >
-                Open Tenancy
-              </Button>
-              {tenancy.status === 'active' ? (
+        tenanciesQuery.tenancies.map((tenancy) => {
+          const health = tenancy.status === 'active'
+            ? getTenancyHealth(tenancy.rent_start_date, tenancy.rent_end_date)
+            : null;
+
+          return (
+            <View
+              key={tenancy.id}
+              style={[
+                styles.card,
+                health && { borderLeftWidth: 4, borderLeftColor: health.color },
+              ]}
+            >
+              <Text style={styles.rowTitle}>{tenancy.property_title || tenancy.property_id}</Text>
+              <Text style={styles.cardText}>Tenant: {tenancy.tenant_name || tenancy.tenant_id}</Text>
+              <Text style={styles.cardText}>Phone: {tenancy.tenant_phone || 'Not available'}</Text>
+              <Text style={styles.cardText}>Rent: {formatUGXFull(tenancy.rent_amount)}</Text>
+              <Text style={styles.cardText}>
+                {formatDateLabel(tenancy.rent_start_date)} to {formatDateLabel(tenancy.rent_end_date)}
+              </Text>
+              <View style={styles.statusRow}>
+                <Badge tone={tenancy.status === 'active' ? 'success' : 'default'}>
+                  {tenancy.status}
+                </Badge>
+                {health ? (
+                  <Text
+                    style={[
+                      styles.healthText,
+                      { color: health.color },
+                      health.status === 'expired' && { textDecorationLine: 'line-through' },
+                    ]}
+                  >
+                    {health.daysRemaining > 0
+                      ? `${health.daysRemaining} days remaining`
+                      : 'Expired'}
+                  </Text>
+                ) : null}
+              </View>
+              <View style={styles.buttonCluster}>
                 <Button
-                  disabled={!tenancy.tenant_phone || sendingId === tenancy.id}
-                  onPress={async () => {
-                    try {
-                      setSendingId(tenancy.id);
-                      await sendRentReminder(tenancy, profile?.phone || user.email || null);
-                      Alert.alert(
-                        'Reminder sent',
-                        `An SMS reminder was sent to ${tenancy.tenant_name || 'the tenant'}.`,
-                      );
-                    } catch (error) {
-                      Alert.alert(
-                        'Reminder failed',
-                        error instanceof Error ? error.message : 'Please try again.',
-                      );
-                    } finally {
-                      setSendingId(null);
-                    }
-                  }}
+                  onPress={() =>
+                    navigation.navigate('ManagerTenancyDetails', {
+                      tenancyId: tenancy.id,
+                    })
+                  }
+                  variant="outline"
                 >
-                  {sendingId === tenancy.id ? 'Sending...' : 'Send Reminder'}
+                  Open Tenancy
                 </Button>
-              ) : null}
+                {tenancy.status === 'active' ? (
+                  <Button
+                    disabled={!tenancy.tenant_phone || sendingId === tenancy.id}
+                    onPress={async () => {
+                      try {
+                        setSendingId(tenancy.id);
+                        await sendRentReminder(tenancy, profile?.phone || user.email || null);
+                        Alert.alert(
+                          'Reminder sent',
+                          `An SMS reminder was sent to ${tenancy.tenant_name || 'the tenant'}.`,
+                        );
+                      } catch (error) {
+                        Alert.alert(
+                          'Reminder failed',
+                          error instanceof Error ? error.message : 'Please try again.',
+                        );
+                      } finally {
+                        setSendingId(null);
+                      }
+                    }}
+                  >
+                    {sendingId === tenancy.id ? 'Sending...' : 'Send Reminder'}
+                  </Button>
+                ) : null}
+              </View>
             </View>
-          </View>
-        ))
+          );
+        })
       )}
     </ScrollableScreenContainer>
   );
@@ -171,5 +199,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: typography.display,
     fontSize: 22,
+  },
+  statusRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  healthText: {
+    fontFamily: typography.bodyStrong,
+    fontSize: 13,
   },
 });

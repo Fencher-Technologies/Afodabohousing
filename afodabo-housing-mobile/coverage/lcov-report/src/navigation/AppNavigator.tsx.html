@@ -544,7 +544,21 @@
 <a name='L479'></a><a href='#L479'>479</a>
 <a name='L480'></a><a href='#L480'>480</a>
 <a name='L481'></a><a href='#L481'>481</a>
-<a name='L482'></a><a href='#L482'>482</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L482'></a><a href='#L482'>482</a>
+<a name='L483'></a><a href='#L483'>483</a>
+<a name='L484'></a><a href='#L484'>484</a>
+<a name='L485'></a><a href='#L485'>485</a>
+<a name='L486'></a><a href='#L486'>486</a>
+<a name='L487'></a><a href='#L487'>487</a>
+<a name='L488'></a><a href='#L488'>488</a>
+<a name='L489'></a><a href='#L489'>489</a>
+<a name='L490'></a><a href='#L490'>490</a>
+<a name='L491'></a><a href='#L491'>491</a>
+<a name='L492'></a><a href='#L492'>492</a>
+<a name='L493'></a><a href='#L493'>493</a>
+<a name='L494'></a><a href='#L494'>494</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -886,6 +900,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1049,6 +1073,7 @@ import { ManagerCreatePropertyScreen } from '../screens/manager-create-property-
 import { ManagerCreateTenancyScreen } from '../screens/manager-create-tenancy-screen';
 import { ManagerConversationScreen } from '../screens/manager-conversation-screen';
 import { ManagerDashboardScreen } from '../screens/manager-dashboard-screen';
+import { ManagerEditPropertyScreen } from '../screens/manager-edit-property-screen';
 import { ManagerMessagesScreen } from '../screens/manager-messages-screen';
 import { ManagerPropertiesScreen } from '../screens/manager-properties-screen';
 import { ManagerPropertyDetailsScreen } from '../screens/manager-property-details-screen';
@@ -1060,6 +1085,7 @@ import { PrivacyScreen } from '../screens/privacy-screen';
 import { RegisterScreen } from '../screens/register-screen';
 import { RoleUnavailableScreen } from '../screens/role-unavailable-screen';
 import { TenantDashboardScreen } from '../screens/tenant-dashboard-screen';
+import { TenantConversationScreen } from '../screens/tenant-conversation-screen';
 import { TenantMessagesScreen } from '../screens/tenant-messages-screen';
 import { TenantPaymentsScreen } from '../screens/tenant-payments-screen';
 import { TermsScreen } from '../screens/terms-screen';
@@ -1159,7 +1185,7 @@ function <span class="fstat-no" title="function not covered" >TenantTabs(</span>
         name="Dashboard"
         component={TenantDashboardScreen}
         options={{
-          title: 'My Dashboard',
+          title: 'Dashboard',
           tabBarLabel: 'Dashboard',
           tabBarIcon: <span class="fstat-no" title="function not covered" >({</span> color, size }) =&gt; (
 <span class="cstat-no" title="statement not covered" >            &lt;Ionicons color={color} name="grid-outline" size={size} /&gt;</span>
@@ -1219,9 +1245,9 @@ function <span class="fstat-no" title="function not covered" >ManagerTabs(</span
         name="Dashboard"
         component={ManagerDashboardScreen}
         options={{
-          title: 'Manager Dashboard',
+          title: 'Dashboard',
           tabBarIcon: <span class="fstat-no" title="function not covered" >({</span> color, size }) =&gt; (
-<span class="cstat-no" title="statement not covered" >            &lt;Ionicons color={color} name="business-outline" size={size} /&gt;</span>
+<span class="cstat-no" title="statement not covered" >            &lt;Ionicons color={color} name="grid-outline" size={size} /&gt;</span>
           ),
         }}
       /&gt;
@@ -1422,6 +1448,11 @@ export function <span class="fstat-no" title="function not covered" >AppNavigato
           options={{ title: 'Create Tenancy' }}
         /&gt;
         &lt;RootStack.Screen
+          component={ManagerEditPropertyScreen}
+          name="ManagerEditProperty"
+          options={{ title: 'Edit Property' }}
+        /&gt;
+        &lt;RootStack.Screen
           component={ManagerPropertiesScreen}
           name="ManagerProperties"
           options={{ title: 'Properties' }}
@@ -1440,6 +1471,11 @@ export function <span class="fstat-no" title="function not covered" >AppNavigato
           component={ManagerTenancyDetailsScreen}
           name="ManagerTenancyDetails"
           options={{ title: 'Tenancy Detail' }}
+        /&gt;
+        &lt;RootStack.Screen
+          component={TenantConversationScreen}
+          name="TenantConversation"
+          options={{ title: 'Conversation' }}
         /&gt;
         &lt;RootStack.Screen
           component={PropertyDetailsScreen}
@@ -1513,7 +1549,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-19T13:36:44.363Z
+                at 2026-07-02T11:07:21.565Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
