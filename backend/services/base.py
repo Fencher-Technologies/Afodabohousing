@@ -2,20 +2,21 @@ import logging
 import random
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, ParamSpec, TypeVar, cast
 
 from config import get_settings
 
 logger = logging.getLogger(__name__)
-F = TypeVar("F", bound=Callable[..., Any])
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
-def with_retry(func: F) -> F:
+def with_retry(func: Callable[P, R]) -> Callable[P, R]:
     settings = get_settings()
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
-        last_exception = None
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        last_exception: Exception | None = None
         for attempt in range(settings.retry_max_attempts):
             try:
                 return func(*args, **kwargs)
@@ -36,18 +37,20 @@ def with_retry(func: F) -> F:
                     )
                     time = __import__("time")
                     time.sleep(delay)
-        raise last_exception
+        if last_exception is not None:
+            raise last_exception
+        raise RuntimeError("with_retry exhausted without capturing an exception")
 
-    return wrapper
+    return cast(Callable[P, R], wrapper)
 
 
 class BaseService:
-    def __init__(self, supabase):
+    def __init__(self, supabase: Any):
         self.supabase = supabase
         self._table = None
 
     @property
-    def table(self):
+    def table(self) -> Any:
         if self._table is None:
             raise NotImplementedError("Subclasses must set _table name")
         return self.supabase.table(self._table)

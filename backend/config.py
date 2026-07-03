@@ -26,6 +26,8 @@ class Settings(BaseSettings):
 
     # Sentry
     sentry_dsn: str = ""
+    sentry_endpoint: str = ""
+    testing: bool = False
 
     # Pesapal
     pesapal_consumer_key: str = ""
@@ -42,6 +44,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 @lru_cache

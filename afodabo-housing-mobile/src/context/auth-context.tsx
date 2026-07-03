@@ -6,6 +6,7 @@ import {
   getStoredAuthSession,
   subscribeToAuthSession,
 } from '../services/auth-storage';
+import { setSentryUser } from '../services/sentry';
 import type { AuthSession, AuthUser } from '../types/auth';
 
 interface AuthContextValue {
@@ -34,6 +35,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<UserRole>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    setSentryUser(
+      user
+        ? {
+            email: user.email,
+            id: user.id,
+            role,
+            username:
+              typeof user.user_metadata?.full_name === 'string'
+                ? user.user_metadata.full_name
+                : null,
+          }
+        : null,
+    );
+  }, [role, user]);
 
   const hydrate = async (nextSession: AuthSession | null) => {
     try {
@@ -98,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRole(null);
         setSession(null);
         setUser(null);
+        setSentryUser(null);
       },
       user,
     }),

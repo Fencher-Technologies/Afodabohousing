@@ -5,6 +5,7 @@ import { Alert, Image, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/button';
 import { Screen } from '../components/screen';
 import { useAuth } from '../context/auth-context';
+import logoImage from '../../assets/brand/logo.png';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import { titleCaseRole } from '../utils/format';
 import type { RootStackParamList } from '../navigation/types';
@@ -23,7 +24,7 @@ export function AccountScreen() {
     return (
       <Screen>
         <View style={styles.brandCard}>
-          <Image source={require('../../assets/brand/logo.png')} style={styles.logo} />
+          <Image source={logoImage} style={styles.logo} />
           <Text style={styles.title}>Afodabo Housing</Text>
           <Text style={styles.subtitle}>
             Sign in to manage rent, message house managers, and keep up with your home search.

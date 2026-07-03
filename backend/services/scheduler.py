@@ -1,7 +1,7 @@
 import logging
 from datetime import date, timedelta
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
 
 from config import get_settings
 

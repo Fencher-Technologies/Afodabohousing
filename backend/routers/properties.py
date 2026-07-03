@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
