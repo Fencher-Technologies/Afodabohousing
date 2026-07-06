@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
@@ -24,7 +24,7 @@ import {
 import { format, differenceInDays } from 'date-fns';
 
 type Property = Database['public']['Tables']['properties']['Row'];
-type LeaseRow = Database['public']['Tables']['leases']['Row'];
+type TenancyRow = Database['public']['Tables']['tenancies']['Row'];
 type Message = Database['public']['Tables']['messages']['Row'];
 
 const AMENITIES_LIST = ['Water', 'Electricity', 'WiFi', 'Parking', 'Security', 'Garden', 'Generator', 'DSTV', 'Borehole', 'Tiled Floors'];
@@ -60,7 +60,7 @@ export default function ManagerDashboard() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [properties, setProperties] = useState<Property[]>([]);
-  const [leases, setLeases] = useState<(LeaseRow & { tenant_name?: string; tenant_phone?: string; property_title?: string })[]>([]);
+  const [leases, setLeases] = useState<(TenancyRow & { tenant_name?: string; tenant_phone?: string; tenant_user_id?: string; property_title?: string })[]>([]);
   const [payments, setPayments] = useState<(PaymentData & { tenant_name?: string; property_title?: string })[]>([]);
   const [messages, setMessages] = useState<(Message & { sender_name?: string; receiver_name?: string; property_title?: string })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,30 +111,55 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
-    const [propsRes, leaseRes, payRes] = await Promise.all([
+    const [propsRes, tenancyRes, leaseRes, tenantRes, payRes] = await Promise.all([
       supabase.from('properties').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('leases').select('*, tenants!inner(first_name, last_name, email, user_id)').eq('owner_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('tenancies').select('*').eq('manager_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('leases').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('tenants').select('id, first_name, last_name, phone, user_id').eq('owner_id', user.id),
       listPayments().catch(() => ({ items: [], total: 0 })),
     ]);
 
-    const myLeases = leaseRes.data || [];
     const allPayments = payRes.items || [];
 
     const propMap: Record<string, string> = {};
     propsRes.data?.forEach(p => { propMap[p.id] = p.title; });
 
+    const tenantMap: Record<string, { name: string; phone: string; user_id: string }> = {};
+    tenantRes.data?.forEach(t => {
+      tenantMap[t.id] = { name: (t.first_name || '') + ' ' + (t.last_name || ''), phone: t.phone || '', user_id: t.user_id || '' };
+    });
+
     setProperties(propsRes.data || []);
-    setLeases(myLeases.map(l => ({
-      ...l,
-      tenant_name: (l.tenants as any)?.first_name + ' ' + (l.tenants as any)?.last_name,
-      property_title: propMap[l.property_id],
-    })));
+
+    // Prefer tenancies (new schema), fallback to leases (old schema)
+    const tenancyRows = tenancyRes.data || [];
+    const leaseRows = leaseRes.data || [];
+    const rawTenancies = tenancyRows.length > 0 ? tenancyRows : leaseRows;
+    const isTenancies = tenancyRows.length > 0;
+
+    const tenancyMap: Record<string, { property_id: string; tenant_id: string }> = {};
+    rawTenancies.forEach(t => {
+      tenancyMap[t.id] = { property_id: t.property_id, tenant_id: t.tenant_id };
+    });
+    // Also map lease IDs (payments may reference old leases.tenant_id)
+    leaseRows.forEach(t => { tenancyMap[t.id] = { property_id: t.property_id, tenant_id: t.tenant_id }; });
+
+    setLeases(rawTenancies.map(t => {
+      const base = isTenancies
+        ? { ...t, owner_id: (t as any).manager_id, monthly_rent: (t as any).rent_amount, start_date: (t as any).rent_start_date, end_date: (t as any).rent_end_date }
+        : { ...t, owner_id: (t as any).owner_id, monthly_rent: (t as any).monthly_rent, start_date: (t as any).start_date, end_date: (t as any).end_date };
+      return {
+        ...base,
+        tenant_name: tenantMap[t.tenant_id]?.name || '',
+        tenant_phone: tenantMap[t.tenant_id]?.phone || '',
+        tenant_user_id: tenantMap[t.tenant_id]?.user_id || '',
+        property_title: propMap[t.property_id] || '',
+      };
+    }));
     setPayments(allPayments.map(p => ({
       ...p,
-      tenant_name: myLeases.find(l => l.tenant_id === p.tenant_id && l.owner_id === user.id) ?
-        ((myLeases.find(l => l.tenant_id === p.tenant_id) as any)?.tenants?.first_name || '') + ' ' +
-        ((myLeases.find(l => l.tenant_id === p.tenant_id) as any)?.tenants?.last_name || '') : '',
-      property_title: propMap[myLeases.find(l => l.tenant_id === p.tenant_id)?.property_id || ''] || '',
+      tenant_name: tenantMap[p.tenant_id]?.name || '',
+      property_title: propMap[tenancyMap[p.tenancy_id]?.property_id || ''] || '',
     })));
     if (user) {
       const msgRes = await supabase.from('messages').select('*, profiles!sender_id(full_name)').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false });
@@ -245,7 +270,6 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
     setSendingAction('add-unit');
     const { error } = await supabase.from('rental_units').insert({
       property_id: selectedPropertyForUnit,
-      owner_id: user.id,
       unit_number: unitForm.unit_number,
       floor_level: unitForm.floor_level || null,
       bedrooms: unitForm.bedrooms,
@@ -292,10 +316,10 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
     }
     if (!tenantId) { toast({ title: 'Error', description: 'Could not create tenant record', variant: 'destructive' }); setSendingAction(''); return; }
 
-    const { error } = await supabase.from('leases').insert({
-      owner_id: user.id, property_id: tenancyForm.property_id, tenant_id: tenantId,
-      start_date: tenancyForm.start_date, end_date: tenancyForm.end_date,
-      monthly_rent: monthlyRent, security_deposit: monthlyRent, status: 'active',
+    const { error } = await supabase.from('tenancies').insert({
+      manager_id: user.id, property_id: tenancyForm.property_id, tenant_id: tenantId,
+      rent_start_date: tenancyForm.start_date, rent_end_date: tenancyForm.end_date,
+      rent_amount: monthlyRent, status: 'active',
     });
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); setSendingAction(''); return; }
     await supabase.from('properties').update({ status: 'occupied' }).eq('id', tenancyForm.property_id);
@@ -371,7 +395,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
     if (!user || !composeDialog.tenantId || (!composeText.trim() && !composeVoiceUrl)) return;
     setSendingAction('compose');
     const tenant = leases.find(t => t.tenant_id === composeDialog.tenantId);
-    const receiverId = tenant?.tenants?.user_id;
+    const receiverId = tenant?.tenant_user_id;
     if (!receiverId) { toast({ title: 'Error', description: 'Tenant user not found. They may not have registered yet.', variant: 'destructive' }); setSendingAction(''); return; }
     const { error } = await supabase.from('messages').insert({
       sender_id: user.id,
@@ -737,6 +761,9 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
                               <p className="text-xs text-muted-foreground">{p.state || p.city} · UGX {(p.rent_amount || 0).toLocaleString()}</p>
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize shrink-0 ${statusBadge(p.status)}`}>{p.status}</span>
+                            <button onClick={() => navigate(`/dashboard/manager/boost/${p.id}`)} className="text-xs text-primary hover:underline font-medium shrink-0 ml-1">
+                              Boost
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -829,9 +856,12 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
                                    >
                                      {sendingAction === p.id ? '...' : p.status !== 'inactive' ? 'Deactivate' : 'Activate'}
                                    </Button>
-                                   <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={() => setDeleteConfirmProperty(p)}>
-                                     <Trash2 className="h-3 w-3" />Delete
-                                   </Button>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate(`/dashboard/manager/boost/${p.id}`)}>
+                                    <TrendingUp className="h-3 w-3" />Boost
+                                  </Button>
+                                  <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={() => setDeleteConfirmProperty(p)}>
+                                    <Trash2 className="h-3 w-3" />Delete
+                                  </Button>
                                  </div>
                                </td>
                             </tr>
@@ -845,7 +875,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
             )}
 
             {/* TENANCIES */}
-            {tab === 'leases' && (
+            {tab === 'tenants' && (
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -880,6 +910,13 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
                           const days = differenceInDays(new Date(t.end_date), new Date());
                           return (
                             <tr key={t.id} className="hover:bg-muted/20 transition-colors border-b border-border/30">
+                              <td className="py-3.5 px-4">
+                                <div className="text-sm font-semibold text-foreground">{t.tenant_name || 'Unknown'}</div>
+                                <div className="text-xs text-muted-foreground">{t.tenant_phone || ''}</div>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span className="text-sm text-foreground">{t.property_title || '-'}</span>
+                              </td>
                               <td className="py-3.5 px-4">
                                 <span className="font-bold text-foreground">UGX {(t.monthly_rent || 0).toLocaleString()}</span>
                               </td>

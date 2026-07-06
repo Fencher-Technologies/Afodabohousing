@@ -12,6 +12,7 @@ import RegisterPage from "./pages/Register";
 import PropertiesPage from "./pages/Properties";
 import PropertyDetailPage from "./pages/PropertyDetail";
 import ManagerDashboard from "./pages/ManagerDashboard";
+import BoostPage from "./pages/BoostPage";
 import TenantDashboard from "./pages/TenantDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import AcceptInvitePage from "./pages/AcceptInvite";
@@ -67,6 +68,7 @@ const App = () => (
               <Route path="/properties/:id" element={<PropertyDetailPage />} />
               <Route path="/dashboard/super-admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
               <Route path="/dashboard/manager" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerDashboard /></ProtectedRoute>} />
+              <Route path="/dashboard/manager/boost/:id" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><BoostPage /></ProtectedRoute>} />
               <Route path="/dashboard/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
