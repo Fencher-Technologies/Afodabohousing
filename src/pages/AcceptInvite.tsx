@@ -45,7 +45,7 @@ export default function AcceptInvitePage() {
     setLoading(true);
 
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiBase = import.meta.env.VITE_API_URL || '';
       const res = await fetch(`${apiBase}/auth/accept-invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

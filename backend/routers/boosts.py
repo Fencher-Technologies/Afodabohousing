@@ -1,5 +1,5 @@
 import logging
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -10,12 +10,16 @@ from dependencies import (
     get_service_client,
     get_supabase_client,
     require_super_admin,
+    require_super_admin_or_manager,
 )
+from services.nylonpay import initiate_boost_payment
 from models.boost import (
     BoostCreate,
     BoostPriceResponse,
     BoostResponse,
     BoostStats,
+    InitiateBoostRequest,
+    InitiateBoostResponse,
 )
 from services.boost import BoostService, calculate_boost_price, get_boost_service
 
@@ -194,6 +198,59 @@ def expire_old_boosts(
     """Manually expire overdue boosts. Super admin only."""
     count = service.expire_old()
     return {"message": f"{count} boost(s) expired", "expired_count": count}
+
+
+# ── Manager: Self-service boost initiation with NylonPay ──
+
+
+@router.post("/initiate", response_model=InitiateBoostResponse)
+def initiate_boost(
+    data: InitiateBoostRequest,
+    current_user: CurrentUser = Depends(require_super_admin_or_manager),
+    supabase: Client = Depends(get_service_client),
+    service: BoostService = Depends(get_boost_svc),
+) -> InitiateBoostResponse:
+    """Manager initiates a boost for their own property. Payment via NylonPay mobile money."""
+    prop = supabase.table("properties").select("id, owner_id, title").eq("id", str(data.property_id)).maybe_single().execute()
+    if not prop.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found")
+    if str(prop.data.get("owner_id")) != str(current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only boost your own properties")
+
+    amount = int(calculate_boost_price(data.duration_days))
+    reference = str(uuid4())
+    prop_title = prop.data.get("title", "Property")
+
+    boost_data = BoostCreate(
+        property_id=data.property_id,
+        duration_days=data.duration_days,
+        amount_paid=calculate_boost_price(data.duration_days),
+    )
+
+    result = service.create_pending(boost_data, UUID(current_user.id), reference, "nylonpay")
+
+    try:
+        initiate_boost_payment(
+            amount=amount,
+            customer_name=current_user.full_name or current_user.email,
+            customer_phone=data.phone_number,
+            reference=reference,
+            description=f"Boost {prop_title} ({data.duration_days} days)",
+        )
+    except Exception as e:
+        logger.error("NylonPay payment initiation failed for boost %s: %s", result["id"], str(e))
+        service.cancel(result["id"])
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Payment initiation failed. Please try again.",
+        )
+
+    return InitiateBoostResponse(
+        boost_id=result["id"],
+        reference=reference,
+        status="pending",
+        message="Check your phone for the payment prompt. Enter your PIN to confirm.",
+    )
 
 
 # ── Manager: Price calculation (no auth required for price discovery) ──

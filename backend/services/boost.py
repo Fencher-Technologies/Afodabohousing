@@ -41,6 +41,34 @@ class BoostService(BaseService):
         return result.data[0]
 
     @with_retry
+    def create_pending(self, data: BoostCreate, manager_id: UUID, transaction_id: str, payment_method: str) -> dict:
+        now = datetime.now(timezone.utc)
+        expires = now + timedelta(days=data.duration_days)
+        payload = {
+            "property_id": str(data.property_id),
+            "manager_id": str(manager_id),
+            "amount_paid": str(data.amount_paid),
+            "duration_days": data.duration_days,
+            "started_at": now.isoformat(),
+            "expires_at": expires.isoformat(),
+            "status": "pending",
+            "transaction_id": transaction_id,
+            "payment_method": payment_method,
+        }
+        result = self.table.insert(payload).execute()
+        return result.data[0]
+
+    @with_retry
+    def activate_by_reference(self, reference: str, txn_id: str) -> dict | None:
+        result = (
+            self.table.update({"status": "active", "transaction_id": txn_id})
+            .eq("transaction_id", reference)
+            .eq("status", "pending")
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    @with_retry
     def get_by_id(self, boost_id: UUID) -> dict | None:
         result = self.table.select("*").eq("id", str(boost_id)).execute()
         return result.data[0] if result.data else None

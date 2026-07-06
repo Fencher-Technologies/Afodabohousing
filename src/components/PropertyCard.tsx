@@ -30,9 +30,10 @@ const periodLabels: Record<string, string> = {
 };
 
 function formatUGX(amount: number) {
-  if (amount >= 1000000) return `UGX ${(amount / 1000000).toFixed(1)}M`;
-  if (amount >= 1000) return `UGX ${(amount / 1000).toFixed(0)}K`;
-  return `UGX ${amount.toLocaleString()}`;
+  const n = amount || 0;
+  if (n >= 1000000) return `UGX ${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `UGX ${(n / 1000).toFixed(0)}K`;
+  return `UGX ${n.toLocaleString()}`;
 }
 
 interface PropertyCardProps {

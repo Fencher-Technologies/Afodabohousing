@@ -11,6 +11,20 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      '/auth': { target: 'http://localhost:8000', changeOrigin: true },
+      '/admin': { target: 'http://localhost:8000', changeOrigin: true },
+      '/payments': { target: 'http://localhost:8000', changeOrigin: true },
+      '/boosts': { target: 'http://localhost:8000', changeOrigin: true },
+      '/webhooks': { target: 'http://localhost:8000', changeOrigin: true },
+      '/properties': { target: 'http://localhost:8000', changeOrigin: true },
+      '/uploads': { target: 'http://localhost:8000', changeOrigin: true },
+      '/tenants': { target: 'http://localhost:8000', changeOrigin: true },
+      '/rental-units': { target: 'http://localhost:8000', changeOrigin: true },
+      '/messages': { target: 'http://localhost:8000', changeOrigin: true },
+      '/leases': { target: 'http://localhost:8000', changeOrigin: true },
+      '/maintenance-requests': { target: 'http://localhost:8000', changeOrigin: true },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

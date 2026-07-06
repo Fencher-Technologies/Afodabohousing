@@ -40,7 +40,7 @@ const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 ];
 
 function formatUGX(amount: number): string {
-  return `UGX ${amount.toLocaleString()}`;
+  return `UGX ${(amount || 0).toLocaleString()}`;
 }
 
 export default function SuperAdminDashboard() {
@@ -65,7 +65,7 @@ export default function SuperAdminDashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
 
-  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const apiBase = import.meta.env.VITE_API_URL || '';
 
   const getHeaders = async () => {
     const { data: { session } } = await supabase.auth.getSession();

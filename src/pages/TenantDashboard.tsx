@@ -99,7 +99,7 @@ export default function TenantDashboard() {
   const isDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
   const unreadMessages = messages.filter(m => !m.is_read && m.receiver_id === user?.id).length;
   const confirmedPayments = payments.filter(p => p.status === 'confirmed');
-  const totalPaid = confirmedPayments.reduce((s, p) => s + p.amount, 0);
+  const totalPaid = confirmedPayments.reduce((s, p) => s + (p.amount || 0), 0);
   const lastPayment = payments[0];
   const nextDue = activeLease ? new Date(activeLease.end_date) : null;
 

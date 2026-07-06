@@ -12,6 +12,8 @@ from supabase import Client
 
 from config import get_settings
 from dependencies import get_service_client
+from services.boost import get_boost_service
+from services.nylonpay import verify_webhook as verify_nylonpay_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -173,3 +175,40 @@ async def send_sms(
     response = SmsSendResponse(status="sent", message="SMS queued for delivery")
     _set_idempotency(idempotency_key, response.model_dump())
     return response
+
+
+@router.post("/webhooks/nylonpay", status_code=status.HTTP_200_OK)
+async def nylonpay_webhook(
+    request: Request,
+    supabase: Client = Depends(get_service_client),
+):
+    body = await request.body()
+    signature = request.headers.get("x-nylon-signature", "")
+
+    if not verify_nylonpay_webhook(body, signature):
+        logger.warning("NylonPay webhook signature verification failed")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature")
+
+    payload = json.loads(body)
+    event = payload.get("event", "")
+    txn = payload.get("data", {})
+    reference = txn.get("reference", "")
+    txn_id = txn.get("id", "")
+    status_str = txn.get("status", "")
+
+    logger.info("NylonPay webhook: event=%s reference=%s status=%s", event, reference, status_str)
+
+    if event == "transaction.successful":
+        svc = get_boost_service(supabase)
+        activated = svc.activate_by_reference(reference, txn_id)
+        if activated:
+            logger.info("Boost %s activated via NylonPay webhook", activated["id"])
+        else:
+            supabase.table("payments").update({"status": "completed", "transaction_id": txn_id}).eq("transaction_id", reference).execute()
+
+    elif event in ("transaction.failed", "transaction.cancelled"):
+        svc = get_boost_service(supabase)
+        svc.table.update({"status": "failed"}).eq("transaction_id", reference).eq("status", "pending").execute()
+        supabase.table("payments").update({"status": "failed"}).eq("transaction_id", reference).execute()
+
+    return {"status": "received"}

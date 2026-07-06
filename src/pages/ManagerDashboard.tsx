@@ -300,7 +300,9 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); setSendingAction(''); return; }
     await supabase.from('properties').update({ status: 'occupied' }).eq('id', tenancyForm.property_id);
     if (profile.data?.phone) {
-      await sendSMS(profile.data.phone, `Welcome to ${prop?.title || 'your new home'}! Your lease with Afodabo Housing has been activated. Rent: UGX ${monthlyRent.toLocaleString()}.`);
+      await sendSMS(profile.data.phone, `Welcome to ${prop?.title || 'your new home'}! Your lease with Afodabo Housing has been activated. Rent: UGX ${(monthlyRent || 0).toLocaleString()}.`);
+
+
     }
     toast({ title: 'Lease created!', description: 'Tenant linked and notified via SMS.' });
     setTenancyDialogOpen(false);
@@ -314,7 +316,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
     try {
       await updatePayment(payment.id!, { status: 'confirmed', paid_date: new Date().toISOString().split('T')[0] });
       const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-      if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! UGX ${payment.amount.toLocaleString()} has been confirmed. - Afodabo Housing`);
+      if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! UGX ${(payment.amount || 0).toLocaleString()} has been confirmed. - Afodabo Housing`);
       toast({ title: 'Payment confirmed', description: 'Tenant notified via SMS.' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -327,7 +329,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
     try {
       await updatePayment(payment.id!, { status: 'rejected' });
       const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-      if (profile?.phone) await sendSMS(profile.phone, `Your rent payment (UGX ${payment.amount.toLocaleString()}) was rejected. - Afodabo Housing`);
+      if (profile?.phone) await sendSMS(profile.phone, `Your rent payment (UGX ${(payment.amount || 0).toLocaleString()}) was rejected. - Afodabo Housing`);
       toast({ title: 'Payment rejected', description: 'Tenant notified via SMS.', variant: 'destructive' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -339,7 +341,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
     if (!lease.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
     setSendingAction(`remind-${lease.id}`);
     const days = differenceInDays(new Date(lease.end_date), new Date());
-    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${lease.monthly_rent.toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Afodabo Housing. Contact: ${user?.email}`);
+    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${(lease.monthly_rent || 0).toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Afodabo Housing. Contact: ${user?.email}`);
     toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${lease.tenant_name}` });
     setSendingAction('');
   };
@@ -606,7 +608,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
                         <div key={r.label} className="mb-4">
                           <div className="flex justify-between items-center mb-1.5">
                             <span className="text-sm text-muted-foreground">{r.label}</span>
-                            <span className={`text-sm font-bold ${r.textColor}`}>UGX {r.val.toLocaleString()}</span>
+                            <span className={`text-sm font-bold ${r.textColor}`}>UGX {(r.val || 0).toLocaleString()}</span>
                           </div>
                           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                             <div className={`h-full ${r.color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
@@ -642,7 +644,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-foreground truncate">{p.tenant_name || 'Tenant'}</p>
-                              <p className="text-xs text-muted-foreground">UGX {p.amount.toLocaleString()} · {format(new Date(p.created_at), 'MMM dd')}</p>
+                              <p className="text-xs text-muted-foreground">UGX {(p.amount || 0).toLocaleString()} · {format(new Date(p.created_at), 'MMM dd')}</p>
                             </div>
                             <div className="flex gap-1.5 shrink-0">
                               <Button size="sm" className="gradient-primary text-primary-foreground h-7 w-7 p-0" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
@@ -732,7 +734,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-foreground truncate">{p.title}</p>
-                              <p className="text-xs text-muted-foreground">{p.state || p.city} · UGX {p.rent_amount.toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">{p.state || p.city} · UGX {(p.rent_amount || 0).toLocaleString()}</p>
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize shrink-0 ${statusBadge(p.status)}`}>{p.status}</span>
                           </div>
@@ -799,7 +801,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
                               </td>
                               <td className="py-3.5 px-4 text-muted-foreground">{p.state || p.city}{p.area ? ` · ${p.area}` : ''}</td>
                               <td className="py-3.5 px-4">
-                                <span className="font-bold text-foreground">UGX {p.rent_amount.toLocaleString()}</span>
+                                  <span className="font-bold text-foreground">UGX {(p.rent_amount || 0).toLocaleString()}</span>
                                 <span className="text-xs text-muted-foreground ml-1 capitalize">/{p.rent_period.slice(0, 2)}</span>
                               </td>
                               <td className="py-3.5 px-4">
@@ -879,7 +881,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
                           return (
                             <tr key={t.id} className="hover:bg-muted/20 transition-colors border-b border-border/30">
                               <td className="py-3.5 px-4">
-                                <span className="font-bold text-foreground">UGX {t.monthly_rent.toLocaleString()}</span>
+                                <span className="font-bold text-foreground">UGX {(t.monthly_rent || 0).toLocaleString()}</span>
                               </td>
                               <td className="py-3.5 px-4">
                                 <div className="text-sm text-foreground">{format(new Date(t.end_date), 'MMM dd, yyyy')}</div>
@@ -964,7 +966,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
                                 <span className="font-semibold text-foreground">{p.tenant_name || 'Unknown'}</span>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 font-bold text-foreground">UGX {p.amount.toLocaleString()}</td>
+                            <td className="py-3.5 px-4 font-bold text-foreground">UGX {(p.amount || 0).toLocaleString()}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{p.period_start} – {p.period_end}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs max-w-[160px] truncate">{p.notes || '—'}</td>

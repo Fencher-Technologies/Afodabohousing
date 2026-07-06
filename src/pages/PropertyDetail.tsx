@@ -20,7 +20,7 @@ import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API = import.meta.env.VITE_API_URL || '';
 
 interface Property {
   id: string; title: string; status: string; property_type: string;
@@ -75,9 +75,10 @@ const statusColors: Record<string, string> = {
 };
 
 function formatUGX(amount: number) {
-  if (amount >= 1000000) return `UGX ${(amount / 1000000).toFixed(1)}M`;
-  if (amount >= 1000) return `UGX ${(amount / 1000).toFixed(0)}K`;
-  return `UGX ${amount.toLocaleString()}`;
+  const n = amount || 0;
+  if (n >= 1000000) return `UGX ${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `UGX ${(n / 1000).toFixed(0)}K`;
+  return `UGX ${n.toLocaleString()}`;
 }
 
 export default function PropertyDetailPage() {
