@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -22,7 +20,17 @@ import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
 
-type Property = Database['public']['Tables']['properties']['Row'];
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+interface Property {
+  id: string; title: string; status: string; property_type: string;
+  rent_amount: number; rent_period: string; bedrooms: number; bathrooms: number;
+  sitting_rooms: number; kitchens: number; state: string | null; city: string | null;
+  area: string | null; images: string[] | null; description: string | null;
+  amenities: string[] | null; address: string | null; created_at: string;
+  manager_phone: string | null; manager_email: string | null; owner_id: string | null;
+  rent_currency: string | null;
+}
 
 // Minimal rental unit type from DB (may not be in generated types yet)
 interface RentalUnit {
@@ -90,11 +98,14 @@ export default function PropertyDetailPage() {
   useEffect(() => {
     if (!id) return;
     (async () => {
-      const { data: prop } = await supabase.from('properties').select('*').eq('id', id).single();
-      setProperty(prop);
-      if (prop) {
-        const { data: unitData } = await supabase.from('rental_units').select('*').eq('property_id', id).eq('is_active', true);
-        setUnits(unitData || []);
+      try {
+        const res = await fetch(`${API}/properties/public/${id}`);
+        if (res.ok) {
+          const prop = await res.json();
+          setProperty(prop);
+        }
+      } catch (e) {
+        console.error('Failed to fetch property:', e);
       }
       setLoading(false);
     })();

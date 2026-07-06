@@ -1,4 +1,5 @@
 from .auth import AuthService, get_auth_service
+from .boost import BoostService, get_boost_service
 from .crud import (
     LeaseService,
     MaintenanceRequestService,
@@ -13,6 +14,8 @@ from .crud import (
 )
 
 __all__ = [
+    "BoostService",
+    "get_boost_service",
     "PropertyService",
     "TenantService",
     "LeaseService",

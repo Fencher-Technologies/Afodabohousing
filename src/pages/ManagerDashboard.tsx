@@ -78,11 +78,13 @@ export default function ManagerDashboard() {
   const [composeDialog, setComposeDialog] = useState<{ open: boolean; tenantId: string; tenantName: string; propertyId?: string }>({ open: false, tenantId: '', tenantName: '' });
   const [composeText, setComposeText] = useState('');
   const [composePropId, setComposePropId] = useState('');
-  const [composeVoiceUrl, setComposeVoiceUrl] = useState<string | null>(null);
-  const [replyVoiceUrl, setReplyVoiceUrl] = useState<string | null>(null);
+const [composeVoiceUrl, setComposeVoiceUrl] = useState<string | null>(null);
+const [replyVoiceUrl, setReplyVoiceUrl] = useState<string | null>(null);
+const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
   const [form, setForm] = useState({
-    title: '', description: '', property_type: 'house', district: '', city: '',
+    title: '', description: '', property_type: 'house', state: '', city: '',
     area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1,
     rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '',
     amenities: [] as string[],
@@ -148,6 +150,23 @@ export default function ManagerDashboard() {
     setLoading(false);
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordForm.new !== passwordForm.confirm) {
+      toast({ title: 'Passwords do not match', variant: 'destructive' }); return;
+    }
+    if (passwordForm.new.length < 6) {
+      toast({ title: 'Password too short', description: 'Must be at least 6 characters.', variant: 'destructive' }); return;
+    }
+    setSendingAction('password');
+    const { error } = await supabase.auth.updateUser({ password: passwordForm.new });
+    setSendingAction('');
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Password updated', description: 'Use your new password next time you sign in.' });
+    setPasswordDialogOpen(false);
+    setPasswordForm({ current: '', new: '', confirm: '' });
+  };
+
   const sendSMS = async (phone: string, message: string) => {
     if (!phone) return;
     try { await supabase.functions.invoke('send-sms', { body: { phone, message } }); }
@@ -168,33 +187,31 @@ export default function ManagerDashboard() {
         imageUrls.push(urlData.publicUrl);
       }
     }
+    const payload: Record<string, any> = {
+      ...form, monthly_rent: Number(form.rent_amount),
+      property_type: form.property_type,
+      rent_period: form.rent_period,
+    };
+    delete payload.rent_amount; // DB column is monthly_rent
+    delete payload.kitchens;    // not in DB
+    delete payload.area;        // not in DB
+    if (imageUrls.length > 0) payload.images = imageUrls;
+
     if (editingProperty) {
-      // Edit mode
-      const { error } = await supabase.from('properties').update({
-        ...form,
-        rent_amount: Number(form.rent_amount),
-        property_type: form.property_type as Database['public']['Enums']['property_type'],
-        rent_period: form.rent_period as Database['public']['Enums']['rent_period'],
-        ...(imageUrls.length > 0 ? { images: imageUrls } : {}),
-      }).eq('id', editingProperty.id);
+      const { error } = await supabase.from('properties').update(payload).eq('id', editingProperty.id);
       setUploading(false);
       if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
       toast({ title: 'Property updated!', description: 'Your listing has been updated.' });
     } else {
-      // Add mode
-      const { error } = await supabase.from('properties').insert({
-        ...form, owner_id: user.id, images: imageUrls,
-        rent_amount: Number(form.rent_amount),
-        property_type: form.property_type as Database['public']['Enums']['property_type'],
-        rent_period: form.rent_period as Database['public']['Enums']['rent_period'],
-      });
+      payload.owner_id = user.id;
+      const { error } = await supabase.from('properties').insert(payload);
       setUploading(false);
       if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
       toast({ title: 'Property published!', description: 'Your listing is now live.' });
     }
     setPropDialogOpen(false);
     setEditingProperty(null);
-    setForm({ title: '', description: '', property_type: 'house', district: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] });
+    setForm({ title: '', description: '', property_type: 'house', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] });
     setImageFiles([]);
     fetchData();
   };
@@ -203,7 +220,7 @@ export default function ManagerDashboard() {
     setEditingProperty(p);
     setForm({
       title: p.title, description: p.description || '', property_type: p.property_type,
-      district: p.state || p.city, city: p.city || '', area: p.area || '', address: p.address || '',
+      state: p.state || p.city, city: p.city || '', area: p.area || '', address: p.address || '',
       bedrooms: p.bedrooms, sitting_rooms: p.sitting_rooms, kitchens: p.kitchens, bathrooms: p.bathrooms,
       rent_amount: p.rent_amount, rent_period: p.rent_period, manager_phone: p.manager_phone || '',
       manager_email: p.manager_email || '', amenities: p.amenities || [],
@@ -453,6 +470,13 @@ export default function ManagerDashboard() {
           className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-sidebar-primary hover:bg-sidebar-accent transition-all"
         >
           <Plus className="h-4 w-4" /><span>Add Property</span>
+        </button>
+        <button
+          onClick={() => { setPasswordDialogOpen(true); setSidebarOpen(false); }}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>Change Password</span>
         </button>
         <button
           onClick={signOut}
@@ -1164,8 +1188,8 @@ export default function ManagerDashboard() {
                 </Select>
               </div>
               <div>
-                <Label>District</Label>
-                <Select value={form.district} onValueChange={v => setForm({ ...form, district: v })}>
+                <Label>State / District</Label>
+                <Select value={form.state} onValueChange={v => setForm({ ...form, state: v })}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Select location..." /></SelectTrigger>
                   <SelectContent>{DISTRICTS_LIST.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                 </Select>
@@ -1263,6 +1287,29 @@ export default function ManagerDashboard() {
             <div><Label>Notes</Label><Textarea value={unitForm.description} onChange={e => setUnitForm(f => ({ ...f, description: e.target.value }))} rows={2} className="mt-1" placeholder="Any specific details about this unit..." /></div>
             <Button type="submit" disabled={sendingAction === 'add-unit' || !selectedPropertyForUnit} className="w-full gradient-primary text-primary-foreground">
               {sendingAction === 'add-unit' ? 'Adding...' : 'Add Unit'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Change Password</DialogTitle>
+            <DialogDescription>Update your account password.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleChangePassword} className="space-y-4 mt-4">
+            <div>
+              <Label>New Password</Label>
+              <Input type="password" minLength={6} value={passwordForm.new} onChange={e => setPasswordForm(f => ({ ...f, new: e.target.value }))} required placeholder="At least 6 characters" className="mt-1" />
+            </div>
+            <div>
+              <Label>Confirm New Password</Label>
+              <Input type="password" minLength={6} value={passwordForm.confirm} onChange={e => setPasswordForm(f => ({ ...f, confirm: e.target.value }))} required placeholder="Repeat the new password" className="mt-1" />
+            </div>
+            <Button type="submit" disabled={sendingAction === 'password'} className="w-full gradient-primary text-primary-foreground">
+              {sendingAction === 'password' ? 'Updating...' : 'Update Password'}
             </Button>
           </form>
         </DialogContent>

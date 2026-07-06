@@ -1,10 +1,26 @@
+import pytest
 from fastapi.testclient import TestClient
 
+from dependencies import get_current_user
+from main import app
+
+UID_ADMIN = "00000000-0000-0000-0000-000000000003"
 PID_PROP = "00000000-0000-0000-0000-000000000010"
+PID_PROP_2 = "00000000-0000-0000-0000-000000000011"
 PID_TENANT = "00000000-0000-0000-0000-000000000020"
 PID_LEASE = "00000000-0000-0000-0000-000000000030"
 PID_PAYMENT = "00000000-0000-0000-0000-000000000040"
 PID_MAINT = "00000000-0000-0000-0000-000000000050"
+PID_BOOST = "00000000-0000-0000-0000-000000000070"
+
+
+# Admin-authenticated test client for super-admin-only endpoints
+@pytest.fixture
+def admin_client(client):
+    from dependencies import CurrentUser
+    admin = CurrentUser(id=UID_ADMIN, email="admin@test.com", role="super_admin", status="active")
+    app.dependency_overrides[get_current_user] = lambda: admin
+    return client
 
 
 class TestHealth:
@@ -255,3 +271,93 @@ class TestAuth:
         resp = client.get("/auth/roles")
         assert resp.status_code == 200
         assert "role" in resp.json()
+
+
+class TestBoosts:
+    """Property boost system — super admin only, ranking verified."""
+
+    def test_default_price(self, client: TestClient):
+        resp = client.get("/boosts/price/default")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["duration_days"] == 7
+        assert data["amount"] > 0
+        assert data["currency"] == "UGX"
+
+    def test_list_boosts(self, admin_client: TestClient):
+        resp = admin_client.get("/boosts")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] >= 1
+        assert len(data["items"]) >= 1
+
+    def test_get_boost(self, admin_client: TestClient):
+        resp = admin_client.get(f"/boosts/{PID_BOOST}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["id"] == PID_BOOST
+        assert data["status"] == "active"
+        # property_title may be None in mock since properties query may not resolve
+        # but we check it exists in response
+        assert "property_title" in data
+
+    def test_get_boost_not_found(self, admin_client: TestClient):
+        resp = admin_client.get("/boosts/00000000-0000-0000-0000-00000000ffff")
+        assert resp.status_code == 404
+
+    def test_create_boost(self, admin_client: TestClient):
+        resp = admin_client.post("/boosts", json={
+            "property_id": PID_PROP,
+            "duration_days": 14,
+        })
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["status"] == "active"
+        assert data["duration_days"] == 14
+        # Price = 10000 * 14 = 140000
+        assert float(data["amount_paid"]) == 140000.0
+
+    def test_create_boost_property_not_found(self, admin_client: TestClient):
+        resp = admin_client.post("/boosts", json={
+            "property_id": "00000000-0000-0000-0000-00000000ffff",
+            "duration_days": 7,
+        })
+        assert resp.status_code == 404
+
+    def test_cancel_boost(self, admin_client: TestClient):
+        resp = admin_client.patch(f"/boosts/{PID_BOOST}/cancel")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "cancelled"
+
+    def test_cancel_boost_not_found(self, admin_client: TestClient):
+        resp = admin_client.patch("/boosts/00000000-0000-0000-0000-00000000ffff/cancel")
+        assert resp.status_code == 404
+
+    def test_expire_old_boosts(self, admin_client: TestClient):
+        resp = admin_client.post("/boosts/expire-old")
+        assert resp.status_code == 200
+        assert "expired_count" in resp.json()
+
+    def test_boost_stats(self, admin_client: TestClient):
+        resp = admin_client.get("/boosts/stats")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "active_boosts" in data
+        assert "total_revenue" in data
+
+    def test_boosted_property_ranked_first(self, client: TestClient):
+        """Boosted property (PID_PROP_2) must appear before non-boosted (PID_PROP)."""
+        resp = client.get("/properties/public")
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        # Both properties are available and should appear
+        prop_ids = [p["id"] for p in items]
+        assert PID_PROP_2 in prop_ids, "Boosted property must be in results"
+        assert PID_PROP in prop_ids, "Non-boosted property must be in results"
+        # Boosted property must come first
+        idx_boosted = prop_ids.index(PID_PROP_2)
+        idx_normal = prop_ids.index(PID_PROP)
+        assert idx_boosted < idx_normal, (
+            f"Boosted property {PID_PROP_2} at index {idx_boosted} must come "
+            f"before non-boosted {PID_PROP} at index {idx_normal}"
+        )

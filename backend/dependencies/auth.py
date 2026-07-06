@@ -82,6 +82,7 @@ def _resolve_user_via_supabase(token: str, supabase: Client) -> CurrentUser:
     )
 
 
+@with_retry
 def _fetch_profile(user_id: str, supabase: Client) -> dict:
     try:
         result = supabase.table("profiles").select("role, status, full_name").eq("user_id", user_id).execute()

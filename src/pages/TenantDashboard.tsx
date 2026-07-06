@@ -12,16 +12,17 @@ import VoiceRecorder from '@/components/VoiceRecorder';
 import { listPayments, createPayment, PaymentData } from '@/services/payments';
 import {
   Home, MessageSquare, Send, Upload, CheckCircle, X,
-  Calendar, MapPin, Phone, Mail, ChevronRight, Building2, Clock, Image
+  Calendar, MapPin, Phone, Mail, ChevronRight, Building2, Clock, Image, Settings, LogOut
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
-type Tab = 'home' | 'payments' | 'messages';
+type Tab = 'home' | 'payments' | 'messages' | 'settings';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'home', label: 'Home', icon: <Home className="h-5 w-5" /> },
   { id: 'payments', label: 'Payments', icon: <span className="text-[10px] font-extrabold h-5 w-5 flex items-center justify-center">UGX</span> },
   { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
+  { id: 'settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> },
 ];
 
 export default function TenantDashboard() {
@@ -44,6 +45,9 @@ export default function TenantDashboard() {
   const [messageText, setMessageText] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
   const [voiceUrl, setVoiceUrl] = useState<string | null>(null);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ new: '', confirm: '' });
+  const [sendingPassword, setSendingPassword] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -159,6 +163,23 @@ export default function TenantDashboard() {
     setUploading(false);
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordForm.new !== passwordForm.confirm) {
+      toast({ title: 'Passwords do not match', variant: 'destructive' }); return;
+    }
+    if (passwordForm.new.length < 6) {
+      toast({ title: 'Password too short', description: 'Must be at least 6 characters.', variant: 'destructive' }); return;
+    }
+    setSendingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: passwordForm.new });
+    setSendingPassword(false);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Password updated', description: 'Use your new password next time you sign in.' });
+    setPasswordDialogOpen(false);
+    setPasswordForm({ new: '', confirm: '' });
+  };
+
   const handleSendMessage = async () => {
     if (!user || !activeLease?.owner_id || (!messageText.trim() && !voiceUrl)) return;
     setSendingMessage(true);
@@ -199,7 +220,7 @@ export default function TenantDashboard() {
               {property?.title || 'My Dashboard'}
             </h1>
             <p className="text-xs text-muted-foreground truncate">
-              {property?.state ? `${property.state} · UGX ${property.rent_amount?.toLocaleString()}/mo` : 'No active lease'}
+              {property?.state ? `${property.state} · UGX ${(property.monthly_rent || property.rent_amount || 0).toLocaleString()}/mo` : 'No active lease'}
             </p>
           </div>
         </div>
@@ -550,6 +571,49 @@ export default function TenantDashboard() {
             )}
           </div>
         )}
+        {/* SETTINGS TAB */}
+        {tab === 'settings' && (
+          <div className="p-4 space-y-4 max-w-lg mx-auto w-full">
+            {/* Profile Card */}
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-14 w-14 rounded-2xl gradient-primary flex items-center justify-center text-primary-foreground font-display font-bold text-xl shadow-sm">
+                  {user?.email?.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-foreground text-base truncate">{user?.email?.split('@')[0]}</p>
+                  <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="bg-card border border-border rounded-2xl shadow-sm divide-y divide-border">
+              <button
+                onClick={() => setPasswordDialogOpen(true)}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors"
+              >
+                <Settings className="h-5 w-5 text-primary" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">Change Password</p>
+                  <p className="text-xs text-muted-foreground">Update your account password</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+              <button
+                onClick={() => supabase.auth.signOut().then(() => navigate('/'))}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-destructive/5 transition-colors"
+              >
+                <LogOut className="h-5 w-5 text-destructive" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-destructive">Sign Out</p>
+                  <p className="text-xs text-muted-foreground">Log out of your account</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Bottom Navigation */}
@@ -579,6 +643,38 @@ export default function TenantDashboard() {
           })}
         </div>
       </nav>
+      {/* Change Password Dialog */}
+      <Drawer open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DrawerContent>
+          <DrawerHeader className="text-left">
+            <DrawerTitle>Change Password</DrawerTitle>
+            <DrawerDescription>Update your account password.</DrawerDescription>
+          </DrawerHeader>
+          <form onSubmit={handleChangePassword} className="px-4 pb-6 space-y-4">
+            <div>
+              <p className="text-sm font-semibold mb-2">New Password</p>
+              <Input type="password" minLength={6} value={passwordForm.new}
+                onChange={e => setPasswordForm(f => ({ ...f, new: e.target.value }))}
+                required placeholder="At least 6 characters" className="rounded-xl h-11" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold mb-2">Confirm New Password</p>
+              <Input type="password" minLength={6} value={passwordForm.confirm}
+                onChange={e => setPasswordForm(f => ({ ...f, confirm: e.target.value }))}
+                required placeholder="Repeat the new password" className="rounded-xl h-11" />
+            </div>
+            <div className="flex gap-3">
+              <DrawerClose asChild>
+                <Button type="button" variant="outline" className="flex-1 rounded-xl h-11">Cancel</Button>
+              </DrawerClose>
+              <Button type="submit" disabled={sendingPassword}
+                className="flex-1 rounded-xl h-11 font-bold">
+                {sendingPassword ? 'Updating...' : 'Update Password'}
+              </Button>
+            </div>
+          </form>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

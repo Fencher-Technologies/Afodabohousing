@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import Navbar from '@/components/Navbar';
 import PropertyCard from '@/components/PropertyCard';
 import { Button } from '@/components/ui/button';
@@ -11,7 +9,15 @@ import { Label } from '@/components/ui/label';
 import { Search, SlidersHorizontal, MapPin } from 'lucide-react';
 import Footer from '@/components/Footer';
 
-type Property = Database['public']['Tables']['properties']['Row'];
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+interface Property {
+  id: string; title: string; status: string; property_type: string;
+  rent_amount: number; rent_period: string; bedrooms: number; bathrooms: number;
+  sitting_rooms: number; state: string | null; city: string | null;
+  area: string | null; images: string[] | null; description: string | null;
+  amenities: string[] | null; address: string | null; created_at: string;
+}
 
 const UGANDA_STATES = [
   'All States', 'Central', 'Eastern', 'Western', 'Northern', 'North Eastern', 'South Western', 'Buganda', 'Kigezi',
@@ -37,17 +43,22 @@ export default function PropertiesPage() {
 
   const fetchProperties = async () => {
     setLoading(true);
-    let query = supabase.from('properties').select('*', { count: 'exact' }).eq('status', 'available');
+    const params = new URLSearchParams();
+    if (state) params.set('state', state);
+    if (propType !== 'all') params.set('property_type', propType);
+    if (period !== 'all') params.set('rent_period', period);
+    if (minPrice) params.set('min_price', minPrice);
+    if (maxPrice) params.set('max_price', maxPrice);
+    params.set('limit', '50');
 
-    if (state) query = query.ilike('state', `%${state}%`);
-    if (propType !== 'all') query = query.eq('property_type', propType as Database['public']['Enums']['property_type']);
-    if (period !== 'all') query = query.eq('rent_period', period as Database['public']['Enums']['rent_period']);
-    if (minPrice) query = query.gte('rent_amount', Number(minPrice));
-    if (maxPrice) query = query.lte('rent_amount', Number(maxPrice));
-
-    const { data, count } = await query.order('created_at', { ascending: false });
-    if (data) setProperties(data);
-    if (count !== null) setTotal(count);
+    try {
+      const res = await fetch(`${API}/properties/public?${params}`);
+      const data = await res.json();
+      if (data.items) setProperties(data.items);
+      if (data.total !== undefined) setTotal(data.total);
+    } catch (e) {
+      console.error('Failed to fetch properties:', e);
+    }
     setLoading(false);
   };
 

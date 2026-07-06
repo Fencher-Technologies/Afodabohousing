@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import Navbar from '@/components/Navbar';
 import PropertyCard from '@/components/PropertyCard';
 import Footer from '@/components/Footer';
@@ -12,7 +11,12 @@ import { Badge } from '@/components/ui/badge';
 import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell, Star, TrendingUp } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
 
-type Property = Database['public']['Tables']['properties']['Row'];
+interface Property {
+  id: string; title: string; status: string; property_type: string;
+  rent_amount: number; rent_period: string; bedrooms: number; bathrooms: number;
+  sitting_rooms: number; state: string | null; city: string | null;
+  area: string | null; images: string[] | null; monthly_rent?: number;
+}
 
 const DEMO_ACCOUNTS = [
   { email: 'admin@afodabo.ug', role: 'Super Admin', badge: 'bg-accent/20 text-accent border-accent/30', desc: 'Full platform control' },
@@ -83,9 +87,9 @@ export default function HomePage() {
     setLoading(true);
     let query = supabase.from('properties').select('*').eq('status', 'available').order('created_at', { ascending: false });
     if (searchDistrict && searchDistrict !== 'all') query = query.ilike('state', `%${searchDistrict}%`);
-    if (filterType && filterType !== 'all') query = query.eq('property_type', filterType as Database['public']['Enums']['property_type']);
+    if (filterType && filterType !== 'all') query = query.eq('property_type', filterType);
     const { data } = await query.limit(9);
-    if (data) setProperties(data);
+    if (data) setProperties(data.map(p => ({ ...p, rent_amount: p.monthly_rent || p.rent_amount })));
     setLoading(false);
   };
 

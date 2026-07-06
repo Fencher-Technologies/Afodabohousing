@@ -21,6 +21,8 @@ PID_LEASE = "00000000-0000-0000-0000-000000000030"
 PID_PAYMENT = "00000000-0000-0000-0000-000000000040"
 PID_MAINT = "00000000-0000-0000-0000-000000000050"
 PID_PROFILE = "00000000-0000-0000-0000-000000000060"
+PID_BOOST = "00000000-0000-0000-0000-000000000070"
+PID_PROP_2 = "00000000-0000-0000-0000-000000000011"
 
 
 class MockResponse:
@@ -42,6 +44,7 @@ class MockTableBuilder:
         self._range_end = 0
         self._select_cols = "*"
         self._count = None
+        self._maybe_single = False
 
     def select(self, columns="*", count=None):
         self._select_cols = columns
@@ -74,6 +77,30 @@ class MockTableBuilder:
         self._deleted = True
         return self
 
+    def gt(self, column, value):
+        self._filters[column] = ("gt", value)
+        return self
+
+    def lt(self, column, value):
+        self._filters[column] = ("lt", value)
+        return self
+
+    def gte(self, column, value):
+        self._filters[column] = ("gte", value)
+        return self
+
+    def lte(self, column, value):
+        self._filters[column] = ("lte", value)
+        return self
+
+    def ilike(self, column, value):
+        self._filters[column] = ("ilike", value)
+        return self
+
+    def maybe_single(self):
+        self._maybe_single = True
+        return self
+
     def in_(self, column, values):
         self._filters[column] = ("in", values)
         return self
@@ -93,6 +120,17 @@ class MockTableBuilder:
                 **self._inserted,
             }
             return MockResponse(data=[record], count=1)
+
+        if self._maybe_single:
+            data = seed[:]
+            for col, val in self._filters.items():
+                if isinstance(val, tuple):
+                    op, arg = val
+                    if op == "eq":
+                        data = [d for d in data if d.get(col) == arg]
+                else:
+                    data = [d for d in data if d.get(col) == val]
+            return MockResponse(data=data[0] if data else None, count=len(data))
 
         if self._deleted or self._updated:
             def _matches(d):
@@ -115,8 +153,21 @@ class MockTableBuilder:
 
         data = seed[:]
         for col, val in self._filters.items():
-            if isinstance(val, tuple) and val[0] == "in":
-                data = [d for d in data if d.get(col) in val[1]]
+            if isinstance(val, tuple):
+                op, arg = val
+                if op == "in":
+                    data = [d for d in data if d.get(col) in arg]
+                elif op == "gt":
+                    data = [d for d in data if d.get(col, "") > arg]
+                elif op == "lt":
+                    data = [d for d in data if d.get(col, "") < arg]
+                elif op == "gte":
+                    data = [d for d in data if d.get(col, "") >= arg]
+                elif op == "lte":
+                    data = [d for d in data if d.get(col, "") <= arg]
+                elif op == "ilike":
+                    pattern = arg.replace("%", "").lower()
+                    data = [d for d in data if pattern in str(d.get(col, "")).lower()]
             else:
                 data = [d for d in data if d.get(col) == val]
 
@@ -136,6 +187,7 @@ class MockTableBuilder:
                 {
                     "id": PID_PROP,
                     "owner_id": UID_OWNER,
+                    "title": "Main St House",
                     "address": "123 Main St",
                     "city": "Kampala",
                     "state": "Central",
@@ -154,7 +206,47 @@ class MockTableBuilder:
                     "is_active": True,
                     "created_at": "2026-01-01T00:00:00Z",
                     "updated_at": "2026-01-01T00:00:00Z",
-                }
+                },
+                {
+                    "id": PID_PROP_2,
+                    "owner_id": UID_OWNER,
+                    "title": "Second St Apartment",
+                    "address": "456 Second St",
+                    "city": "Kampala",
+                    "state": "Central",
+                    "zip_code": "12345",
+                    "country": "UG",
+                    "property_type": "apartment",
+                    "bedrooms": 2,
+                    "bathrooms": 1.0,
+                    "square_feet": 900,
+                    "monthly_rent": 800000,
+                    "security_deposit": 800000,
+                    "status": "available",
+                    "description": "Nice apartment",
+                    "amenities": ["water"],
+                    "images": [],
+                    "is_active": True,
+                    "created_at": "2026-02-01T00:00:00Z",
+                    "updated_at": "2026-02-01T00:00:00Z",
+                },
+            ]
+        if self._name == "property_boosts":
+            return [
+                {
+                    "id": PID_BOOST,
+                    "property_id": PID_PROP_2,
+                    "manager_id": UID_OWNER,
+                    "amount_paid": 70000,
+                    "duration_days": 7,
+                    "started_at": "2026-07-01T00:00:00Z",
+                    "expires_at": "2126-07-08T00:00:00Z",  # far future so test never expires
+                    "status": "active",
+                    "transaction_id": None,
+                    "payment_method": None,
+                    "created_at": "2026-07-01T00:00:00Z",
+                    "updated_at": "2026-07-01T00:00:00Z",
+                },
             ]
         if self._name == "tenants":
             return [

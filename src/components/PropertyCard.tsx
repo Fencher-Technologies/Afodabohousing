@@ -1,12 +1,16 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Bed, Bath, Home, Sofa } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Database } from '@/integrations/supabase/types';
 import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
 
-type Property = Database['public']['Tables']['properties']['Row'];
+interface Property {
+  id: string; title: string; status: string; property_type: string;
+  rent_amount: number; rent_period: string; bedrooms: number; bathrooms: number;
+  sitting_rooms: number; state: string | null; city: string | null;
+  area: string | null; images: string[] | null;
+}
 
 const fallbackImages = [prop1, prop2, prop3];
 
