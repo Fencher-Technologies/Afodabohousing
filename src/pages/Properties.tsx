@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Search, SlidersHorizontal, MapPin } from 'lucide-react';
 import Footer from '@/components/Footer';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API = import.meta.env.VITE_API_URL || '';
 
 interface Property {
   id: string; title: string; status: string; property_type: string;

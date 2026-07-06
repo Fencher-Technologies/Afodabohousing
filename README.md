@@ -37,6 +37,18 @@ npm run dev
 # http://localhost:8080
 ```
 
+## Migrations
+
+SQL migrations live in `backend/migrations/` and run in order via the Supabase SQL Editor:
+
+```bash
+# Open Supabase Dashboard → SQL Editor → paste and run each file in order
+backend/migrations/001_initial_schema.sql
+backend/migrations/002_properties_schema.sql
+...
+backend/migrations/011_boosts.sql        # Property boosts (added last)
+```
+
 ## Role System
 
 | Role | Access |
@@ -56,10 +68,12 @@ backend/
   main.py              # FastAPI app, middleware, router registration
   config.py            # Settings from env vars (pydantic-settings)
   dependencies/        # Auth guards, Supabase clients
-  routers/             # API route handlers (auth, admin, properties, ...)
-  models/              # Pydantic models
-  services/            # Business logic (auth, scheduler, upload)
+  routers/             # API route handlers (auth, admin, boosts, properties, ...)
+  models/              # Pydantic models (includes boost models)
+  services/            # Business logic (boost service, crud, scheduler)
   tests/               # Pytest test suite
+  migrations/          # SQL migrations (applied in order via Supabase SQL Editor)
+    011_boosts.sql     # Property boost table + indexes
 
 src/                   # React frontend
   pages/               # Route pages

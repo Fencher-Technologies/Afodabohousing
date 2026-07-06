@@ -58,3 +58,16 @@ class BoostPriceResponse(BaseModel):
     duration_days: int
     amount: float
     currency: str = "UGX"
+
+
+class InitiateBoostRequest(BaseModel):
+    property_id: UUID
+    duration_days: int = 7
+    phone_number: str
+
+
+class InitiateBoostResponse(BaseModel):
+    boost_id: UUID
+    reference: str
+    status: str
+    message: str

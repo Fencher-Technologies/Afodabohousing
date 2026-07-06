@@ -12,8 +12,9 @@ FastAPI backend for the Afodabo Housing rental management platform.
   - `house_manager`: CRUD own properties, leases, tenants
   - `tenant`: view own leases, make payments, submit maintenance requests
 - **Invite-only registration**: Public signup restricted to `tenant` role; `house_manager` and `super_admin` created via invite or direct creation
-- **Resilience**: Retry with exponential backoff + jitter on all Supabase calls
+- **Resilience**: Retry with exponential backoff + jitter on all Supabase calls (handles transient DNS failures)
 - **Observability**: Per-request structured JSON logging, request ID tracking, metrics endpoint
+- **Property boosts**: Paid visibility — boosted properties ranked first in public listings via boost recency sort
 
 ## API Endpoints
 
@@ -52,12 +53,28 @@ FastAPI backend for the Afodabo Housing rental management platform.
 | PATCH  | `/admin/users/{user_id}/status`   | Suspend or activate a user                |
 | GET    | `/admin/stats`                    | Dashboard stats (financial/property/user) |
 
+### Boosts (super_admin only)
+
+Property visibility boosts — paid placements that appear first in search results.
+
+| Method | Path                          | Auth         | Description                           |
+| ------ | ----------------------------- | ------------ | ------------------------------------- |
+| POST   | `/boosts`                     | Super Admin  | Create boost for a property           |
+| GET    | `/boosts`                     | Super Admin  | List all boosts                       |
+| GET    | `/boosts/stats`               | Super Admin  | Boost revenue and usage stats         |
+| GET    | `/boosts/{id}`                | Super Admin  | Get boost details                     |
+| PATCH  | `/boosts/{id}/cancel`         | Super Admin  | Cancel an active boost                |
+| POST   | `/boosts/expire-old`          | Super Admin  | Sweep expired boosts                  |
+| GET    | `/boosts/price/default`       | No           | Default pricing (UGX 10K/day)         |
+
+> **Ranking**: Boosted properties appear first on `/properties/public`, sorted by boost recency (newest first). Multiple managers' boosted properties compete equally — newer boost wins. Future tiered priority is supported via the migration's commented columns.
+
 ### Properties
 
 | Method | Path                      | Auth  | Description                    |
 | ------ | ------------------------- | ----- | ------------------------------ |
 | GET    | `/properties`             | Yes   | List my properties (paginated) |
-| GET    | `/properties/public`      | No    | List public listings           |
+| GET    | `/properties/public`      | No    | List public listings (boosted first) |
 | GET    | `/properties/{id}`        | Yes   | Get my property by ID          |
 | GET    | `/properties/public/{id}` | No    | Get public property listing    |
 | POST   | `/properties`             | Yes   | Create property                |

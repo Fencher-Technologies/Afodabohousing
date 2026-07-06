@@ -1,5 +1,5 @@
 import time
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -10,6 +10,7 @@ from config import get_settings
 from dependencies import CurrentUser, get_current_user, get_supabase_client
 from models import PaymentCreate, PaymentResponse, PaymentUpdate
 from services import PaymentService, get_payment_service
+from services.nylonpay import initiate_payment
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 settings = get_settings()
@@ -264,4 +265,55 @@ async def initiate_pesapal_payment(
         redirect_url=payload.get("redirect_url"),
         order_id=order_id,
         order_tracking_id=payload.get("order_tracking_id"),
+    )
+
+
+class NylonPayInitiateRequest(BaseModel):
+    amount: float
+    phone_number: str
+    email: str | None = None
+    description: str
+    payment_id: str
+    first_name: str
+    last_name: str
+
+
+class NylonPayInitiateResponse(BaseModel):
+    success: bool
+    reference: str | None = None
+    status: str | None = None
+    message: str
+
+
+@router.post("/initiate-nylonpay", response_model=NylonPayInitiateResponse)
+async def initiate_nylonpay_payment(
+    data: NylonPayInitiateRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    reference = str(uuid4())
+    amount = int(data.amount)
+    full_name = f"{data.first_name} {data.last_name}".strip() or current_user.email
+
+    try:
+        initiate_payment(
+            amount=amount,
+            customer_name=full_name,
+            customer_phone=data.phone_number,
+            customer_email=data.email or current_user.email,
+            reference=reference,
+            description=data.description,
+            metadata={"payment_id": data.payment_id},
+        )
+    except Exception as e:
+        logger.error("NylonPay payment initiation failed: %s", str(e))
+        return NylonPayInitiateResponse(
+            success=False,
+            message="Payment initiation failed. Please try again.",
+        )
+
+    return NylonPayInitiateResponse(
+        success=True,
+        reference=reference,
+        status="pending",
+        message="Check your phone for the payment prompt. Enter your PIN to confirm.",
     )
