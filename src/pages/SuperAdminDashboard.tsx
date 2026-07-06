@@ -50,6 +50,7 @@ export default function SuperAdminDashboard() {
 
   const [tab, setTab] = useState<Tab>('overview');
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [boostStats, setBoostStats] = useState<{ total_revenue: number; active_boosts: number } | null>(null);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -79,12 +80,14 @@ export default function SuperAdminDashboard() {
     setLoading(true);
     try {
       const headers = await getHeaders();
-      const [statsRes, usersRes] = await Promise.all([
+      const [statsRes, usersRes, boostRes] = await Promise.all([
         fetch(`${apiBase}/admin/stats`, { headers }),
         fetch(`${apiBase}/admin/users?role=house_manager`, { headers }),
+        fetch(`${apiBase}/boosts/stats`, { headers }),
       ]);
       if (statsRes.ok) setStats(await statsRes.json());
       if (usersRes.ok) setManagers(await usersRes.json());
+      if (boostRes.ok) setBoostStats(await boostRes.json());
     } catch (err: any) {
       console.error('Failed to fetch admin data:', err);
     }
@@ -192,6 +195,18 @@ export default function SuperAdminDashboard() {
       label: 'Outstanding', val: formatUGX(stats.total_outstanding),
       icon: <AlertTriangle className="h-5 w-5" />, color: 'text-rose-600', bg: 'bg-rose-50',
     },
+    ...(boostStats ? [
+      {
+        label: 'Boost Revenue', val: formatUGX(boostStats.total_revenue),
+        sub: `${boostStats.active_boosts} active boosts`,
+        icon: <TrendingUp className="h-5 w-5" />, color: 'text-purple-600', bg: 'bg-purple-50',
+      },
+      {
+        label: 'Active Boosts', val: String(boostStats.active_boosts),
+        sub: boostStats.active_boosts > 0 ? `Avg UGX ${Math.round(boostStats.total_revenue / boostStats.active_boosts).toLocaleString()}/boost` : '',
+        icon: <TrendingUp className="h-5 w-5" />, color: 'text-indigo-600', bg: 'bg-indigo-50',
+      },
+    ] : []),
   ] : [];
 
   // ── Monthly revenue (for demo: evenly distribute) ──
