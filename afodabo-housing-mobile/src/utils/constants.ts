@@ -24,12 +24,8 @@ export const PROPERTY_TYPE_OPTIONS: {
   value: Database['public']['Enums']['property_type'];
   label: string;
 }[] = [
-  { value: 'house', label: 'House' },
-  { value: 'apartment', label: 'Apartment' },
-  { value: 'self_contained', label: 'Self-Contained' },
-  { value: 'room', label: 'Room' },
-  { value: 'studio', label: 'Studio' },
-  { value: 'bungalow', label: 'Bungalow' },
+  { value: 'Residential', label: 'Residential' },
+  { value: 'Office Space', label: 'Office Space' },
 ];
 
 export const RENT_PERIOD_OPTIONS: {

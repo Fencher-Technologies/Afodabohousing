@@ -1,10 +1,18 @@
+from io import BytesIO
+
 from fastapi.testclient import TestClient
+from pypdf import PdfReader
+
+from dependencies import CurrentUser, get_current_user
+from main import app
 
 PID_PROP = "00000000-0000-0000-0000-000000000010"
 PID_TENANT = "00000000-0000-0000-0000-000000000020"
 PID_LEASE = "00000000-0000-0000-0000-000000000030"
 PID_PAYMENT = "00000000-0000-0000-0000-000000000040"
 PID_MAINT = "00000000-0000-0000-0000-000000000050"
+UID_OWNER = "00000000-0000-0000-0000-000000000001"
+UID_TENANT_USER = "00000000-0000-0000-0000-000000000002"
 
 
 class TestHealth:
@@ -65,10 +73,37 @@ class TestProperties:
         assert data["total"] >= 1
         assert data["items"][0]["address"] == "123 Main St"
 
+    def test_list_properties_with_combined_filters(self, client: TestClient):
+        resp = client.get(
+            "/properties",
+            params={
+                "property_type": "Office Space",
+                "status": "available",
+                "city": "kamp",
+                "min_rent": 2000000,
+                "max_rent": 3000000,
+                "search": "office",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["title"] == "Kololo Office Suite"
+
     def test_list_public_properties(self, client: TestClient):
         resp = client.get("/properties/public")
         assert resp.status_code == 200
         assert resp.json()["total"] >= 1
+
+    def test_list_public_properties_with_listing_filters(self, client: TestClient):
+        resp = client.get(
+            "/properties/public",
+            params={"is_active": False, "occupancy": "inactive", "search": "entebbe"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["city"] == "Entebbe"
 
     def test_get_property(self, client: TestClient):
         resp = client.get(f"/properties/{PID_PROP}")
@@ -90,7 +125,7 @@ class TestProperties:
             "city": "Jinja",
             "state": "Eastern",
             "zip_code": "67890",
-            "property_type": "apartment",
+            "property_type": "Residential",
             "bedrooms": 2,
             "bathrooms": 1,
             "monthly_rent": 800000,
@@ -100,9 +135,29 @@ class TestProperties:
         resp = client.post("/properties", json=payload)
         assert resp.status_code == 201
 
+    def test_create_property_rejects_invalid_property_type(self, client: TestClient):
+        payload = {
+            "address": "789 Market Rd",
+            "city": "Kampala",
+            "state": "Central",
+            "zip_code": "00000",
+            "property_type": "warehouse",
+            "bedrooms": 2,
+            "bathrooms": 1,
+            "monthly_rent": 1200000,
+            "security_deposit": 1200000,
+            "status": "available",
+        }
+        resp = client.post("/properties", json=payload)
+        assert resp.status_code == 422
+
     def test_update_property(self, client: TestClient):
         resp = client.patch(f"/properties/{PID_PROP}", json={"monthly_rent": 2000000})
         assert resp.status_code == 200
+
+    def test_update_property_rejects_invalid_property_type(self, client: TestClient):
+        resp = client.patch(f"/properties/{PID_PROP}", json={"property_type": "studio"})
+        assert resp.status_code == 422
 
     def test_update_property_not_found(self, client: TestClient):
         resp = client.patch("/properties/00000000-0000-0000-0000-00000000ffff", json={"monthly_rent": 1000})
@@ -123,6 +178,16 @@ class TestTenants:
         assert resp.status_code == 200
         assert resp.json()["total"] >= 1
         assert resp.json()["items"][0]["first_name"] == "John"
+
+    def test_list_tenants_with_status_search_and_account_filters(self, client: TestClient):
+        resp = client.get(
+            "/tenants",
+            params={"status": "inactive", "search": "jane", "has_user_account": False},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["email"] == "jane@example.com"
 
     def test_get_tenant(self, client: TestClient):
         resp = client.get(f"/tenants/{PID_TENANT}")
@@ -167,6 +232,21 @@ class TestLeases:
         assert resp.status_code == 200
         assert resp.json()["total"] >= 1
 
+    def test_list_leases_with_property_status_and_date_range(self, client: TestClient):
+        resp = client.get(
+            "/leases",
+            params={
+                "property_id": "00000000-0000-0000-0000-000000000011",
+                "status": "active",
+                "end_from": "2026-08-01",
+                "end_to": "2026-09-01",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["id"] == "00000000-0000-0000-0000-000000000031"
+
     def test_get_lease(self, client: TestClient):
         resp = client.get(f"/leases/{PID_LEASE}")
         assert resp.status_code == 200
@@ -202,6 +282,21 @@ class TestPayments:
         resp = client.get("/payments")
         assert resp.status_code == 200
 
+    def test_list_payments_with_property_status_and_date_range(self, client: TestClient):
+        resp = client.get(
+            "/payments",
+            params={
+                "property_id": "00000000-0000-0000-0000-000000000011",
+                "status": "pending",
+                "due_from": "2026-03-01",
+                "due_to": "2026-03-31",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["id"] == "00000000-0000-0000-0000-000000000041"
+
     def test_get_payment(self, client: TestClient):
         resp = client.get(f"/payments/{PID_PAYMENT}")
         assert resp.status_code == 200
@@ -225,6 +320,48 @@ class TestPayments:
     def test_update_payment(self, client: TestClient):
         resp = client.patch(f"/payments/{PID_PAYMENT}", json={"status": "completed"})
         assert resp.status_code == 200
+
+    def test_download_payment_receipt_pdf(self, client: TestClient):
+        resp = client.get(f"/payments/{PID_PAYMENT}/receipt.pdf")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/pdf"
+        assert "receipt-AFD-20260201-00000040.pdf" in resp.headers["content-disposition"]
+        assert resp.content.startswith(b"%PDF")
+
+        reader = PdfReader(BytesIO(resp.content))
+        assert len(reader.pages) == 1
+        text = reader.pages[0].extract_text()
+        assert "Rent Payment Receipt" in text
+        assert "John Doe" in text
+        assert "Sample Property" in text
+        assert "UGX 1,500,000" in text
+
+    def test_tenant_can_download_own_payment_receipt_pdf(self, client: TestClient):
+        app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+            id=UID_TENANT_USER,
+            email="john@example.com",
+            role="authenticated",
+        )
+        try:
+            resp = client.get(f"/payments/{PID_PAYMENT}/receipt.pdf")
+        finally:
+            app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+                id=UID_OWNER,
+                email="test@test.com",
+                role="authenticated",
+            )
+
+        assert resp.status_code == 200
+        assert resp.content.startswith(b"%PDF")
+
+    def test_print_payment_receipt(self, client: TestClient):
+        resp = client.get(f"/payments/{PID_PAYMENT}/receipt")
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers["content-type"]
+        assert "Rent Payment Receipt" in resp.text
+        assert "AFD-20260201-00000040" in resp.text
+        assert "John Doe" in resp.text
+        assert "Sample Property" in resp.text
 
 
 class TestMaintenance:
@@ -280,3 +417,12 @@ class TestAuth:
         resp = client.get("/auth/roles")
         assert resp.status_code == 200
         assert "role" in resp.json()
+
+
+class TestManagers:
+    def test_list_managers_with_search(self, client: TestClient):
+        resp = client.get("/managers", params={"search": "mary", "email": "manager"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["role"] == "house_manager"

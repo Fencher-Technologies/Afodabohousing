@@ -1,4 +1,5 @@
 # mypy: ignore-errors
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -27,10 +28,24 @@ def get_tenant_svc(supabase: Client = Depends(get_supabase_client)) -> TenantSer
 def list_tenants(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    status_filter: str | None = Query(None, alias="status"),
+    search: str | None = None,
+    has_user_account: bool | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
     current_user: CurrentUser = Depends(get_current_user),
     service: TenantService = Depends(get_tenant_svc),
 ) -> PaginatedResponse:
-    tenants, total = service.get_all(current_user.id, skip, limit)
+    tenants, total = service.get_all(
+        current_user.id,
+        skip,
+        limit,
+        status=status_filter,
+        search=search,
+        has_user_account=has_user_account,
+        created_from=created_from,
+        created_to=created_to,
+    )
     return PaginatedResponse(
         items=[TenantResponse(**t) for t in tenants],
         total=total,
