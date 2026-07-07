@@ -61,3 +61,22 @@ export async function updatePayment(id: string, data: Partial<PaymentData>): Pro
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+export async function initiateNylonPay(params: {
+  amount: number;
+  phone_number: string;
+  description: string;
+  payment_id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+}): Promise<{ success: boolean; reference?: string; status?: string; message: string }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/payments/initiate-nylonpay`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}

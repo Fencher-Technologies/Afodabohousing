@@ -9,10 +9,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerTrigger, DrawerClose } from '@/components/ui/drawer';
 import { useToast } from '@/hooks/use-toast';
 import VoiceRecorder from '@/components/VoiceRecorder';
-import { listPayments, createPayment, PaymentData } from '@/services/payments';
+import { listPayments, createPayment, initiateNylonPay, PaymentData } from '@/services/payments';
 import {
   Home, MessageSquare, Send, Upload, CheckCircle, X,
-  Calendar, MapPin, Phone, Mail, ChevronRight, Building2, Clock, Image, Settings, LogOut
+  Calendar, MapPin, Phone, Mail, ChevronRight, Building2, Clock, Image, Settings, LogOut, Smartphone
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
@@ -48,6 +48,9 @@ export default function TenantDashboard() {
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ new: '', confirm: '' });
   const [sendingPassword, setSendingPassword] = useState(false);
+  const [npayPhone, setNpayPhone] = useState('');
+  const [npaySending, setNpaySending] = useState(false);
+  const [npayMessage, setNpayMessage] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -163,6 +166,30 @@ export default function TenantDashboard() {
     setUploading(false);
   };
 
+  const handleNylonPayPayment = async () => {
+    if (!activeLease || !tenantRecord || !user) return;
+    if (!npayPhone.trim()) { toast({ title: 'Enter your phone number', variant: 'destructive' }); return; }
+    setNpaySending(true);
+    setNpayMessage(null);
+    try {
+      const res = await initiateNylonPay({
+        amount: activeLease.monthly_rent,
+        phone_number: npayPhone.trim(),
+        description: `Rent payment for ${activeLease.properties?.title || 'property'}`,
+        payment_id: activeLease.id,
+        first_name: user.email?.split('@')[0] || 'Tenant',
+        last_name: '',
+        email: user.email || undefined,
+      });
+      setNpayMessage(res.message);
+      if (res.success) toast({ title: 'Payment initiated!', description: res.message });
+      else toast({ title: 'Payment failed', description: res.message, variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+    setNpaySending(false);
+  };
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwordForm.new !== passwordForm.confirm) {
@@ -193,9 +220,21 @@ export default function TenantDashboard() {
     setSendingMessage(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Message sent!' });
+    const newMsg = {
+      id: 'temp-' + Date.now(),
+      sender_id: user.id,
+      receiver_id: activeLease.owner_id,
+      property_id: activeLease.property_id,
+      content: messageText.trim() || null,
+      voice_note_url: voiceUrl,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      profiles: { full_name: user.email?.split('@')[0] || 'You' },
+      sender_name: 'You',
+    };
+    setMessages(prev => [...prev, newMsg]);
     setMessageText('');
     setVoiceUrl(null);
-    fetchData();
   };
 
   if (loading) {
@@ -282,6 +321,9 @@ export default function TenantDashboard() {
                     Request Renewal
                   </button>
                 )}
+                <button onClick={() => setTab('payments')} className="w-full mt-2 text-sm font-semibold text-primary bg-primary/5 border border-primary/20 rounded-xl py-2.5 hover:bg-primary/10 transition-colors flex items-center justify-center gap-1">
+                  Pay Rent <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
             ) : (
               <div className="bg-card border border-border rounded-2xl p-8 text-center shadow-sm">
@@ -398,62 +440,93 @@ export default function TenantDashboard() {
         {/* PAYMENTS TAB */}
         {tab === 'payments' && (
           <div className="p-4 space-y-4 max-w-lg mx-auto w-full">
-            {/* Pay Rent Button */}
             {activeLease && (
-              <Drawer open={memoOpen} onOpenChange={setMemoOpen}>
-                <DrawerTrigger asChild>
-                  <Button className="w-full h-12 rounded-xl gap-2 text-base font-bold shadow-sm">
-                    <Upload className="h-5 w-5" /> Pay Rent
-                  </Button>
-                </DrawerTrigger>
-                <DrawerContent>
-                  <DrawerHeader className="text-left">
-                    <DrawerTitle>Submit Rent Payment</DrawerTitle>
-                    <DrawerDescription>Upload payment proof or confirm mobile money transfer.</DrawerDescription>
-                  </DrawerHeader>
-                  <form onSubmit={handleUploadPayment} className="px-4 pb-6 space-y-4">
-                    <div className="bg-muted/50 rounded-xl p-4">
-                      <p className="text-xs text-muted-foreground">Amount Due</p>
-                      <p className="text-2xl font-bold mt-1">UGX {activeLease.monthly_rent?.toLocaleString()}</p>
-                    </div>
-
+              <>
+                {/* Pay via Mobile Money (USSD) */}
+                <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Smartphone className="h-5 w-5 text-primary" />
+                    <h3 className="font-bold text-sm">Pay via Mobile Money</h3>
+                  </div>
+                  <div className="bg-muted/50 rounded-xl p-4 mb-3">
+                    <p className="text-xs text-muted-foreground">Amount Due</p>
+                    <p className="text-2xl font-bold mt-1">UGX {activeLease.monthly_rent?.toLocaleString()}</p>
+                  </div>
+                  <div className="space-y-3">
                     <div>
-                      <p className="text-sm font-semibold mb-2">Upload Payment Proof</p>
-                      <div onClick={() => fileRef.current?.click()}
-                        className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-primary transition-colors">
-                        {proofFile ? (
-                          <p className="text-sm font-medium text-primary flex items-center justify-center gap-2">
-                            <CheckCircle className="h-4 w-4" /> {proofFile.name}
-                          </p>
-                        ) : (
-                          <>
-                            <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                            <p className="text-sm text-muted-foreground">Tap to upload screenshot or receipt</p>
-                          </>
-                        )}
-                        <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={e => setProofFile(e.target.files?.[0] || null)} />
+                      <p className="text-sm font-semibold mb-1.5">Phone Number (MTN / Airtel)</p>
+                      <Input value={npayPhone} onChange={e => setNpayPhone(e.target.value)}
+                        placeholder="e.g. 2567XXXXXXXX" className="rounded-xl h-11" />
+                    </div>
+                    <Button onClick={handleNylonPayPayment} disabled={npaySending || !npayPhone.trim()}
+                      className="w-full rounded-xl h-11 font-bold gap-2">
+                      <Smartphone className="h-4 w-4" />
+                      {npaySending ? 'Initiating...' : 'Pay Now'}
+                    </Button>
+                    {npayMessage && (
+                      <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 text-sm text-primary font-medium">
+                        {npayMessage}
                       </div>
-                    </div>
+                    )}
+                  </div>
+                </div>
 
-                    <div>
-                      <p className="text-sm font-semibold mb-2">Note (optional)</p>
-                      <Textarea value={paymentNote} onChange={e => setPaymentNote(e.target.value)}
-                        placeholder="MTN Mobile Money, ref number..."
-                        className="rounded-xl" rows={2} />
-                    </div>
+                {/* Upload Proof */}
+                <Drawer open={memoOpen} onOpenChange={setMemoOpen}>
+                  <DrawerTrigger asChild>
+                    <Button variant="outline" className="w-full h-11 rounded-xl gap-2 text-sm font-bold">
+                      <Upload className="h-4 w-4" /> Upload Payment Proof
+                    </Button>
+                  </DrawerTrigger>
+                  <DrawerContent>
+                    <DrawerHeader className="text-left">
+                      <DrawerTitle>Upload Payment Proof</DrawerTitle>
+                      <DrawerDescription>Already paid? Submit your receipt for manager review.</DrawerDescription>
+                    </DrawerHeader>
+                    <form onSubmit={handleUploadPayment} className="px-4 pb-6 space-y-4">
+                      <div className="bg-muted/50 rounded-xl p-4">
+                        <p className="text-xs text-muted-foreground">Amount</p>
+                        <p className="text-2xl font-bold mt-1">UGX {activeLease.monthly_rent?.toLocaleString()}</p>
+                      </div>
 
-                    <div className="flex gap-3">
-                      <DrawerClose asChild>
-                        <Button type="button" variant="outline" className="flex-1 rounded-xl h-11">Cancel</Button>
-                      </DrawerClose>
-                      <Button type="submit" disabled={uploading}
-                        className="flex-1 rounded-xl h-11 font-bold">
-                        {uploading ? 'Submitting...' : 'Submit Payment'}
-                      </Button>
-                    </div>
-                  </form>
-                </DrawerContent>
-              </Drawer>
+                      <div>
+                        <p className="text-sm font-semibold mb-2">Payment Screenshot / Receipt</p>
+                        <div onClick={() => fileRef.current?.click()}
+                          className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-primary transition-colors">
+                          {proofFile ? (
+                            <p className="text-sm font-medium text-primary flex items-center justify-center gap-2">
+                              <CheckCircle className="h-4 w-4" /> {proofFile.name}
+                            </p>
+                          ) : (
+                            <>
+                              <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                              <p className="text-sm text-muted-foreground">Tap to upload screenshot or receipt</p>
+                            </>
+                          )}
+                          <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={e => setProofFile(e.target.files?.[0] || null)} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-semibold mb-2">Note (optional)</p>
+                        <Textarea value={paymentNote} onChange={e => setPaymentNote(e.target.value)}
+                          placeholder="MTN Mobile Money, ref number..."
+                          className="rounded-xl" rows={2} />
+                      </div>
+
+                      <div className="flex gap-3">
+                        <DrawerClose asChild>
+                          <Button type="button" variant="outline" className="flex-1 rounded-xl h-11">Cancel</Button>
+                        </DrawerClose>
+                        <Button type="submit" disabled={uploading}
+                          className="flex-1 rounded-xl h-11 font-bold">
+                          {uploading ? 'Submitting...' : 'Submit'}
+                        </Button>
+                      </div>
+                    </form>
+                  </DrawerContent>
+                </Drawer>
+              </>
             )}
 
             {/* Payment History */}

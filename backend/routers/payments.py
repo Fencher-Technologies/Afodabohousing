@@ -1,8 +1,11 @@
+import logging
 import time
 from uuid import UUID, uuid4
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel
 from supabase import Client
 
