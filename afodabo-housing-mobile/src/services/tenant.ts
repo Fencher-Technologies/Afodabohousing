@@ -1,6 +1,10 @@
 import type { MessageRow, PaymentInsert, PaymentRow, TenancyRow } from '../types/supabase';
 import { apiRequest, type PaginatedResponse } from './backend-api';
 import {
+  fetchAgreementConsentState,
+  type AgreementConsentState,
+} from './agreements';
+import {
   buildProofNote,
   mapBackendLeaseToTenancyRow,
   mapBackendMessage,
@@ -10,6 +14,7 @@ import {
 import { extractPaymentProofUrlFromNotes } from './platform';
 
 export interface TenantTenancy extends TenancyRow {
+  agreement_state?: AgreementConsentState | null;
   manager_name?: string;
   manager_phone?: string;
   property_title?: string;
@@ -84,6 +89,17 @@ export async function fetchTenantDashboard(userId: string): Promise<TenantDashbo
   ]);
 
   const tenancies = tenanciesResponse.items.map(mapBackendLeaseToTenancyRow);
+  const agreementStateResults = await Promise.allSettled(
+    tenancies.map((tenancy) => fetchAgreementConsentState(tenancy.id)),
+  );
+  const agreementStateByTenancyId = tenancies.reduce<Record<string, AgreementConsentState | null>>(
+    (accumulator, tenancy, index) => {
+      const result = agreementStateResults[index];
+      accumulator[tenancy.id] = result.status === 'fulfilled' ? result.value : null;
+      return accumulator;
+    },
+    {},
+  );
   const propertyIds = [...new Set(tenancies.map((item) => item.property_id))];
   const propertyResults = await Promise.allSettled(
     propertyIds.map(async (propertyId) =>
@@ -132,6 +148,7 @@ export async function fetchTenantDashboard(userId: string): Promise<TenantDashbo
     }),
     tenancies: tenancies.map((tenancy) => ({
       ...tenancy,
+      agreement_state: agreementStateByTenancyId[tenancy.id],
       property_title: propertyMap[tenancy.property_id],
       manager_name: undefined,
       manager_phone: undefined,

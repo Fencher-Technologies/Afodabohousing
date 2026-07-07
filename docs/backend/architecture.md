@@ -92,7 +92,7 @@ Jobs start only when `testing` is false. Tenancy expiry reminders are idempotent
 | --- | --- | --- |
 | Supabase Auth | Token validation, sign-up, sign-in, profile bootstrap | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` |
 | Supabase Postgres | All core persistence | Supabase project DB plus migrations |
-| Supabase Storage | Payment proof and property image uploads | Storage buckets `payment-proofs`, `property-images` |
+| Supabase Storage | Payment proof, property image, and tenancy agreement uploads | Storage buckets `payment-proofs`, `property-images`, `tenancy-agreements` |
 | Pesapal | Payment initiation and webhook updates | `PESAPAL_CONSUMER_KEY`, `PESAPAL_CONSUMER_SECRET`, `PESAPAL_ENVIRONMENT` |
 | SMS provider | SMS dispatch endpoint | `SMS_PROVIDER_URL`, `SMS_PROVIDER_API_KEY` |
 | Email provider | Tenancy expiry email reminders | `EMAIL_PROVIDER_URL`, `EMAIL_PROVIDER_API_KEY`, `EMAIL_FROM_ADDRESS` |

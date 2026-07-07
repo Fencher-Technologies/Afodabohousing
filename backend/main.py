@@ -15,6 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from config import get_settings
 from dependencies.database import get_supabase_client
 from routers import (
+    agreements_router,
     auth_router,
     leases_router,
     maintenance_requests_router,
@@ -326,6 +327,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 app.include_router(auth_router)
+app.include_router(agreements_router)
 app.include_router(properties_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)

@@ -22,6 +22,7 @@ import { LoadingState } from '../components/loading-state';
 import { ScrollableScreenContainer } from '../components/scrollable-screen-container';
 import { useAuth } from '../context/auth-context';
 import { useTenantDashboard } from '../hooks/tenant/use-tenant-dashboard';
+import { consentToAgreement, uploadTenancyAgreement } from '../services/agreements';
 import {
   buildTenantPaymentProofNote,
   createTenantPayment,
@@ -51,6 +52,7 @@ export function TenantDashboardScreen() {
   const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const { profile, user } = useAuth();
   const [blockedAction, setBlockedAction] = useState<BlockedAction>(null);
+  const [agreementBusy, setAgreementBusy] = useState<null | 'consent' | 'upload'>(null);
   const [note, setNote] = useState('');
   const [selectedView, setSelectedView] = useState<TenantView>('overview');
   const [submitting, setSubmitting] = useState(false);
@@ -72,6 +74,10 @@ export function TenantDashboardScreen() {
   ).length;
   const isRentOverdue = daysLeft !== null && daysLeft < 0;
   const isRentDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
+  const agreementState = activeTenancy?.agreement_state ?? null;
+  const tenantConsented = agreementState?.tenant.consented ?? false;
+  const managerConsented = agreementState?.manager.consented ?? false;
+  const agreementUrl = agreementState?.current_document?.agreement_url ?? null;
 
   const stats = [
     {
@@ -240,6 +246,57 @@ export function TenantDashboardScreen() {
     }
   };
 
+  const handleAgreementUpload = async () => {
+    if (!activeTenancy) {
+      Alert.alert('No active tenancy', 'You need an active tenancy before uploading an agreement.');
+      return;
+    }
+
+    try {
+      setAgreementBusy('upload');
+      const pickerResult = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+        type: ['application/pdf', 'image/*'],
+      });
+
+      if (pickerResult.canceled) {
+        return;
+      }
+
+      const asset = pickerResult.assets[0];
+      await uploadTenancyAgreement(activeTenancy.id, {
+        mimeType: asset.mimeType,
+        name: asset.name,
+        uri: asset.uri,
+      });
+      await dashboardQuery.refetch();
+      Alert.alert('Agreement uploaded', 'Your house manager can now review and consent.');
+    } catch (error) {
+      Alert.alert('Upload failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setAgreementBusy(null);
+    }
+  };
+
+  const handleAgreementConsent = async () => {
+    if (!activeTenancy) {
+      Alert.alert('No active tenancy', 'You need an active tenancy before consenting.');
+      return;
+    }
+
+    try {
+      setAgreementBusy('consent');
+      await consentToAgreement(activeTenancy.id);
+      await dashboardQuery.refetch();
+      Alert.alert('Consent recorded', 'Your agreement consent has been timestamped.');
+    } catch (error) {
+      Alert.alert('Consent failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setAgreementBusy(null);
+    }
+  };
+
   const blockedActionCopy =
     blockedAction === 'upload'
       ? {
@@ -395,6 +452,51 @@ export function TenantDashboardScreen() {
                   {daysLeft !== null ? `${daysLeft} days remaining` : 'Active'}
                 </Badge>
                 <Badge tone="primary">{activeTenancy.rent_period}</Badge>
+              </View>
+              <View style={styles.agreementPanel}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.propertyName}>Agreement Consent</Text>
+                  <Badge tone={tenantConsented ? 'success' : 'warning'}>
+                    {tenantConsented ? 'Consented' : 'Pending'}
+                  </Badge>
+                </View>
+                <View style={styles.consentRow}>
+                  <Text style={styles.cardText}>House manager</Text>
+                  <Badge tone={managerConsented ? 'success' : 'warning'}>
+                    {managerConsented ? 'Consented' : 'Pending'}
+                  </Badge>
+                </View>
+                <Text style={styles.cardText}>
+                  {agreementState?.current_document
+                    ? `Current file: ${agreementState.current_document.file_name}`
+                    : 'No agreement uploaded yet.'}
+                </Text>
+                <View style={styles.historyActions}>
+                  <Button
+                    disabled={agreementBusy !== null}
+                    onPress={handleAgreementUpload}
+                    variant="secondary"
+                  >
+                    {agreementBusy === 'upload' ? 'Uploading...' : 'Upload Agreement'}
+                  </Button>
+                  <Button
+                    disabled={!agreementUrl}
+                    onPress={() => {
+                      if (agreementUrl) {
+                        void Linking.openURL(agreementUrl);
+                      }
+                    }}
+                    variant="outline"
+                  >
+                    View Agreement
+                  </Button>
+                  <Button
+                    disabled={agreementBusy !== null || !agreementState?.current_document || tenantConsented}
+                    onPress={handleAgreementConsent}
+                  >
+                    {agreementBusy === 'consent' ? 'Recording...' : 'I Consent'}
+                  </Button>
+                </View>
               </View>
               {activeTenancy.manager_phone ? (
                 <Button
@@ -582,6 +684,14 @@ const styles = StyleSheet.create({
     borderColor: dashboardPalette.alertWarningBorder,
     borderWidth: 1,
   },
+  agreementPanel: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
   badgeRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -618,6 +728,13 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: spacing.lg,
+  },
+  consentRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    justifyContent: 'space-between',
   },
   headerActions: {
     flexDirection: 'row',

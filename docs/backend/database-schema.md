@@ -13,6 +13,9 @@ erDiagram
     PROPERTIES ||--o{ LEASES : leased_under
     TENANTS ||--o{ LEASES : signs
     LEASES ||--o{ PAYMENTS : bills
+    LEASES ||--o{ AGREEMENT_DOCUMENTS : has
+    AGREEMENT_DOCUMENTS ||--o{ AGREEMENT_CONSENTS : receives
+    AGREEMENT_DOCUMENTS ||--o{ AGREEMENT_AUDIT_LOGS : audits
     TENANTS ||--o{ PAYMENTS : pays
     PROPERTIES ||--o{ MAINTENANCE_REQUESTS : receives
     TENANTS ||--o{ MAINTENANCE_REQUESTS : submits
@@ -82,6 +85,34 @@ erDiagram
         date due_date
         date paid_date
     }
+    AGREEMENT_DOCUMENTS {
+        uuid id PK
+        uuid lease_id FK
+        uuid uploaded_by FK
+        text file_name
+        text file_mime_type
+        text agreement_hash
+        timestamptz created_at
+    }
+    AGREEMENT_CONSENTS {
+        uuid id PK
+        uuid lease_id FK
+        uuid agreement_document_id FK
+        text agreement_hash
+        text party_role
+        uuid user_id FK
+        boolean consent_status
+        timestamptz consented_at
+    }
+    AGREEMENT_AUDIT_LOGS {
+        uuid id PK
+        uuid lease_id FK
+        uuid agreement_document_id FK
+        uuid actor_user_id FK
+        text event_type
+        text evidence_hash
+        jsonb metadata
+    }
     MAINTENANCE_REQUESTS {
         uuid id PK
         uuid property_id FK
@@ -133,6 +164,9 @@ erDiagram
 | `tenants` | Tenant records managed by owners/managers, optionally linked to an auth user. | Tenants router/service. |
 | `leases` | Contractual link between owner, property, and tenant. | Leases router/service; scheduler reads active leases. |
 | `payments` | Rent, deposits, late fees, and other payment records. | Payments router/service; Pesapal webhook updates. |
+| `agreement_documents` | Uploaded tenancy agreement PDFs/images, storage path, signed URL, and SHA-256 hash. | Agreements router/service. |
+| `agreement_consents` | Immutable explicit consent records for tenant and manager parties. | Agreements router/service. |
+| `agreement_audit_logs` | Immutable evidence events for uploads and consent clicks. | Agreements router/service. |
 | `maintenance_requests` | Tenant/manager maintenance workflow. | Maintenance router/service. |
 | `messages` | In-app messaging between users. | Messages router. |
 | `notifications` | In-app notification inbox. | Scheduler notification dispatcher. |
@@ -147,6 +181,7 @@ erDiagram
 | Payment status | `pending`, `completed`, `failed`, `refunded`. |
 | Lease status | `draft`, `active`, `expired`, `terminated`, `renewed`. |
 | Notification idempotency | `UNIQUE(event_key, channel)` on `notification_deliveries`. |
+| Agreement evidence | Immutable triggers block update/delete on agreement documents, consents, and audit logs. |
 | Filtering indexes | Composite indexes support multi-parameter filters for properties, tenants, leases, payments, and profiles. |
 | Ownership indexes | Owner, tenant, property, lease, status, and date indexes support common API filters and authorization checks. |
 
@@ -160,6 +195,7 @@ erDiagram
 | Tenants | `tenants` | `tenants` |
 | Managers | `profiles` | None |
 | Leases | `leases`, `tenants` | `leases` |
+| Agreements | `agreement_documents`, `agreement_consents`, `agreement_audit_logs`, `leases`, `tenants` | `agreement_documents`, `agreement_consents`, `agreement_audit_logs` |
 | Payments | `payments`, `leases`, `tenants`, `properties`, `profiles` | `payments` |
 | Receipts | `payments`, `leases`, `tenants`, `properties`, `profiles` | None |
 | Maintenance | `maintenance_requests`, `properties` | `maintenance_requests` |

@@ -1,4 +1,8 @@
 import { sendSmsMessage } from './platform';
+import {
+  fetchAgreementConsentState,
+  type AgreementConsentState,
+} from './agreements';
 import type {
   MessageInsert,
   MessageRow,
@@ -24,6 +28,7 @@ import {
 } from './backend-mappers';
 
 export interface ManagerTenancy extends TenancyRow {
+  agreement_state?: AgreementConsentState | null;
   property_title?: string;
   tenant_name?: string;
   tenant_phone?: string;
@@ -153,6 +158,17 @@ export async function fetchManagerDashboard(userId: string): Promise<ManagerDash
 
   const properties = propertiesResponse.items.map(mapBackendPropertyToPropertyRow);
   const tenancies = tenanciesResponse.items.map(mapBackendLeaseToTenancyRow);
+  const agreementStateResults = await Promise.allSettled(
+    tenancies.map((tenancy) => fetchAgreementConsentState(tenancy.id)),
+  );
+  const agreementStateByTenancyId = tenancies.reduce<Record<string, AgreementConsentState | null>>(
+    (accumulator, tenancy, index) => {
+      const result = agreementStateResults[index];
+      accumulator[tenancy.id] = result.status === 'fulfilled' ? result.value : null;
+      return accumulator;
+    },
+    {},
+  );
   const propertyMap = Object.fromEntries(
     properties.map((property) => [property.id, property.title]),
   );
@@ -192,6 +208,7 @@ export async function fetchManagerDashboard(userId: string): Promise<ManagerDash
     properties,
     tenancies: tenancies.map((tenancy) => ({
       ...tenancy,
+      agreement_state: agreementStateByTenancyId[tenancy.id],
       property_title: propertyMap[tenancy.property_id],
       tenant_name: tenantMap[tenancy.tenant_id]?.name,
       tenant_phone: tenantMap[tenancy.tenant_id]?.phone,

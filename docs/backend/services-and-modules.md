@@ -22,6 +22,7 @@ flowchart TD
 | `properties.py` | `/properties` | `PropertyCreate`, `PropertyUpdate`, `PropertyResponse` | `PropertyService` | Private owner routes and public listing routes; supports filtering. |
 | `tenants.py` | `/tenants` | `TenantCreate`, `TenantUpdate`, `TenantResponse` | `TenantService` | Owner-scoped tenant CRUD and email resolution. |
 | `leases.py` | `/leases` | `LeaseCreate`, `LeaseUpdate`, `LeaseResponse` | `LeaseService` | Owner and tenant-self listing paths. |
+| `agreements.py` | `/agreements` | Agreement document/consent models | `AgreementService` | Agreement PDF/image upload, consent status, explicit consent audit trail. |
 | `managers.py` | `/managers` | `ProfileResponse` | `ManagerService` | Lists profiles with `house_manager` role. |
 | `payments.py` | `/payments` | `PaymentCreate`, `PaymentUpdate`, `PaymentResponse` | `PaymentService`, receipt renderer | Payments, Pesapal initiation, PDF/printable receipts. |
 | `rental_units.py` | `/rental-units` | `RentalUnitCreate`, `RentalUnitUpdate`, `RentalUnitResponse` | Direct Supabase queries | Multi-unit property records. |
@@ -40,6 +41,7 @@ flowchart TD
 | `TenantService` | `services/crud.py` | Tenant CRUD, owner-scoped filters. |
 | `ManagerService` | `services/crud.py` | House manager profile listing and search. |
 | `LeaseService` | `services/crud.py` | Lease CRUD and tenant/owner filtering. |
+| `AgreementService` | `services/agreements.py` | Agreement upload authorization, SHA-256 hashing, consent state composition, immutable audit events. |
 | `PaymentService` | `services/crud.py` | Payment CRUD, owner/tenant payment filtering, receipt data assembly. |
 | `MaintenanceRequestService` | `services/crud.py` | Maintenance request CRUD by property. |
 | Receipt renderer | `services/receipts.py` | `ReceiptData`, printable HTML, ReportLab PDF generation. |
