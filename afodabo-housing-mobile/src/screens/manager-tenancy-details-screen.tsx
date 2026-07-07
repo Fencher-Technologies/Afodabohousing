@@ -1,6 +1,8 @@
 import type { StackScreenProps } from '@react-navigation/stack';
+import * as DocumentPicker from 'expo-document-picker';
 import React, { useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { Badge } from '../components/badge';
 import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
@@ -12,6 +14,8 @@ import { useManagerTenancy } from '../hooks/manager/use-manager-tenancies';
 import {
   downloadTenancyAgreementEditable,
   downloadTenancyAgreementPdf,
+  consentToAgreement,
+  uploadTenancyAgreement,
 } from '../services/agreements';
 import { sendRentReminder } from '../services/manager';
 import { colors, radii, spacing, typography } from '../theme/tokens';
@@ -24,6 +28,7 @@ export function ManagerTenancyDetailsScreen({
 }: StackScreenProps<RootStackParamList, 'ManagerTenancyDetails'>) {
   const { profile, user } = useAuth();
   const tenancyQuery = useManagerTenancy(user?.id, route.params.tenancyId);
+  const [agreementBusy, setAgreementBusy] = useState<null | 'consent' | 'upload'>(null);
   const [sending, setSending] = useState(false);
 
   if (!user) {
@@ -72,6 +77,11 @@ export function ManagerTenancyDetailsScreen({
       </ScrollableScreenContainer>
     );
   }
+
+  const agreementState = tenancy.agreement_state;
+  const managerConsented = agreementState?.manager.consented ?? false;
+  const tenantConsented = agreementState?.tenant.consented ?? false;
+  const agreementUrl = agreementState?.current_document?.agreement_url ?? null;
 
   return (
     <ScrollableScreenContainer contentContainerStyle={styles.content}>
@@ -183,6 +193,100 @@ export function ManagerTenancyDetailsScreen({
       </View>
 
       <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Agreement Consent</Text>
+        <View style={styles.consentGrid}>
+          <View style={styles.consentRow}>
+            <Text style={styles.body}>Your consent</Text>
+            <Badge tone={managerConsented ? 'success' : 'warning'}>
+              {managerConsented ? 'Consented' : 'Pending'}
+            </Badge>
+          </View>
+          <View style={styles.consentRow}>
+            <Text style={styles.body}>Tenant consent</Text>
+            <Badge tone={tenantConsented ? 'success' : 'warning'}>
+              {tenantConsented ? 'Consented' : 'Pending'}
+            </Badge>
+          </View>
+          {agreementState?.current_document ? (
+            <Text style={styles.body}>
+              Current file: {agreementState.current_document.file_name}
+            </Text>
+          ) : (
+            <Text style={styles.body}>No agreement uploaded yet.</Text>
+          )}
+        </View>
+        <View style={styles.actionRow}>
+          <Button
+            disabled={agreementBusy !== null}
+            onPress={async () => {
+              try {
+                setAgreementBusy('upload');
+                const pickerResult = await DocumentPicker.getDocumentAsync({
+                  copyToCacheDirectory: true,
+                  multiple: false,
+                  type: ['application/pdf', 'image/*'],
+                });
+
+                if (pickerResult.canceled) {
+                  return;
+                }
+
+                const asset = pickerResult.assets[0];
+                await uploadTenancyAgreement(tenancy.id, {
+                  mimeType: asset.mimeType,
+                  name: asset.name,
+                  uri: asset.uri,
+                });
+                await tenancyQuery.refetch();
+                Alert.alert('Agreement uploaded', 'Both parties can now review and consent.');
+              } catch (error) {
+                Alert.alert(
+                  'Upload failed',
+                  error instanceof Error ? error.message : 'Please try again.',
+                );
+              } finally {
+                setAgreementBusy(null);
+              }
+            }}
+            variant="secondary"
+          >
+            {agreementBusy === 'upload' ? 'Uploading...' : 'Upload Agreement'}
+          </Button>
+          <Button
+            disabled={!agreementUrl}
+            onPress={() => {
+              if (agreementUrl) {
+                void Linking.openURL(agreementUrl);
+              }
+            }}
+            variant="outline"
+          >
+            View Agreement
+          </Button>
+          <Button
+            disabled={agreementBusy !== null || !agreementState?.current_document || managerConsented}
+            onPress={async () => {
+              try {
+                setAgreementBusy('consent');
+                await consentToAgreement(tenancy.id);
+                await tenancyQuery.refetch();
+                Alert.alert('Consent recorded', 'Your agreement consent has been timestamped.');
+              } catch (error) {
+                Alert.alert(
+                  'Consent failed',
+                  error instanceof Error ? error.message : 'Please try again.',
+                );
+              } finally {
+                setAgreementBusy(null);
+              }
+            }}
+          >
+            {agreementBusy === 'consent' ? 'Recording...' : 'I Consent'}
+          </Button>
+        </View>
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.sectionTitle}>Follow-up</Text>
         <View style={styles.actionRow}>
           <Button
@@ -237,6 +341,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: spacing.sm,
     padding: spacing.md,
+  },
+  consentGrid: {
+    gap: spacing.sm,
+  },
+  consentRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    justifyContent: 'space-between',
   },
   content: {
     gap: spacing.lg,

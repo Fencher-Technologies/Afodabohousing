@@ -16,6 +16,7 @@ dependencies = [
     "httpx>=0.26.0",
     "sentry-sdk>=2.0.0",
     "apscheduler>=3.10.0",
+    "reportlab>=4.2.0",
 ]
 
 [project.optional-dependencies]
@@ -26,6 +27,7 @@ dev = [
     "httpx>=0.26.0",
     "ruff>=0.1.0",
     "mypy>=1.8.0",
+    "pypdf>=5.0.0",
 ]
 
 [tool.ruff]

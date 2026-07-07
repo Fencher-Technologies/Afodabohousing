@@ -4,6 +4,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from json import dumps
+from math import ceil
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -14,9 +15,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from config import get_settings
 from dependencies.database import get_supabase_client
 from routers import (
+    agreements_router,
     auth_router,
     leases_router,
     maintenance_requests_router,
+    managers_router,
     messages_router,
     payments_router,
     properties_router,
@@ -88,33 +91,117 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, requests: int = 100, window_seconds: int = 60):
+    def __init__(
+        self,
+        app,
+        requests: int = 100,
+        window_seconds: int = 60,
+        auth_requests: int = 10,
+        auth_window_seconds: int = 60,
+        payment_requests: int = 30,
+        payment_window_seconds: int = 60,
+    ):
         super().__init__(app)
         self.requests = requests
         self.window = window_seconds
-        self._clients: dict[str, list[float]] = {}
+        self.auth_requests = auth_requests
+        self.auth_window = auth_window_seconds
+        self.payment_requests = payment_requests
+        self.payment_window = payment_window_seconds
+        self._clients: dict[str, dict[str, list[float]]] = {}
+
+    def _client_key(self, request: Request) -> str:
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            return forwarded_for.split(",", 1)[0].strip()
+        return request.client.host if request.client else "unknown"
+
+    def _policy_for_path(self, path: str) -> tuple[str, int, int]:
+        auth_paths = {
+            "/login",
+            "/register",
+            "/auth/signin",
+            "/auth/signin/form",
+            "/auth/signup",
+        }
+        if path in auth_paths:
+            return "auth", self.auth_requests, self.auth_window
+        if path.startswith("/payments"):
+            return "payments", self.payment_requests, self.payment_window
+        return "global", self.requests, self.window
+
+    def _headers(
+        self,
+        *,
+        limit: int,
+        remaining: int,
+        reset_at: float,
+        policy: str,
+        now: float,
+    ) -> dict[str, str]:
+        retry_after = max(0, ceil(reset_at - now))
+        return {
+            "Retry-After": str(retry_after),
+            "X-RateLimit-Limit": str(limit),
+            "X-RateLimit-Remaining": str(max(0, remaining)),
+            "X-RateLimit-Reset": str(ceil(time.time() + retry_after)),
+            "X-RateLimit-Policy": policy,
+        }
 
     async def dispatch(self, request: Request, call_next):
         if not settings.rate_limit_enabled or request.url.path in ("/health", "/health/ready", "/metrics"):
             return await call_next(request)
 
-        client_ip = request.client.host if request.client else "unknown"
+        policy, limit, window = self._policy_for_path(request.url.path)
+        client_ip = self._client_key(request)
         now = time.monotonic()
-        cutoff = now - self.window
+        cutoff = now - window
+        client_buckets = self._clients.setdefault(client_ip, {})
+        bucket = [timestamp for timestamp in client_buckets.get(policy, []) if timestamp > cutoff]
+        reset_at = (min(bucket) + window) if bucket else (now + window)
 
-        if client_ip in self._clients:
-            self._clients[client_ip] = [t for t in self._clients[client_ip] if t > cutoff]
-            if len(self._clients[client_ip]) >= self.requests:
-                logger.warning("Rate limit exceeded for %s", client_ip)
-                return JSONResponse(
-                    status_code=429,
-                    content={"detail": "Too many requests", "retry_after_seconds": self.window},
-                )
-            self._clients[client_ip].append(now)
-        else:
-            self._clients[client_ip] = [now]
+        if len(bucket) >= limit:
+            headers = self._headers(
+                limit=limit,
+                remaining=0,
+                reset_at=reset_at,
+                policy=policy,
+                now=now,
+            )
+            logger.warning(
+                "Rate limit exceeded for %s on %s with policy=%s limit=%s window=%ss",
+                client_ip,
+                request.url.path,
+                policy,
+                limit,
+                window,
+            )
+            return JSONResponse(
+                status_code=429,
+                headers=headers,
+                content={
+                    "detail": "Too many requests",
+                    "error": "rate_limit_exceeded",
+                    "limit": limit,
+                    "policy": policy,
+                    "retry_after_seconds": int(headers["Retry-After"]),
+                    "window_seconds": window,
+                },
+            )
 
-        return await call_next(request)
+        bucket.append(now)
+        client_buckets[policy] = bucket
+        response = await call_next(request)
+        response.headers.update(
+            self._headers(
+                limit=limit,
+                remaining=limit - len(bucket),
+                reset_at=reset_at,
+                policy=policy,
+                now=now,
+            )
+        )
+        return response
 
 
 def _error_response(
@@ -180,7 +267,15 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Client-Info", "X-Request-ID"],
 )
-app.add_middleware(RateLimitMiddleware)
+app.add_middleware(
+    RateLimitMiddleware,
+    requests=settings.rate_limit_requests,
+    window_seconds=settings.rate_limit_window_seconds,
+    auth_requests=settings.auth_rate_limit_requests,
+    auth_window_seconds=settings.auth_rate_limit_window_seconds,
+    payment_requests=settings.payment_rate_limit_requests,
+    payment_window_seconds=settings.payment_rate_limit_window_seconds,
+)
 
 
 @app.exception_handler(Exception)
@@ -232,9 +327,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 app.include_router(auth_router)
+app.include_router(agreements_router)
 app.include_router(properties_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)
+app.include_router(managers_router)
 app.include_router(messages_router)
 app.include_router(payments_router)
 app.include_router(rental_units_router)

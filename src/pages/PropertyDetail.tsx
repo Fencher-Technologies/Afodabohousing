@@ -56,8 +56,8 @@ const amenityIcons: Record<string, React.ReactNode> = {
 };
 
 const typeLabels: Record<string, string> = {
-  house: 'House', apartment: 'Apartment', self_contained: 'Self-Contained',
-  room: 'Single Room', studio: 'Studio', bungalow: 'Bungalow',
+  Residential: 'Residential',
+  'Office Space': 'Office Space',
 };
 
 const statusColors: Record<string, string> = {

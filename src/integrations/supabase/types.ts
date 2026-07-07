@@ -385,13 +385,7 @@ export type Database = {
       app_role: "tenant" | "house_manager" | "admin"
       payment_status: "pending" | "uploaded" | "confirmed" | "rejected"
       property_status: "available" | "occupied" | "inactive"
-      property_type:
-        | "house"
-        | "apartment"
-        | "self_contained"
-        | "room"
-        | "studio"
-        | "bungalow"
+      property_type: "Residential" | "Office Space"
       rent_period: "monthly" | "quarterly" | "annually"
       tenancy_status: "active" | "expired" | "terminated"
     }
@@ -524,14 +518,7 @@ export const Constants = {
       app_role: ["tenant", "house_manager", "admin"],
       payment_status: ["pending", "uploaded", "confirmed", "rejected"],
       property_status: ["available", "occupied", "inactive"],
-      property_type: [
-        "house",
-        "apartment",
-        "self_contained",
-        "room",
-        "studio",
-        "bungalow",
-      ],
+      property_type: ["Residential", "Office Space"],
       rent_period: ["monthly", "quarterly", "annually"],
       tenancy_status: ["active", "expired", "terminated"],
     },

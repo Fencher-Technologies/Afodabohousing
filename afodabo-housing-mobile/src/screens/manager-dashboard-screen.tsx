@@ -9,6 +9,10 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Linking, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import {
+  AdvancedFilterModal,
+  type ListFilters,
+} from '../components/advanced-filter-modal';
 import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
@@ -38,7 +42,11 @@ function EmptyInsightPanel({ message }: { message: string }) {
 export function ManagerDashboardScreen() {
   const { profile, user } = useAuth();
   const [selectedView, setSelectedView] = useState<ManagerView>('overview');
-  const dashboardQuery = useManagerDashboard(user?.id);
+  const [paymentFilters, setPaymentFilters] = useState<ListFilters>({});
+  const dashboardQuery = useManagerDashboard(
+    user?.id,
+    selectedView === 'payments' ? paymentFilters : {},
+  );
   const refetchManagerDashboard = dashboardQuery.refetch;
 
   useFocusEffect(
@@ -341,6 +349,16 @@ export function ManagerDashboardScreen() {
 
       {selectedView === 'payments' ? (
         <>
+          <AdvancedFilterModal
+            filters={paymentFilters}
+            onApply={setPaymentFilters}
+            onClear={() => setPaymentFilters({})}
+            showDateRange
+            showPaymentStatus
+            showProperty
+            showTenant
+            title="Filter Payments"
+          />
           {(dashboardQuery.data?.payments ?? []).length === 0 ? (
             <EmptyState
               description="Incoming tenant payment records will appear here."

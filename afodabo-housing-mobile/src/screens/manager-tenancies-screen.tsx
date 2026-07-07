@@ -2,6 +2,10 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import React, { useState } from 'react';
 import { Alert, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import {
+  AdvancedFilterModal,
+  type ListFilters,
+} from '../components/advanced-filter-modal';
 import { Badge } from '../components/badge';
 import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
@@ -19,7 +23,8 @@ import { getTenancyHealth } from '../utils/tenancy-health';
 export function ManagerTenanciesScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { profile, user } = useAuth();
-  const tenanciesQuery = useManagerTenancies(user?.id);
+  const [filters, setFilters] = useState<ListFilters>({});
+  const tenanciesQuery = useManagerTenancies(user?.id, filters);
   const [sendingId, setSendingId] = useState<string | null>(null);
 
   if (!user) {
@@ -75,6 +80,18 @@ export function ManagerTenanciesScreen() {
         </Text>
         <Button onPress={() => navigation.navigate('ManagerCreateTenancy')}>Create Tenancy</Button>
       </View>
+
+      <AdvancedFilterModal
+        filters={filters}
+        onApply={setFilters}
+        onClear={() => setFilters({})}
+        showDateRange
+        showOccupancy
+        showProperty
+        showSearch
+        showTenant
+        title="Filter Tenancies"
+      />
 
       {tenanciesQuery.tenancies.length === 0 ? (
         <EmptyState
