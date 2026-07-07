@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useMemo, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { AdvancedFilterModal } from '../components/advanced-filter-modal';
 import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
@@ -18,14 +19,6 @@ import { uploadPaymentProof } from '../services/uploads';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import { formatDateLabel, formatUGXFull } from '../utils/format';
 import { resolvePaymentProofUrl } from '../services/platform';
-
-const filters = [
-  { label: 'All', value: 'all' as const },
-  { label: 'Pending', value: 'pending' as const },
-  { label: 'Uploaded', value: 'uploaded' as const },
-  { label: 'Confirmed', value: 'confirmed' as const },
-  { label: 'Rejected', value: 'rejected' as const },
-] as const;
 
 export function TenantPaymentsScreen() {
   const { profile, user } = useAuth();
@@ -199,17 +192,15 @@ export function TenantPaymentsScreen() {
         </View>
       </View>
 
-      <View style={styles.filterRow}>
-        {filters.map((filter) => (
-          <Button
-            key={filter.value}
-            onPress={() => paymentsQuery.setStatusFilter(filter.value)}
-            variant={paymentsQuery.statusFilter === filter.value ? 'primary' : 'secondary'}
-          >
-            {filter.label}
-          </Button>
-        ))}
-      </View>
+      <AdvancedFilterModal
+        filters={paymentsQuery.filters}
+        onApply={paymentsQuery.setFilters}
+        onClear={() => paymentsQuery.setFilters({})}
+        showDateRange
+        showPaymentStatus
+        showProperty
+        title="Filter Payments"
+      />
 
       <View style={styles.list}>
         {paymentsQuery.filteredPayments.length === 0 ? (
@@ -321,11 +312,6 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: spacing.lg,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
   },
   heroValue: {
     color: colors.primary,

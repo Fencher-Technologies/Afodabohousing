@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchManagerDashboard } from '../../services/manager';
+import type { ListFilters } from '../../components/advanced-filter-modal';
 
-export function useManagerProperties(userId?: string) {
+export function useManagerProperties(userId?: string, filters: ListFilters = {}) {
   const query = useQuery({
     enabled: Boolean(userId),
-    queryFn: () => fetchManagerDashboard(userId as string),
-    queryKey: ['manager-dashboard', userId],
+    queryFn: () => fetchManagerDashboard(userId as string, filters),
+    queryKey: ['manager-dashboard', userId, 'properties', filters],
   });
 
   const properties = query.data?.properties ?? [];

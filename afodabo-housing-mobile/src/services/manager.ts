@@ -15,6 +15,7 @@ import type {
   TenancyRow,
 } from '../types/supabase';
 import { apiRequest, type PaginatedResponse } from './backend-api';
+import type { ListFilters } from '../components/advanced-filter-modal';
 import {
   buildTenantName,
   mapBackendLeaseToTenancyRow,
@@ -53,6 +54,40 @@ export interface ManagerDashboardPayload {
   tenancies: ManagerTenancy[];
 }
 
+function compactQuery(query: Record<string, string | undefined>) {
+  return Object.fromEntries(
+    Object.entries(query).filter(([, value]) => value !== undefined && value.trim() !== ''),
+  );
+}
+
+function propertyQuery(filters?: ListFilters) {
+  return compactQuery({
+    occupancy: filters?.occupancy,
+    search: filters?.search,
+  });
+}
+
+function tenancyQuery(filters?: ListFilters) {
+  return compactQuery({
+    end_from: filters?.dateFrom,
+    end_to: filters?.dateTo,
+    property_id: filters?.propertyId,
+    search: filters?.search,
+    status: filters?.occupancy,
+    tenant_id: filters?.tenantId,
+  });
+}
+
+function paymentQuery(filters?: ListFilters) {
+  return compactQuery({
+    due_from: filters?.dateFrom,
+    due_to: filters?.dateTo,
+    property_id: filters?.propertyId,
+    status: filters?.paymentStatus,
+    tenant_id: filters?.tenantId,
+  });
+}
+
 export async function fetchManagerMessages(): Promise<ManagerMessage[]> {
   const response = await apiRequest<
     PaginatedResponse<{
@@ -71,7 +106,10 @@ export async function fetchManagerMessages(): Promise<ManagerMessage[]> {
   return response.items.map((message) => mapBackendMessage<ManagerMessage>(message));
 }
 
-export async function fetchManagerDashboard(userId: string): Promise<ManagerDashboardPayload> {
+export async function fetchManagerDashboard(
+  userId: string,
+  filters?: ListFilters,
+): Promise<ManagerDashboardPayload> {
   void userId;
   const [
     propertiesResponse,
@@ -100,7 +138,7 @@ export async function fetchManagerDashboard(userId: string): Promise<ManagerDash
         updated_at: string;
         zip_code?: string;
       }>
-    >('/properties', { auth: true, query: { limit: 100, skip: 0 } }),
+    >('/properties', { auth: true, query: { limit: 100, skip: 0, ...propertyQuery(filters) } }),
     apiRequest<
       PaginatedResponse<{
         created_at: string;
@@ -114,7 +152,7 @@ export async function fetchManagerDashboard(userId: string): Promise<ManagerDash
         tenant_id: string;
         updated_at: string;
       }>
-    >('/leases', { auth: true, query: { limit: 100, skip: 0 } }),
+    >('/leases', { auth: true, query: { limit: 100, skip: 0, ...tenancyQuery(filters) } }),
     apiRequest<
       PaginatedResponse<{
         amount: number | string;
@@ -130,7 +168,7 @@ export async function fetchManagerDashboard(userId: string): Promise<ManagerDash
         transaction_id?: string | null;
         updated_at: string;
       }>
-    >('/payments', { auth: true, query: { limit: 100, skip: 0 } }),
+    >('/payments', { auth: true, query: { limit: 100, skip: 0, ...paymentQuery(filters) } }),
     apiRequest<
       PaginatedResponse<{
         content: string | null;
