@@ -107,6 +107,16 @@ The API starts an APScheduler async worker outside the test environment.
 - Each reminder writes an in-app row to `notifications` and attempts push/email delivery when `PUSH_PROVIDER_URL`/`PUSH_PROVIDER_API_KEY` or `EMAIL_PROVIDER_URL`/`EMAIL_PROVIDER_API_KEY` are configured.
 - Delivery idempotency is enforced by `notification_deliveries(event_key, channel)`, so rerunning the job does not spam tenants with duplicate in-app, email, or push reminders for the same lease milestone.
 
+## Rate Limiting
+
+All non-health endpoints are protected by global per-client-IP rate limiting. Authentication endpoints (`/auth/signin`, `/auth/signin/form`, `/auth/signup`, plus `/login` and `/register` aliases) and payment endpoints (`/payments*`) use stricter buckets. Limit responses return HTTP `429` with `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `X-RateLimit-Policy` headers. Blocked requests are logged with the matched policy.
+
+Local load probe:
+
+```bash
+uv run python scripts/load_test_rate_limit.py --base-url http://127.0.0.1:8000 --requests 40
+```
+
 ## Running
 
 ```bash

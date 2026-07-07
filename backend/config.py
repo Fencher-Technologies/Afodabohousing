@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_requests: int = 200
     rate_limit_window_seconds: int = 60
+    auth_rate_limit_requests: int = 10
+    auth_rate_limit_window_seconds: int = 60
+    payment_rate_limit_requests: int = 30
+    payment_rate_limit_window_seconds: int = 60
 
     retry_max_attempts: int = 3
     retry_base_delay: float = 0.5
