@@ -93,6 +93,16 @@ Tenant list filters: `status`, `search`, `has_user_account`, `created_from`, and
 
 Lease list filters: `status`, `property_id`, `tenant_id` for manager views, `start_from`, `start_to`, `end_from`, and `end_to`.
 
+### Agreements
+
+| Method | Path                         | Auth | Description                                      |
+| ------ | ---------------------------- | ---- | ------------------------------------------------ |
+| GET    | `/agreements/{lease_id}`     | Yes  | Get current agreement document and consent state |
+| POST   | `/agreements/{lease_id}/upload`  | Yes  | Upload a PDF/image tenancy agreement             |
+| POST   | `/agreements/{lease_id}/consent` | Yes  | Record explicit consent for the current document |
+
+Agreement uploads accept `application/pdf` and image MIME types. Each upload stores a SHA-256 agreement hash, creates a new current agreement document for the lease, and leaves prior evidence immutable. Consent records are party-specific (`tenant` or `manager`) and include user ID, timestamp, agreement hash, IP address, and user agent.
+
 ### Payments
 
 | Method | Path                         | Auth | Description                               |

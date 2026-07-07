@@ -33,6 +33,7 @@ Role information is stored in `profiles.role`. The API currently recognizes land
 | Managers | `GET /managers` | Authenticated | Returns profiles with `role = house_manager`; endpoint requires a token. |
 | Leases | `GET /leases`, `GET /leases/{id}` | Owner/manager or tenant self | Tenant users see their own leases; owners see leases where `owner_id` is current user. |
 | Lease writes | `POST/PATCH/DELETE /leases...` | Owner/manager | Service methods require current user as `owner_id`. |
+| Agreements | `GET /agreements/{lease_id}`, `POST /agreements/{lease_id}/upload`, `POST /agreements/{lease_id}/consent` | Owner/manager or tenant self | Agreement parties can upload PDF/image documents and explicitly consent to the current document hash. |
 | Payments | `GET /payments`, `GET /payments/{id}` | Owner/manager or tenant self | Tenant users see their own payments; owners see payments through owned leases. |
 | Payment writes | `POST/PATCH /payments...` | Owner/manager or tenant self | Tenants can create/update only their own payment path; owners must own the linked lease. |
 | Receipts | `GET /payments/{id}/receipt.pdf`, `GET /payments/{id}/receipt` | Owner/manager or tenant self | Reuses payment/lease/tenant ownership checks before rendering PDF/HTML. |
@@ -53,6 +54,9 @@ Role information is stored in `profiles.role`. The API currently recognizes land
 | `tenants` | Owners manage their tenants; linked tenant users can view their own tenant record. |
 | `leases` | Owners manage leases; linked tenant users can view their own leases. |
 | `payments` | Owners manage payments through owned leases; tenants can view their own payments. |
+| `agreement_documents` | Lease parties can view/upload documents for leases they are party to. |
+| `agreement_consents` | Lease parties can view consent state and create their own immutable consent rows. |
+| `agreement_audit_logs` | Admin-readable immutable audit log for upload and consent evidence. |
 | `maintenance_requests` | Owners manage requests for their properties; tenants can create/view own requests. |
 | `messages` | Participants can read messages they sent or received; receivers can mark read. |
 | `notifications` | Recipients can view and update their notifications. |

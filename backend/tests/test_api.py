@@ -277,6 +277,59 @@ class TestLeases:
         assert resp.status_code == 204
 
 
+class TestAgreements:
+    def test_get_agreement_state_shows_other_party_consent(self, client: TestClient):
+        resp = client.get(f"/agreements/{PID_LEASE}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["current_document"]["agreement_hash"] == "a" * 64
+        assert data["manager"]["consented"] is True
+        assert data["tenant"]["consented"] is False
+
+    def test_tenant_can_record_agreement_consent(self, client: TestClient):
+        app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+            id=UID_TENANT_USER,
+            email="john@example.com",
+            role="authenticated",
+        )
+        try:
+            resp = client.post(f"/agreements/{PID_LEASE}/consent")
+        finally:
+            app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+                id=UID_OWNER,
+                email="test@test.com",
+                role="authenticated",
+            )
+
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["consent"]["party_role"] == "tenant"
+        assert data["consent"]["user_id"] == UID_TENANT_USER
+        assert data["consent"]["agreement_hash"] == "a" * 64
+
+    def test_upload_agreement_pdf_records_hash(self, client: TestClient):
+        file_bytes = b"%PDF-1.4 tenancy agreement"
+        resp = client.post(
+            f"/agreements/{PID_LEASE}/upload",
+            files={"file": ("agreement.pdf", file_bytes, "application/pdf")},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["current_document"]["file_name"] == "agreement.pdf"
+        assert data["current_document"]["file_mime_type"] == "application/pdf"
+        assert len(data["current_document"]["agreement_hash"]) == 64
+        assert data["manager"]["consented"] is False
+        assert data["tenant"]["consented"] is False
+
+    def test_upload_agreement_rejects_unsupported_file_type(self, client: TestClient):
+        resp = client.post(
+            f"/agreements/{PID_LEASE}/upload",
+            files={"file": ("agreement.txt", b"plain text", "text/plain")},
+        )
+        assert resp.status_code == 400
+        assert "PDF or image" in resp.json()["detail"]
+
+
 class TestPayments:
     def test_list_payments(self, client: TestClient):
         resp = client.get("/payments")

@@ -1,6 +1,191 @@
 {
   "components": {
     "schemas": {
+      "AgreementConsentRecordResponse": {
+        "properties": {
+          "consent": {
+            "$ref": "#/components/schemas/AgreementConsentResponse"
+          },
+          "state": {
+            "$ref": "#/components/schemas/AgreementConsentStateResponse"
+          }
+        },
+        "required": [
+          "consent",
+          "state"
+        ],
+        "title": "AgreementConsentRecordResponse",
+        "type": "object"
+      },
+      "AgreementConsentResponse": {
+        "properties": {
+          "agreement_document_id": {
+            "format": "uuid",
+            "title": "Agreement Document Id",
+            "type": "string"
+          },
+          "agreement_hash": {
+            "title": "Agreement Hash",
+            "type": "string"
+          },
+          "consent_status": {
+            "title": "Consent Status",
+            "type": "boolean"
+          },
+          "consented_at": {
+            "format": "date-time",
+            "title": "Consented At",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address"
+          },
+          "lease_id": {
+            "format": "uuid",
+            "title": "Lease Id",
+            "type": "string"
+          },
+          "party_role": {
+            "title": "Party Role",
+            "type": "string"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Agent"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lease_id",
+          "agreement_document_id",
+          "agreement_hash",
+          "party_role",
+          "user_id",
+          "consent_status",
+          "consented_at",
+          "created_at"
+        ],
+        "title": "AgreementConsentResponse",
+        "type": "object"
+      },
+      "AgreementConsentStateResponse": {
+        "properties": {
+          "current_document": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgreementDocumentResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manager": {
+            "$ref": "#/components/schemas/PartyConsentState"
+          },
+          "tenant": {
+            "$ref": "#/components/schemas/PartyConsentState"
+          }
+        },
+        "required": [
+          "manager",
+          "tenant"
+        ],
+        "title": "AgreementConsentStateResponse",
+        "type": "object"
+      },
+      "AgreementDocumentResponse": {
+        "properties": {
+          "agreement_hash": {
+            "title": "Agreement Hash",
+            "type": "string"
+          },
+          "agreement_url": {
+            "title": "Agreement Url",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_mime_type": {
+            "title": "File Mime Type",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "file_size": {
+            "title": "File Size",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "lease_id": {
+            "format": "uuid",
+            "title": "Lease Id",
+            "type": "string"
+          },
+          "storage_path": {
+            "title": "Storage Path",
+            "type": "string"
+          },
+          "uploaded_by": {
+            "format": "uuid",
+            "title": "Uploaded By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lease_id",
+          "uploaded_by",
+          "file_name",
+          "file_mime_type",
+          "file_size",
+          "storage_path",
+          "agreement_url",
+          "agreement_hash",
+          "created_at"
+        ],
+        "title": "AgreementDocumentResponse",
+        "type": "object"
+      },
       "Body_signin_form_auth_signin_form_post": {
         "properties": {
           "client_id": {
@@ -58,6 +243,20 @@
           "password"
         ],
         "title": "Body_signin_form_auth_signin_form_post",
+        "type": "object"
+      },
+      "Body_upload_agreement_agreements__lease_id__upload_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_agreement_agreements__lease_id__upload_post",
         "type": "object"
       },
       "Body_upload_payment_proof_uploads_payment_proof_post": {
@@ -879,6 +1078,43 @@
           "limit"
         ],
         "title": "PaginatedResponse",
+        "type": "object"
+      },
+      "PartyConsentState": {
+        "properties": {
+          "consented": {
+            "title": "Consented",
+            "type": "boolean"
+          },
+          "consented_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consented At"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "consented"
+        ],
+        "title": "PartyConsentState",
         "type": "object"
       },
       "PaymentCreate": {
@@ -3056,6 +3292,160 @@
           }
         },
         "summary": "Root"
+      }
+    },
+    "/agreements/{lease_id}": {
+      "get": {
+        "operationId": "get_agreement_state_agreements__lease_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lease_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Lease Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgreementConsentStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Agreement State",
+        "tags": [
+          "agreements"
+        ]
+      }
+    },
+    "/agreements/{lease_id}/consent": {
+      "post": {
+        "operationId": "consent_to_agreement_agreements__lease_id__consent_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lease_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Lease Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgreementConsentRecordResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consent To Agreement",
+        "tags": [
+          "agreements"
+        ]
+      }
+    },
+    "/agreements/{lease_id}/upload": {
+      "post": {
+        "operationId": "upload_agreement_agreements__lease_id__upload_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lease_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Lease Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_agreement_agreements__lease_id__upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgreementConsentStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Agreement",
+        "tags": [
+          "agreements"
+        ]
       }
     },
     "/api/endpoints": {

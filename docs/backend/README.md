@@ -1,6 +1,6 @@
 # Backend Engineering Guide
 
-This guide is the entry point for engineers working on the Afodabo Housing backend. The backend is a FastAPI service backed by Supabase/Postgres and Supabase Storage. It exposes REST endpoints for authentication, properties, rental units, tenants, managers, leases, payments, receipts, maintenance, messaging, uploads, webhooks, metrics, and background reminder workflows.
+This guide is the entry point for engineers working on the Afodabo Housing backend. The backend is a FastAPI service backed by Supabase/Postgres and Supabase Storage. It exposes REST endpoints for authentication, properties, rental units, tenants, managers, leases, agreements, payments, receipts, maintenance, messaging, uploads, webhooks, metrics, and background reminder workflows.
 
 ## Quick Links
 
@@ -44,7 +44,7 @@ Regenerate [openapi.json](openapi.json) whenever router paths, request bodies, r
 | Data access | Supabase Python client | Most services use PostgREST table queries through `backend/services`. |
 | Database | Supabase Postgres | Schema migrations are in `backend/migrations` and mirrored in `supabase/migrations` for Supabase deployments. |
 | Auth | Supabase Auth bearer tokens | `get_current_user` validates bearer tokens through Supabase Auth. |
-| Storage | Supabase Storage | Upload routes write payment proofs and property images. |
+| Storage | Supabase Storage | Upload routes write payment proofs, property images, and tenancy agreements. |
 | Jobs | APScheduler | Scheduler starts during FastAPI lifespan outside test mode. |
 | Observability | JSON logs, request IDs, metrics, Sentry hooks | Implemented in `main.py` and `services/observability.py`. |
 | PDF receipts | ReportLab | Payment receipt PDFs are rendered server-side in `services/receipts.py`. |

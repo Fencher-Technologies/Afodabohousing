@@ -347,6 +347,39 @@ class MockTableBuilder:
                     "updated_at": "2026-03-01T00:00:00Z",
                 },
             ]
+        if self._name == "agreement_documents":
+            return [
+                {
+                    "id": "00000000-0000-0000-0000-000000000070",
+                    "lease_id": PID_LEASE,
+                    "uploaded_by": UID_OWNER,
+                    "file_name": "tenancy-agreement.pdf",
+                    "file_mime_type": "application/pdf",
+                    "file_size": 128,
+                    "storage_path": f"{PID_LEASE}/aaaaaaaaaaaaaaaa-tenancy-agreement.pdf",
+                    "agreement_url": "https://storage.example.com/tenancy-agreement.pdf",
+                    "agreement_hash": "a" * 64,
+                    "created_at": "2026-04-01T00:00:00Z",
+                }
+            ]
+        if self._name == "agreement_consents":
+            return [
+                {
+                    "id": "00000000-0000-0000-0000-000000000071",
+                    "lease_id": PID_LEASE,
+                    "agreement_document_id": "00000000-0000-0000-0000-000000000070",
+                    "agreement_hash": "a" * 64,
+                    "party_role": "manager",
+                    "user_id": UID_OWNER,
+                    "consent_status": True,
+                    "consented_at": "2026-04-01T01:00:00Z",
+                    "ip_address": "127.0.0.1",
+                    "user_agent": "pytest",
+                    "created_at": "2026-04-01T01:00:00Z",
+                }
+            ]
+        if self._name == "agreement_audit_logs":
+            return []
         if self._name == "maintenance_requests":
             return [
                 {
@@ -400,9 +433,39 @@ class MockNotFilter:
         return self._builder
 
 
+class MockStorageBucket:
+    def __init__(self, bucket):
+        self.bucket = bucket
+
+    def upload(self, path, file_bytes, options=None):
+        mock = MagicMock()
+        mock.path = path
+        mock.file_bytes = file_bytes
+        mock.options = options or {}
+        return mock
+
+    def create_signed_url(self, path, expires_in):
+        _ = expires_in
+        mock = MagicMock()
+        mock.signedURL = f"https://storage.example.com/{self.bucket}/{path}"
+        return mock
+
+    def get_public_url(self, path):
+        return f"https://storage.example.com/{self.bucket}/{path}"
+
+
+class MockStorage:
+    def from_(self, bucket):
+        return MockStorageBucket(bucket)
+
+
 class MockSupabaseClient:
     def table(self, name):
         return MockTableBuilder(name)
+
+    @property
+    def storage(self):
+        return MockStorage()
 
     def rpc(self, name, params=None):
         mock = MagicMock()
