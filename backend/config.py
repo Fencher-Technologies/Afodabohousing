@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     sms_provider_api_key: str = ""
     sms_provider_url: str = "https://api.example.com/sms/send"
 
+    # Notifications
+    email_provider_api_key: str = ""
+    email_provider_url: str = ""
+    email_from_address: str = "no-reply@afodabohousing.com"
+    push_provider_api_key: str = ""
+    push_provider_url: str = ""
+
     # Webhooks
     webhook_secret: str = ""
 

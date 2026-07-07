@@ -98,6 +98,15 @@ FastAPI backend for the Afodabo Housing rental management platform.
 | PATCH  | `/maintenance/{id}`                   | Yes  | Update request               |
 | DELETE | `/maintenance/{id}`                   | Yes  | Delete request               |
 
+## Background Jobs
+
+The API starts an APScheduler async worker outside the test environment.
+
+- Rent reminders run on the existing schedule.
+- Tenancy expiry reminders run daily at 06:00 in production. The job checks active leases expiring in exactly `30`, `14`, `7`, `1`, or `0` days.
+- Each reminder writes an in-app row to `notifications` and attempts push/email delivery when `PUSH_PROVIDER_URL`/`PUSH_PROVIDER_API_KEY` or `EMAIL_PROVIDER_URL`/`EMAIL_PROVIDER_API_KEY` are configured.
+- Delivery idempotency is enforced by `notification_deliveries(event_key, channel)`, so rerunning the job does not spam tenants with duplicate in-app, email, or push reminders for the same lease milestone.
+
 ## Running
 
 ```bash
