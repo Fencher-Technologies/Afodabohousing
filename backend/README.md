@@ -57,6 +57,8 @@ FastAPI backend for the Afodabo Housing rental management platform.
 | PATCH  | `/properties/{id}`        | Yes  | Update my property             |
 | DELETE | `/properties/{id}`        | Yes  | Delete my property             |
 
+`property_type` is restricted to `Residential` or `Office Space`. Create and update requests with any other value fail request validation before reaching the database.
+
 ### Tenants
 
 | Method | Path            | Auth | Description              |

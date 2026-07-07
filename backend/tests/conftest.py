@@ -143,7 +143,7 @@ class MockTableBuilder:
                     "state": "Central",
                     "zip_code": "12345",
                     "country": "UG",
-                    "property_type": "house",
+                    "property_type": "Residential",
                     "bedrooms": 3,
                     "bathrooms": 2.0,
                     "square_feet": 1500,

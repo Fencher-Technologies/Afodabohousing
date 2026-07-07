@@ -28,12 +28,8 @@ export function formatDateTimeLabel(value: string) {
 export function propertyTypeLabel(value: Database['public']['Enums']['property_type']) {
   return (
     {
-      house: 'House',
-      apartment: 'Apartment',
-      self_contained: 'Self-Contained',
-      room: 'Room',
-      studio: 'Studio',
-      bungalow: 'Bungalow',
+      Residential: 'Residential',
+      'Office Space': 'Office Space',
     }[value] ?? value
   );
 }

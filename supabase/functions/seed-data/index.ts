@@ -83,7 +83,7 @@ serve(async (req) => {
     const propertiesData = [
       // John's properties
       {
-        owner_id: johnId, title: "3-Bedroom Family House in Ntinda", property_type: "house",
+        owner_id: johnId, title: "3-Bedroom Family House in Ntinda", property_type: "Residential",
         district: "Kampala", city: "Kampala", area: "Ntinda",
         address: "Plot 45, Ntinda Road, Kampala",
         bedrooms: 3, sitting_rooms: 1, kitchens: 1, bathrooms: 2,
@@ -94,7 +94,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        owner_id: johnId, title: "Modern 2-Bed Apartment, Bukoto", property_type: "apartment",
+        owner_id: johnId, title: "Modern 2-Bed Apartment, Bukoto", property_type: "Residential",
         district: "Kampala", city: "Kampala", area: "Bukoto",
         address: "Block B, Palm Gardens, Bukoto",
         bedrooms: 2, sitting_rooms: 1, kitchens: 1, bathrooms: 1,
@@ -105,7 +105,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        owner_id: johnId, title: "Self-Contained Room in Kireka", property_type: "self_contained",
+        owner_id: johnId, title: "Self-Contained Room in Kireka", property_type: "Residential",
         district: "Wakiso", city: "Kireka", area: "Kireka",
         address: "Zone B, Kireka Town",
         bedrooms: 1, sitting_rooms: 0, kitchens: 1, bathrooms: 1,
@@ -116,7 +116,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        owner_id: johnId, title: "Studio Apartment – Kiwatule", property_type: "studio",
+        owner_id: johnId, title: "Studio Apartment – Kiwatule", property_type: "Residential",
         district: "Kampala", city: "Kampala", area: "Kiwatule",
         address: "Kiwatule Shopping Centre Area",
         bedrooms: 1, sitting_rooms: 0, kitchens: 1, bathrooms: 1,
@@ -127,7 +127,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        owner_id: johnId, title: "Executive 4-Bed Bungalow, Naguru", property_type: "bungalow",
+        owner_id: johnId, title: "Executive 4-Bed Bungalow, Naguru", property_type: "Residential",
         district: "Kampala", city: "Kampala", area: "Naguru",
         address: "Plot 12, Naguru Hill Drive",
         bedrooms: 4, sitting_rooms: 2, kitchens: 2, bathrooms: 3,
@@ -138,7 +138,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        owner_id: johnId, title: "Single Room – Nansana", property_type: "room",
+        owner_id: johnId, title: "Single Room – Nansana", property_type: "Residential",
         district: "Wakiso", city: "Nansana", area: "Nansana",
         address: "Nansana Trading Centre",
         bedrooms: 1, sitting_rooms: 0, kitchens: 0, bathrooms: 1,
@@ -151,7 +151,7 @@ serve(async (req) => {
 
       // Grace's properties
       {
-        manager_id: graceId, title: "2-Bedroom Apartment – Mbarara", property_type: "apartment",
+        manager_id: graceId, title: "2-Bedroom Apartment – Mbarara", property_type: "Residential",
         district: "Mbarara", city: "Mbarara", area: "Ruharo",
         address: "Ruharo Mission Road, Mbarara",
         bedrooms: 2, sitting_rooms: 1, kitchens: 1, bathrooms: 1,
@@ -162,7 +162,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        manager_id: graceId, title: "Spacious 3-Bed House – Gulu", property_type: "house",
+        manager_id: graceId, title: "Spacious 3-Bed House – Gulu", property_type: "Residential",
         district: "Gulu", city: "Gulu", area: "Laroo",
         address: "Laroo Division, Gulu City",
         bedrooms: 3, sitting_rooms: 1, kitchens: 1, bathrooms: 2,
@@ -173,7 +173,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        manager_id: graceId, title: "Self-Contained Unit – Jinja", property_type: "self_contained",
+        manager_id: graceId, title: "Self-Contained Unit – Jinja", property_type: "Residential",
         district: "Jinja", city: "Jinja", area: "Walukuba",
         address: "Walukuba West, Jinja",
         bedrooms: 1, sitting_rooms: 0, kitchens: 1, bathrooms: 1,
@@ -184,7 +184,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        manager_id: graceId, title: "Lake View 2-Bed Apartment – Entebbe", property_type: "apartment",
+        manager_id: graceId, title: "Lake View 2-Bed Apartment – Entebbe", property_type: "Residential",
         district: "Wakiso", city: "Entebbe", area: "Kiwafu",
         address: "Kiwafu Road, Entebbe",
         bedrooms: 2, sitting_rooms: 1, kitchens: 1, bathrooms: 1,
@@ -195,7 +195,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        manager_id: graceId, title: "Room to Let – Lira City", property_type: "room",
+        manager_id: graceId, title: "Room to Let – Lira City", property_type: "Residential",
         district: "Lira", city: "Lira", area: "Adyel",
         address: "Adyel Division, Lira City",
         bedrooms: 1, sitting_rooms: 0, kitchens: 0, bathrooms: 1,
@@ -206,7 +206,7 @@ serve(async (req) => {
         images: [],
       },
       {
-        manager_id: graceId, title: "3-Bed House – Wakiso Town", property_type: "house",
+        manager_id: graceId, title: "3-Bed House – Wakiso Town", property_type: "Residential",
         district: "Wakiso", city: "Wakiso", area: "Wakiso Town",
         address: "Wakiso-Gombe Road",
         bedrooms: 3, sitting_rooms: 1, kitchens: 1, bathrooms: 2,

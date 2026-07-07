@@ -90,7 +90,7 @@ class TestProperties:
             "city": "Jinja",
             "state": "Eastern",
             "zip_code": "67890",
-            "property_type": "apartment",
+            "property_type": "Residential",
             "bedrooms": 2,
             "bathrooms": 1,
             "monthly_rent": 800000,
@@ -100,9 +100,29 @@ class TestProperties:
         resp = client.post("/properties", json=payload)
         assert resp.status_code == 201
 
+    def test_create_property_rejects_invalid_property_type(self, client: TestClient):
+        payload = {
+            "address": "789 Market Rd",
+            "city": "Kampala",
+            "state": "Central",
+            "zip_code": "00000",
+            "property_type": "warehouse",
+            "bedrooms": 2,
+            "bathrooms": 1,
+            "monthly_rent": 1200000,
+            "security_deposit": 1200000,
+            "status": "available",
+        }
+        resp = client.post("/properties", json=payload)
+        assert resp.status_code == 422
+
     def test_update_property(self, client: TestClient):
         resp = client.patch(f"/properties/{PID_PROP}", json={"monthly_rent": 2000000})
         assert resp.status_code == 200
+
+    def test_update_property_rejects_invalid_property_type(self, client: TestClient):
+        resp = client.patch(f"/properties/{PID_PROP}", json={"property_type": "studio"})
+        assert resp.status_code == 422
 
     def test_update_property_not_found(self, client: TestClient):
         resp = client.patch("/properties/00000000-0000-0000-0000-00000000ffff", json={"monthly_rent": 1000})

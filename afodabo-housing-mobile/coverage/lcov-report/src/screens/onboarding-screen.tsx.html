@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/33</span>
+                <span class='fraction'>0/29</span>
             </div>
         
             
@@ -39,14 +39,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>0/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/29</span>
+                <span class='fraction'>0/27</span>
             </div>
         
             
@@ -427,33 +427,7 @@
 <a name='L362'></a><a href='#L362'>362</a>
 <a name='L363'></a><a href='#L363'>363</a>
 <a name='L364'></a><a href='#L364'>364</a>
-<a name='L365'></a><a href='#L365'>365</a>
-<a name='L366'></a><a href='#L366'>366</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L365'></a><a href='#L365'>365</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -467,11 +441,35 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -795,10 +793,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Ionicons } from '@expo/vector-icons';
 import type { StackScreenProps } from '@react-navigation/stack';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/button';
+import heroImage from '../../assets/brand/hero-bg.jpg';
+import logoImage from '../../assets/brand/logo.png';
 import { useAuth } from '../context/auth-context';
 import type { RootStackParamList } from '../navigation/types';
 import { markOnboardingSeen } from '../services/onboarding-storage';
@@ -837,9 +837,6 @@ export function <span class="fstat-no" title="function not covered" >OnboardingS
   const isFirst = <span class="cstat-no" title="statement not covered" >index === 0;</span>
   const isLast = <span class="cstat-no" title="statement not covered" >index === slides.length - 1;</span>
 &nbsp;
-  const logo = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >require('../../assets/brand/logo.png'),</span> []);</span>
-  const hero = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >require('../../assets/brand/hero-bg.jpg'),</span> []);</span>
-&nbsp;
   const complete = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >as</span>ync (target: 'Login' | 'Main' | 'Register') =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    await markOnboardingSeen();</span>
 &nbsp;
@@ -862,7 +859,7 @@ export function <span class="fstat-no" title="function not covered" >OnboardingS
       &lt;View style={styles.screen}&gt;
         &lt;View style={styles.topBar}&gt;
           &lt;View style={styles.brandRow}&gt;
-            &lt;Image source={logo} style={styles.logo} /&gt;
+            &lt;Image source={logoImage} style={styles.logo} /&gt;
             &lt;Text style={styles.brand}&gt;Afodabo Housing&lt;/Text&gt;
           &lt;/View&gt;
           &lt;Pressable
@@ -877,14 +874,14 @@ export function <span class="fstat-no" title="function not covered" >OnboardingS
         &lt;/View&gt;
 &nbsp;
         &lt;View style={styles.content}&gt;
-          &lt;ImageBackground imageStyle={styles.visualImage} source={hero} style={styles.visual}&gt;
+          &lt;ImageBackground imageStyle={styles.visualImage} source={heroImage} style={styles.visual}&gt;
             &lt;View style={styles.visualOverlay} /&gt;
             &lt;View style={styles.visualInner}&gt;
               &lt;View style={styles.visualBadge}&gt;
                 &lt;Text style={styles.visualBadgeText}&gt;{slide.kicker}&lt;/Text&gt;
               &lt;/View&gt;
               &lt;View style={styles.visualOrb}&gt;
-                &lt;Image source={logo} style={styles.visualLogo} /&gt;
+                &lt;Image source={logoImage} style={styles.visualLogo} /&gt;
               &lt;/View&gt;
               &lt;Text style={styles.visualCaption}&gt;
                 Trusted rentals, clearer next steps, real workflow depth.
@@ -1165,7 +1162,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-02T16:58:03.444Z
+                at 2026-07-07T18:37:03.849Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
