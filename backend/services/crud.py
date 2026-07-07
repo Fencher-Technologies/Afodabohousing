@@ -20,6 +20,7 @@ from models import (
 )
 
 from .base import BaseService, with_retry
+from .receipts import ReceiptData
 
 logger = logging.getLogger(__name__)
 
@@ -555,6 +556,52 @@ class PaymentService(BaseService):
     def get_by_id(self, payment_id: UUID) -> dict[str, Any] | None:
         response = self.table.select("*").eq("id", str(payment_id)).execute()
         return response.data[0] if response.data else None
+
+    @with_retry
+    def get_receipt_data(self, payment_id: UUID) -> ReceiptData | None:
+        payment = self.get_by_id(payment_id)
+        if not payment:
+            return None
+
+        lease_resp = (
+            self.supabase.table("leases")
+            .select("*")
+            .eq("id", str(payment["lease_id"]))
+            .execute()
+        )
+        if not lease_resp.data:
+            return None
+        lease = lease_resp.data[0]
+
+        tenant_resp = (
+            self.supabase.table("tenants")
+            .select("*")
+            .eq("id", str(payment["tenant_id"]))
+            .execute()
+        )
+        property_resp = (
+            self.supabase.table("properties")
+            .select("*")
+            .eq("id", str(lease["property_id"]))
+            .execute()
+        )
+        if not tenant_resp.data or not property_resp.data:
+            return None
+
+        manager_resp = (
+            self.supabase.table("profiles")
+            .select("*")
+            .eq("user_id", str(lease["owner_id"]))
+            .limit(1)
+            .execute()
+        )
+        return ReceiptData(
+            payment=payment,
+            lease=lease,
+            tenant=tenant_resp.data[0],
+            property=property_resp.data[0],
+            manager=manager_resp.data[0] if manager_resp.data else None,
+        )
 
     @with_retry
     def create(self, data: PaymentCreate) -> dict[str, Any]:

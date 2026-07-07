@@ -5,6 +5,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 from supabase import Client
 
@@ -12,6 +13,7 @@ from config import get_settings
 from dependencies import CurrentUser, get_current_user, get_supabase_client
 from models import PaymentCreate, PaymentResponse, PaymentUpdate
 from services import PaymentService, get_payment_service
+from services.receipts import ReceiptData, build_receipt_html, build_receipt_pdf
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 settings = get_settings()
@@ -51,6 +53,30 @@ class PesapalInitiateResponse(BaseModel):
 
 def get_payment_svc(supabase: Client = Depends(get_supabase_client)) -> PaymentService:
     return get_payment_service(supabase)
+
+
+def _get_authorized_receipt(
+    payment_id: UUID,
+    current_user: CurrentUser,
+    supabase: Client,
+    service: PaymentService,
+) -> ReceiptData:
+    receipt = service.get_receipt_data(payment_id)
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    tenant = (
+        supabase
+        .table("tenants")
+        .select("id")
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if tenant.data and str(receipt.payment["tenant_id"]) != str(tenant.data[0]["id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not tenant.data and str(receipt.lease["owner_id"]) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return receipt
 
 
 async def _get_pesapal_token() -> str:
@@ -256,6 +282,34 @@ def update_payment(
             raise HTTPException(status_code=403, detail="Access denied")
     result = service.update(payment_id, data)
     return PaymentResponse(**result)
+
+
+@router.get("/{payment_id}/receipt.pdf")
+def download_payment_receipt_pdf(
+    payment_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+    service: PaymentService = Depends(get_payment_svc),
+) -> Response:
+    receipt = _get_authorized_receipt(payment_id, current_user, supabase, service)
+    pdf = build_receipt_pdf(receipt)
+    filename = f"receipt-{receipt.receipt_number}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{payment_id}/receipt")
+def print_payment_receipt(
+    payment_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+    service: PaymentService = Depends(get_payment_svc),
+) -> HTMLResponse:
+    receipt = _get_authorized_receipt(payment_id, current_user, supabase, service)
+    return HTMLResponse(build_receipt_html(receipt))
 
 
 @router.post("/initiate-pesapal", response_model=PesapalInitiateResponse)

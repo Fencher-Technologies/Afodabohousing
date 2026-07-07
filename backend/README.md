@@ -95,14 +95,18 @@ Lease list filters: `status`, `property_id`, `tenant_id` for manager views, `sta
 
 ### Payments
 
-| Method | Path             | Auth | Description                        |
-| ------ | ---------------- | ---- | ---------------------------------- |
-| GET    | `/payments`      | Yes  | List my payments (paginated)       |
-| GET    | `/payments/{id}` | Yes  | Get payment by ID                  |
-| POST   | `/payments`      | Yes  | Create payment (tenant or manager) |
-| PATCH  | `/payments/{id}` | Yes  | Update payment                     |
+| Method | Path                         | Auth | Description                               |
+| ------ | ---------------------------- | ---- | ----------------------------------------- |
+| GET    | `/payments`                  | Yes  | List my payments (paginated)              |
+| GET    | `/payments/{id}`             | Yes  | Get payment by ID                         |
+| GET    | `/payments/{id}/receipt.pdf` | Yes  | Download a rent payment receipt PDF       |
+| GET    | `/payments/{id}/receipt`     | Yes  | View a printable rent payment receipt     |
+| POST   | `/payments`                  | Yes  | Create payment (tenant or manager)        |
+| PATCH  | `/payments/{id}`             | Yes  | Update payment                            |
 
 Payment list filters: `property_id`, `lease_id`, `tenant_id` for manager views, `status`, `payment_type`, `payment_method`, `due_from`, `due_to`, `paid_from`, `paid_to`, `created_from`, and `created_to`.
+
+Receipts include the receipt number, tenant, property, manager, amount, payment date, payment method, status, and transaction ID. Tenants can download receipts for their own payments; managers/owners can download receipts for payments on leases they own. The PDF endpoint returns `application/pdf` with an attachment filename, while the printable endpoint returns `text/html`.
 
 ### Maintenance Requests
 

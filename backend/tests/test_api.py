@@ -1,10 +1,18 @@
+from io import BytesIO
+
 from fastapi.testclient import TestClient
+from pypdf import PdfReader
+
+from dependencies import CurrentUser, get_current_user
+from main import app
 
 PID_PROP = "00000000-0000-0000-0000-000000000010"
 PID_TENANT = "00000000-0000-0000-0000-000000000020"
 PID_LEASE = "00000000-0000-0000-0000-000000000030"
 PID_PAYMENT = "00000000-0000-0000-0000-000000000040"
 PID_MAINT = "00000000-0000-0000-0000-000000000050"
+UID_OWNER = "00000000-0000-0000-0000-000000000001"
+UID_TENANT_USER = "00000000-0000-0000-0000-000000000002"
 
 
 class TestHealth:
@@ -312,6 +320,48 @@ class TestPayments:
     def test_update_payment(self, client: TestClient):
         resp = client.patch(f"/payments/{PID_PAYMENT}", json={"status": "completed"})
         assert resp.status_code == 200
+
+    def test_download_payment_receipt_pdf(self, client: TestClient):
+        resp = client.get(f"/payments/{PID_PAYMENT}/receipt.pdf")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/pdf"
+        assert "receipt-AFD-20260201-00000040.pdf" in resp.headers["content-disposition"]
+        assert resp.content.startswith(b"%PDF")
+
+        reader = PdfReader(BytesIO(resp.content))
+        assert len(reader.pages) == 1
+        text = reader.pages[0].extract_text()
+        assert "Rent Payment Receipt" in text
+        assert "John Doe" in text
+        assert "Sample Property" in text
+        assert "UGX 1,500,000" in text
+
+    def test_tenant_can_download_own_payment_receipt_pdf(self, client: TestClient):
+        app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+            id=UID_TENANT_USER,
+            email="john@example.com",
+            role="authenticated",
+        )
+        try:
+            resp = client.get(f"/payments/{PID_PAYMENT}/receipt.pdf")
+        finally:
+            app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+                id=UID_OWNER,
+                email="test@test.com",
+                role="authenticated",
+            )
+
+        assert resp.status_code == 200
+        assert resp.content.startswith(b"%PDF")
+
+    def test_print_payment_receipt(self, client: TestClient):
+        resp = client.get(f"/payments/{PID_PAYMENT}/receipt")
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers["content-type"]
+        assert "Rent Payment Receipt" in resp.text
+        assert "AFD-20260201-00000040" in resp.text
+        assert "John Doe" in resp.text
+        assert "Sample Property" in resp.text
 
 
 class TestMaintenance:
