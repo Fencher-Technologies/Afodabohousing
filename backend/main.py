@@ -18,6 +18,7 @@ from routers import (
     auth_router,
     leases_router,
     maintenance_requests_router,
+    managers_router,
     messages_router,
     payments_router,
     properties_router,
@@ -328,6 +329,7 @@ app.include_router(auth_router)
 app.include_router(properties_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)
+app.include_router(managers_router)
 app.include_router(messages_router)
 app.include_router(payments_router)
 app.include_router(rental_units_router)

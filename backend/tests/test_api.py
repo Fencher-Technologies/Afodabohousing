@@ -65,10 +65,37 @@ class TestProperties:
         assert data["total"] >= 1
         assert data["items"][0]["address"] == "123 Main St"
 
+    def test_list_properties_with_combined_filters(self, client: TestClient):
+        resp = client.get(
+            "/properties",
+            params={
+                "property_type": "Office Space",
+                "status": "available",
+                "city": "kamp",
+                "min_rent": 2000000,
+                "max_rent": 3000000,
+                "search": "office",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["title"] == "Kololo Office Suite"
+
     def test_list_public_properties(self, client: TestClient):
         resp = client.get("/properties/public")
         assert resp.status_code == 200
         assert resp.json()["total"] >= 1
+
+    def test_list_public_properties_with_listing_filters(self, client: TestClient):
+        resp = client.get(
+            "/properties/public",
+            params={"is_active": False, "occupancy": "inactive", "search": "entebbe"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["city"] == "Entebbe"
 
     def test_get_property(self, client: TestClient):
         resp = client.get(f"/properties/{PID_PROP}")
@@ -144,6 +171,16 @@ class TestTenants:
         assert resp.json()["total"] >= 1
         assert resp.json()["items"][0]["first_name"] == "John"
 
+    def test_list_tenants_with_status_search_and_account_filters(self, client: TestClient):
+        resp = client.get(
+            "/tenants",
+            params={"status": "inactive", "search": "jane", "has_user_account": False},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["email"] == "jane@example.com"
+
     def test_get_tenant(self, client: TestClient):
         resp = client.get(f"/tenants/{PID_TENANT}")
         assert resp.status_code == 200
@@ -187,6 +224,21 @@ class TestLeases:
         assert resp.status_code == 200
         assert resp.json()["total"] >= 1
 
+    def test_list_leases_with_property_status_and_date_range(self, client: TestClient):
+        resp = client.get(
+            "/leases",
+            params={
+                "property_id": "00000000-0000-0000-0000-000000000011",
+                "status": "active",
+                "end_from": "2026-08-01",
+                "end_to": "2026-09-01",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["id"] == "00000000-0000-0000-0000-000000000031"
+
     def test_get_lease(self, client: TestClient):
         resp = client.get(f"/leases/{PID_LEASE}")
         assert resp.status_code == 200
@@ -221,6 +273,21 @@ class TestPayments:
     def test_list_payments(self, client: TestClient):
         resp = client.get("/payments")
         assert resp.status_code == 200
+
+    def test_list_payments_with_property_status_and_date_range(self, client: TestClient):
+        resp = client.get(
+            "/payments",
+            params={
+                "property_id": "00000000-0000-0000-0000-000000000011",
+                "status": "pending",
+                "due_from": "2026-03-01",
+                "due_to": "2026-03-31",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["id"] == "00000000-0000-0000-0000-000000000041"
 
     def test_get_payment(self, client: TestClient):
         resp = client.get(f"/payments/{PID_PAYMENT}")
@@ -300,3 +367,12 @@ class TestAuth:
         resp = client.get("/auth/roles")
         assert resp.status_code == 200
         assert "role" in resp.json()
+
+
+class TestManagers:
+    def test_list_managers_with_search(self, client: TestClient):
+        resp = client.get("/managers", params={"search": "mary", "email": "manager"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["role"] == "house_manager"

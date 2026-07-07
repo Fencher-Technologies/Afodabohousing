@@ -1,5 +1,6 @@
 # mypy: ignore-errors
 import time
+from datetime import date
 from uuid import UUID
 
 import httpx
@@ -98,6 +99,18 @@ async def _register_pesapal_ipn(token: str, callback_url: str) -> str:
 def list_payments(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    property_id: UUID | None = None,
+    lease_id: UUID | None = None,
+    tenant_id: UUID | None = None,
+    status_filter: str | None = Query(None, alias="status"),
+    payment_type: str | None = None,
+    payment_method: str | None = None,
+    due_from: date | None = None,
+    due_to: date | None = None,
+    paid_from: date | None = None,
+    paid_to: date | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
     service: PaymentService = Depends(get_payment_svc),
@@ -109,10 +122,36 @@ def list_payments(
         .eq("user_id", current_user.id)
         .execute()
     )
+    filters = {
+        "status": status_filter,
+        "payment_type": payment_type,
+        "payment_method": payment_method,
+        "due_from": due_from,
+        "due_to": due_to,
+        "paid_from": paid_from,
+        "paid_to": paid_to,
+        "created_from": created_from,
+        "created_to": created_to,
+    }
+    if lease_id:
+        filters["lease_ids"] = [str(lease_id)]
     if tenant.data:
-        payments, total = service.get_all_for_tenant(tenant.data[0]["id"], skip, limit)
+        payments, total = service.get_all_for_tenant(
+            tenant.data[0]["id"],
+            skip,
+            limit,
+            property_id=property_id,
+            **filters,
+        )
     else:
-        payments, total = service.get_all_for_owner(current_user.id, skip, limit)
+        payments, total = service.get_all_for_owner(
+            current_user.id,
+            skip,
+            limit,
+            property_id=property_id,
+            tenant_id=tenant_id,
+            **filters,
+        )
     return PaginatedResponse(
         items=[PaymentResponse(**p) for p in payments],
         total=total,

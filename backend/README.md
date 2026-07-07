@@ -59,6 +59,16 @@ FastAPI backend for the Afodabo Housing rental management platform.
 
 `property_type` is restricted to `Residential` or `Office Space`. Create and update requests with any other value fail request validation before reaching the database.
 
+Property and public listing list endpoints support combined filters: `property_type`, `status`, `occupancy`, `is_active`, `city`, `state`, `country`, `min_rent`, `max_rent`, `min_bedrooms`, `min_bathrooms`, `created_from`, `created_to`, and `search`.
+
+### Managers
+
+| Method | Path        | Auth | Description                |
+| ------ | ----------- | ---- | -------------------------- |
+| GET    | `/managers` | No   | List house managers        |
+
+Manager list filters: `search`, `user_id`, `email`, and `phone`.
+
 ### Tenants
 
 | Method | Path            | Auth | Description              |
@@ -68,6 +78,8 @@ FastAPI backend for the Afodabo Housing rental management platform.
 | POST   | `/tenants`      | Yes  | Create tenant            |
 | PATCH  | `/tenants/{id}` | Yes  | Update tenant            |
 | DELETE | `/tenants/{id}` | Yes  | Delete tenant            |
+
+Tenant list filters: `status`, `search`, `has_user_account`, `created_from`, and `created_to`.
 
 ### Leases
 
@@ -79,6 +91,8 @@ FastAPI backend for the Afodabo Housing rental management platform.
 | PATCH  | `/leases/{id}` | Yes  | Update lease            |
 | DELETE | `/leases/{id}` | Yes  | Delete lease            |
 
+Lease list filters: `status`, `property_id`, `tenant_id` for manager views, `start_from`, `start_to`, `end_from`, and `end_to`.
+
 ### Payments
 
 | Method | Path             | Auth | Description                        |
@@ -87,6 +101,8 @@ FastAPI backend for the Afodabo Housing rental management platform.
 | GET    | `/payments/{id}` | Yes  | Get payment by ID                  |
 | POST   | `/payments`      | Yes  | Create payment (tenant or manager) |
 | PATCH  | `/payments/{id}` | Yes  | Update payment                     |
+
+Payment list filters: `property_id`, `lease_id`, `tenant_id` for manager views, `status`, `payment_type`, `payment_method`, `due_from`, `due_to`, `paid_from`, `paid_to`, `created_from`, and `created_to`.
 
 ### Maintenance Requests
 
