@@ -1,11 +1,11 @@
-# mypy: ignore-errors
+import logging
 import time
-from datetime import date
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import HTMLResponse, Response
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel
 from supabase import Client
 
@@ -13,7 +13,7 @@ from config import get_settings
 from dependencies import CurrentUser, get_current_user, get_supabase_client
 from models import PaymentCreate, PaymentResponse, PaymentUpdate
 from services import PaymentService, get_payment_service
-from services.receipts import ReceiptData, build_receipt_html, build_receipt_pdf
+from services.nylonpay import initiate_payment
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 settings = get_settings()
@@ -53,30 +53,6 @@ class PesapalInitiateResponse(BaseModel):
 
 def get_payment_svc(supabase: Client = Depends(get_supabase_client)) -> PaymentService:
     return get_payment_service(supabase)
-
-
-def _get_authorized_receipt(
-    payment_id: UUID,
-    current_user: CurrentUser,
-    supabase: Client,
-    service: PaymentService,
-) -> ReceiptData:
-    receipt = service.get_receipt_data(payment_id)
-    if not receipt:
-        raise HTTPException(status_code=404, detail="Payment not found")
-
-    tenant = (
-        supabase
-        .table("tenants")
-        .select("id")
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    if tenant.data and str(receipt.payment["tenant_id"]) != str(tenant.data[0]["id"]):
-        raise HTTPException(status_code=403, detail="Access denied")
-    if not tenant.data and str(receipt.lease["owner_id"]) != str(current_user.id):
-        raise HTTPException(status_code=403, detail="Access denied")
-    return receipt
 
 
 async def _get_pesapal_token() -> str:
@@ -125,18 +101,6 @@ async def _register_pesapal_ipn(token: str, callback_url: str) -> str:
 def list_payments(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    property_id: UUID | None = None,
-    lease_id: UUID | None = None,
-    tenant_id: UUID | None = None,
-    status_filter: str | None = Query(None, alias="status"),
-    payment_type: str | None = None,
-    payment_method: str | None = None,
-    due_from: date | None = None,
-    due_to: date | None = None,
-    paid_from: date | None = None,
-    paid_to: date | None = None,
-    created_from: date | None = None,
-    created_to: date | None = None,
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
     service: PaymentService = Depends(get_payment_svc),
@@ -148,36 +112,10 @@ def list_payments(
         .eq("user_id", current_user.id)
         .execute()
     )
-    filters = {
-        "status": status_filter,
-        "payment_type": payment_type,
-        "payment_method": payment_method,
-        "due_from": due_from,
-        "due_to": due_to,
-        "paid_from": paid_from,
-        "paid_to": paid_to,
-        "created_from": created_from,
-        "created_to": created_to,
-    }
-    if lease_id:
-        filters["lease_ids"] = [str(lease_id)]
     if tenant.data:
-        payments, total = service.get_all_for_tenant(
-            tenant.data[0]["id"],
-            skip,
-            limit,
-            property_id=property_id,
-            **filters,
-        )
+        payments, total = service.get_all_for_tenant(tenant.data[0]["id"], skip, limit)
     else:
-        payments, total = service.get_all_for_owner(
-            current_user.id,
-            skip,
-            limit,
-            property_id=property_id,
-            tenant_id=tenant_id,
-            **filters,
-        )
+        payments, total = service.get_all_for_owner(current_user.id, skip, limit)
     return PaginatedResponse(
         items=[PaymentResponse(**p) for p in payments],
         total=total,
@@ -284,34 +222,6 @@ def update_payment(
     return PaymentResponse(**result)
 
 
-@router.get("/{payment_id}/receipt.pdf")
-def download_payment_receipt_pdf(
-    payment_id: UUID,
-    current_user: CurrentUser = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
-    service: PaymentService = Depends(get_payment_svc),
-) -> Response:
-    receipt = _get_authorized_receipt(payment_id, current_user, supabase, service)
-    pdf = build_receipt_pdf(receipt)
-    filename = f"receipt-{receipt.receipt_number}.pdf"
-    return Response(
-        content=pdf,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@router.get("/{payment_id}/receipt")
-def print_payment_receipt(
-    payment_id: UUID,
-    current_user: CurrentUser = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
-    service: PaymentService = Depends(get_payment_svc),
-) -> HTMLResponse:
-    receipt = _get_authorized_receipt(payment_id, current_user, supabase, service)
-    return HTMLResponse(build_receipt_html(receipt))
-
-
 @router.post("/initiate-pesapal", response_model=PesapalInitiateResponse)
 async def initiate_pesapal_payment(
     data: PesapalInitiateRequest,
@@ -358,4 +268,55 @@ async def initiate_pesapal_payment(
         redirect_url=payload.get("redirect_url"),
         order_id=order_id,
         order_tracking_id=payload.get("order_tracking_id"),
+    )
+
+
+class NylonPayInitiateRequest(BaseModel):
+    amount: float
+    phone_number: str
+    email: str | None = None
+    description: str
+    payment_id: str
+    first_name: str
+    last_name: str
+
+
+class NylonPayInitiateResponse(BaseModel):
+    success: bool
+    reference: str | None = None
+    status: str | None = None
+    message: str
+
+
+@router.post("/initiate-nylonpay", response_model=NylonPayInitiateResponse)
+async def initiate_nylonpay_payment(
+    data: NylonPayInitiateRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    reference = str(uuid4())
+    amount = int(data.amount)
+    full_name = f"{data.first_name} {data.last_name}".strip() or current_user.email
+
+    try:
+        initiate_payment(
+            amount=amount,
+            customer_name=full_name,
+            customer_phone=data.phone_number,
+            customer_email=data.email or current_user.email,
+            reference=reference,
+            description=data.description,
+            metadata={"payment_id": data.payment_id},
+        )
+    except Exception as e:
+        logger.error("NylonPay payment initiation failed: %s", str(e))
+        return NylonPayInitiateResponse(
+            success=False,
+            message="Payment initiation failed. Please try again.",
+        )
+
+    return NylonPayInitiateResponse(
+        success=True,
+        reference=reference,
+        status="pending",
+        message="Check your phone for the payment prompt. Enter your PIN to confirm.",
     )

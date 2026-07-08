@@ -1,8 +1,12 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+
+
+RentalUnitStatus = Literal["available", "occupied", "maintenance", "unlisted"]
 
 
 class RentalUnit(BaseModel):
@@ -18,10 +22,9 @@ class RentalUnit(BaseModel):
     kitchens: int = 1
     rent_amount: Decimal
     rent_currency: str = "UGX"
-    status: str
+    status: RentalUnitStatus = "available"
     description: str | None = None
     amenities: list[str] | None = None
-    is_active: bool = True
     created_at: datetime
     updated_at: datetime
 
@@ -36,7 +39,7 @@ class RentalUnitCreate(BaseModel):
     kitchens: int = 1
     rent_amount: Decimal
     rent_currency: str = "UGX"
-    status: str = "available"
+    status: RentalUnitStatus = "available"
     description: str | None = None
     amenities: list[str] | None = None
 
@@ -50,10 +53,9 @@ class RentalUnitUpdate(BaseModel):
     kitchens: int | None = None
     rent_amount: Decimal | None = None
     rent_currency: str | None = None
-    status: str | None = None
+    status: RentalUnitStatus | None = None
     description: str | None = None
     amenities: list[str] | None = None
-    is_active: bool | None = None
 
 
 class RentalUnitResponse(BaseModel):
@@ -69,9 +71,8 @@ class RentalUnitResponse(BaseModel):
     kitchens: int = 1
     rent_amount: Decimal
     rent_currency: str
-    status: str
+    status: RentalUnitStatus
     description: str | None = None
     amenities: list[str] | None = None
-    is_active: bool
     created_at: datetime
     updated_at: datetime

@@ -1,12 +1,16 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Bed, Bath, Home, Sofa } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Database } from '@/integrations/supabase/types';
 import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
 
-type Property = Database['public']['Tables']['properties']['Row'];
+interface Property {
+  id: string; title: string; status: string; property_type: string;
+  rent_amount: number; rent_period: string; bedrooms: number; bathrooms: number;
+  sitting_rooms: number; state: string | null; city: string | null;
+  area: string | null; images: string[] | null;
+}
 
 const fallbackImages = [prop1, prop2, prop3];
 
@@ -22,9 +26,10 @@ const periodLabels: Record<string, string> = {
 };
 
 function formatUGX(amount: number) {
-  if (amount >= 1000000) return `UGX ${(amount / 1000000).toFixed(1)}M`;
-  if (amount >= 1000) return `UGX ${(amount / 1000).toFixed(0)}K`;
-  return `UGX ${amount.toLocaleString()}`;
+  const n = amount || 0;
+  if (n >= 1000000) return `UGX ${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `UGX ${(n / 1000).toFixed(0)}K`;
+  return `UGX ${n.toLocaleString()}`;
 }
 
 interface PropertyCardProps {
@@ -69,7 +74,7 @@ function PropertyCard({ property, index = 0 }: PropertyCardProps) {
           <div className="flex items-center gap-1 text-muted-foreground text-sm mb-4">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-accent" />
             <span className="line-clamp-1">
-              {property.area ? `${property.area}, ` : ''}{property.district}
+              {property.area ? `${property.area}, ` : ''}{property.state || property.city || 'Uganda'}
             </span>
           </div>
 

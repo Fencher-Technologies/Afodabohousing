@@ -13,10 +13,13 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import get_settings
-from dependencies.database import get_supabase_client
+from dependencies.database import get_service_client, get_supabase_client
 from routers import (
+    admin_router,
     agreements_router,
     auth_router,
+    boosts_router,
+    exports_router,
     leases_router,
     maintenance_requests_router,
     managers_router,
@@ -327,8 +330,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
+app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(agreements_router)
+app.include_router(exports_router)
+app.include_router(boosts_router)
 app.include_router(properties_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)
@@ -354,7 +360,7 @@ async def health_check() -> dict:
 @app.get("/health/ready", response_model=None)
 async def readiness_check() -> dict[str, str] | JSONResponse:
     try:
-        supabase = get_supabase_client()
+        supabase = get_service_client()
         supabase.table("properties").select("id").limit(1).execute()
         db_status = "ready"
     except Exception:

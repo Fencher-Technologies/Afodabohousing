@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
@@ -19,12 +19,12 @@ import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload, MessageSquare,
   TrendingUp, Send, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
-  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2
+  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2, ArrowLeft
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 type Property = Database['public']['Tables']['properties']['Row'];
-type LeaseRow = Database['public']['Tables']['leases']['Row'];
+type TenancyRow = Database['public']['Tables']['tenancies']['Row'];
 type Message = Database['public']['Tables']['messages']['Row'];
 
 const AMENITIES_LIST = ['Water', 'Electricity', 'WiFi', 'Parking', 'Security', 'Garden', 'Generator', 'DSTV', 'Borehole', 'Tiled Floors'];
@@ -60,7 +60,7 @@ export default function ManagerDashboard() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [properties, setProperties] = useState<Property[]>([]);
-  const [leases, setLeases] = useState<(LeaseRow & { tenant_name?: string; tenant_phone?: string; property_title?: string })[]>([]);
+  const [leases, setLeases] = useState<(TenancyRow & { tenant_name?: string; tenant_phone?: string; tenant_user_id?: string; property_title?: string })[]>([]);
   const [payments, setPayments] = useState<(PaymentData & { tenant_name?: string; property_title?: string })[]>([]);
   const [messages, setMessages] = useState<(Message & { sender_name?: string; receiver_name?: string; property_title?: string })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,11 +78,20 @@ export default function ManagerDashboard() {
   const [composeDialog, setComposeDialog] = useState<{ open: boolean; tenantId: string; tenantName: string; propertyId?: string }>({ open: false, tenantId: '', tenantName: '' });
   const [composeText, setComposeText] = useState('');
   const [composePropId, setComposePropId] = useState('');
-  const [composeVoiceUrl, setComposeVoiceUrl] = useState<string | null>(null);
-  const [replyVoiceUrl, setReplyVoiceUrl] = useState<string | null>(null);
+const [composeVoiceUrl, setComposeVoiceUrl] = useState<string | null>(null);
+const [replyVoiceUrl, setReplyVoiceUrl] = useState<string | null>(null);
+const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+const [selectedConv, setSelectedConv] = useState<string | null>(null);
+const [selectedConvName, setSelectedConvName] = useState('');
+const [selectedConvProperty, setSelectedConvProperty] = useState('');
+const [selectedConvReceiverId, setSelectedConvReceiverId] = useState('');
+const [threadText, setThreadText] = useState('');
+const [threadVoiceUrl, setThreadVoiceUrl] = useState<string | null>(null);
+const [threadSending, setThreadSending] = useState(false);
+const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
   const [form, setForm] = useState({
-    title: '', description: '', property_type: 'Residential', district: '', city: '',
+    title: '', description: '', property_type: 'house', state: '', city: '',
     area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1,
     rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '',
     amenities: [] as string[],
@@ -109,30 +118,55 @@ export default function ManagerDashboard() {
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
-    const [propsRes, leaseRes, payRes] = await Promise.all([
+    const [propsRes, tenancyRes, leaseRes, tenantRes, payRes] = await Promise.all([
       supabase.from('properties').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('leases').select('*, tenants!inner(first_name, last_name, email, user_id)').eq('owner_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('tenancies').select('*').eq('manager_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('leases').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('tenants').select('id, first_name, last_name, phone, user_id').eq('owner_id', user.id),
       listPayments().catch(() => ({ items: [], total: 0 })),
     ]);
 
-    const myLeases = leaseRes.data || [];
     const allPayments = payRes.items || [];
 
     const propMap: Record<string, string> = {};
     propsRes.data?.forEach(p => { propMap[p.id] = p.title; });
 
+    const tenantMap: Record<string, { name: string; phone: string; user_id: string }> = {};
+    tenantRes.data?.forEach(t => {
+      tenantMap[t.id] = { name: (t.first_name || '') + ' ' + (t.last_name || ''), phone: t.phone || '', user_id: t.user_id || '' };
+    });
+
     setProperties(propsRes.data || []);
-    setLeases(myLeases.map(l => ({
-      ...l,
-      tenant_name: (l.tenants as any)?.first_name + ' ' + (l.tenants as any)?.last_name,
-      property_title: propMap[l.property_id],
-    })));
+
+    // Prefer tenancies (new schema), fallback to leases (old schema)
+    const tenancyRows = tenancyRes.data || [];
+    const leaseRows = leaseRes.data || [];
+    const rawTenancies = tenancyRows.length > 0 ? tenancyRows : leaseRows;
+    const isTenancies = tenancyRows.length > 0;
+
+    const tenancyMap: Record<string, { property_id: string; tenant_id: string }> = {};
+    rawTenancies.forEach(t => {
+      tenancyMap[t.id] = { property_id: t.property_id, tenant_id: t.tenant_id };
+    });
+    // Also map lease IDs (payments may reference old leases.tenant_id)
+    leaseRows.forEach(t => { tenancyMap[t.id] = { property_id: t.property_id, tenant_id: t.tenant_id }; });
+
+    setLeases(rawTenancies.map(t => {
+      const base = isTenancies
+        ? { ...t, owner_id: (t as any).manager_id, monthly_rent: (t as any).rent_amount, start_date: (t as any).rent_start_date, end_date: (t as any).rent_end_date }
+        : { ...t, owner_id: (t as any).owner_id, monthly_rent: (t as any).monthly_rent, start_date: (t as any).start_date, end_date: (t as any).end_date };
+      return {
+        ...base,
+        tenant_name: tenantMap[t.tenant_id]?.name || '',
+        tenant_phone: tenantMap[t.tenant_id]?.phone || '',
+        tenant_user_id: tenantMap[t.tenant_id]?.user_id || '',
+        property_title: propMap[t.property_id] || '',
+      };
+    }));
     setPayments(allPayments.map(p => ({
       ...p,
-      tenant_name: myLeases.find(l => l.tenant_id === p.tenant_id && l.owner_id === user.id) ?
-        ((myLeases.find(l => l.tenant_id === p.tenant_id) as any)?.tenants?.first_name || '') + ' ' +
-        ((myLeases.find(l => l.tenant_id === p.tenant_id) as any)?.tenants?.last_name || '') : '',
-      property_title: propMap[myLeases.find(l => l.tenant_id === p.tenant_id)?.property_id || ''] || '',
+      tenant_name: tenantMap[p.tenant_id]?.name || '',
+      property_title: propMap[tenancyMap[p.tenancy_id]?.property_id || ''] || '',
     })));
     if (user) {
       const msgRes = await supabase.from('messages').select('*, profiles!sender_id(full_name)').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false });
@@ -146,6 +180,23 @@ export default function ManagerDashboard() {
       })));
     } else { setMessages([]); }
     setLoading(false);
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordForm.new !== passwordForm.confirm) {
+      toast({ title: 'Passwords do not match', variant: 'destructive' }); return;
+    }
+    if (passwordForm.new.length < 6) {
+      toast({ title: 'Password too short', description: 'Must be at least 6 characters.', variant: 'destructive' }); return;
+    }
+    setSendingAction('password');
+    const { error } = await supabase.auth.updateUser({ password: passwordForm.new });
+    setSendingAction('');
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Password updated', description: 'Use your new password next time you sign in.' });
+    setPasswordDialogOpen(false);
+    setPasswordForm({ current: '', new: '', confirm: '' });
   };
 
   const sendSMS = async (phone: string, message: string) => {
@@ -168,33 +219,31 @@ export default function ManagerDashboard() {
         imageUrls.push(urlData.publicUrl);
       }
     }
+    const payload: Record<string, any> = {
+      ...form, monthly_rent: Number(form.rent_amount),
+      property_type: form.property_type,
+      rent_period: form.rent_period,
+    };
+    delete payload.rent_amount; // DB column is monthly_rent
+    delete payload.kitchens;    // not in DB
+    delete payload.area;        // not in DB
+    if (imageUrls.length > 0) payload.images = imageUrls;
+
     if (editingProperty) {
-      // Edit mode
-      const { error } = await supabase.from('properties').update({
-        ...form,
-        rent_amount: Number(form.rent_amount),
-        property_type: form.property_type as Database['public']['Enums']['property_type'],
-        rent_period: form.rent_period as Database['public']['Enums']['rent_period'],
-        ...(imageUrls.length > 0 ? { images: imageUrls } : {}),
-      }).eq('id', editingProperty.id);
+      const { error } = await supabase.from('properties').update(payload).eq('id', editingProperty.id);
       setUploading(false);
       if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
       toast({ title: 'Property updated!', description: 'Your listing has been updated.' });
     } else {
-      // Add mode
-      const { error } = await supabase.from('properties').insert({
-        ...form, owner_id: user.id, images: imageUrls,
-        rent_amount: Number(form.rent_amount),
-        property_type: form.property_type as Database['public']['Enums']['property_type'],
-        rent_period: form.rent_period as Database['public']['Enums']['rent_period'],
-      });
+      payload.owner_id = user.id;
+      const { error } = await supabase.from('properties').insert(payload);
       setUploading(false);
       if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
       toast({ title: 'Property published!', description: 'Your listing is now live.' });
     }
     setPropDialogOpen(false);
     setEditingProperty(null);
-    setForm({ title: '', description: '', property_type: 'Residential', district: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] });
+    setForm({ title: '', description: '', property_type: 'house', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] });
     setImageFiles([]);
     fetchData();
   };
@@ -203,7 +252,7 @@ export default function ManagerDashboard() {
     setEditingProperty(p);
     setForm({
       title: p.title, description: p.description || '', property_type: p.property_type,
-      district: p.district, city: p.city || '', area: p.area || '', address: p.address || '',
+      state: p.state || p.city, city: p.city || '', area: p.area || '', address: p.address || '',
       bedrooms: p.bedrooms, sitting_rooms: p.sitting_rooms, kitchens: p.kitchens, bathrooms: p.bathrooms,
       rent_amount: p.rent_amount, rent_period: p.rent_period, manager_phone: p.manager_phone || '',
       manager_email: p.manager_email || '', amenities: p.amenities || [],
@@ -228,7 +277,6 @@ export default function ManagerDashboard() {
     setSendingAction('add-unit');
     const { error } = await supabase.from('rental_units').insert({
       property_id: selectedPropertyForUnit,
-      owner_id: user.id,
       unit_number: unitForm.unit_number,
       floor_level: unitForm.floor_level || null,
       bedrooms: unitForm.bedrooms,
@@ -275,15 +323,17 @@ export default function ManagerDashboard() {
     }
     if (!tenantId) { toast({ title: 'Error', description: 'Could not create tenant record', variant: 'destructive' }); setSendingAction(''); return; }
 
-    const { error } = await supabase.from('leases').insert({
-      owner_id: user.id, property_id: tenancyForm.property_id, tenant_id: tenantId,
-      start_date: tenancyForm.start_date, end_date: tenancyForm.end_date,
-      monthly_rent: monthlyRent, security_deposit: monthlyRent, status: 'active',
+    const { error } = await supabase.from('tenancies').insert({
+      manager_id: user.id, property_id: tenancyForm.property_id, tenant_id: tenantId,
+      rent_start_date: tenancyForm.start_date, rent_end_date: tenancyForm.end_date,
+      rent_amount: monthlyRent, status: 'active',
     });
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); setSendingAction(''); return; }
     await supabase.from('properties').update({ status: 'occupied' }).eq('id', tenancyForm.property_id);
     if (profile.data?.phone) {
-      await sendSMS(profile.data.phone, `Welcome to ${prop?.title || 'your new home'}! Your lease with Afodabo Housing has been activated. Rent: UGX ${monthlyRent.toLocaleString()}.`);
+      await sendSMS(profile.data.phone, `Welcome to ${prop?.title || 'your new home'}! Your lease with Afodabo Housing has been activated. Rent: UGX ${(monthlyRent || 0).toLocaleString()}.`);
+
+
     }
     toast({ title: 'Lease created!', description: 'Tenant linked and notified via SMS.' });
     setTenancyDialogOpen(false);
@@ -297,7 +347,7 @@ export default function ManagerDashboard() {
     try {
       await updatePayment(payment.id!, { status: 'confirmed', paid_date: new Date().toISOString().split('T')[0] });
       const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-      if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! UGX ${payment.amount.toLocaleString()} has been confirmed. - Afodabo Housing`);
+      if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! UGX ${(payment.amount || 0).toLocaleString()} has been confirmed. - Afodabo Housing`);
       toast({ title: 'Payment confirmed', description: 'Tenant notified via SMS.' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -310,7 +360,7 @@ export default function ManagerDashboard() {
     try {
       await updatePayment(payment.id!, { status: 'rejected' });
       const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-      if (profile?.phone) await sendSMS(profile.phone, `Your rent payment (UGX ${payment.amount.toLocaleString()}) was rejected. - Afodabo Housing`);
+      if (profile?.phone) await sendSMS(profile.phone, `Your rent payment (UGX ${(payment.amount || 0).toLocaleString()}) was rejected. - Afodabo Housing`);
       toast({ title: 'Payment rejected', description: 'Tenant notified via SMS.', variant: 'destructive' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -322,7 +372,7 @@ export default function ManagerDashboard() {
     if (!lease.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
     setSendingAction(`remind-${lease.id}`);
     const days = differenceInDays(new Date(lease.end_date), new Date());
-    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${lease.monthly_rent.toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Afodabo Housing. Contact: ${user?.email}`);
+    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${(lease.monthly_rent || 0).toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Afodabo Housing. Contact: ${user?.email}`);
     toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${lease.tenant_name}` });
     setSendingAction('');
   };
@@ -341,10 +391,24 @@ export default function ManagerDashboard() {
     setSendingAction('');
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Reply sent!' });
+    const newReply = {
+      id: 'temp-' + Date.now(),
+      sender_id: user.id,
+      receiver_id: replyDialog.receiverId,
+      property_id: replyDialog.propertyId || null,
+      content: replyText.trim() || null,
+      voice_note_url: replyVoiceUrl,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      profiles: { full_name: user.email?.split('@')[0] || 'You' },
+      sender_name: 'You',
+      receiver_name: replyDialog.name,
+      property_title: '',
+    };
+    setMessages(prev => [...prev, newReply]);
     setReplyText('');
     setReplyVoiceUrl(null);
     setReplyDialog({ open: false, receiverId: '', name: '' });
-    fetchData();
   };
 
   const handleCompose = async (e: React.FormEvent) => {
@@ -352,7 +416,7 @@ export default function ManagerDashboard() {
     if (!user || !composeDialog.tenantId || (!composeText.trim() && !composeVoiceUrl)) return;
     setSendingAction('compose');
     const tenant = leases.find(t => t.tenant_id === composeDialog.tenantId);
-    const receiverId = tenant?.tenants?.user_id;
+    const receiverId = tenant?.tenant_user_id;
     if (!receiverId) { toast({ title: 'Error', description: 'Tenant user not found. They may not have registered yet.', variant: 'destructive' }); setSendingAction(''); return; }
     const { error } = await supabase.from('messages').insert({
       sender_id: user.id,
@@ -364,11 +428,57 @@ export default function ManagerDashboard() {
     setSendingAction('');
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Message sent!' });
+    const newMsg = {
+      id: 'temp-' + Date.now(),
+      sender_id: user.id,
+      receiver_id: receiverId,
+      property_id: composeDialog.propertyId || null,
+      content: composeText.trim() || null,
+      voice_note_url: composeVoiceUrl,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      profiles: { full_name: user.email?.split('@')[0] || 'You' },
+      sender_name: 'You',
+      receiver_name: composeDialog.tenantName,
+      property_title: '',
+    };
+    setMessages(prev => [...prev, newMsg]);
     setComposeText('');
     setComposeVoiceUrl(null);
     setComposePropId('');
     setComposeDialog({ open: false, tenantId: '', tenantName: '' });
-    fetchData();
+  };
+
+  const handleThreadSend = async () => {
+    if (!user || !selectedConvReceiverId || (!threadText.trim() && !threadVoiceUrl)) return;
+    setThreadSending(true);
+    const { error } = await supabase.from('messages').insert({
+      sender_id: user.id,
+      receiver_id: selectedConvReceiverId,
+      property_id: null,
+      content: threadText.trim() || null,
+      voice_note_url: threadVoiceUrl,
+    });
+    setThreadSending(false);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Sent!' });
+    const newMsg = {
+      id: 'temp-' + Date.now(),
+      sender_id: user.id,
+      receiver_id: selectedConvReceiverId,
+      property_id: null,
+      content: threadText.trim() || null,
+      voice_note_url: threadVoiceUrl,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      profiles: { full_name: user.email?.split('@')[0] || 'You' },
+      sender_name: 'You',
+      receiver_name: selectedConvName,
+      property_title: selectedConvProperty,
+    };
+    setMessages(prev => [...prev, newMsg]);
+    setThreadText('');
+    setThreadVoiceUrl(null);
   };
 
   const markMessageRead = async (msgId: string) => {
@@ -384,7 +494,7 @@ export default function ManagerDashboard() {
   const pendingPayments = payments.filter(p => p.status === 'uploaded');
   const unreadMessages = messages.filter(m => !m.is_read && m.receiver_id === user?.id).length;
   const confirmedRevenue = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0);
-  const dueSoonLeases = leases.filter(l => {
+  const dueSoonTenancies = leases.filter(l => {
     if (l.status !== 'active') return false;
     const d = differenceInDays(new Date(l.end_date), new Date());
     return d <= 14 && d >= 0;
@@ -453,6 +563,13 @@ export default function ManagerDashboard() {
           className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-sidebar-primary hover:bg-sidebar-accent transition-all"
         >
           <Plus className="h-4 w-4" /><span>Add Property</span>
+        </button>
+        <button
+          onClick={() => { setPasswordDialogOpen(true); setSidebarOpen(false); }}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>Change Password</span>
         </button>
         <button
           onClick={signOut}
@@ -582,7 +699,7 @@ export default function ManagerDashboard() {
                         <div key={r.label} className="mb-4">
                           <div className="flex justify-between items-center mb-1.5">
                             <span className="text-sm text-muted-foreground">{r.label}</span>
-                            <span className={`text-sm font-bold ${r.textColor}`}>UGX {r.val.toLocaleString()}</span>
+                            <span className={`text-sm font-bold ${r.textColor}`}>UGX {(r.val || 0).toLocaleString()}</span>
                           </div>
                           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                             <div className={`h-full ${r.color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
@@ -618,7 +735,7 @@ export default function ManagerDashboard() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-foreground truncate">{p.tenant_name || 'Tenant'}</p>
-                              <p className="text-xs text-muted-foreground">UGX {p.amount.toLocaleString()} · {format(new Date(p.created_at), 'MMM dd')}</p>
+                              <p className="text-xs text-muted-foreground">UGX {(p.amount || 0).toLocaleString()} · {format(new Date(p.created_at), 'MMM dd')}</p>
                             </div>
                             <div className="flex gap-1.5 shrink-0">
                               <Button size="sm" className="gradient-primary text-primary-foreground h-7 w-7 p-0" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
@@ -708,9 +825,12 @@ export default function ManagerDashboard() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-foreground truncate">{p.title}</p>
-                              <p className="text-xs text-muted-foreground">{p.district} · UGX {p.rent_amount.toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">{p.state || p.city} · UGX {(p.rent_amount || 0).toLocaleString()}</p>
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize shrink-0 ${statusBadge(p.status)}`}>{p.status}</span>
+                            <button onClick={() => navigate(`/dashboard/manager/boost/${p.id}`)} className="text-xs text-primary hover:underline font-medium shrink-0 ml-1">
+                              Boost
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -773,9 +893,9 @@ export default function ManagerDashboard() {
                                   </div>
                                 </div>
                               </td>
-                              <td className="py-3.5 px-4 text-muted-foreground">{p.district}{p.area ? ` · ${p.area}` : ''}</td>
+                              <td className="py-3.5 px-4 text-muted-foreground">{p.state || p.city}{p.area ? ` · ${p.area}` : ''}</td>
                               <td className="py-3.5 px-4">
-                                <span className="font-bold text-foreground">UGX {p.rent_amount.toLocaleString()}</span>
+                                  <span className="font-bold text-foreground">UGX {(p.rent_amount || 0).toLocaleString()}</span>
                                 <span className="text-xs text-muted-foreground ml-1 capitalize">/{p.rent_period.slice(0, 2)}</span>
                               </td>
                               <td className="py-3.5 px-4">
@@ -803,9 +923,12 @@ export default function ManagerDashboard() {
                                    >
                                      {sendingAction === p.id ? '...' : p.status !== 'inactive' ? 'Deactivate' : 'Activate'}
                                    </Button>
-                                   <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={() => setDeleteConfirmProperty(p)}>
-                                     <Trash2 className="h-3 w-3" />Delete
-                                   </Button>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate(`/dashboard/manager/boost/${p.id}`)}>
+                                    <TrendingUp className="h-3 w-3" />Boost
+                                  </Button>
+                                  <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={() => setDeleteConfirmProperty(p)}>
+                                    <Trash2 className="h-3 w-3" />Delete
+                                  </Button>
                                  </div>
                                </td>
                             </tr>
@@ -819,7 +942,7 @@ export default function ManagerDashboard() {
             )}
 
             {/* TENANCIES */}
-            {tab === 'leases' && (
+            {tab === 'tenants' && (
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -855,7 +978,14 @@ export default function ManagerDashboard() {
                           return (
                             <tr key={t.id} className="hover:bg-muted/20 transition-colors border-b border-border/30">
                               <td className="py-3.5 px-4">
-                                <span className="font-bold text-foreground">UGX {t.monthly_rent.toLocaleString()}</span>
+                                <div className="text-sm font-semibold text-foreground">{t.tenant_name || 'Unknown'}</div>
+                                <div className="text-xs text-muted-foreground">{t.tenant_phone || ''}</div>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span className="text-sm text-foreground">{t.property_title || '-'}</span>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span className="font-bold text-foreground">UGX {(t.monthly_rent || 0).toLocaleString()}</span>
                               </td>
                               <td className="py-3.5 px-4">
                                 <div className="text-sm text-foreground">{format(new Date(t.end_date), 'MMM dd, yyyy')}</div>
@@ -940,7 +1070,7 @@ export default function ManagerDashboard() {
                                 <span className="font-semibold text-foreground">{p.tenant_name || 'Unknown'}</span>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 font-bold text-foreground">UGX {p.amount.toLocaleString()}</td>
+                            <td className="py-3.5 px-4 font-bold text-foreground">UGX {(p.amount || 0).toLocaleString()}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{p.period_start} – {p.period_end}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs max-w-[160px] truncate">{p.notes || '—'}</td>
@@ -974,67 +1104,131 @@ export default function ManagerDashboard() {
 
             {/* MESSAGES */}
             {tab === 'messages' && (
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-display font-bold text-xl">Messages</h2>
-                    <p className="text-sm text-muted-foreground">{unreadMessages} unread · conversations with tenants</p>
-                  </div>
-                  {leases.filter(t => t.status === 'active').length > 0 && (
-                    <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => {
-                      const active = leases.find(t => t.status === 'active');
-                      if (active) { setComposeDialog({ open: true, tenantId: active.tenant_id, tenantName: active.tenant_name || 'Tenant', propertyId: active.property_id }); setComposePropId(active.property_id); }
-                    }}>
-                      <Pencil className="h-3.5 w-3.5" /> New Message
-                    </Button>
-                  )}
-                </div>
-
-                {/* Group messages by counterpart */}
-                {messages.length === 0 ? (
-                  <div className="text-center py-24 bg-card border border-border rounded-2xl">
-                    <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground/20" />
-                    <p className="text-xl font-display font-bold text-foreground">No messages yet</p>
-                    <p className="text-sm mt-2 text-muted-foreground">Messages from tenants will appear here</p>
+              <>
+                {selectedConv ? (
+                  <div className="flex flex-col h-[calc(100vh-12rem)]">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card sticky top-0 z-10">
+                      <button onClick={() => { setSelectedConv(null); setSelectedConvReceiverId(''); }} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+                        <ArrowLeft className="h-5 w-5" />
+                      </button>
+                      <div className="h-9 w-9 rounded-xl bg-accent/10 text-accent font-bold flex items-center justify-center text-sm">
+                        {(selectedConvName || 'T').charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate">{selectedConvName}</p>
+                        {selectedConvProperty && <p className="text-xs text-muted-foreground truncate">{selectedConvProperty}</p>}
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                      {messages.filter(m => (m.sender_id === user?.id && m.receiver_id === selectedConv) || (m.sender_id === selectedConv && m.receiver_id === user?.id)).map(m => {
+                        const isMe = m.sender_id === user?.id;
+                        return (
+                          <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${isMe ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted text-foreground rounded-bl-md'}`}>
+                              {m.content && <p className="text-sm">{m.content}</p>}
+                              {m.voice_note_url && <audio src={m.voice_note_url} controls className="h-8 mt-1" />}
+                              <p className={`text-xs mt-1 opacity-60 ${isMe ? 'text-right' : 'text-left'}`}>
+                                {format(new Date(m.created_at), 'h:mm a')}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="sticky bottom-0 bg-card border-t border-border p-3">
+                      <div className="flex gap-2 max-w-lg mx-auto w-full">
+                        <Input value={threadText} onChange={e => setThreadText(e.target.value)}
+                          placeholder="Type a message..." className="rounded-xl h-11"
+                          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleThreadSend())} />
+                        <VoiceRecorder onRecordingComplete={setThreadVoiceUrl} onClear={() => setThreadVoiceUrl(null)} audioUrl={threadVoiceUrl} />
+                        <Button onClick={handleThreadSend} disabled={threadSending || (!threadText.trim() && !threadVoiceUrl)}
+                          className="rounded-xl h-11 w-11 p-0"><Send className="h-4 w-4" /></Button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
-                  <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-card">
-                    {messages.map(m => {
-                      const isFromTenant = m.sender_id !== user?.id;
-                      const counterpartName = isFromTenant ? m.sender_name : m.receiver_name;
-                      const counterpartId = isFromTenant ? m.sender_id : m.receiver_id;
-                      return (
-                        <div key={m.id} className={`flex items-start gap-4 p-5 border-b border-border last:border-0 hover:bg-muted/20 transition-colors ${!m.is_read && isFromTenant ? 'bg-primary/5' : ''}`}>
-                          <div className={`h-10 w-10 rounded-xl font-bold text-sm flex items-center justify-center shrink-0 ${isFromTenant ? 'bg-accent/10 text-accent' : 'gradient-primary text-primary-foreground'}`}>
-                            {(counterpartName || 'T').charAt(0)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-semibold text-foreground text-sm">{isFromTenant ? counterpartName : `You → ${counterpartName}`}</span>
-                              {!m.is_read && isFromTenant && <span className="bg-primary text-primary-foreground text-xs font-bold px-1.5 py-0.5 rounded-full">New</span>}
-                              {m.property_title && <span className="text-xs text-muted-foreground hidden sm:inline">· {m.property_title}</span>}
-                            </div>
-                            {m.content && <p className="text-sm text-muted-foreground leading-relaxed">{m.content}</p>}
-                            {m.voice_note_url && <audio src={m.voice_note_url} controls className="h-8 mt-1" />}
-                            <p className="text-xs text-muted-foreground/50 mt-1.5">{format(new Date(m.created_at), 'MMM dd, yyyy · HH:mm')}</p>
-                          </div>
-                          <div className="flex gap-2 shrink-0">
-                            {!m.is_read && isFromTenant && (
-                              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => markMessageRead(m.id)}>Mark read</Button>
-                            )}
-                            {isFromTenant && (
-                              <Button size="sm" className="gradient-primary text-primary-foreground h-7 text-xs gap-1"
-                                onClick={() => { setReplyDialog({ open: true, receiverId: counterpartId, name: counterpartName || 'Tenant', propertyId: m.property_id || undefined }); if (!m.is_read) markMessageRead(m.id); }}>
-                                <Send className="h-3 w-3" />Reply
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="font-display font-bold text-xl">Messages</h2>
+                        <p className="text-sm text-muted-foreground">{unreadMessages} unread · {(() => {
+                          const seen = new Set<string>();
+                          messages.forEach(m => {
+                            const id = m.sender_id === user?.id ? m.receiver_id : m.sender_id;
+                            seen.add(id);
+                          });
+                          return seen.size;
+                        })()} conversations</p>
+                      </div>
+                      {leases.filter(t => t.status === 'active').length > 0 && (
+                        <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => {
+                          const active = leases.find(t => t.status === 'active');
+                          if (active) { setComposeDialog({ open: true, tenantId: active.tenant_id, tenantName: active.tenant_name || 'Tenant', propertyId: active.property_id }); setComposePropId(active.property_id); }
+                        }}>
+                          <Pencil className="h-3.5 w-3.5" /> New Message
+                        </Button>
+                      )}
+                    </div>
+
+                    {messages.length === 0 ? (
+                      <div className="text-center py-24 bg-card border border-border rounded-2xl">
+                        <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground/20" />
+                        <p className="text-xl font-display font-bold text-foreground">No messages yet</p>
+                        <p className="text-sm mt-2 text-muted-foreground">Messages from tenants will appear here</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {(() => {
+                          const groups: Record<string, { name: string; property: string; messages: typeof messages; unread: number }> = {};
+                          messages.forEach(m => {
+                            const isFromTenant = m.sender_id !== user?.id;
+                            const cId = isFromTenant ? m.sender_id : m.receiver_id;
+                            const cName = isFromTenant ? m.sender_name : m.receiver_name;
+                            if (!groups[cId]) groups[cId] = { name: cName || 'Unknown', property: m.property_title || '', messages: [], unread: 0 };
+                            groups[cId].messages.push(m);
+                            if (!groups[cId].property && m.property_title) groups[cId].property = m.property_title;
+                            if (!m.is_read && isFromTenant) groups[cId].unread++;
+                          });
+                          return Object.entries(groups).sort((a, b) => {
+                            const aLast = a[1].messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, a[1].messages[0]);
+                            const bLast = b[1].messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, b[1].messages[0]);
+                            return new Date(bLast.created_at).getTime() - new Date(aLast.created_at).getTime();
+                          }).map(([cId, group]) => {
+                            const lastMsg = group.messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, group.messages[0]);
+                            return (
+                              <button key={cId} onClick={() => {
+                                setSelectedConv(cId);
+                                setSelectedConvName(group.name);
+                                setSelectedConvProperty(group.property);
+                                setSelectedConvReceiverId(cId);
+                                // Mark all unread from this conversation as read
+                                group.messages.filter(m => !m.is_read && m.sender_id !== user?.id).forEach(m => markMessageRead(m.id));
+                              }}
+                                className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-2xl hover:shadow-sm transition-all text-left">
+                                <div className={`h-11 w-11 rounded-xl font-bold text-sm flex items-center justify-center shrink-0 ${group.unread > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                  {(group.name || 'T').charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-sm ${group.unread > 0 ? 'font-bold text-foreground' : 'font-semibold text-foreground'}`}>{group.name}</span>
+                                    {group.unread > 0 && <span className="h-2 w-2 rounded-full bg-primary" />}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground truncate">{group.property}</p>
+                                  <p className="text-xs text-muted-foreground truncate mt-0.5">{lastMsg.content || (lastMsg.voice_note_url ? '🎤 Voice note' : '')}</p>
+                                </div>
+                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                  <span className="text-xs text-muted-foreground">{format(new Date(lastMsg.created_at), 'MMM dd')}</span>
+                                  {group.unread > 0 && <span className="text-xs font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full min-w-[20px] text-center">{group.unread}</span>}
+                                </div>
+                              </button>
+                            );
+                          });
+                        })()}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </main>
@@ -1154,15 +1348,19 @@ export default function ManagerDashboard() {
                 <Select value={form.property_type} onValueChange={v => setForm({ ...form, property_type: v })}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Residential">Residential</SelectItem>
-                    <SelectItem value="Office Space">Office Space</SelectItem>
+                    <SelectItem value="house">House</SelectItem>
+                    <SelectItem value="apartment">Apartment</SelectItem>
+                    <SelectItem value="self_contained">Self-Contained</SelectItem>
+                    <SelectItem value="room">Single Room</SelectItem>
+                    <SelectItem value="studio">Studio</SelectItem>
+                    <SelectItem value="bungalow">Bungalow</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>District</Label>
-                <Select value={form.district} onValueChange={v => setForm({ ...form, district: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select district..." /></SelectTrigger>
+                <Label>State / District</Label>
+                <Select value={form.state} onValueChange={v => setForm({ ...form, state: v })}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select location..." /></SelectTrigger>
                   <SelectContent>{DISTRICTS_LIST.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
@@ -1259,6 +1457,29 @@ export default function ManagerDashboard() {
             <div><Label>Notes</Label><Textarea value={unitForm.description} onChange={e => setUnitForm(f => ({ ...f, description: e.target.value }))} rows={2} className="mt-1" placeholder="Any specific details about this unit..." /></div>
             <Button type="submit" disabled={sendingAction === 'add-unit' || !selectedPropertyForUnit} className="w-full gradient-primary text-primary-foreground">
               {sendingAction === 'add-unit' ? 'Adding...' : 'Add Unit'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Change Password</DialogTitle>
+            <DialogDescription>Update your account password.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleChangePassword} className="space-y-4 mt-4">
+            <div>
+              <Label>New Password</Label>
+              <Input type="password" minLength={6} value={passwordForm.new} onChange={e => setPasswordForm(f => ({ ...f, new: e.target.value }))} required placeholder="At least 6 characters" className="mt-1" />
+            </div>
+            <div>
+              <Label>Confirm New Password</Label>
+              <Input type="password" minLength={6} value={passwordForm.confirm} onChange={e => setPasswordForm(f => ({ ...f, confirm: e.target.value }))} required placeholder="Repeat the new password" className="mt-1" />
+            </div>
+            <Button type="submit" disabled={sendingAction === 'password'} className="w-full gradient-primary text-primary-foreground">
+              {sendingAction === 'password' ? 'Updating...' : 'Update Password'}
             </Button>
           </form>
         </DialogContent>

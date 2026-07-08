@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -22,7 +20,17 @@ import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
 
-type Property = Database['public']['Tables']['properties']['Row'];
+const API = import.meta.env.VITE_API_URL || '';
+
+interface Property {
+  id: string; title: string; status: string; property_type: string;
+  rent_amount: number; rent_period: string; bedrooms: number; bathrooms: number;
+  sitting_rooms: number; kitchens: number; state: string | null; city: string | null;
+  area: string | null; images: string[] | null; description: string | null;
+  amenities: string[] | null; address: string | null; created_at: string;
+  manager_phone: string | null; manager_email: string | null; owner_id: string | null;
+  rent_currency: string | null;
+}
 
 // Minimal rental unit type from DB (may not be in generated types yet)
 interface RentalUnit {
@@ -67,9 +75,10 @@ const statusColors: Record<string, string> = {
 };
 
 function formatUGX(amount: number) {
-  if (amount >= 1000000) return `UGX ${(amount / 1000000).toFixed(1)}M`;
-  if (amount >= 1000) return `UGX ${(amount / 1000).toFixed(0)}K`;
-  return `UGX ${amount.toLocaleString()}`;
+  const n = amount || 0;
+  if (n >= 1000000) return `UGX ${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `UGX ${(n / 1000).toFixed(0)}K`;
+  return `UGX ${n.toLocaleString()}`;
 }
 
 export default function PropertyDetailPage() {
@@ -90,11 +99,14 @@ export default function PropertyDetailPage() {
   useEffect(() => {
     if (!id) return;
     (async () => {
-      const { data: prop } = await supabase.from('properties').select('*').eq('id', id).single();
-      setProperty(prop);
-      if (prop) {
-        const { data: unitData } = await supabase.from('rental_units').select('*').eq('property_id', id).eq('is_active', true);
-        setUnits(unitData || []);
+      try {
+        const res = await fetch(`${API}/properties/public/${id}`);
+        if (res.ok) {
+          const prop = await res.json();
+          setProperty(prop);
+        }
+      } catch (e) {
+        console.error('Failed to fetch property:', e);
       }
       setLoading(false);
     })();
@@ -128,9 +140,9 @@ export default function PropertyDetailPage() {
     }
   };
 
-  // Build OSM search/embed URLs using district + area
+  // Build OSM search/embed URLs using state + area
   const buildOSMQuery = (p: Property) =>
-    [p.area, p.city, p.district, 'Uganda'].filter(Boolean).join(', ');
+    [p.area, p.city, p.state, 'Uganda'].filter(Boolean).join(', ');
 
   const getOSMSearchUrl = (p: Property) =>
     `https://www.openstreetmap.org/search?query=${encodeURIComponent(buildOSMQuery(p))}`;
@@ -140,8 +152,8 @@ export default function PropertyDetailPage() {
 
   // Use Nominatim geocoding URL embedded in iframe via overpass embed
   const getOSMEmbedUrl = (p: Property) => {
-    // Build a search-based embed that zooms to the district
-    const q = encodeURIComponent(`${p.district} District, Uganda`);
+    // Build a search-based embed that zooms to the state
+    const q = encodeURIComponent(`${p.state || p.city} District, Uganda`);
     return `https://nominatim.openstreetmap.org/search?q=${q}&format=html`;
   };
 
@@ -150,7 +162,7 @@ export default function PropertyDetailPage() {
     // Use a simple marker-based Leaflet embed URL
     const location = encodeURIComponent(buildOSMQuery(p));
     // Embed using geoapify or umap for simplicity; fall back to standard OSM export
-    return `https://www.openstreetmap.org/export/embed.html?bbox=29.5%2C-1.5%2C35.5%2C4.5&layer=mapnik&marker=${encodeURIComponent(p.district + ', Uganda')}`;
+    return `https://www.openstreetmap.org/export/embed.html?bbox=29.5%2C-1.5%2C35.5%2C4.5&layer=mapnik&marker=${encodeURIComponent((p.state || p.city) + ', Uganda')}`;
   };
 
   if (loading) {
@@ -191,7 +203,7 @@ export default function PropertyDetailPage() {
   const images = property.images?.length ? property.images : fallbackImages;
   const totalImages = images.length;
   const periodLabel = { monthly: 'per month', quarterly: 'per quarter', annually: 'per year' }[property.rent_period] || '';
-  const fullLocation = [property.address, property.area, property.city, property.district].filter(Boolean).join(', ');
+  const fullLocation = [property.address, property.area, property.city, property.state].filter(Boolean).join(', ');
   const availableUnits = units.filter(u => u.status === 'available');
 
   return (
@@ -283,7 +295,7 @@ export default function PropertyDetailPage() {
               </h1>
               <div className="flex items-center gap-2 text-muted-foreground mb-5">
                 <MapPin className="h-4 w-4 text-accent shrink-0" />
-                <span className="text-sm">{fullLocation || property.district}</span>
+                <span className="text-sm">{fullLocation || property.state || property.city || 'Uganda'}</span>
               </div>
               <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-2xl p-5 border border-primary/20">
                 <div className="flex items-baseline gap-2">
@@ -465,7 +477,7 @@ export default function PropertyDetailPage() {
                 <div className="h-40 bg-secondary flex flex-col items-center justify-center gap-3">
                   <MapPin className="h-10 w-10 text-accent opacity-40" />
                   <div className="text-center">
-                    <p className="font-semibold text-foreground text-sm">{fullLocation || `${property.district}, Uganda`}</p>
+                    <p className="font-semibold text-foreground text-sm">{fullLocation || `${property.state || property.city}, Uganda`}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Open a map app below to find exact location</p>
                   </div>
                 </div>
@@ -530,7 +542,7 @@ export default function PropertyDetailPage() {
                       <div className="bg-secondary rounded-xl p-3 text-sm mt-3">
                         <p className="font-semibold text-foreground">{property.title}</p>
                         <p className="text-muted-foreground text-xs mt-0.5">
-                          {property.district}{property.city ? `, ${property.city}` : ''}
+                          {property.state}{property.city ? `, ${property.city}` : ''}
                         </p>
                       </div>
                       <form onSubmit={handleSendMessage} className="space-y-4 mt-2">
@@ -581,7 +593,7 @@ export default function PropertyDetailPage() {
                 <h4 className="font-semibold text-sm text-foreground">Quick Details</h4>
                 {[
                   { label: 'Type', val: typeLabels[property.property_type] || property.property_type },
-                  { label: 'District', val: property.district },
+                  { label: 'State', val: property.state },
                   { label: 'Rent Period', val: property.rent_period, capitalize: true },
                   { label: 'Currency', val: property.rent_currency },
                   ...(units.length > 0 ? [{ label: 'Total Units', val: String(units.length) }, { label: 'Available', val: String(availableUnits.length) }] : [

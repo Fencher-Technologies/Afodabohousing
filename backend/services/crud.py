@@ -1,6 +1,4 @@
-# mypy: ignore-errors
 import logging
-from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -20,26 +18,9 @@ from models import (
 )
 
 from .base import BaseService, with_retry
-from .receipts import ReceiptData
+from .boost import BoostService
 
 logger = logging.getLogger(__name__)
-
-
-def _apply_date_range(query: Any, column: str, date_from: date | None, date_to: date | None) -> Any:
-    if date_from:
-        query = query.gte(column, date_from.isoformat())
-    if date_to:
-        query = query.lte(column, date_to.isoformat())
-    return query
-
-
-def _apply_search(query: Any, columns: list[str], search: str | None) -> Any:
-    if not search:
-        return query
-    term = search.strip()
-    if not term:
-        return query
-    return query.or_(",".join(f"{column}.ilike.%{term}%" for column in columns))
 
 
 class PropertyService(BaseService):
@@ -47,86 +28,21 @@ class PropertyService(BaseService):
         super().__init__(supabase)
         self._table = "properties"
 
-    def _apply_property_filters(
-        self,
-        query: Any,
-        *,
-        owner_id: UUID | None = None,
-        property_type: str | None = None,
-        status: str | None = None,
-        is_active: bool | None = None,
-        city: str | None = None,
-        state: str | None = None,
-        country: str | None = None,
-        min_rent: float | None = None,
-        max_rent: float | None = None,
-        min_bedrooms: int | None = None,
-        min_bathrooms: float | None = None,
-        created_from: date | None = None,
-        created_to: date | None = None,
-        search: str | None = None,
-    ) -> Any:
-        if owner_id:
-            query = query.eq("owner_id", str(owner_id))
-        if property_type:
-            query = query.eq("property_type", property_type)
-        if status:
-            query = query.eq("status", status)
-        if is_active is not None:
-            query = query.eq("is_active", is_active)
-        if city:
-            query = query.ilike("city", f"%{city}%")
-        if state:
-            query = query.ilike("state", f"%{state}%")
-        if country:
-            query = query.eq("country", country)
-        if min_rent is not None:
-            query = query.gte("monthly_rent", min_rent)
-        if max_rent is not None:
-            query = query.lte("monthly_rent", max_rent)
-        if min_bedrooms is not None:
-            query = query.gte("bedrooms", min_bedrooms)
-        if min_bathrooms is not None:
-            query = query.gte("bathrooms", min_bathrooms)
-        query = _apply_date_range(query, "created_at", created_from, created_to)
-        return _apply_search(query, ["title", "address", "city", "state", "description"], search)
-
     @with_retry
     def get_all(
-        self,
-        owner_id: UUID,
-        skip: int = 0,
-        limit: int = 100,
-        **filters: Any,
+        self, owner_id: UUID, skip: int = 0, limit: int = 100
     ) -> tuple[list[dict[str, Any]], int]:
-        count_resp = self._apply_property_filters(
-            self.supabase.table(self._table).select("*", count="exact"),
-            owner_id=owner_id,
-            **filters,
-        ).execute()
-        total = count_resp.count if hasattr(count_resp, "count") else 0
-        response = (
-            self._apply_property_filters(self.table.select("*"), owner_id=owner_id, **filters)
-            .order("created_at", desc=True)
-            .range(skip, skip + limit - 1)
+        count_resp = (
+            self.supabase.table(self._table)
+            .select("*", count="exact")
+            .eq("owner_id", str(owner_id))
             .execute()
         )
-        return response.data or [], total
-
-    @with_retry
-    def get_public_listings(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        **filters: Any,
-    ) -> tuple[list[dict[str, Any]], int]:
-        count_resp = self._apply_property_filters(
-            self.supabase.table(self._table).select("*", count="exact"),
-            **filters,
-        ).execute()
         total = count_resp.count if hasattr(count_resp, "count") else 0
+
         response = (
-            self._apply_property_filters(self.table.select("*"), **filters)
+            self.table.select("*")
+            .eq("owner_id", str(owner_id))
             .order("created_at", desc=True)
             .range(skip, skip + limit - 1)
             .execute()
@@ -144,6 +60,7 @@ class PropertyService(BaseService):
             .execute()
         )
         total = count_resp.count if hasattr(count_resp, "count") else 0
+
         response = (
             self.table.select("*")
             .eq("tenant_id", str(tenant_id))
@@ -152,6 +69,65 @@ class PropertyService(BaseService):
             .execute()
         )
         return response.data or [], total
+
+    @with_retry
+    def get_public_listings(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        state: str | None = None,
+        property_type: str | None = None,
+        rent_period: str | None = None,
+        min_price: float | None = None,
+        max_price: float | None = None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        # Fetch all matching properties (no range — we sort in Python)
+        query = self.supabase.table(self._table).select("*", count="exact").eq("status", "available")
+        if state:
+            query = query.ilike("state", f"%{state}%")
+        if property_type:
+            query = query.eq("property_type", property_type)
+        if rent_period:
+            query = query.eq("rent_period", rent_period)
+        if min_price is not None:
+            query = query.gte("monthly_rent", min_price)
+        if max_price is not None:
+            query = query.lte("monthly_rent", max_price)
+
+        result = query.order("created_at", desc=True).execute()
+        total = result.count if hasattr(result, "count") else len(result.data or [])
+        all_properties = result.data or []
+
+        # ── Boost ranking: boosted properties first, by boost recency ──
+        boost_svc = BoostService(self.supabase)
+        boosted_ids = boost_svc.get_active_boosted_property_ids()
+
+        if boosted_ids:
+            # Fetch boost created_at for sort stability
+            boosted_result = (
+                self.supabase.table("property_boosts")
+                .select("property_id, created_at")
+                .eq("status", "active")
+                .in_("property_id", list(boosted_ids))
+                .order("created_at", desc=True)
+                .execute()
+            )
+            boost_order = {
+                b["property_id"]: b["created_at"]
+                for b in (boosted_result.data or [])
+            }
+
+            boosted = [p for p in all_properties if p["id"] in boosted_ids]
+            not_boosted = [p for p in all_properties if p["id"] not in boosted_ids]
+
+            # Sort boosted by boost created_at desc (newer boosts first)
+            boosted.sort(key=lambda p: boost_order.get(p["id"], ""), reverse=True)
+
+            all_properties = boosted + not_boosted
+
+        # Apply pagination after ranking sort
+        paginated = all_properties[skip:skip + limit]
+        return paginated, total
 
     @with_retry
     def get_by_id(self, property_id: UUID, owner_id: UUID) -> dict[str, Any] | None:
@@ -165,13 +141,16 @@ class PropertyService(BaseService):
 
     @with_retry
     def get_by_id_public(self, property_id: UUID) -> dict[str, Any] | None:
-        response = self.table.select("*").eq("id", str(property_id)).execute()
+        response = (
+            self.table.select("*")
+            .eq("id", str(property_id))
+            .execute()
+        )
         return response.data[0] if response.data else None
 
     @with_retry
     def create(self, data: PropertyCreate, owner_id: UUID) -> dict[str, Any]:
         payload = data.model_dump(exclude_none=True, mode="json")
-        payload.setdefault("title", data.title or data.address)
         payload["owner_id"] = str(owner_id)
         response = self.table.insert(payload).execute()
         return response.data[0]
@@ -209,33 +188,23 @@ class TenantService(BaseService):
 
     @with_retry
     def get_all(
-        self,
-        owner_id: UUID,
-        skip: int = 0,
-        limit: int = 100,
-        *,
-        status: str | None = None,
-        search: str | None = None,
-        has_user_account: bool | None = None,
-        created_from: date | None = None,
-        created_to: date | None = None,
+        self, owner_id: UUID, skip: int = 0, limit: int = 100
     ) -> tuple[list[dict[str, Any]], int]:
-        def apply_filters(query: Any) -> Any:
-            query = query.eq("owner_id", str(owner_id))
-            if status:
-                query = query.eq("status", status)
-            if has_user_account is True:
-                query = query.not_.is_("user_id", "null")
-            elif has_user_account is False:
-                query = query.is_("user_id", "null")
-            query = _apply_date_range(query, "created_at", created_from, created_to)
-            return _apply_search(query, ["first_name", "last_name", "email", "phone", "notes"], search)
-
-        count_resp = apply_filters(self.supabase.table(self._table).select("*", count="exact")).execute()
+        count_resp = (
+            self.supabase.table(self._table)
+            .select("*", count="exact")
+            .eq("owner_id", str(owner_id))
+            .execute()
+        )
         total = count_resp.count if hasattr(count_resp, "count") else 0
-        response = apply_filters(self.table.select("*")).order("created_at", desc=True).range(
-            skip, skip + limit - 1
-        ).execute()
+
+        response = (
+            self.table.select("*")
+            .eq("owner_id", str(owner_id))
+            .order("created_at", desc=True)
+            .range(skip, skip + limit - 1)
+            .execute()
+        )
         return response.data or [], total
 
     @with_retry
@@ -281,85 +250,26 @@ class TenantService(BaseService):
         return bool(response.data)
 
 
-class ManagerService(BaseService):
-    def __init__(self, supabase: Client):
-        super().__init__(supabase)
-        self._table = "profiles"
-
-    @with_retry
-    def get_all(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        *,
-        search: str | None = None,
-        user_id: UUID | None = None,
-        email: str | None = None,
-        phone: str | None = None,
-    ) -> tuple[list[dict[str, Any]], int]:
-        def apply_filters(query: Any) -> Any:
-            query = query.eq("role", "house_manager")
-            if user_id:
-                query = query.eq("user_id", str(user_id))
-            if email:
-                query = query.ilike("email", f"%{email}%")
-            if phone:
-                query = query.ilike("phone", f"%{phone}%")
-            return _apply_search(query, ["full_name", "email", "phone"], search)
-
-        count_resp = apply_filters(self.table.select("*", count="exact")).execute()
-        total = count_resp.count if hasattr(count_resp, "count") else 0
-        response = apply_filters(self.table.select("*")).order("created_at", desc=True).range(
-            skip, skip + limit - 1
-        ).execute()
-        return response.data or [], total
-
-
 class LeaseService(BaseService):
     def __init__(self, supabase: Client):
         super().__init__(supabase)
         self._table = "leases"
 
-    def _apply_lease_filters(
-        self,
-        query: Any,
-        *,
-        owner_id: UUID | None = None,
-        tenant_id: UUID | None = None,
-        status: str | None = None,
-        property_id: UUID | None = None,
-        start_from: date | None = None,
-        start_to: date | None = None,
-        end_from: date | None = None,
-        end_to: date | None = None,
-    ) -> Any:
-        if owner_id:
-            query = query.eq("owner_id", str(owner_id))
-        if tenant_id:
-            query = query.eq("tenant_id", str(tenant_id))
-        if status:
-            query = query.eq("status", status)
-        if property_id:
-            query = query.eq("property_id", str(property_id))
-        query = _apply_date_range(query, "start_date", start_from, start_to)
-        return _apply_date_range(query, "end_date", end_from, end_to)
-
     @with_retry
     def get_all_for_tenant(
-        self,
-        tenant_id: UUID,
-        skip: int = 0,
-        limit: int = 100,
-        **filters: Any,
+        self, tenant_id: UUID, skip: int = 0, limit: int = 100
     ) -> tuple[list[dict[str, Any]], int]:
-        count_resp = self._apply_lease_filters(
-            self.supabase.table(self._table).select("*", count="exact"),
-            tenant_id=tenant_id,
-            **filters,
-        ).execute()
+        count_resp = (
+            self.supabase.table(self._table)
+            .select("*", count="exact")
+            .eq("tenant_id", str(tenant_id))
+            .execute()
+        )
         total = count_resp.count if hasattr(count_resp, "count") else 0
+
         response = (
-            self._apply_lease_filters(self.table.select("*"), tenant_id=tenant_id, **filters)
+            self.table.select("*")
+            .eq("tenant_id", str(tenant_id))
             .order("created_at", desc=True)
             .range(skip, skip + limit - 1)
             .execute()
@@ -368,20 +278,19 @@ class LeaseService(BaseService):
 
     @with_retry
     def get_all(
-        self,
-        owner_id: UUID,
-        skip: int = 0,
-        limit: int = 100,
-        **filters: Any,
+        self, owner_id: UUID, skip: int = 0, limit: int = 100
     ) -> tuple[list[dict[str, Any]], int]:
-        count_resp = self._apply_lease_filters(
-            self.supabase.table(self._table).select("*", count="exact"),
-            owner_id=owner_id,
-            **filters,
-        ).execute()
+        count_resp = (
+            self.supabase.table(self._table)
+            .select("*", count="exact")
+            .eq("owner_id", str(owner_id))
+            .execute()
+        )
         total = count_resp.count if hasattr(count_resp, "count") else 0
+
         response = (
-            self._apply_lease_filters(self.table.select("*"), owner_id=owner_id, **filters)
+            self.table.select("*")
+            .eq("owner_id", str(owner_id))
             .order("created_at", desc=True)
             .range(skip, skip + limit - 1)
             .execute()
@@ -403,10 +312,6 @@ class LeaseService(BaseService):
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
         response = self.table.insert(payload).execute()
-        if data.status == "active":
-            self.supabase.table("properties").update({"status": "occupied"}).eq(
-                "id", str(data.property_id)
-            ).execute()
         return response.data[0]
 
     @with_retry
@@ -440,83 +345,20 @@ class PaymentService(BaseService):
         super().__init__(supabase)
         self._table = "payments"
 
-    def _apply_payment_filters(
-        self,
-        query: Any,
-        *,
-        lease_ids: list[str] | None = None,
-        tenant_id: UUID | str | None = None,
-        status: str | None = None,
-        payment_type: str | None = None,
-        payment_method: str | None = None,
-        due_from: date | None = None,
-        due_to: date | None = None,
-        paid_from: date | None = None,
-        paid_to: date | None = None,
-        created_from: date | None = None,
-        created_to: date | None = None,
-    ) -> Any:
-        if lease_ids is not None:
-            query = query.in_("lease_id", lease_ids)
-        if tenant_id:
-            query = query.eq("tenant_id", str(tenant_id))
-        if status:
-            query = query.eq("status", status)
-        if payment_type:
-            query = query.eq("payment_type", payment_type)
-        if payment_method:
-            query = query.eq("payment_method", payment_method)
-        query = _apply_date_range(query, "due_date", due_from, due_to)
-        query = _apply_date_range(query, "paid_date", paid_from, paid_to)
-        return _apply_date_range(query, "created_at", created_from, created_to)
-
-    def _lease_ids_for_owner(self, owner_id: UUID, property_id: UUID | None = None) -> list[str]:
-        query = self.supabase.table("leases").select("id").eq("owner_id", str(owner_id))
-        if property_id:
-            query = query.eq("property_id", str(property_id))
-        leases = query.execute()
-        return [lease["id"] for lease in (leases.data or [])]
-
-    def _lease_ids_for_tenant_property(self, tenant_id: UUID, property_id: UUID | None = None) -> list[str] | None:
-        if not property_id:
-            return None
-        leases = (
-            self.supabase.table("leases")
-            .select("id")
-            .eq("tenant_id", str(tenant_id))
-            .eq("property_id", str(property_id))
-            .execute()
-        )
-        return [lease["id"] for lease in (leases.data or [])]
-
     @with_retry
     def get_all_for_tenant(
-        self,
-        tenant_id: UUID,
-        skip: int = 0,
-        limit: int = 100,
-        *,
-        property_id: UUID | None = None,
-        **filters: Any,
+        self, tenant_id: UUID, skip: int = 0, limit: int = 100
     ) -> tuple[list[dict[str, Any]], int]:
-        requested_lease_ids = filters.pop("lease_ids", None)
-        lease_ids = self._lease_ids_for_tenant_property(tenant_id, property_id)
-        if requested_lease_ids is not None:
-            requested_lease_ids = [str(lease_id) for lease_id in requested_lease_ids]
-            lease_ids = requested_lease_ids if lease_ids is None else [
-                lease_id for lease_id in lease_ids if lease_id in requested_lease_ids
-            ]
-        if lease_ids == []:
-            return [], 0
-        count_resp = self._apply_payment_filters(
-            self.supabase.table(self._table).select("*", count="exact"),
-            tenant_id=tenant_id,
-            lease_ids=lease_ids,
-            **filters,
-        ).execute()
+        count_resp = (
+            self.supabase.table(self._table)
+            .select("*", count="exact")
+            .eq("tenant_id", str(tenant_id))
+            .execute()
+        )
         total = count_resp.count if hasattr(count_resp, "count") else 0
         response = (
-            self._apply_payment_filters(self.table.select("*"), tenant_id=tenant_id, lease_ids=lease_ids, **filters)
+            self.table.select("*")
+            .eq("tenant_id", str(tenant_id))
             .order("created_at", desc=True)
             .range(skip, skip + limit - 1)
             .execute()
@@ -525,31 +367,27 @@ class PaymentService(BaseService):
 
     @with_retry
     def get_all_for_owner(
-        self,
-        owner_id: UUID,
-        skip: int = 0,
-        limit: int = 100,
-        *,
-        property_id: UUID | None = None,
-        tenant_id: UUID | None = None,
-        **filters: Any,
+        self, owner_id: UUID, skip: int = 0, limit: int = 100
     ) -> tuple[list[dict[str, Any]], int]:
-        requested_lease_ids = filters.pop("lease_ids", None)
-        lease_ids = self._lease_ids_for_owner(owner_id, property_id)
-        if requested_lease_ids is not None:
-            requested_lease_ids = [str(lease_id) for lease_id in requested_lease_ids]
-            lease_ids = [lease_id for lease_id in lease_ids if lease_id in requested_lease_ids]
+        leases = (
+            self.supabase.table("leases")
+            .select("id")
+            .eq("owner_id", str(owner_id))
+            .execute()
+        )
+        lease_ids = [lease["id"] for lease in (leases.data or [])]
         if not lease_ids:
             return [], 0
-        count_resp = self._apply_payment_filters(
-            self.supabase.table(self._table).select("*", count="exact"),
-            lease_ids=lease_ids,
-            tenant_id=tenant_id,
-            **filters,
-        ).execute()
+        count_resp = (
+            self.supabase.table(self._table)
+            .select("*", count="exact")
+            .in_("lease_id", lease_ids)
+            .execute()
+        )
         total = count_resp.count if hasattr(count_resp, "count") else 0
         response = (
-            self._apply_payment_filters(self.table.select("*"), lease_ids=lease_ids, tenant_id=tenant_id, **filters)
+            self.table.select("*")
+            .in_("lease_id", lease_ids)
             .order("created_at", desc=True)
             .range(skip, skip + limit - 1)
             .execute()
@@ -558,54 +396,12 @@ class PaymentService(BaseService):
 
     @with_retry
     def get_by_id(self, payment_id: UUID) -> dict[str, Any] | None:
-        response = self.table.select("*").eq("id", str(payment_id)).execute()
+        response = (
+            self.table.select("*")
+            .eq("id", str(payment_id))
+            .execute()
+        )
         return response.data[0] if response.data else None
-
-    @with_retry
-    def get_receipt_data(self, payment_id: UUID) -> ReceiptData | None:
-        payment = self.get_by_id(payment_id)
-        if not payment:
-            return None
-
-        lease_resp = (
-            self.supabase.table("leases")
-            .select("*")
-            .eq("id", str(payment["lease_id"]))
-            .execute()
-        )
-        if not lease_resp.data:
-            return None
-        lease = lease_resp.data[0]
-
-        tenant_resp = (
-            self.supabase.table("tenants")
-            .select("*")
-            .eq("id", str(payment["tenant_id"]))
-            .execute()
-        )
-        property_resp = (
-            self.supabase.table("properties")
-            .select("*")
-            .eq("id", str(lease["property_id"]))
-            .execute()
-        )
-        if not tenant_resp.data or not property_resp.data:
-            return None
-
-        manager_resp = (
-            self.supabase.table("profiles")
-            .select("*")
-            .eq("user_id", str(lease["owner_id"]))
-            .limit(1)
-            .execute()
-        )
-        return ReceiptData(
-            payment=payment,
-            lease=lease,
-            tenant=tenant_resp.data[0],
-            property=property_resp.data[0],
-            manager=manager_resp.data[0] if manager_resp.data else None,
-        )
 
     @with_retry
     def create(self, data: PaymentCreate) -> dict[str, Any]:
@@ -618,7 +414,11 @@ class PaymentService(BaseService):
         payload = data.model_dump(exclude_none=True, mode="json")
         if not payload:
             return self.get_by_id(payment_id)
-        response = self.table.update(payload).eq("id", str(payment_id)).execute()
+        response = (
+            self.table.update(payload)
+            .eq("id", str(payment_id))
+            .execute()
+        )
         return response.data[0] if response.data else None
 
 
@@ -649,7 +449,11 @@ class MaintenanceRequestService(BaseService):
 
     @with_retry
     def get_by_id(self, request_id: UUID) -> dict[str, Any] | None:
-        response = self.table.select("*").eq("id", str(request_id)).execute()
+        response = (
+            self.table.select("*")
+            .eq("id", str(request_id))
+            .execute()
+        )
         return response.data[0] if response.data else None
 
     @with_retry
@@ -665,12 +469,20 @@ class MaintenanceRequestService(BaseService):
         payload = data.model_dump(exclude_none=True, mode="json")
         if not payload:
             return self.get_by_id(request_id)
-        response = self.table.update(payload).eq("id", str(request_id)).execute()
+        response = (
+            self.table.update(payload)
+            .eq("id", str(request_id))
+            .execute()
+        )
         return response.data[0] if response.data else None
 
     @with_retry
     def delete(self, request_id: UUID) -> bool:
-        response = self.table.delete().eq("id", str(request_id)).execute()
+        response = (
+            self.table.delete()
+            .eq("id", str(request_id))
+            .execute()
+        )
         return bool(response.data)
 
 
@@ -680,10 +492,6 @@ def get_property_service(supabase: Client) -> PropertyService:
 
 def get_tenant_service(supabase: Client) -> TenantService:
     return TenantService(supabase)
-
-
-def get_manager_service(supabase: Client) -> ManagerService:
-    return ManagerService(supabase)
 
 
 def get_lease_service(supabase: Client) -> LeaseService:

@@ -1,73 +1,87 @@
-# Welcome to your Lovable project
+# Afodabo Housing
 
-## Project info
+Rental management platform with invite-only registration, role-based access (super_admin → house_manager → tenant), and PesaPal payment integration.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+| Layer    | Technology |
+|----------|-----------|
+| Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui |
+| Backend  | Python, FastAPI |
+| Database | Supabase (PostgreSQL, RLS, Auth) |
+| Payments | PesaPal |
 
-There are several ways of editing your application.
+## Quick Start
 
-**Use Lovable**
+### Backend
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-**Edit a file directly in GitHub**
+Copy `backend/.env.example` to `backend/.env` and fill in your Supabase project credentials.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+uvicorn main:app --reload
+# http://localhost:8000 | docs at /docs
+```
 
-**Use GitHub Codespaces**
+### Frontend
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```bash
+npm install
+npm run dev
+# http://localhost:8080
+```
 
-## What technologies are used for this project?
+## Migrations
 
-This project is built with:
+SQL migrations live in `backend/migrations/` and run in order via the Supabase SQL Editor:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```bash
+# Open Supabase Dashboard → SQL Editor → paste and run each file in order
+backend/migrations/001_initial_schema.sql
+backend/migrations/002_properties_schema.sql
+...
+backend/migrations/011_boosts.sql        # Property boosts (added last)
+```
 
-## How can I deploy this project?
+## Role System
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+| Role | Access |
+|------|--------|
+| `super_admin` | Full access, create managers, dashboard analytics |
+| `house_manager` | CRUD own properties/leases/tenants |
+| `tenant` | View own lease, pay rent, submit maintenance |
 
-## Can I connect a custom domain to my Lovable project?
+- Public signup creates tenant accounts only
+- Super admin creates managers directly (password generated server-side)
+- Managers invite tenants via email token
 
-Yes, you can!
+## Project Structure
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```
+backend/
+  main.py              # FastAPI app, middleware, router registration
+  config.py            # Settings from env vars (pydantic-settings)
+  dependencies/        # Auth guards, Supabase clients
+  routers/             # API route handlers (auth, admin, boosts, properties, ...)
+  models/              # Pydantic models (includes boost models)
+  services/            # Business logic (boost service, crud, scheduler)
+  tests/               # Pytest test suite
+  migrations/          # SQL migrations (applied in order via Supabase SQL Editor)
+    011_boosts.sql     # Property boost table + indexes
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+src/                   # React frontend
+  pages/               # Route pages
+  components/          # Reusable components
+  integrations/        # Supabase client config
+  hooks/               # React hooks
+  lib/                 # Utilities
+
+supabase/
+  migrations/          # SQL migrations (applied in order)
+```

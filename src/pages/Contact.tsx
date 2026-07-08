@@ -20,7 +20,7 @@ const FAQS = [
   },
   {
     q: 'Is Afodabo Housing available across Uganda?',
-    a: 'Yes. We cover all 135 districts of Uganda. You can search by district name in the search bar or browse from the properties page.',
+    a: 'Yes. We cover all states of Uganda. You can search by state name in the search bar or browse from the properties page.',
   },
   {
     q: 'What happens after I upload payment proof?',

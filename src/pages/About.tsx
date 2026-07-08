@@ -25,7 +25,7 @@ const VALUES = [
   {
     icon: <Building2 className="h-7 w-7" />,
     title: 'Nationwide Coverage',
-    desc: 'We cover all 135 districts of Uganda. Whether you are relocating for work, school or family, we have verified listings near you.',
+    desc: 'We cover all states of Uganda. Whether you are relocating for work, school or family, we have verified listings near you.',
   },
 ];
 
@@ -71,7 +71,7 @@ export default function AboutPage() {
               Millions of Ugandans relocate for work, education and family every year. Finding safe, verified and fairly priced accommodation should not be a struggle. We created Afodabo Housing to solve exactly that.
             </p>
             <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-              Our platform connects tenants directly with verified house managers across all 135 districts. No middlemen. No inflated fees. Just honest, transparent housing.
+              Our platform connects tenants directly with verified house managers across all states of Uganda. No middlemen. No inflated fees. Just honest, transparent housing.
             </p>
             <div className="flex flex-wrap gap-3">
               {['135 Districts Covered', 'Verified Listings Only', 'Secure Online Payments', 'Digital Agreements'].map(f => (

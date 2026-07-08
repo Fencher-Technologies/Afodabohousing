@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,6 +21,8 @@ PID_LEASE = "00000000-0000-0000-0000-000000000030"
 PID_PAYMENT = "00000000-0000-0000-0000-000000000040"
 PID_MAINT = "00000000-0000-0000-0000-000000000050"
 PID_PROFILE = "00000000-0000-0000-0000-000000000060"
+PID_BOOST = "00000000-0000-0000-0000-000000000070"
+PID_PROP_2 = "00000000-0000-0000-0000-000000000011"
 
 
 class MockResponse:
@@ -34,7 +35,6 @@ class MockTableBuilder:
     def __init__(self, name):
         self._name = name
         self._filters = {}
-        self._filter_ops = []
         self._inserted = None
         self._updated = None
         self._deleted = False
@@ -44,7 +44,7 @@ class MockTableBuilder:
         self._range_end = 0
         self._select_cols = "*"
         self._count = None
-        self.not_ = MockNotFilter(self)
+        self._maybe_single = False
 
     def select(self, columns="*", count=None):
         self._select_cols = columns
@@ -53,32 +53,6 @@ class MockTableBuilder:
 
     def eq(self, column, value):
         self._filters[column] = value
-        self._filter_ops.append(("eq", column, value))
-        return self
-
-    def gte(self, column, value):
-        self._filter_ops.append(("gte", column, value))
-        return self
-
-    def lte(self, column, value):
-        self._filter_ops.append(("lte", column, value))
-        return self
-
-    def ilike(self, column, pattern):
-        self._filter_ops.append(("ilike", column, pattern))
-        return self
-
-    def is_(self, column, value):
-        self._filter_ops.append(("is", column, value))
-        return self
-
-    def or_(self, expression):
-        self._filter_ops.append(("or", None, expression))
-        return self
-
-    def limit(self, count):
-        self._range_start = 0
-        self._range_end = count - 1
         return self
 
     def order(self, column, desc=False):
@@ -103,9 +77,32 @@ class MockTableBuilder:
         self._deleted = True
         return self
 
+    def gt(self, column, value):
+        self._filters[column] = ("gt", value)
+        return self
+
+    def lt(self, column, value):
+        self._filters[column] = ("lt", value)
+        return self
+
+    def gte(self, column, value):
+        self._filters[column] = ("gte", value)
+        return self
+
+    def lte(self, column, value):
+        self._filters[column] = ("lte", value)
+        return self
+
+    def ilike(self, column, value):
+        self._filters[column] = ("ilike", value)
+        return self
+
+    def maybe_single(self):
+        self._maybe_single = True
+        return self
+
     def in_(self, column, values):
         self._filters[column] = ("in", values)
-        self._filter_ops.append(("in", column, values))
         return self
 
     def execute(self):
@@ -123,6 +120,17 @@ class MockTableBuilder:
                 **self._inserted,
             }
             return MockResponse(data=[record], count=1)
+
+        if self._maybe_single:
+            data = seed[:]
+            for col, val in self._filters.items():
+                if isinstance(val, tuple):
+                    op, arg = val
+                    if op == "eq":
+                        data = [d for d in data if d.get(col) == arg]
+                else:
+                    data = [d for d in data if d.get(col) == val]
+            return MockResponse(data=data[0] if data else None, count=len(data))
 
         if self._deleted or self._updated:
             def _matches(d):
@@ -144,34 +152,24 @@ class MockTableBuilder:
                 return MockResponse(data=[updated], count=1)
 
         data = seed[:]
-        for op, col, val in self._filter_ops:
-            if op == "eq":
+        for col, val in self._filters.items():
+            if isinstance(val, tuple):
+                op, arg = val
+                if op == "in":
+                    data = [d for d in data if d.get(col) in arg]
+                elif op == "gt":
+                    data = [d for d in data if d.get(col, "") > arg]
+                elif op == "lt":
+                    data = [d for d in data if d.get(col, "") < arg]
+                elif op == "gte":
+                    data = [d for d in data if d.get(col, "") >= arg]
+                elif op == "lte":
+                    data = [d for d in data if d.get(col, "") <= arg]
+                elif op == "ilike":
+                    pattern = arg.replace("%", "").lower()
+                    data = [d for d in data if pattern in str(d.get(col, "")).lower()]
+            else:
                 data = [d for d in data if d.get(col) == val]
-            elif op == "in":
-                data = [d for d in data if d.get(col) in val]
-            elif op == "gte":
-                data = [d for d in data if d.get(col) is not None and d.get(col) >= val]
-            elif op == "lte":
-                data = [d for d in data if d.get(col) is not None and d.get(col) <= val]
-            elif op == "ilike":
-                needle = str(val).strip("%").lower()
-                data = [d for d in data if needle in str(d.get(col) or "").lower()]
-            elif op == "is":
-                if val == "null":
-                    data = [d for d in data if d.get(col) is None]
-            elif op == "not_is":
-                if val == "null":
-                    data = [d for d in data if d.get(col) is not None]
-            elif op == "or":
-                parsed = []
-                for part in val.split(","):
-                    pieces = part.split(".ilike.", 1)
-                    if len(pieces) == 2:
-                        parsed.append((pieces[0], pieces[1].strip("%").lower()))
-                data = [
-                    d for d in data
-                    if any(needle in str(d.get(field) or "").lower() for field, needle in parsed)
-                ]
 
         count = len(data)
         if self._count == "exact":
@@ -189,13 +187,13 @@ class MockTableBuilder:
                 {
                     "id": PID_PROP,
                     "owner_id": UID_OWNER,
-                    "title": "Sample Property",
+                    "title": "Main St House",
                     "address": "123 Main St",
                     "city": "Kampala",
                     "state": "Central",
                     "zip_code": "12345",
                     "country": "UG",
-                    "property_type": "Residential",
+                    "property_type": "house",
                     "bedrooms": 3,
                     "bathrooms": 2.0,
                     "square_feet": 1500,
@@ -210,50 +208,44 @@ class MockTableBuilder:
                     "updated_at": "2026-01-01T00:00:00Z",
                 },
                 {
-                    "id": "00000000-0000-0000-0000-000000000011",
+                    "id": PID_PROP_2,
                     "owner_id": UID_OWNER,
-                    "title": "Kololo Office Suite",
-                    "address": "1 Corporate Rd",
+                    "title": "Second St Apartment",
+                    "address": "456 Second St",
                     "city": "Kampala",
                     "state": "Central",
-                    "zip_code": "00000",
+                    "zip_code": "12345",
                     "country": "UG",
-                    "property_type": "Office Space",
-                    "bedrooms": 0,
+                    "property_type": "apartment",
+                    "bedrooms": 2,
                     "bathrooms": 1.0,
                     "square_feet": 900,
-                    "monthly_rent": 2500000,
-                    "security_deposit": 2500000,
+                    "monthly_rent": 800000,
+                    "security_deposit": 800000,
                     "status": "available",
-                    "description": "Office near Kololo",
-                    "amenities": ["parking"],
+                    "description": "Nice apartment",
+                    "amenities": ["water"],
                     "images": [],
                     "is_active": True,
                     "created_at": "2026-02-01T00:00:00Z",
                     "updated_at": "2026-02-01T00:00:00Z",
                 },
+            ]
+        if self._name == "property_boosts":
+            return [
                 {
-                    "id": "00000000-0000-0000-0000-000000000012",
-                    "owner_id": UID_OWNER,
-                    "title": "Inactive Entebbe Home",
-                    "address": "2 Lake Rd",
-                    "city": "Entebbe",
-                    "state": "Central",
-                    "zip_code": "00000",
-                    "country": "UG",
-                    "property_type": "Residential",
-                    "bedrooms": 2,
-                    "bathrooms": 1.0,
-                    "square_feet": 800,
-                    "monthly_rent": 900000,
-                    "security_deposit": 900000,
-                    "status": "inactive",
-                    "description": "Hidden listing",
-                    "amenities": [],
-                    "images": [],
-                    "is_active": False,
-                    "created_at": "2026-03-01T00:00:00Z",
-                    "updated_at": "2026-03-01T00:00:00Z",
+                    "id": PID_BOOST,
+                    "property_id": PID_PROP_2,
+                    "manager_id": UID_OWNER,
+                    "amount_paid": 70000,
+                    "duration_days": 7,
+                    "started_at": "2026-07-01T00:00:00Z",
+                    "expires_at": "2126-07-08T00:00:00Z",  # far future so test never expires
+                    "status": "active",
+                    "transaction_id": None,
+                    "payment_method": None,
+                    "created_at": "2026-07-01T00:00:00Z",
+                    "updated_at": "2026-07-01T00:00:00Z",
                 },
             ]
         if self._name == "tenants":
@@ -269,19 +261,7 @@ class MockTableBuilder:
                     "status": "active",
                     "created_at": "2026-01-01T00:00:00Z",
                     "updated_at": "2026-01-01T00:00:00Z",
-                },
-                {
-                    "id": "00000000-0000-0000-0000-000000000021",
-                    "owner_id": UID_OWNER,
-                    "user_id": None,
-                    "first_name": "Jane",
-                    "last_name": "Inactive",
-                    "email": "jane@example.com",
-                    "phone": "+256711111111",
-                    "status": "inactive",
-                    "created_at": "2026-02-01T00:00:00Z",
-                    "updated_at": "2026-02-01T00:00:00Z",
-                },
+                }
             ]
         if self._name == "leases":
             return [
@@ -298,21 +278,7 @@ class MockTableBuilder:
                     "terms": None,
                     "created_at": "2026-01-01T00:00:00Z",
                     "updated_at": "2026-01-01T00:00:00Z",
-                },
-                {
-                    "id": "00000000-0000-0000-0000-000000000031",
-                    "owner_id": UID_OWNER,
-                    "property_id": "00000000-0000-0000-0000-000000000011",
-                    "tenant_id": PID_TENANT,
-                    "start_date": "2026-02-01",
-                    "end_date": "2026-08-31",
-                    "monthly_rent": 2500000,
-                    "security_deposit": 2500000,
-                    "status": "active",
-                    "terms": None,
-                    "created_at": "2026-02-01T00:00:00Z",
-                    "updated_at": "2026-02-01T00:00:00Z",
-                },
+                }
             ]
         if self._name == "payments":
             return [
@@ -330,56 +296,8 @@ class MockTableBuilder:
                     "notes": None,
                     "created_at": "2026-02-01T00:00:00Z",
                     "updated_at": "2026-02-01T00:00:00Z",
-                },
-                {
-                    "id": "00000000-0000-0000-0000-000000000041",
-                    "lease_id": "00000000-0000-0000-0000-000000000031",
-                    "tenant_id": PID_TENANT,
-                    "amount": 2500000,
-                    "payment_type": "rent",
-                    "payment_method": "bank",
-                    "status": "pending",
-                    "due_date": "2026-03-10",
-                    "paid_date": None,
-                    "transaction_id": "txn-002",
-                    "notes": None,
-                    "created_at": "2026-03-01T00:00:00Z",
-                    "updated_at": "2026-03-01T00:00:00Z",
-                },
-            ]
-        if self._name == "agreement_documents":
-            return [
-                {
-                    "id": "00000000-0000-0000-0000-000000000070",
-                    "lease_id": PID_LEASE,
-                    "uploaded_by": UID_OWNER,
-                    "file_name": "tenancy-agreement.pdf",
-                    "file_mime_type": "application/pdf",
-                    "file_size": 128,
-                    "storage_path": f"{PID_LEASE}/aaaaaaaaaaaaaaaa-tenancy-agreement.pdf",
-                    "agreement_url": "https://storage.example.com/tenancy-agreement.pdf",
-                    "agreement_hash": "a" * 64,
-                    "created_at": "2026-04-01T00:00:00Z",
                 }
             ]
-        if self._name == "agreement_consents":
-            return [
-                {
-                    "id": "00000000-0000-0000-0000-000000000071",
-                    "lease_id": PID_LEASE,
-                    "agreement_document_id": "00000000-0000-0000-0000-000000000070",
-                    "agreement_hash": "a" * 64,
-                    "party_role": "manager",
-                    "user_id": UID_OWNER,
-                    "consent_status": True,
-                    "consented_at": "2026-04-01T01:00:00Z",
-                    "ip_address": "127.0.0.1",
-                    "user_agent": "pytest",
-                    "created_at": "2026-04-01T01:00:00Z",
-                }
-            ]
-        if self._name == "agreement_audit_logs":
-            return []
         if self._name == "maintenance_requests":
             return [
                 {
@@ -404,73 +322,24 @@ class MockTableBuilder:
                     "id": PID_PROFILE,
                     "user_id": UID_OWNER,
                     "email": "test@test.com",
-                    "role": "admin",
+                    "role": "super_admin",
                     "full_name": "Test User",
+                    "status": "active",
                     "created_at": "2026-01-01T00:00:00Z",
                     "updated_at": "2026-01-01T00:00:00Z",
-                },
-                {
-                    "id": "00000000-0000-0000-0000-000000000061",
-                    "user_id": "00000000-0000-0000-0000-000000000004",
-                    "email": "manager@example.com",
-                    "role": "house_manager",
-                    "full_name": "Mary Manager",
-                    "phone": "+256755555555",
-                    "avatar_url": None,
-                    "created_at": "2026-02-01T00:00:00Z",
-                    "updated_at": "2026-02-01T00:00:00Z",
-                },
+                }
             ]
         return []
-
-
-class MockNotFilter:
-    def __init__(self, builder):
-        self._builder = builder
-
-    def is_(self, column, value):
-        self._builder._filter_ops.append(("not_is", column, value))
-        return self._builder
-
-
-class MockStorageBucket:
-    def __init__(self, bucket):
-        self.bucket = bucket
-
-    def upload(self, path, file_bytes, options=None):
-        mock = MagicMock()
-        mock.path = path
-        mock.file_bytes = file_bytes
-        mock.options = options or {}
-        return mock
-
-    def create_signed_url(self, path, expires_in):
-        _ = expires_in
-        mock = MagicMock()
-        mock.signedURL = f"https://storage.example.com/{self.bucket}/{path}"
-        return mock
-
-    def get_public_url(self, path):
-        return f"https://storage.example.com/{self.bucket}/{path}"
-
-
-class MockStorage:
-    def from_(self, bucket):
-        return MockStorageBucket(bucket)
 
 
 class MockSupabaseClient:
     def table(self, name):
         return MockTableBuilder(name)
 
-    @property
-    def storage(self):
-        return MockStorage()
-
     def rpc(self, name, params=None):
         mock = MagicMock()
         if name == "get_user_role":
-            mock.execute.return_value = MockResponse(data=["admin"])
+            mock.execute.return_value = MockResponse(data=["super_admin"])
         else:
             mock.execute.return_value = MockResponse(data=[])
         return mock
@@ -499,7 +368,7 @@ def test_user() -> CurrentUser:
 
 @pytest.fixture
 def admin_user() -> CurrentUser:
-    return CurrentUser(id=UID_ADMIN, email="admin@test.com", role="admin")
+    return CurrentUser(id=UID_ADMIN, email="admin@test.com", role="super_admin", status="active")
 
 
 @pytest.fixture

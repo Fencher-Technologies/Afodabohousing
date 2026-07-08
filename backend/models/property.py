@@ -1,11 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
-
-PropertyType = Literal["Residential", "Office Space"]
 
 
 class Property(BaseModel):
@@ -18,7 +15,7 @@ class Property(BaseModel):
     state: str
     zip_code: str
     country: str | None = None
-    property_type: PropertyType
+    property_type: str
     bedrooms: int
     bathrooms: float
     square_feet: int | None = None
@@ -36,13 +33,13 @@ class Property(BaseModel):
 
 
 class PropertyCreate(BaseModel):
-    title: str | None = None
+    title: str
     address: str
     city: str
     state: str
     zip_code: str
     country: str | None = None
-    property_type: PropertyType
+    property_type: str
     bedrooms: int = 1
     bathrooms: float = 1.0
     square_feet: int | None = None
@@ -64,7 +61,7 @@ class PropertyUpdate(BaseModel):
     state: str | None = None
     zip_code: str | None = None
     country: str | None = None
-    property_type: PropertyType | None = None
+    property_type: str | None = None
     bedrooms: int | None = None
     bathrooms: float | None = None
     square_feet: int | None = None
@@ -89,7 +86,7 @@ class PropertyResponse(BaseModel):
     state: str
     zip_code: str
     country: str | None = None
-    property_type: PropertyType
+    property_type: str
     bedrooms: int
     bathrooms: float
     square_feet: int | None = None
