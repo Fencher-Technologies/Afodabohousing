@@ -27,14 +27,14 @@ __all__ = [
     "get_boost_service",
     "PropertyService",
     "TenantService",
-    "ManagerService",
+    
     "LeaseService",
     "PaymentService",
     "MaintenanceRequestService",
     "AgreementService",
     "get_property_service",
     "get_tenant_service",
-    "get_manager_service",
+    
     "get_lease_service",
     "get_payment_service",
     "get_maintenance_request_service",

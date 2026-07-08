@@ -7,7 +7,7 @@ from supabase import Client
 
 from dependencies import CurrentUser, get_current_user, get_supabase_client
 from models import ProfileResponse
-from services import ManagerService, get_manager_service
+
 
 router = APIRouter(prefix="/managers", tags=["managers"])
 
