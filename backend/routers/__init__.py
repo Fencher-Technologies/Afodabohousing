@@ -13,17 +13,17 @@ from .uploads import router as uploads_router
 from .webhooks import router as webhooks_router
 
 __all__ = [
-    "auth_router",
     "agreements_router",
+    "auth_router",
     "leases_router",
     "maintenance_requests_router",
     "managers_router",
     "messages_router",
+    "notifications_router",
     "payments_router",
     "properties_router",
     "rental_units_router",
     "tenants_router",
     "uploads_router",
     "webhooks_router",
-    "notifications_router",
 ]
