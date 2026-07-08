@@ -10,6 +10,7 @@ from .rental_units import router as rental_units_router
 from .tenants import router as tenants_router
 from .uploads import router as uploads_router
 from .webhooks import router as webhooks_router
+from .notifications import router as notifications_router
 
 __all__ = [
     "auth_router",
@@ -24,4 +25,5 @@ __all__ = [
     "tenants_router",
     "uploads_router",
     "webhooks_router",
+    "notifications_router",
 ]

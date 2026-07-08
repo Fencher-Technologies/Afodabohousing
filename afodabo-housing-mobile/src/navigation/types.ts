@@ -3,6 +3,7 @@ export type RootStackParamList = {
   Contact: undefined;
   EditProfile: undefined;
   Login: undefined;
+  Notifications: undefined;
   ManagerConversation: { participantId: string };
   ManagerCreateProperty: undefined;
   ManagerCreateTenancy: undefined;

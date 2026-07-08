@@ -37,8 +37,11 @@ import { RoleUnavailableScreen } from '../screens/role-unavailable-screen';
 import { TenantDashboardScreen } from '../screens/tenant-dashboard-screen';
 import { TenantConversationScreen } from '../screens/tenant-conversation-screen';
 import { TenantMessagesScreen } from '../screens/tenant-messages-screen';
+import { useTenantMessages } from '../hooks/tenant/use-tenant-messages';
 import { TenantPaymentsScreen } from '../screens/tenant-payments-screen';
 import { TermsScreen } from '../screens/terms-screen';
+import { NotificationBell } from '../components/notification-bell';
+import { NotificationsScreen } from '../screens/notifications-screen';
 import type { RootStackParamList } from './types';
 
 const RootStack = createStackNavigator<RootStackParamList>();
@@ -128,6 +131,12 @@ function GuestTabs() {
 
 function TenantTabs() {
   const tabScreenOptions = useTabScreenOptions();
+  const { user } = useAuth();
+  const messagesQuery = useTenantMessages(user?.id);
+  const unreadCount = messagesQuery.conversations.reduce(
+    (sum, c) => sum + c.unreadCount,
+    0,
+  );
 
   return (
     <Tab.Navigator initialRouteName="Dashboard" screenOptions={tabScreenOptions}>
@@ -137,6 +146,7 @@ function TenantTabs() {
         options={{
           title: 'Dashboard',
           tabBarLabel: 'Dashboard',
+          headerRight: () => <NotificationBell />,
           tabBarIcon: ({ color, size }) => (
             <Ionicons color={color} name="grid-outline" size={size} />
           ),
@@ -167,6 +177,7 @@ function TenantTabs() {
         component={TenantMessagesScreen}
         options={{
           title: 'Messages',
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarIcon: ({ color, size }) => (
             <Ionicons color={color} name="chatbubble-ellipses-outline" size={size} />
           ),
@@ -196,6 +207,7 @@ function ManagerTabs() {
         component={ManagerDashboardScreen}
         options={{
           title: 'Dashboard',
+          headerRight: () => <NotificationBell />,
           tabBarIcon: ({ color, size }) => (
             <Ionicons color={color} name="grid-outline" size={size} />
           ),
@@ -457,6 +469,11 @@ export function AppNavigator() {
           component={TermsScreen}
           name="Terms"
           options={{ title: 'Terms of Service' }}
+        />
+        <RootStack.Screen
+          component={NotificationsScreen}
+          name="Notifications"
+          options={{ title: 'Notifications' }}
         />
       </RootStack.Navigator>
     </NavigationContainer>

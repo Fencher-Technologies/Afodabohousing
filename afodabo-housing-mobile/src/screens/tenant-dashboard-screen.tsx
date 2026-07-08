@@ -16,6 +16,7 @@ import {
 import { Badge } from '../components/badge';
 import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
+import { SegmentedControl } from '../components/segmented-control';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
 import { ScrollableScreenContainer } from '../components/scrollable-screen-container';
@@ -41,8 +42,6 @@ const dashboardPalette = {
   alertWarningBackground: '#F4EBD9',
   alertWarningBorder: '#E2C88F',
   paymentsIconBackground: '#FBEADF',
-  quickActionBackground: '#F5EEE0',
-  quickActionBorder: '#E5D2A7',
   sectionIconBackground: '#E9F0EC',
   unreadBannerBackground: '#EEF6F1',
   unreadBannerBorder: '#C8DED1',
@@ -325,20 +324,15 @@ export function TenantDashboardScreen() {
         />
       }
     >
-      <View style={styles.headerActions}>
-        <Button
-          onPress={() => setSelectedView('overview')}
-          variant={selectedView === 'overview' ? 'primary' : 'outline'}
-        >
-          Overview
-        </Button>
-        <Button
-          onPress={() => setSelectedView('payments')}
-          variant={selectedView === 'payments' ? 'primary' : 'outline'}
-        >
-          Payments
-        </Button>
-      </View>
+      <SegmentedControl
+        onChange={setSelectedView}
+        options={[
+          { label: 'Overview', value: 'overview' },
+          { label: 'Payments', value: 'payments' },
+        ]}
+        value={selectedView}
+        variant="pills"
+      />
 
       {selectedView === 'overview' ? (
         <>
@@ -435,32 +429,6 @@ export function TenantDashboardScreen() {
               </View>
             </View>
           ) : null}
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Quick Actions</Text>
-            <View style={styles.quickActionsGrid}>
-              <Pressable onPress={handleUpload} style={styles.quickActionCard}>
-                <Feather color={colors.primary} name="upload" size={24} />
-                <Text style={styles.quickActionTitle}>Upload Proof</Text>
-                <Text style={styles.quickActionText}>Submit payment confirmation</Text>
-              </Pressable>
-              <Pressable onPress={handlePayOnline} style={styles.quickActionCard}>
-                <Feather color={colors.primary} name="credit-card" size={24} />
-                <Text style={styles.quickActionTitle}>Pay Online</Text>
-                <Text style={styles.quickActionText}>Mobile money or card</Text>
-              </Pressable>
-              <Pressable onPress={() => jumpToTab('Messages')} style={styles.quickActionCard}>
-                <Feather color={colors.primary} name="message-square" size={24} />
-                <Text style={styles.quickActionTitle}>Message Manager</Text>
-                <Text style={styles.quickActionText}>Send or read messages</Text>
-              </Pressable>
-              <Pressable onPress={() => jumpToTab('Explore')} style={styles.quickActionCard}>
-                <Feather color={colors.primary} name="home" size={24} />
-                <Text style={styles.quickActionTitle}>Browse Homes</Text>
-                <Text style={styles.quickActionText}>Find a property</Text>
-              </Pressable>
-            </View>
-          </View>
 
           {activeTenancy ? (
             <View style={styles.card}>
@@ -785,11 +753,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     justifyContent: 'space-between',
   },
-  headerActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
   historyActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -875,31 +838,6 @@ const styles = StyleSheet.create({
     backgroundColor: dashboardPalette.paymentsIconBackground,
   },
   propertyName: {
-    color: colors.textPrimary,
-    fontFamily: typography.bodyStrong,
-    fontSize: 15,
-  },
-  quickActionCard: {
-    backgroundColor: dashboardPalette.quickActionBackground,
-    borderColor: dashboardPalette.quickActionBorder,
-    borderRadius: radii.card,
-    borderWidth: 1,
-    flexBasis: '48%',
-    gap: 6,
-    padding: spacing.md,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  quickActionText: {
-    color: colors.textSecondary,
-    fontFamily: typography.body,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  quickActionTitle: {
     color: colors.textPrimary,
     fontFamily: typography.bodyStrong,
     fontSize: 15,

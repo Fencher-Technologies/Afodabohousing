@@ -213,6 +213,7 @@ export function ManagerDashboardScreen() {
           { label: 'Payments', value: 'payments' },
         ]}
         value={selectedView}
+        variant="pills"
       />
 
       {selectedView === 'overview' ? (

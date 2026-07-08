@@ -31,9 +31,3 @@ mobile/android/
 mobile/ios/
 
 __pycache__/
-
-# Coverage reports (auto-generated)
-coverage/
-*.lcov
-coverage-final.json
-clover.xml

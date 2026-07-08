@@ -21,6 +21,7 @@ from routers import (
     maintenance_requests_router,
     managers_router,
     messages_router,
+    notifications_router,
     payments_router,
     properties_router,
     rental_units_router,
@@ -338,6 +339,7 @@ app.include_router(rental_units_router)
 app.include_router(maintenance_requests_router)
 app.include_router(uploads_router)
 app.include_router(webhooks_router)
+app.include_router(notifications_router)
 
 
 @app.get("/health")
