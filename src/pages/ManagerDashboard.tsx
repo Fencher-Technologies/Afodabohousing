@@ -19,7 +19,7 @@ import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload, MessageSquare,
   TrendingUp, Send, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
-  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2
+  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2, ArrowLeft
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
@@ -81,6 +81,13 @@ export default function ManagerDashboard() {
 const [composeVoiceUrl, setComposeVoiceUrl] = useState<string | null>(null);
 const [replyVoiceUrl, setReplyVoiceUrl] = useState<string | null>(null);
 const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+const [selectedConv, setSelectedConv] = useState<string | null>(null);
+const [selectedConvName, setSelectedConvName] = useState('');
+const [selectedConvProperty, setSelectedConvProperty] = useState('');
+const [selectedConvReceiverId, setSelectedConvReceiverId] = useState('');
+const [threadText, setThreadText] = useState('');
+const [threadVoiceUrl, setThreadVoiceUrl] = useState<string | null>(null);
+const [threadSending, setThreadSending] = useState(false);
 const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
   const [form, setForm] = useState({
@@ -384,10 +391,24 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
     setSendingAction('');
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Reply sent!' });
+    const newReply = {
+      id: 'temp-' + Date.now(),
+      sender_id: user.id,
+      receiver_id: replyDialog.receiverId,
+      property_id: replyDialog.propertyId || null,
+      content: replyText.trim() || null,
+      voice_note_url: replyVoiceUrl,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      profiles: { full_name: user.email?.split('@')[0] || 'You' },
+      sender_name: 'You',
+      receiver_name: replyDialog.name,
+      property_title: '',
+    };
+    setMessages(prev => [...prev, newReply]);
     setReplyText('');
     setReplyVoiceUrl(null);
     setReplyDialog({ open: false, receiverId: '', name: '' });
-    fetchData();
   };
 
   const handleCompose = async (e: React.FormEvent) => {
@@ -407,11 +428,57 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
     setSendingAction('');
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Message sent!' });
+    const newMsg = {
+      id: 'temp-' + Date.now(),
+      sender_id: user.id,
+      receiver_id: receiverId,
+      property_id: composeDialog.propertyId || null,
+      content: composeText.trim() || null,
+      voice_note_url: composeVoiceUrl,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      profiles: { full_name: user.email?.split('@')[0] || 'You' },
+      sender_name: 'You',
+      receiver_name: composeDialog.tenantName,
+      property_title: '',
+    };
+    setMessages(prev => [...prev, newMsg]);
     setComposeText('');
     setComposeVoiceUrl(null);
     setComposePropId('');
     setComposeDialog({ open: false, tenantId: '', tenantName: '' });
-    fetchData();
+  };
+
+  const handleThreadSend = async () => {
+    if (!user || !selectedConvReceiverId || (!threadText.trim() && !threadVoiceUrl)) return;
+    setThreadSending(true);
+    const { error } = await supabase.from('messages').insert({
+      sender_id: user.id,
+      receiver_id: selectedConvReceiverId,
+      property_id: null,
+      content: threadText.trim() || null,
+      voice_note_url: threadVoiceUrl,
+    });
+    setThreadSending(false);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Sent!' });
+    const newMsg = {
+      id: 'temp-' + Date.now(),
+      sender_id: user.id,
+      receiver_id: selectedConvReceiverId,
+      property_id: null,
+      content: threadText.trim() || null,
+      voice_note_url: threadVoiceUrl,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      profiles: { full_name: user.email?.split('@')[0] || 'You' },
+      sender_name: 'You',
+      receiver_name: selectedConvName,
+      property_title: selectedConvProperty,
+    };
+    setMessages(prev => [...prev, newMsg]);
+    setThreadText('');
+    setThreadVoiceUrl(null);
   };
 
   const markMessageRead = async (msgId: string) => {
@@ -1037,67 +1104,131 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
 
             {/* MESSAGES */}
             {tab === 'messages' && (
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-display font-bold text-xl">Messages</h2>
-                    <p className="text-sm text-muted-foreground">{unreadMessages} unread · conversations with tenants</p>
-                  </div>
-                  {leases.filter(t => t.status === 'active').length > 0 && (
-                    <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => {
-                      const active = leases.find(t => t.status === 'active');
-                      if (active) { setComposeDialog({ open: true, tenantId: active.tenant_id, tenantName: active.tenant_name || 'Tenant', propertyId: active.property_id }); setComposePropId(active.property_id); }
-                    }}>
-                      <Pencil className="h-3.5 w-3.5" /> New Message
-                    </Button>
-                  )}
-                </div>
-
-                {/* Group messages by counterpart */}
-                {messages.length === 0 ? (
-                  <div className="text-center py-24 bg-card border border-border rounded-2xl">
-                    <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground/20" />
-                    <p className="text-xl font-display font-bold text-foreground">No messages yet</p>
-                    <p className="text-sm mt-2 text-muted-foreground">Messages from tenants will appear here</p>
+              <>
+                {selectedConv ? (
+                  <div className="flex flex-col h-[calc(100vh-12rem)]">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card sticky top-0 z-10">
+                      <button onClick={() => { setSelectedConv(null); setSelectedConvReceiverId(''); }} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+                        <ArrowLeft className="h-5 w-5" />
+                      </button>
+                      <div className="h-9 w-9 rounded-xl bg-accent/10 text-accent font-bold flex items-center justify-center text-sm">
+                        {(selectedConvName || 'T').charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate">{selectedConvName}</p>
+                        {selectedConvProperty && <p className="text-xs text-muted-foreground truncate">{selectedConvProperty}</p>}
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                      {messages.filter(m => (m.sender_id === user?.id && m.receiver_id === selectedConv) || (m.sender_id === selectedConv && m.receiver_id === user?.id)).map(m => {
+                        const isMe = m.sender_id === user?.id;
+                        return (
+                          <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${isMe ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted text-foreground rounded-bl-md'}`}>
+                              {m.content && <p className="text-sm">{m.content}</p>}
+                              {m.voice_note_url && <audio src={m.voice_note_url} controls className="h-8 mt-1" />}
+                              <p className={`text-xs mt-1 opacity-60 ${isMe ? 'text-right' : 'text-left'}`}>
+                                {format(new Date(m.created_at), 'h:mm a')}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="sticky bottom-0 bg-card border-t border-border p-3">
+                      <div className="flex gap-2 max-w-lg mx-auto w-full">
+                        <Input value={threadText} onChange={e => setThreadText(e.target.value)}
+                          placeholder="Type a message..." className="rounded-xl h-11"
+                          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleThreadSend())} />
+                        <VoiceRecorder onRecordingComplete={setThreadVoiceUrl} onClear={() => setThreadVoiceUrl(null)} audioUrl={threadVoiceUrl} />
+                        <Button onClick={handleThreadSend} disabled={threadSending || (!threadText.trim() && !threadVoiceUrl)}
+                          className="rounded-xl h-11 w-11 p-0"><Send className="h-4 w-4" /></Button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
-                  <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-card">
-                    {messages.map(m => {
-                      const isFromTenant = m.sender_id !== user?.id;
-                      const counterpartName = isFromTenant ? m.sender_name : m.receiver_name;
-                      const counterpartId = isFromTenant ? m.sender_id : m.receiver_id;
-                      return (
-                        <div key={m.id} className={`flex items-start gap-4 p-5 border-b border-border last:border-0 hover:bg-muted/20 transition-colors ${!m.is_read && isFromTenant ? 'bg-primary/5' : ''}`}>
-                          <div className={`h-10 w-10 rounded-xl font-bold text-sm flex items-center justify-center shrink-0 ${isFromTenant ? 'bg-accent/10 text-accent' : 'gradient-primary text-primary-foreground'}`}>
-                            {(counterpartName || 'T').charAt(0)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-semibold text-foreground text-sm">{isFromTenant ? counterpartName : `You → ${counterpartName}`}</span>
-                              {!m.is_read && isFromTenant && <span className="bg-primary text-primary-foreground text-xs font-bold px-1.5 py-0.5 rounded-full">New</span>}
-                              {m.property_title && <span className="text-xs text-muted-foreground hidden sm:inline">· {m.property_title}</span>}
-                            </div>
-                            {m.content && <p className="text-sm text-muted-foreground leading-relaxed">{m.content}</p>}
-                            {m.voice_note_url && <audio src={m.voice_note_url} controls className="h-8 mt-1" />}
-                            <p className="text-xs text-muted-foreground/50 mt-1.5">{format(new Date(m.created_at), 'MMM dd, yyyy · HH:mm')}</p>
-                          </div>
-                          <div className="flex gap-2 shrink-0">
-                            {!m.is_read && isFromTenant && (
-                              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => markMessageRead(m.id)}>Mark read</Button>
-                            )}
-                            {isFromTenant && (
-                              <Button size="sm" className="gradient-primary text-primary-foreground h-7 text-xs gap-1"
-                                onClick={() => { setReplyDialog({ open: true, receiverId: counterpartId, name: counterpartName || 'Tenant', propertyId: m.property_id || undefined }); if (!m.is_read) markMessageRead(m.id); }}>
-                                <Send className="h-3 w-3" />Reply
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="font-display font-bold text-xl">Messages</h2>
+                        <p className="text-sm text-muted-foreground">{unreadMessages} unread · {(() => {
+                          const seen = new Set<string>();
+                          messages.forEach(m => {
+                            const id = m.sender_id === user?.id ? m.receiver_id : m.sender_id;
+                            seen.add(id);
+                          });
+                          return seen.size;
+                        })()} conversations</p>
+                      </div>
+                      {leases.filter(t => t.status === 'active').length > 0 && (
+                        <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => {
+                          const active = leases.find(t => t.status === 'active');
+                          if (active) { setComposeDialog({ open: true, tenantId: active.tenant_id, tenantName: active.tenant_name || 'Tenant', propertyId: active.property_id }); setComposePropId(active.property_id); }
+                        }}>
+                          <Pencil className="h-3.5 w-3.5" /> New Message
+                        </Button>
+                      )}
+                    </div>
+
+                    {messages.length === 0 ? (
+                      <div className="text-center py-24 bg-card border border-border rounded-2xl">
+                        <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground/20" />
+                        <p className="text-xl font-display font-bold text-foreground">No messages yet</p>
+                        <p className="text-sm mt-2 text-muted-foreground">Messages from tenants will appear here</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {(() => {
+                          const groups: Record<string, { name: string; property: string; messages: typeof messages; unread: number }> = {};
+                          messages.forEach(m => {
+                            const isFromTenant = m.sender_id !== user?.id;
+                            const cId = isFromTenant ? m.sender_id : m.receiver_id;
+                            const cName = isFromTenant ? m.sender_name : m.receiver_name;
+                            if (!groups[cId]) groups[cId] = { name: cName || 'Unknown', property: m.property_title || '', messages: [], unread: 0 };
+                            groups[cId].messages.push(m);
+                            if (!groups[cId].property && m.property_title) groups[cId].property = m.property_title;
+                            if (!m.is_read && isFromTenant) groups[cId].unread++;
+                          });
+                          return Object.entries(groups).sort((a, b) => {
+                            const aLast = a[1].messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, a[1].messages[0]);
+                            const bLast = b[1].messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, b[1].messages[0]);
+                            return new Date(bLast.created_at).getTime() - new Date(aLast.created_at).getTime();
+                          }).map(([cId, group]) => {
+                            const lastMsg = group.messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, group.messages[0]);
+                            return (
+                              <button key={cId} onClick={() => {
+                                setSelectedConv(cId);
+                                setSelectedConvName(group.name);
+                                setSelectedConvProperty(group.property);
+                                setSelectedConvReceiverId(cId);
+                                // Mark all unread from this conversation as read
+                                group.messages.filter(m => !m.is_read && m.sender_id !== user?.id).forEach(m => markMessageRead(m.id));
+                              }}
+                                className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-2xl hover:shadow-sm transition-all text-left">
+                                <div className={`h-11 w-11 rounded-xl font-bold text-sm flex items-center justify-center shrink-0 ${group.unread > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                  {(group.name || 'T').charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-sm ${group.unread > 0 ? 'font-bold text-foreground' : 'font-semibold text-foreground'}`}>{group.name}</span>
+                                    {group.unread > 0 && <span className="h-2 w-2 rounded-full bg-primary" />}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground truncate">{group.property}</p>
+                                  <p className="text-xs text-muted-foreground truncate mt-0.5">{lastMsg.content || (lastMsg.voice_note_url ? '🎤 Voice note' : '')}</p>
+                                </div>
+                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                  <span className="text-xs text-muted-foreground">{format(new Date(lastMsg.created_at), 'MMM dd')}</span>
+                                  {group.unread > 0 && <span className="text-xs font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full min-w-[20px] text-center">{group.unread}</span>}
+                                </div>
+                              </button>
+                            );
+                          });
+                        })()}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </main>

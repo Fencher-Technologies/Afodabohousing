@@ -16,6 +16,7 @@ from routers import (
     admin_router,
     auth_router,
     boosts_router,
+    exports_router,
     leases_router,
     maintenance_requests_router,
     messages_router,
@@ -185,6 +186,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(admin_router)
 app.include_router(auth_router)
+app.include_router(exports_router)
 app.include_router(boosts_router)
 app.include_router(properties_router)
 app.include_router(tenants_router)
