@@ -92,6 +92,7 @@ type BackendMessage = {
   receiver_name?: string | null;
   sender_id: string;
   sender_name?: string | null;
+  voice_note_url?: string | null;
 };
 
 type BackendProfile = {
@@ -300,6 +301,7 @@ export function mapBackendMessage<T extends { receiver_name?: string; sender_nam
   property_id: string | null;
   receiver_id: string;
   sender_id: string;
+  voice_note_url: string | null;
 } {
   return {
     content: message.content || '',
@@ -311,6 +313,7 @@ export function mapBackendMessage<T extends { receiver_name?: string; sender_nam
     receiver_name: message.receiver_name ?? undefined,
     sender_id: message.sender_id,
     sender_name: message.sender_name ?? undefined,
+    voice_note_url: message.voice_note_url ?? null,
   } as T & {
     content: string;
     created_at: string;
@@ -319,6 +322,7 @@ export function mapBackendMessage<T extends { receiver_name?: string; sender_nam
     property_id: string | null;
     receiver_id: string;
     sender_id: string;
+    voice_note_url: string | null;
   };
 }
 

@@ -199,15 +199,22 @@ export async function sendTenantMessage(
   receiverId: string,
   content: string,
   propertyId?: string,
+  voiceNoteUrl?: string,
 ) {
   void senderId;
+  const body: Record<string, unknown> = {
+    content,
+    property_id: propertyId ?? null,
+    receiver_id: receiverId,
+  };
+
+  if (voiceNoteUrl) {
+    body.voice_note_url = voiceNoteUrl;
+  }
+
   await apiRequest('/messages', {
     auth: true,
-    body: {
-      content,
-      property_id: propertyId ?? null,
-      receiver_id: receiverId,
-    },
+    body,
     method: 'POST',
   });
 }

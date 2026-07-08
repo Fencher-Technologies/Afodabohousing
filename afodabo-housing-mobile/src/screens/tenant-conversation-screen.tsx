@@ -132,9 +132,10 @@ export function TenantConversationScreen({
         disabled={!conversation.participantId && !activeTenancy}
         helperText={`Send a short reply to ${conversation.participantName}.`}
         loading={sendMessageMutation.isPending}
-        onSend={async (message) => {
+        onSend={async ({ text, voiceNoteUrl }) => {
           await sendMessageMutation.mutateAsync({
-            content: message,
+            content: text ?? '',
+            voiceNoteUrl,
             propertyId: conversation.propertyId ?? activeTenancy?.property_id,
             receiverId: conversation.participantId,
             senderId: user.id,

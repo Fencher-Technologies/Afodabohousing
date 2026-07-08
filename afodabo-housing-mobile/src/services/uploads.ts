@@ -80,6 +80,11 @@ export async function uploadPropertyImages(userId: string, assets: UploadAsset[]
   return uploadedUrls;
 }
 
+export async function uploadVoiceNote(userId: string, asset: UploadAsset) {
+  void userId;
+  return uploadWithAuthRetry('/uploads/voice-note', asset, 'audio/mp4');
+}
+
 export async function uploadAgreementDocument(leaseId: string, asset: UploadAsset) {
   return uploadWithAuthRetry(
     `/agreements/${leaseId}/upload`,

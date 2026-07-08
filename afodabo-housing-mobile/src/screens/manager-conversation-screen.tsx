@@ -133,9 +133,10 @@ export function ManagerConversationScreen({
       <MessageComposer
         helperText={`Send a short reply to ${conversation.participantName}.`}
         loading={sendMessageMutation.isPending}
-        onSend={async (message) => {
+        onSend={async ({ text, voiceNoteUrl }) => {
           await sendMessageMutation.mutateAsync({
-            content: message,
+            content: text ?? '',
+            voiceNoteUrl,
             propertyId: conversation.propertyId,
             receiverId: conversation.participantId,
           });

@@ -96,12 +96,18 @@ export function useSendManagerMessage(userId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: { content: string; propertyId?: string; receiverId: string }) =>
+    mutationFn: (payload: {
+      content: string;
+      propertyId?: string;
+      receiverId: string;
+      voiceNoteUrl?: string;
+    }) =>
       sendManagerMessage({
         content: payload.content,
         property_id: payload.propertyId ?? null,
         receiver_id: payload.receiverId,
         sender_id: userId as string,
+        voice_note_url: payload.voiceNoteUrl,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({

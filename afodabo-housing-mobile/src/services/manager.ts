@@ -449,13 +449,19 @@ export async function rejectManagerPaymentWorkflow(payment: ManagerPayment) {
 }
 
 export async function sendManagerMessage(payload: MessageInsert) {
+  const body: Record<string, unknown> = {
+    content: payload.content,
+    property_id: payload.property_id ?? null,
+    receiver_id: payload.receiver_id,
+  };
+
+  if (payload.voice_note_url) {
+    body.voice_note_url = payload.voice_note_url;
+  }
+
   await apiRequest('/messages', {
     auth: true,
-    body: {
-      content: payload.content,
-      property_id: payload.property_id ?? null,
-      receiver_id: payload.receiver_id,
-    },
+    body,
     method: 'POST',
   });
 }
