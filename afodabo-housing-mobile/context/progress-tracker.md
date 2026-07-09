@@ -137,6 +137,13 @@ Update this file after every meaningful implementation change.
   - **Mobile** (`src/services/properties.ts`): Removed client-side `.filter(status === 'available')` so occupied properties still appear in Explore listings.
   - The existing `PropertyCard` already had a status badge — "Available" (green) vs "occupied" (gray) — so no card changes needed.
 
+- Migrated `expo-av` → `expo-audio` to fix the native Android crash (`UnsatisfiedLinkError` from JSI ABI mismatch with RN 0.86):
+  - Installed `expo-audio@~57.0.0` and uninstalled `expo-av`
+  - Added `expo-audio` config plugin with microphone permission to `app.json`
+  - `message-bubble.tsx`: replaced `Audio.Sound` + `AVPlaybackStatus` with `useAudioPlayer` / `useAudioPlayerStatus`; renamed `playsInSilentModeIOS` → `playsInSilentMode`; `formatDuration` now receives seconds instead of ms
+  - `message-composer.tsx`: replaced `Audio.Recording` + manual `setInterval` timer with `useAudioRecorder` / `useAudioRecorderState`; replaced `allowsRecordingIOS` → `allowsRecording`; replaced `recording.getURI()` → `recorder.uri`; removed `Audio.RecordingOptionsPresets` → `RecordingPresets`
+  - Confirmed zero remaining `expo-av` references in `src/`; no new TypeScript errors introduced
+
 ## Next Up
 
 - Improve interaction polish:

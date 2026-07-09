@@ -12,6 +12,12 @@ from .profile import Profile, ProfileCreate, ProfileResponse, ProfileUpdate
 from .property import Property, PropertyCreate, PropertyResponse, PropertyUpdate
 from .rental_unit import RentalUnit, RentalUnitCreate, RentalUnitResponse, RentalUnitUpdate
 from .tenant import Tenant, TenantCreate, TenantResponse, TenantUpdate
+from .agreements import (
+    AgreementDocumentResponse,
+    AgreementConsentResponse,
+    AgreementConsentStateResponse,
+    AgreementConsentRecordResponse,
+)
 
 __all__ = [
     "Boost",
@@ -51,4 +57,8 @@ __all__ = [
     "RentalUnitCreate",
     "RentalUnitUpdate",
     "RentalUnitResponse",
+    "AgreementDocumentResponse",
+    "AgreementConsentResponse",
+    "AgreementConsentStateResponse",
+    "AgreementConsentRecordResponse",
 ]

@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
-import type { AVPlaybackStatus } from 'expo-av';
-import React, { useEffect, useRef, useState } from 'react';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
+import React, { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { MessageRow } from '../types/supabase';
 import { colors, radii, spacing, typography } from '../theme/tokens';
@@ -17,85 +16,50 @@ interface MessageBubbleProps {
   userId: string;
 }
 
-function formatDuration(millis: number) {
-  const totalSeconds = Math.floor(millis / 1000);
+function formatDuration(seconds: number) {
+  const totalSeconds = Math.floor(seconds);
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function AudioPlayer({ uri, outgoing }: { uri: string; outgoing: boolean }) {
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const player = useAudioPlayer(uri);
+  const status = useAudioPlayerStatus(player);
+  const prevDidJustFinish = useRef(false);
 
   useEffect(() => {
-    Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      allowsRecordingIOS: false,
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      allowsRecording: false,
     }).catch(() => {});
-
-    return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync().catch(() => {});
-      }
-    };
   }, []);
 
-  async function loadAndPlay() {
-    if (soundRef.current) {
-      const status = await soundRef.current.getStatusAsync();
-      if (status.isLoaded) {
-        if (isPlaying) {
-          await soundRef.current.pauseAsync();
-          setIsPlaying(false);
-          return;
-        }
-        await soundRef.current.playAsync();
-        setIsPlaying(true);
-        return;
-      }
+  useEffect(() => {
+    if (status.didJustFinish && !prevDidJustFinish.current) {
+      prevDidJustFinish.current = true;
     }
+    if (!status.didJustFinish) {
+      prevDidJustFinish.current = false;
+    }
+  }, [status.didJustFinish]);
 
-    try {
-      const { sound } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: true },
-        onPlaybackStatusUpdate,
-      );
-      soundRef.current = sound;
-      setIsPlaying(true);
-    } catch {
-      setIsPlaying(false);
+  function handlePress() {
+    if (status.playing) {
+      player.pause();
+    } else {
+      player.play();
     }
   }
 
-  function onPlaybackStatusUpdate(status: AVPlaybackStatus) {
-    if (!status.isLoaded) {
-      return;
-    }
-
-    setPosition(status.positionMillis);
-    if (status.durationMillis) {
-      setDuration(status.durationMillis);
-    }
-    setIsPlaying(status.isPlaying);
-
-    if (status.didJustFinish) {
-      setIsPlaying(false);
-      setPosition(0);
-    }
-  }
-
-  const progress = duration > 0 ? position / duration : 0;
+  const progress = status.duration > 0 ? status.currentTime / status.duration : 0;
 
   return (
     <View style={[styles.audioPlayer, outgoing ? styles.audioOutgoing : styles.audioIncoming]}>
-      <Pressable onPress={loadAndPlay} style={styles.playButton}>
+      <Pressable onPress={handlePress} style={styles.playButton}>
         <Ionicons
           color={colors.primary}
-          name={isPlaying ? 'pause-circle' : 'play-circle'}
+          name={status.playing ? 'pause-circle' : 'play-circle'}
           size={28}
         />
       </Pressable>
@@ -110,10 +74,10 @@ function AudioPlayer({ uri, outgoing }: { uri: string; outgoing: boolean }) {
         </View>
       </View>
       <Text style={[styles.audioTime, outgoing ? styles.audioTimeOutgoing : styles.audioTimeIncoming]}>
-        {isPlaying
-          ? formatDuration(position)
-          : duration > 0
-            ? formatDuration(duration)
+        {status.playing
+          ? formatDuration(status.currentTime)
+          : status.duration > 0
+            ? formatDuration(status.duration)
             : ''}
       </Text>
     </View>

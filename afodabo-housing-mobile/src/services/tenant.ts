@@ -259,6 +259,35 @@ export async function initiatePesapalPayment(payload: {
   });
 }
 
+export async function initiateNylonPay(payload: {
+  amount: number;
+  description: string;
+  email?: string;
+  firstName: string;
+  lastName: string;
+  paymentId: string;
+  phoneNumber: string;
+}) {
+  return apiRequest<{
+    message?: string;
+    reference?: string;
+    status?: string;
+    success: boolean;
+  }>('/payments/initiate-nylonpay', {
+    auth: true,
+    body: {
+      amount: payload.amount,
+      description: payload.description,
+      email: payload.email,
+      first_name: payload.firstName,
+      last_name: payload.lastName,
+      payment_id: payload.paymentId,
+      phone_number: payload.phoneNumber,
+    },
+    method: 'POST',
+  });
+}
+
 export function buildTenantPaymentProofNote(
   notes: string | null | undefined,
   proofPath: string | null | undefined,

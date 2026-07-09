@@ -11,6 +11,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { Badge } from '../components/badge';
@@ -26,6 +27,7 @@ import { consentToAgreement, uploadTenancyAgreement } from '../services/agreemen
 import {
   buildTenantPaymentProofNote,
   createTenantPayment,
+  initiateNylonPay,
   initiatePesapalPayment,
 } from '../services/tenant';
 import { uploadPaymentProof } from '../services/uploads';
@@ -55,6 +57,9 @@ export function TenantDashboardScreen() {
   const [note, setNote] = useState('');
   const [selectedView, setSelectedView] = useState<TenantView>('overview');
   const [submitting, setSubmitting] = useState(false);
+  const [npayPhone, setNpayPhone] = useState('');
+  const [npaySending, setNpaySending] = useState(false);
+  const [npayMessage, setNpayMessage] = useState<string | null>(null);
   const dashboardQuery = useTenantDashboard(user?.id);
 
   const activeTenancy = useMemo(
@@ -244,6 +249,49 @@ export function TenantDashboardScreen() {
       Alert.alert('Payment error', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleNylonPayPayment = async () => {
+    if (!activeTenancy) {
+      setBlockedAction('pay');
+      return;
+    }
+
+    const phone = npayPhone.trim();
+    if (!phone) {
+      Alert.alert('Phone number required', 'Enter your MTN or Airtel phone number to pay via mobile money.');
+      return;
+    }
+
+    try {
+      setNpaySending(true);
+      setNpayMessage(null);
+      const nameParts = (profile?.full_name || 'Tenant').trim().split(' ');
+      const response = await initiateNylonPay({
+        amount: activeTenancy.rent_amount,
+        description: `Rent payment for ${activeTenancy.property_title || 'Property'}`,
+        email: user.email,
+        firstName: nameParts[0] || 'Tenant',
+        lastName: nameParts.slice(1).join(' '),
+        paymentId: `pay-${activeTenancy.id}-${Date.now()}`,
+        phoneNumber: phone,
+      });
+
+      if (response.success) {
+        setNpayMessage(
+          response.message || 'Check your phone for the payment prompt. Enter your PIN to confirm.',
+        );
+      } else {
+        Alert.alert(
+          'Payment initiation failed',
+          response.message || 'Please try again.',
+        );
+      }
+    } catch (error) {
+      Alert.alert('Payment error', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setNpaySending(false);
     }
   };
 
@@ -663,6 +711,55 @@ export function TenantDashboardScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <View style={styles.sectionHeading}>
+            <View style={[styles.iconBadge, styles.npayIconBadge]}>
+              <Feather color={colors.accent} name="smartphone" size={22} />
+            </View>
+            <Text style={styles.cardTitle}>Pay via Mobile Money</Text>
+          </View>
+        </View>
+        {activeTenancy ? (
+          <>
+            <View style={styles.npayAmountRow}>
+              <Text style={styles.npayAmountLabel}>Amount Due</Text>
+              <Text style={styles.npayAmountValue}>
+                UGX {activeTenancy.rent_amount.toLocaleString()}
+              </Text>
+            </View>
+            <Text style={styles.npayInputLabel}>Phone Number (MTN / Airtel)</Text>
+            <TextInput
+              keyboardType="phone-pad"
+              onChangeText={(value) => {
+                setNpayPhone(value);
+                setNpayMessage(null);
+              }}
+              placeholder="e.g. 2567XXXXXXXX"
+              placeholderTextColor={colors.textMuted}
+              style={styles.npayInput}
+              value={npayPhone}
+            />
+            <Button
+              disabled={npaySending || !npayPhone.trim()}
+              onPress={handleNylonPayPayment}
+            >
+              {npaySending ? 'Sending...' : 'Pay Now'}
+            </Button>
+            {npayMessage ? (
+              <View style={styles.npaySuccessBox}>
+                <Feather color={colors.success} name="check-circle" size={18} />
+                <Text style={styles.npaySuccessText}>{npayMessage}</Text>
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <Text style={styles.cardText}>
+            Link an active tenancy to pay via mobile money.
+          </Text>
+        )}
+      </View>
     </ScrollableScreenContainer>
   );
 }
@@ -914,5 +1011,60 @@ const styles = StyleSheet.create({
   progressDays: {
     fontFamily: typography.bodyStrong,
     fontSize: 12,
+  },
+  npayAmountRow: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: radii.input,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+  },
+  npayAmountLabel: {
+    color: colors.textSecondary,
+    fontFamily: typography.body,
+    fontSize: 14,
+  },
+  npayAmountValue: {
+    color: colors.primary,
+    fontFamily: typography.display,
+    fontSize: 22,
+  },
+  npayIconBadge: {
+    backgroundColor: '#F4EBD9',
+  },
+  npayInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.input,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    fontFamily: typography.body,
+    fontSize: 15,
+    minHeight: 50,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+  },
+  npayInputLabel: {
+    color: colors.textSecondary,
+    fontFamily: typography.bodyStrong,
+    fontSize: 13,
+  },
+  npaySuccessBox: {
+    alignItems: 'center',
+    backgroundColor: '#EEF6F1',
+    borderColor: '#C8DED1',
+    borderRadius: radii.input,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  npaySuccessText: {
+    color: colors.textPrimary,
+    flex: 1,
+    fontFamily: typography.body,
+    fontSize: 14,
+    lineHeight: 22,
   },
 });

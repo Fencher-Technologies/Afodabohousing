@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
-import React, { useEffect, useRef, useState } from 'react';
+import { RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../context/auth-context';
 import { uploadVoiceNote } from '../services/uploads';
@@ -29,62 +29,30 @@ export function MessageComposer({
 }: MessageComposerProps) {
   const { user } = useAuth();
   const [message, setMessage] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
   const [voiceNoteUrl, setVoiceNoteUrl] = useState<string | null>(null);
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
-      }
-    };
-  }, []);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const { isRecording, durationMillis } = useAudioRecorderState(recorder);
 
   async function handleStartRecording() {
     try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
-      const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      await recording.startAsync();
-      recordingRef.current = recording;
-      setIsRecording(true);
-      setElapsed(0);
-
-      timerRef.current = setInterval(() => {
-        setElapsed((prev) => prev + 1);
-      }, 1000);
+      await recorder.prepareToRecordAsync();
+      recorder.record();
     } catch {
-      setIsRecording(false);
+      // recording failed silently
     }
   }
 
   async function handleStopRecording() {
-    if (!recordingRef.current) {
-      return;
-    }
-
-    setIsRecording(false);
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
     try {
-      const recording = recordingRef.current;
-      recordingRef.current = null;
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
+      await recorder.stop();
+
+      const uri = recorder.uri;
 
       if (!uri || !user?.id) {
         return;
@@ -101,7 +69,6 @@ export function MessageComposer({
       setVoiceNoteUrl(null);
     } finally {
       setIsUploading(false);
-      setElapsed(0);
     }
   }
 
@@ -155,7 +122,7 @@ export function MessageComposer({
         <View style={styles.recordingStatus}>
           <View style={[styles.recordingDot, isRecording ? styles.recordingDotActive : null]} />
           <Text style={styles.recordingText}>
-            {isRecording ? `Recording ${formatTime(elapsed)}` : 'Uploading voice note...'}
+            {isRecording ? `Recording ${formatTime(Math.floor(durationMillis / 1000))}` : 'Uploading voice note...'}
           </Text>
         </View>
       ) : null}
