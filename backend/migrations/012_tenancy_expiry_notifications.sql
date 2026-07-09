@@ -23,12 +23,15 @@ CREATE TABLE IF NOT EXISTS public.notification_deliveries (
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_deliveries ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their notifications" ON public.notifications;
 CREATE POLICY "Users can view their notifications" ON public.notifications
   FOR SELECT USING (auth.uid() = recipient_id);
 
+DROP POLICY IF EXISTS "Users can update their notifications" ON public.notifications;
 CREATE POLICY "Users can update their notifications" ON public.notifications
   FOR UPDATE USING (auth.uid() = recipient_id);
 
+DROP POLICY IF EXISTS "Admins can view notification deliveries" ON public.notification_deliveries;
 CREATE POLICY "Admins can view notification deliveries" ON public.notification_deliveries
   FOR SELECT USING (EXISTS (
     SELECT 1 FROM public.profiles WHERE user_id = auth.uid() AND role = 'admin'

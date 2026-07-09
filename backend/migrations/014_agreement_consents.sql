@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS public.agreement_documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   lease_id UUID NOT NULL REFERENCES public.leases(id) ON DELETE CASCADE,
@@ -89,6 +91,7 @@ ALTER TABLE public.agreement_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agreement_consents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agreement_audit_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Agreement parties can view documents" ON public.agreement_documents;
 CREATE POLICY "Agreement parties can view documents" ON public.agreement_documents
   FOR SELECT USING (
     EXISTS (
@@ -99,6 +102,7 @@ CREATE POLICY "Agreement parties can view documents" ON public.agreement_documen
     )
   );
 
+DROP POLICY IF EXISTS "Agreement parties can create documents" ON public.agreement_documents;
 CREATE POLICY "Agreement parties can create documents" ON public.agreement_documents
   FOR INSERT WITH CHECK (
     uploaded_by = auth.uid()
@@ -110,6 +114,7 @@ CREATE POLICY "Agreement parties can create documents" ON public.agreement_docum
     )
   );
 
+DROP POLICY IF EXISTS "Agreement parties can view consents" ON public.agreement_consents;
 CREATE POLICY "Agreement parties can view consents" ON public.agreement_consents
   FOR SELECT USING (
     EXISTS (
@@ -120,6 +125,7 @@ CREATE POLICY "Agreement parties can view consents" ON public.agreement_consents
     )
   );
 
+DROP POLICY IF EXISTS "Agreement parties can create own consents" ON public.agreement_consents;
 CREATE POLICY "Agreement parties can create own consents" ON public.agreement_consents
   FOR INSERT WITH CHECK (
     user_id = auth.uid()
@@ -131,6 +137,7 @@ CREATE POLICY "Agreement parties can create own consents" ON public.agreement_co
     )
   );
 
+DROP POLICY IF EXISTS "Admins can view agreement audit logs" ON public.agreement_audit_logs;
 CREATE POLICY "Admins can view agreement audit logs" ON public.agreement_audit_logs
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.profiles WHERE user_id = auth.uid() AND role = 'admin')
@@ -139,3 +146,5 @@ CREATE POLICY "Admins can view agreement audit logs" ON public.agreement_audit_l
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('tenancy-agreements', 'tenancy-agreements', false)
 ON CONFLICT (id) DO NOTHING;
+
+COMMIT;
