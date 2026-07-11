@@ -5,8 +5,9 @@ from pydantic import BaseModel
 from supabase import Client
 
 from dependencies import CurrentUser, get_current_user, get_supabase_client
-from models import LeaseCreate, LeaseResponse, LeaseUpdate
+from models import LeaseCreate, LeaseResponse, LeaseUpdate, RenewalRequestCreate
 from services import LeaseService, get_lease_service
+from services.notifications import notify
 
 router = APIRouter(prefix="/leases", tags=["leases"])
 
@@ -64,9 +65,36 @@ def get_lease(
 def create_lease(
     data: LeaseCreate,
     current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
     service: LeaseService = Depends(get_lease_svc),
 ) -> LeaseResponse:
     lease = service.create(data, current_user.id)
+
+    if lease.get("status") == "active":
+        tenant_user = (
+            supabase.table("tenants")
+            .select("user_id")
+            .eq("id", str(lease["tenant_id"]))
+            .execute()
+        )
+        tenant_user_id = tenant_user.data[0].get("user_id") if tenant_user.data else None
+        if tenant_user_id:
+            property_info = (
+                supabase.table("properties")
+                .select("title")
+                .eq("id", str(lease["property_id"]))
+                .execute()
+            )
+            property_title = property_info.data[0].get("title", "Property") if property_info.data else "Property"
+            notify(
+                supabase,
+                recipient_id=tenant_user_id,
+                type="tenancy_created",
+                title="New tenancy activated",
+                body=f"Your tenancy at {property_title} has been created by your house manager.",
+                metadata={"lease_id": lease["id"], "property_id": str(lease["property_id"])},
+            )
+
     return LeaseResponse(**lease)
 
 
@@ -92,3 +120,51 @@ def delete_lease(
     success = service.delete(lease_id, current_user.id)
     if not success:
         raise HTTPException(status_code=404, detail="Lease not found")
+
+
+class RenewalRequestCreateResponse(BaseModel):
+    success: bool
+    message: str
+
+
+@router.post("/{lease_id}/renewal-request", response_model=RenewalRequestCreateResponse)
+def create_renewal_request(
+    lease_id: UUID,
+    data: RenewalRequestCreate,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+    service: LeaseService = Depends(get_lease_svc),
+) -> RenewalRequestCreateResponse:
+    tenant = supabase.table("tenants").select("id").eq("user_id", str(current_user.id)).execute()
+    if not tenant.data:
+        raise HTTPException(status_code=403, detail="Only tenants can request renewal")
+    tenant_id = tenant.data[0]["id"]
+
+    lease = supabase.table("leases").select("*").eq("id", str(lease_id)).execute()
+    if not lease.data:
+        raise HTTPException(status_code=404, detail="Lease not found")
+    if lease.data[0]["tenant_id"] != tenant_id:
+        raise HTTPException(status_code=403, detail="This lease does not belong to you")
+
+    try:
+        service.request_renewal(lease_id, UUID(tenant_id), data.notes)
+
+        lease_data = lease.data[0]
+        manager_id = lease_data.get("owner_id")
+        if manager_id:
+            notify(
+                supabase,
+                recipient_id=manager_id,
+                type="renewal_request",
+                title="Renewal request received",
+                body=f"Tenant {current_user.email} has requested to renew their lease.",
+                metadata={
+                    "lease_id": str(lease_id),
+                    "tenant_id": str(tenant_id),
+                    "tenant_email": current_user.email,
+                },
+            )
+
+        return RenewalRequestCreateResponse(success=True, message="Renewal request submitted for manager review")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

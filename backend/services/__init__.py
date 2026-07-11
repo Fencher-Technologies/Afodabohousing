@@ -8,21 +8,23 @@ from .nylonpay import (
 )
 from .boost import BoostService, get_boost_service
 from .crud import (
+    BookmarkService,
     LeaseService,
     MaintenanceRequestService,
-   
     PaymentService,
     PropertyService,
     TenantService,
+    get_bookmark_service,
     get_lease_service,
     get_maintenance_request_service,
-    
     get_payment_service,
     get_property_service,
     get_tenant_service,
 )
 
 __all__ = [
+    "BookmarkService",
+    "get_bookmark_service",
     "BoostService",
     "get_boost_service",
     "PropertyService",

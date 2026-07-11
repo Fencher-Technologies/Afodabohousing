@@ -1,6 +1,7 @@
 from .admin import router as admin_router
 from .agreements import router as agreements_router
 from .auth import router as auth_router
+from .bookmarks import router as bookmarks_router
 from .boosts import router as boosts_router
 from .exports import router as exports_router
 from .leases import router as leases_router
@@ -19,6 +20,7 @@ __all__ = [
     "admin_router",
     "agreements_router",
     "auth_router",
+    "bookmarks_router",
     "boosts_router",
     "exports_router",
     "leases_router",

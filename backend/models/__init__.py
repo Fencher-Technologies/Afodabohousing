@@ -18,6 +18,8 @@ from .agreements import (
     AgreementConsentStateResponse,
     AgreementConsentRecordResponse,
 )
+from .bookmark import Bookmark, BookmarkResponse
+from .renewal_request import RenewalRequest, RenewalRequestCreate, RenewalRequestResponse
 
 __all__ = [
     "Boost",
@@ -61,4 +63,9 @@ __all__ = [
     "AgreementConsentResponse",
     "AgreementConsentStateResponse",
     "AgreementConsentRecordResponse",
+    "Bookmark",
+    "BookmarkResponse",
+    "RenewalRequest",
+    "RenewalRequestCreate",
+    "RenewalRequestResponse",
 ]

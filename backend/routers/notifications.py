@@ -130,3 +130,30 @@ def mark_notification_read(
         is_read=updated["is_read"],
         created_at=updated["created_at"],
     )
+
+
+class RegisterPushTokenRequest(BaseModel):
+    token: str
+    platform: str = "expo"
+
+
+@router.post("/push-token", status_code=status.HTTP_201_CREATED)
+def register_push_token(
+    data: RegisterPushTokenRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+) -> dict:
+    existing = (
+        supabase.table("push_tokens")
+        .select("*")
+        .eq("user_id", str(current_user.id))
+        .eq("token", data.token)
+        .execute()
+    )
+    if not existing.data:
+        supabase.table("push_tokens").insert({
+            "user_id": str(current_user.id),
+            "token": data.token,
+            "platform": data.platform,
+        }).execute()
+    return {"success": True}

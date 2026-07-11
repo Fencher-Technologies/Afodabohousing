@@ -14,6 +14,7 @@ from dependencies import CurrentUser, get_current_user, get_supabase_client
 from models import PaymentCreate, PaymentResponse, PaymentUpdate
 from services import PaymentService, get_payment_service
 from services.nylonpay import initiate_payment
+from services.notifications import notify
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 settings = get_settings()
@@ -219,6 +220,47 @@ def update_payment(
         if not lease.data or str(lease.data[0]["owner_id"]) != str(current_user.id):
             raise HTTPException(status_code=403, detail="Access denied")
     result = service.update(payment_id, data)
+
+    # Notify tenant when payment is confirmed or rejected
+    if data.status in ("confirmed", "rejected"):
+        lease = (
+            supabase.table("leases")
+            .select("owner_id")
+            .eq("id", str(result["lease_id"]))
+            .execute()
+        )
+        tenant_user_id = None
+        if lease.data:
+            tenant_profile = (
+                supabase.table("profiles")
+                .select("user_id")
+                .eq("id", str(result["tenant_id"]))
+                .execute()
+            )
+            if not tenant_profile.data:
+                tenant_user = (
+                    supabase.table("tenants")
+                    .select("user_id")
+                    .eq("id", str(result["tenant_id"]))
+                    .execute()
+                )
+                if tenant_user.data and tenant_user.data[0].get("user_id"):
+                    tenant_user_id = tenant_user.data[0]["user_id"]
+            else:
+                tenant_user_id = tenant_profile.data[0]["user_id"]
+
+        if tenant_user_id:
+            status_label = "confirmed" if data.status == "confirmed" else "rejected"
+            amount = result.get("amount", 0)
+            notify(
+                supabase,
+                recipient_id=tenant_user_id,
+                type="payment_status",
+                title=f"Payment {status_label}",
+                body=f"Your rent payment of UGX {amount:,.0f} has been {status_label} by the house manager.",
+                metadata={"payment_id": str(payment_id), "status": data.status},
+            )
+
     return PaymentResponse(**result)
 
 

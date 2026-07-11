@@ -27,6 +27,8 @@ class Property(BaseModel):
     images: list[str] | None = None
     manager_email: str | None = None
     manager_phone: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     is_active: bool = True
     created_at: datetime
     updated_at: datetime
@@ -51,6 +53,8 @@ class PropertyCreate(BaseModel):
     images: list[str] | None = None
     manager_email: str | None = None
     manager_phone: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     is_active: bool = True
 
 
@@ -73,6 +77,8 @@ class PropertyUpdate(BaseModel):
     images: list[str] | None = None
     manager_email: str | None = None
     manager_phone: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     is_active: bool | None = None
 
 
@@ -98,6 +104,8 @@ class PropertyResponse(BaseModel):
     images: list[str] | None = None
     manager_email: str | None = None
     manager_phone: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

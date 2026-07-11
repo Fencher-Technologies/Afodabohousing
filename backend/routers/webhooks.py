@@ -14,6 +14,7 @@ from config import get_settings
 from dependencies import get_service_client
 from services.boost import get_boost_service
 from services.nylonpay import verify_webhook as verify_nylonpay_webhook
+from services.notifications import notify
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +176,68 @@ async def send_sms(
     response = SmsSendResponse(status="sent", message="SMS queued for delivery")
     _set_idempotency(idempotency_key, response.model_dump())
     return response
+
+
+class SendReminderRequest(BaseModel):
+    tenancy_id: str
+    message: str
+
+
+class SendReminderResponse(BaseModel):
+    sms_status: str
+    notification: bool
+
+
+@router.post("/sms/send-reminder", response_model=SendReminderResponse)
+def send_rent_reminder(
+    data: SendReminderRequest,
+    supabase: Client = Depends(get_service_client),
+) -> SendReminderResponse:
+    lease = supabase.table("leases").select("*, tenants!inner(user_id, phone)").eq("id", data.tenancy_id).execute()
+    if not lease.data:
+        raise HTTPException(status_code=404, detail="Tenancy not found")
+
+    lease_data = lease.data[0]
+    tenant_user_id = lease_data.get("tenants", {}).get("user_id")
+    tenant_phone = lease_data.get("tenants", {}).get("phone")
+
+    sms_sent = False
+    if tenant_phone and settings.sms_provider_api_key:
+        try:
+            idempotency_key = f"sms:{hashlib.sha256(f'{tenant_phone}:{data.message}'.encode()).hexdigest()}"
+            cached = _check_idempotency(idempotency_key)
+            if not cached:
+                with httpx.Client(timeout=15) as client:
+                    resp = client.post(
+                        settings.sms_provider_url,
+                        json={
+                            "to": tenant_phone,
+                            "message": data.message,
+                            "api_key": settings.sms_provider_api_key,
+                        },
+                    )
+                    resp.raise_for_status()
+                _set_idempotency(idempotency_key, {"status": "sent", "message": "SMS queued for delivery"})
+            sms_sent = True
+        except Exception as e:
+            logger.warning("Failed to send reminder SMS: %s", str(e))
+
+    notification_created = False
+    if tenant_user_id:
+        notify(
+            supabase,
+            recipient_id=tenant_user_id,
+            type="rent_reminder",
+            title="Rent Reminder",
+            body=data.message,
+            metadata={"tenancy_id": data.tenancy_id},
+        )
+        notification_created = True
+
+    return SendReminderResponse(
+        sms_status="sent" if sms_sent else "skipped",
+        notification=notification_created,
+    )
 
 
 @router.post("/webhooks/nylonpay", status_code=status.HTTP_200_OK)

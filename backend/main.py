@@ -18,6 +18,7 @@ from routers import (
     admin_router,
     agreements_router,
     auth_router,
+    bookmarks_router,
     boosts_router,
     exports_router,
     leases_router,
@@ -331,8 +332,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 app.include_router(admin_router)
-app.include_router(auth_router)
 app.include_router(agreements_router)
+app.include_router(auth_router)
+app.include_router(bookmarks_router)
 app.include_router(exports_router)
 app.include_router(boosts_router)
 app.include_router(properties_router)

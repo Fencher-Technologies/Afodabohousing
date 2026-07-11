@@ -42,6 +42,11 @@ class InviteRequest(BaseModel):
 class InviteResponse(BaseModel):
     message: str
     invitation_id: str
+    email: str
+    role: str
+    token: str
+    expires_at: str
+    status: str
 
 
 class AcceptInviteRequest(BaseModel):
@@ -210,7 +215,14 @@ def invite_user(
     if existing.data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A user with this email already exists",
+            detail=f"A user with email '{data.email}' already exists in the system. They can sign in directly.",
+        )
+
+    existing_auth = _find_auth_user_by_email(supabase, data.email)
+    if existing_auth:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"An account with email '{data.email}' already exists but has no profile. Contact support.",
         )
 
     invite_payload = {
@@ -237,7 +249,26 @@ def invite_user(
     return InviteResponse(
         message=f"Invitation sent to {data.email}",
         invitation_id=invitation["id"],
+        email=invitation["email"],
+        role=invitation["role"],
+        token=str(invitation["token"]),
+        expires_at=invitation["expires_at"],
+        status=invitation["status"],
     )
+
+
+def _find_auth_user_by_email(supabase: Client, email: str) -> str | None:
+    """Look up a user by email in auth.users (service client only)."""
+    try:
+        result = supabase.auth.admin.list_users()
+        for user in result:
+            if hasattr(user, "email") and user.email == email:
+                return user.id
+            if isinstance(user, dict) and user.get("email") == email:
+                return user.get("id")
+    except Exception as e:
+        logger.warning("Failed to list auth users for email lookup: %s", str(e))
+    return None
 
 
 @router.post(
@@ -283,9 +314,60 @@ def accept_invite(
             detail="Invitation has expired",
         )
 
+    invite_email = invitation["email"]
+
+    # ── Check if the user already exists in auth.users ──
+    existing_user_id = _find_auth_user_by_email(supabase, invite_email)
+
+    if existing_user_id:
+        logger.info("User %s already exists — updating profile and signing in", existing_user_id)
+
+        profile_payload = {
+            "user_id": existing_user_id,
+            "email": invite_email,
+            "full_name": data.full_name,
+            "phone": data.phone or "",
+            "role": invitation["role"],
+            "created_by": invitation["invited_by"],
+            "status": "active",
+        }
+        if invitation.get("manager_id"):
+            profile_payload["manager_id"] = invitation["manager_id"]
+
+        try:
+            supabase.table("profiles").upsert(profile_payload, on_conflict="user_id").execute()
+        except Exception as e:
+            logger.error("Failed to upsert profile for existing user %s: %s", existing_user_id, str(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update profile for existing account",
+            )
+
+        supabase.table("invitations").update({"status": "accepted"}).eq("id", invitation["id"]).execute()
+
+        try:
+            sign_in_result = supabase.auth.sign_in_with_password({
+                "email": invite_email,
+                "password": data.password,
+            })
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Account exists but sign-in failed: {str(e)}",
+            )
+
+        session = sign_in_result.session
+        return TokenResponse(
+            access_token=session.access_token,
+            user={"id": existing_user_id, "email": invite_email},
+            role=invitation["role"],
+            user_id=existing_user_id,
+        )
+
+    # ── Create new user ──
     try:
         auth_result = supabase.auth.admin.create_user({
-            "email": invitation["email"],
+            "email": invite_email,
             "password": data.password,
             "email_confirm": True,
             "user_metadata": {"full_name": data.full_name},
@@ -306,8 +388,10 @@ def accept_invite(
     new_user = auth_result.user
     user_id = new_user.id
 
+    # ── Upsert profile (the DB trigger may have created a minimal row already) ──
     profile_payload = {
         "user_id": user_id,
+        "email": invite_email,
         "full_name": data.full_name,
         "phone": data.phone or "",
         "role": invitation["role"],
@@ -317,17 +401,36 @@ def accept_invite(
     if invitation.get("manager_id"):
         profile_payload["manager_id"] = invitation["manager_id"]
 
-    supabase.table("profiles").upsert(profile_payload, on_conflict="user_id").execute()
+    try:
+        supabase.table("profiles").upsert(profile_payload, on_conflict="user_id").execute()
+    except Exception as e:
+        logger.error("Failed to upsert profile for new user %s: %s", user_id, str(e))
+        # Clean up: delete the auth user so they can retry
+        try:
+            supabase.auth.admin.delete_user(user_id)
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create profile — please try accepting the invitation again",
+        )
 
     supabase.table("invitations").update({"status": "accepted"}).eq("id", invitation["id"]).execute()
 
-    sign_in_result = supabase.auth.sign_in_with_password({
-        "email": invitation["email"],
-        "password": data.password,
-    })
+    try:
+        sign_in_result = supabase.auth.sign_in_with_password({
+            "email": invite_email,
+            "password": data.password,
+        })
+    except Exception as e:
+        logger.error("Sign-in after accept-invite failed for %s: %s", invite_email, str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Account created but sign-in failed — please try logging in",
+        )
 
     session = sign_in_result.session
-    user_data = new_user.model_dump() if hasattr(new_user, "model_dump") else {"id": str(new_user.id), "email": invitation["email"]}
+    user_data = new_user.model_dump() if hasattr(new_user, "model_dump") else {"id": str(user_id), "email": invite_email}
 
     return TokenResponse(
         access_token=session.access_token,
@@ -438,6 +541,46 @@ def reset_password(
 ) -> dict:
     service.reset_password(email)
     return {"message": "Password reset email sent"}
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/change-password")
+def change_password(
+    data: ChangePasswordRequest,
+    current_user: CurrentUser = Depends(require_active_user),
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    if len(data.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 6 characters",
+        )
+
+    try:
+        supabase.auth.sign_in_with_password({
+            "email": current_user.email,
+            "password": data.current_password,
+        })
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    try:
+        supabase.auth.update_user({"password": data.new_password})
+    except Exception as e:
+        logger.error("Failed to update password for %s: %s", current_user.email, str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not change password",
+        )
+
+    return {"message": "Password updated successfully"}
 
 
 @router.get("/me", response_model=UserResponse)

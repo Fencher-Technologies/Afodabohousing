@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -21,6 +22,62 @@ from .base import BaseService, with_retry
 from .boost import BoostService
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_row(row: dict[str, Any], column_map: dict[str, str]) -> dict[str, Any]:
+    out = {}
+    for k, v in row.items():
+        out[k] = v
+    for old_name, new_name in column_map.items():
+        if old_name in row and new_name not in row:
+            out[new_name] = row[old_name]
+        elif old_name in row and new_name in row:
+            out[new_name] = row[new_name]
+    return out
+
+
+PROPERTY_OLD_TO_NEW: dict[str, str] = {
+    "manager_id": "owner_id",
+    "district": "state",
+    "area": "square_feet",
+    "rent_amount": "monthly_rent",
+}
+
+
+def _normalize_property(p: dict[str, Any]) -> dict[str, Any]:
+    p = _normalize_row(p, PROPERTY_OLD_TO_NEW)
+    p.setdefault("zip_code", "00000")
+    p.setdefault("country", "UG")
+    p.setdefault("security_deposit", 0)
+    p.setdefault("is_active", True)
+    return p
+
+
+LEASE_OLD_TO_NEW: dict[str, str] = {
+    "manager_id": "owner_id",
+    "rent_amount": "monthly_rent",
+    "rent_start_date": "start_date",
+    "rent_end_date": "end_date",
+}
+
+
+def _normalize_lease(l: dict[str, Any]) -> dict[str, Any]:
+    l = _normalize_row(l, LEASE_OLD_TO_NEW)
+    l.setdefault("security_deposit", 0)
+    return l
+
+
+PAYMENT_OLD_TO_NEW: dict[str, str] = {
+    "tenancy_id": "lease_id",
+    "period_end": "due_date",
+    "period_start": "paid_date",
+}
+
+
+def _normalize_payment(p: dict[str, Any]) -> dict[str, Any]:
+    p = _normalize_row(p, PAYMENT_OLD_TO_NEW)
+    p.setdefault("payment_type", "rent")
+    return p
 
 
 class PropertyService(BaseService):
@@ -47,7 +104,7 @@ class PropertyService(BaseService):
             .range(skip, skip + limit - 1)
             .execute()
         )
-        return response.data or [], total
+        return [_normalize_property(r) for r in (response.data or [])], total
 
     @with_retry
     def get_all_for_tenant(
@@ -68,7 +125,7 @@ class PropertyService(BaseService):
             .range(skip, skip + limit - 1)
             .execute()
         )
-        return response.data or [], total
+        return [_normalize_property(r) for r in (response.data or [])], total
 
     @with_retry
     def get_public_listings(
@@ -126,6 +183,7 @@ class PropertyService(BaseService):
             all_properties = boosted + not_boosted
 
         # Apply pagination after ranking sort
+        all_properties = [_normalize_property(r) for r in all_properties]
         paginated = all_properties[skip:skip + limit]
         return paginated, total
 
@@ -137,7 +195,8 @@ class PropertyService(BaseService):
             .eq("owner_id", str(owner_id))
             .execute()
         )
-        return response.data[0] if response.data else None
+        row = response.data[0] if response.data else None
+        return _normalize_property(row) if row else None
 
     @with_retry
     def get_by_id_public(self, property_id: UUID) -> dict[str, Any] | None:
@@ -146,7 +205,8 @@ class PropertyService(BaseService):
             .eq("id", str(property_id))
             .execute()
         )
-        return response.data[0] if response.data else None
+        row = response.data[0] if response.data else None
+        return _normalize_property(row) if row else None
 
     @with_retry
     def create(self, data: PropertyCreate, owner_id: UUID) -> dict[str, Any]:
@@ -188,19 +248,55 @@ class TenantService(BaseService):
 
     @with_retry
     def get_all(
-        self, owner_id: UUID, skip: int = 0, limit: int = 100
+        self,
+        owner_id: UUID,
+        skip: int = 0,
+        limit: int = 100,
+        status: str | None = None,
+        search: str | None = None,
+        has_user_account: bool | None = None,
+        created_from: date | None = None,
+        created_to: date | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
-        count_resp = (
-            self.supabase.table(self._table)
-            .select("*", count="exact")
-            .eq("owner_id", str(owner_id))
-            .execute()
-        )
+        query = self.supabase.table(self._table).select("*", count="exact").eq("owner_id", str(owner_id))
+
+        if status:
+            query = query.eq("status", status)
+        if search:
+            query = query.or_(f"first_name.ilike.%{search}%,last_name.ilike.%{search}%,email.ilike.%{search}%")
+        if has_user_account is not None:
+            if has_user_account:
+                query = query.not_.is_("user_id", "null")
+            else:
+                query = query.is_("user_id", "null")
+        if created_from:
+            query = query.gte("created_at", created_from.isoformat())
+        if created_to:
+            query = query.lte("created_at", created_to.isoformat())
+
+        count_resp = query.execute()
         total = count_resp.count if hasattr(count_resp, "count") else 0
 
-        response = (
+        data_query = (
             self.table.select("*")
             .eq("owner_id", str(owner_id))
+        )
+        if status:
+            data_query = data_query.eq("status", status)
+        if search:
+            data_query = data_query.or_(f"first_name.ilike.%{search}%,last_name.ilike.%{search}%,email.ilike.%{search}%")
+        if has_user_account is not None:
+            if has_user_account:
+                data_query = data_query.not_.is_("user_id", "null")
+            else:
+                data_query = data_query.is_("user_id", "null")
+        if created_from:
+            data_query = data_query.gte("created_at", created_from.isoformat())
+        if created_to:
+            data_query = data_query.lte("created_at", created_to.isoformat())
+
+        response = (
+            data_query
             .order("created_at", desc=True)
             .range(skip, skip + limit - 1)
             .execute()
@@ -274,7 +370,7 @@ class LeaseService(BaseService):
             .range(skip, skip + limit - 1)
             .execute()
         )
-        return response.data or [], total
+        return [_normalize_lease(r) for r in (response.data or [])], total
 
     @with_retry
     def get_all(
@@ -295,7 +391,7 @@ class LeaseService(BaseService):
             .range(skip, skip + limit - 1)
             .execute()
         )
-        return response.data or [], total
+        return [_normalize_lease(r) for r in (response.data or [])], total
 
     @with_retry
     def get_by_id(self, lease_id: UUID, owner_id: UUID) -> dict[str, Any] | None:
@@ -305,14 +401,26 @@ class LeaseService(BaseService):
             .eq("owner_id", str(owner_id))
             .execute()
         )
-        return response.data[0] if response.data else None
+        row = response.data[0] if response.data else None
+        return _normalize_lease(row) if row else None
+
+    @with_retry
+    def get_by_id_for_tenant(self, lease_id: UUID, tenant_id: UUID) -> dict[str, Any] | None:
+        response = (
+            self.table.select("*")
+            .eq("id", str(lease_id))
+            .eq("tenant_id", str(tenant_id))
+            .execute()
+        )
+        row = response.data[0] if response.data else None
+        return _normalize_lease(row) if row else None
 
     @with_retry
     def create(self, data: LeaseCreate, owner_id: UUID) -> dict[str, Any]:
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
         response = self.table.insert(payload).execute()
-        return response.data[0]
+        return _normalize_lease(response.data[0])
 
     @with_retry
     def update(
@@ -338,6 +446,82 @@ class LeaseService(BaseService):
             .execute()
         )
         return bool(response.data)
+
+    @with_retry
+    def request_renewal(self, lease_id: UUID, tenant_id: UUID, notes: str | None = None) -> dict[str, Any]:
+        lease = self.get_by_id_for_tenant(lease_id, tenant_id)
+        if not lease:
+            raise ValueError("Lease not found")
+        existing = (
+            self.supabase.table("renewal_requests")
+            .select("*")
+            .eq("lease_id", str(lease_id))
+            .eq("status", "pending")
+            .execute()
+        )
+        if existing.data:
+            raise ValueError("A pending renewal request already exists for this lease")
+        payload = {
+            "lease_id": str(lease_id),
+            "tenant_id": str(tenant_id),
+            "status": "pending",
+            "notes": notes,
+        }
+        response = self.supabase.table("renewal_requests").insert(payload).execute()
+        return response.data[0]
+
+
+class BookmarkService(BaseService):
+    def __init__(self, supabase: Client):
+        super().__init__(supabase)
+        self._table = "property_bookmarks"
+
+    @with_retry
+    def get_user_bookmarks(self, user_id: UUID) -> list[dict[str, Any]]:
+        response = (
+            self.table.select("*")
+            .eq("user_id", str(user_id))
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return response.data or []
+
+    @with_retry
+    def add_bookmark(self, user_id: UUID, property_id: UUID) -> dict[str, Any]:
+        existing = (
+            self.table.select("*")
+            .eq("user_id", str(user_id))
+            .eq("property_id", str(property_id))
+            .execute()
+        )
+        if existing.data:
+            return existing.data[0]
+        payload = {
+            "user_id": str(user_id),
+            "property_id": str(property_id),
+        }
+        response = self.table.insert(payload).execute()
+        return response.data[0]
+
+    @with_retry
+    def remove_bookmark(self, user_id: UUID, property_id: UUID) -> bool:
+        response = (
+            self.table.delete()
+            .eq("user_id", str(user_id))
+            .eq("property_id", str(property_id))
+            .execute()
+        )
+        return bool(response.data)
+
+    @with_retry
+    def is_bookmarked(self, user_id: UUID, property_id: UUID) -> bool:
+        response = (
+            self.table.select("id", count="exact")
+            .eq("user_id", str(user_id))
+            .eq("property_id", str(property_id))
+            .execute()
+        )
+        return (response.count if hasattr(response, "count") else len(response.data or [])) > 0
 
 
 class PaymentService(BaseService):
@@ -504,3 +688,7 @@ def get_payment_service(supabase: Client) -> PaymentService:
 
 def get_maintenance_request_service(supabase: Client) -> MaintenanceRequestService:
     return MaintenanceRequestService(supabase)
+
+
+def get_bookmark_service(supabase: Client) -> BookmarkService:
+    return BookmarkService(supabase)

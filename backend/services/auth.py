@@ -57,6 +57,22 @@ class AuthService:
     def reset_password(self, email: str) -> dict:
         return self.supabase.auth.reset_password_email(email)
 
+    @with_retry
+    def change_password(self, user_id: str, email: str, current_password: str, new_password: str) -> dict:
+        try:
+            self.supabase.auth.sign_in_with_password({
+                "email": email,
+                "password": current_password,
+            })
+        except Exception:
+            raise ValueError("Current password is incorrect")
+
+        self.supabase.auth.admin.update_user_by_id(
+            user_id,
+            {"password": new_password},
+        )
+        return {"message": "Password updated successfully"}
+
 
 def get_auth_service(supabase: Client) -> AuthService:
     return AuthService(supabase)
