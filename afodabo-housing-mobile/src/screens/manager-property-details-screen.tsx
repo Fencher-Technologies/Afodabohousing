@@ -159,6 +159,16 @@ export function ManagerPropertyDetailsScreen({
             Edit Listing
           </Button>
           <Button
+            onPress={() =>
+              navigation.navigate('BoostProperty', {
+                propertyId: property.id,
+              })
+            }
+            variant="secondary"
+          >
+            Boost Listing
+          </Button>
+          <Button
             onPress={async () => {
               const nextStatus = property.status === 'inactive' ? 'available' : 'inactive';
 

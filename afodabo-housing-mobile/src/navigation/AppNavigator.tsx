@@ -6,18 +6,22 @@ import {
 } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import logoImage from '../../assets/brand/logo.png';
 import { useAuth } from '../context/auth-context';
 import { hasSeenOnboarding } from '../services/onboarding-storage';
 import { colors, typography } from '../theme/tokens';
-import { AccountScreen } from '../screens/account-screen';
 import { AboutScreen } from '../screens/about-screen';
+import { AcceptInviteScreen } from '../screens/accept-invite-screen';
+import { AccountScreen } from '../screens/account-screen';
 import { AdminDashboardScreen } from '../screens/admin-dashboard-screen';
+import { BoostPropertyScreen } from '../screens/boost-property-screen';
+import { ChangePasswordScreen } from '../screens/change-password-screen';
 import { ContactScreen } from '../screens/contact-screen';
 import { EditProfileScreen } from '../screens/edit-profile-screen';
 import { ExploreScreen } from '../screens/explore-screen';
+import { FavoritesScreen } from '../screens/favorites-screen';
 import { LoginScreen } from '../screens/login-screen';
 import { ManagerCreatePropertyScreen } from '../screens/manager-create-property-screen';
 import { ManagerCreateTenancyScreen } from '../screens/manager-create-tenancy-screen';
@@ -29,6 +33,7 @@ import { ManagerPropertiesScreen } from '../screens/manager-properties-screen';
 import { ManagerPropertyDetailsScreen } from '../screens/manager-property-details-screen';
 import { ManagerTenanciesScreen } from '../screens/manager-tenancies-screen';
 import { ManagerTenancyDetailsScreen } from '../screens/manager-tenancy-details-screen';
+import { SendInviteScreen } from '../screens/send-invite-screen';
 import { OnboardingScreen } from '../screens/onboarding-screen';
 import { PropertyDetailsScreen } from '../screens/property-details-screen';
 import { PrivacyScreen } from '../screens/privacy-screen';
@@ -41,6 +46,7 @@ import { useTenantMessages } from '../hooks/tenant/use-tenant-messages';
 import { TenantPaymentsScreen } from '../screens/tenant-payments-screen';
 import { TermsScreen } from '../screens/terms-screen';
 import { NotificationBell } from '../components/notification-bell';
+import { NotificationDetailScreen } from '../screens/notification-detail-screen';
 import { NotificationsScreen } from '../screens/notifications-screen';
 import type { RootStackParamList } from './types';
 
@@ -56,6 +62,11 @@ function LoadingScreen() {
       <ActivityIndicator color={colors.primary} size="large" style={styles.spinner} />
     </View>
   );
+}
+
+function TabBarPressable(props: Record<string, unknown>) {
+  const { delayLongPress, ...rest } = props;
+  return <Pressable {...rest} />;
 }
 
 function useTabScreenOptions(): BottomTabNavigationOptions {
@@ -77,25 +88,26 @@ function useTabScreenOptions(): BottomTabNavigationOptions {
     },
     tabBarActiveTintColor: colors.primary,
     tabBarInactiveTintColor: colors.textMuted,
+    tabBarButton: TabBarPressable,
+    tabBarItemStyle: {
+      flex: 1,
+    },
+    tabBarLabelStyle: {
+      fontFamily: typography.bodyStrong,
+      fontSize: 11,
+    },
     tabBarStyle: {
       backgroundColor: colors.surface,
       borderTopColor: colors.border,
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
       borderTopWidth: 1,
-      borderRightWidth: 1,
-      borderLeftWidth: 1,
       elevation: 0,
       height: 70 + insets.bottom,
-      marginHorizontal: -1,
       paddingBottom: insets.bottom,
-      paddingHorizontal: 20,
-      paddingTop: 10,
+      paddingHorizontal: 0,
+      paddingTop: 8,
       shadowOpacity: 0,
-    },
-    tabBarLabelStyle: {
-      fontFamily: typography.bodyStrong,
-      fontSize: 12,
     },
   };
 }
@@ -253,6 +265,15 @@ function ManagerTabs() {
           ),
         }}
       />
+      <Tab.Screen
+        component={SendInviteScreen}
+        name="SendInvite"
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none', width: 0 },
+          title: 'Invite Tenant',
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -383,6 +404,21 @@ export function AppNavigator() {
         <RootStack.Screen component={RoleTabs} name="Main" options={{ headerShown: false }} />
         <RootStack.Screen component={AboutScreen} name="About" options={{ title: 'About' }} />
         <RootStack.Screen
+          component={AcceptInviteScreen}
+          name="AcceptInvite"
+          options={{ title: 'Accept Invitation' }}
+        />
+        <RootStack.Screen
+          component={BoostPropertyScreen}
+          name="BoostProperty"
+          options={{ title: 'Boost Listing' }}
+        />
+        <RootStack.Screen
+          component={ChangePasswordScreen}
+          name="ChangePassword"
+          options={{ title: 'Change Password' }}
+        />
+        <RootStack.Screen
           component={ContactScreen}
           name="Contact"
           options={{ title: 'Contact Support' }}
@@ -391,6 +427,11 @@ export function AppNavigator() {
           component={EditProfileScreen}
           name="EditProfile"
           options={{ title: 'Edit Profile' }}
+        />
+        <RootStack.Screen
+          component={FavoritesScreen}
+          name="Favorites"
+          options={{ title: 'Favorites' }}
         />
         <RootStack.Screen
           component={ManagerConversationScreen}
@@ -458,7 +499,7 @@ export function AppNavigator() {
         <RootStack.Screen
           component={RoleUnavailableScreen}
           name="RoleUnavailable"
-          options={{ title: 'Role Check' }}
+          options={{ title: 'Access Denied' }}
         />
         <RootStack.Screen
           component={TenantPaymentsScreen}
@@ -474,6 +515,11 @@ export function AppNavigator() {
           component={NotificationsScreen}
           name="Notifications"
           options={{ title: 'Notifications' }}
+        />
+        <RootStack.Screen
+          component={NotificationDetailScreen}
+          name="NotificationDetail"
+          options={{ title: 'Notification' }}
         />
       </RootStack.Navigator>
     </NavigationContainer>

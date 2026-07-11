@@ -288,6 +288,17 @@ export async function initiateNylonPay(payload: {
   });
 }
 
+export async function requestRenewal(leaseId: string, notes?: string) {
+  return apiRequest<{ success: boolean; message: string }>(
+    `/leases/${leaseId}/renewal-request`,
+    {
+      auth: true,
+      body: { notes: notes || null },
+      method: 'POST',
+    },
+  );
+}
+
 export function buildTenantPaymentProofNote(
   notes: string | null | undefined,
   proofPath: string | null | undefined,

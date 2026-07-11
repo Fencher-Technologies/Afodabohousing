@@ -38,23 +38,29 @@ export function AccountScreen() {
           <Button onPress={() => navigation.navigate('Register')} variant="outline">
             Create Account
           </Button>
+          <Button onPress={() => navigation.navigate('AcceptInvite')} variant="ghost">
+            Accept Invitation
+          </Button>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Learn More</Text>
-          <Button onPress={() => navigation.navigate('About')} variant="outline">
-            About Afodabo Housing
-          </Button>
-          <Button onPress={() => navigation.navigate('Contact')} variant="outline">
-            Contact Support
-          </Button>
-          <Button onPress={() => navigation.navigate('Privacy')} variant="outline">
-            Privacy Policy
-          </Button>
-          <Button onPress={() => navigation.navigate('Terms')} variant="outline">
-            Terms of Service
-          </Button>
-        </View>
+        <CollapsibleSection title="Learn More">
+          <Pressable onPress={() => navigation.navigate('About')} style={styles.menuRow}>
+            <Ionicons color={colors.textSecondary} name="information-circle-outline" size={20} />
+            <Text style={styles.menuLabel}>About Afodabo Housing</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Contact')} style={styles.menuRow}>
+            <Ionicons color={colors.textSecondary} name="chatbubble-ellipses-outline" size={20} />
+            <Text style={styles.menuLabel}>Contact Support</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Privacy')} style={styles.menuRow}>
+            <Ionicons color={colors.textSecondary} name="shield-outline" size={20} />
+            <Text style={styles.menuLabel}>Privacy Policy</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Terms')} style={styles.menuRow}>
+            <Ionicons color={colors.textSecondary} name="document-text-outline" size={20} />
+            <Text style={styles.menuLabel}>Terms of Service</Text>
+          </Pressable>
+        </CollapsibleSection>
       </Screen>
     );
   }
@@ -79,6 +85,9 @@ export function AccountScreen() {
         <Text style={styles.detailLine}>Phone: {profile?.phone || 'Not added yet'}</Text>
         <Button onPress={() => navigation.navigate('EditProfile')} variant="outline">
           Edit Profile
+        </Button>
+        <Button onPress={() => navigation.navigate('ChangePassword')} variant="ghost">
+          Change Password
         </Button>
         {resolvedRole === 'tenant' ? (
           <Button onPress={() => navigation.navigate('TenantPayments')} variant="outline">
@@ -122,15 +131,24 @@ export function AccountScreen() {
 
       <View style={styles.card}>
         <Button
-          onPress={async () => {
-            try {
-              await signOut();
-            } catch (error) {
-              Alert.alert(
-                'Could not sign out',
-                error instanceof Error ? error.message : 'Please try again.',
-              );
-            }
+          onPress={() => {
+            Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+              { style: 'cancel', text: 'Cancel' },
+              {
+                onPress: async () => {
+                  try {
+                    await signOut();
+                  } catch (error) {
+                    Alert.alert(
+                      'Could not sign out',
+                      error instanceof Error ? error.message : 'Please try again.',
+                    );
+                  }
+                },
+                style: 'destructive',
+                text: 'Sign Out',
+              },
+            ]);
           }}
           variant="destructive"
         >

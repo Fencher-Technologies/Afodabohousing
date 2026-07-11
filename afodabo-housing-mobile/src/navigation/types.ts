@@ -1,8 +1,13 @@
 export type RootStackParamList = {
   About: undefined;
+  AcceptInvite: undefined;
+  BoostProperty: { propertyId: string };
+  Favorites: undefined;
+  ChangePassword: undefined;
   Contact: undefined;
   EditProfile: undefined;
   Login: undefined;
+  NotificationDetail: { notification: { body: string; created_at: string; id: string; is_read: boolean; metadata: Record<string, unknown>; recipient_id: string; title: string; type: string } };
   Notifications: undefined;
   ManagerConversation: { participantId: string };
   ManagerCreateProperty: undefined;
@@ -17,6 +22,7 @@ export type RootStackParamList = {
   PropertyDetails: { propertyId: string };
   Privacy: undefined;
   Register: undefined;
+  SendInvite: undefined;
   RoleUnavailable: undefined;
   TenantConversation: { participantId: string };
   TenantPayments: undefined;

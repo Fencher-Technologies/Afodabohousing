@@ -29,6 +29,7 @@ import {
   createTenantPayment,
   initiateNylonPay,
   initiatePesapalPayment,
+  requestRenewal,
 } from '../services/tenant';
 import { uploadPaymentProof } from '../services/uploads';
 import { colors, radii, shadows, spacing, typography } from '../theme/tokens';
@@ -573,6 +574,19 @@ export function TenantDashboardScreen() {
                   Call Manager
                 </Button>
               ) : null}
+              <Button
+                onPress={async () => {
+                  try {
+                    await requestRenewal(activeTenancy.id);
+                    Alert.alert('Request sent', 'Your house manager will review the renewal request.');
+                  } catch (error) {
+                    Alert.alert('Could not send request', error instanceof Error ? error.message : 'Please try again.');
+                  }
+                }}
+                variant="secondary"
+              >
+                Request Renewal
+              </Button>
             </View>
           ) : (
             <View style={styles.card}>

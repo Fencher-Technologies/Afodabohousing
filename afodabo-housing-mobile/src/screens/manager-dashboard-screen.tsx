@@ -17,6 +17,7 @@ import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
+import { RevenueChart } from '../components/revenue-chart';
 import { ScrollableScreenContainer } from '../components/scrollable-screen-container';
 import { SegmentedControl } from '../components/segmented-control';
 import { useAuth } from '../context/auth-context';
@@ -240,8 +241,9 @@ export function ManagerDashboardScreen() {
           </View>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Revenue</Text>
-            <Text style={styles.largeValue}>{formatUGXFull(stats.revenue)}</Text>
-            <Text style={styles.cardText}>Confirmed payment value across your properties.</Text>
+            <RevenueChart
+              data={dashboardQuery.data?.payments.filter((p) => p.status === 'confirmed') ?? []}
+            />
           </View>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>This Month</Text>

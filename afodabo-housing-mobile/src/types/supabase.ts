@@ -150,6 +150,8 @@ export type Database = {
           id: string;
           images: string[] | null;
           kitchens: number;
+          latitude: number | null;
+          longitude: number | null;
           manager_email: string | null;
           manager_id: string;
           manager_phone: string | null;

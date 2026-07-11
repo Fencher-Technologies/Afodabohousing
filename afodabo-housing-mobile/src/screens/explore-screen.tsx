@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, ImageBackground, StyleSheet, Text, View } from 'react-native';
+import { FlatList, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
 import { InputField } from '../components/input-field';
@@ -22,6 +22,8 @@ import type { Database } from '../types/supabase';
 import type { RootStackParamList } from '../navigation/types';
 import type { ListRenderItem } from 'react-native';
 import type { PropertyRow } from '../types/supabase';
+
+const POPULAR_DISTRICTS = ['Kampala', 'Wakiso', 'Mukono', 'Entebbe', 'Jinja', 'Mbarara'];
 
 const districtOptions = [
   { label: 'All Districts', value: '' as const },
@@ -131,6 +133,26 @@ export function ExploreScreen() {
             <Text style={styles.heroTitle}>Find Your Perfect Home in Uganda</Text>
           </View>
         </ImageBackground>
+
+        <View style={styles.popularDistrictsSection}>
+          <Text style={styles.sectionSubtitle}>Popular Districts</Text>
+          <View style={styles.chipRow}>
+            {POPULAR_DISTRICTS.map((district) => {
+              const active = districtFilter === district;
+              return (
+                <Pressable
+                  key={district}
+                  onPress={() => setDistrictFilter(active ? '' : district)}
+                  style={[styles.chip, active && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {district}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
 
         <View style={styles.filterCard}>
           <Text style={styles.sectionTitle}>Filters</Text>
@@ -273,6 +295,34 @@ export function ExploreScreen() {
 
 const styles = StyleSheet.create({
   amenitiesSection: {
+    gap: spacing.xs,
+  },
+  chip: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  chipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  chipText: {
+    color: colors.textSecondary,
+    fontFamily: typography.bodyStrong,
+    fontSize: 13,
+  },
+  chipTextActive: {
+    color: colors.primaryForeground,
+  },
+  popularDistrictsSection: {
     gap: spacing.xs,
   },
   amenitiesWrap: {

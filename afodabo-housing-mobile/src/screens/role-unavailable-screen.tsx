@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/button';
 import { PageHeader } from '../components/page-header';
 import { ScrollableScreenContainer } from '../components/scrollable-screen-container';
@@ -24,7 +24,15 @@ export function RoleUnavailableScreen() {
           been provisioned by the backend. Please contact support if this account should already be
           active.
         </Text>
-        <Button onPress={() => void signOut()} variant="destructive">
+        <Button
+          onPress={() => {
+            Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+              { style: 'cancel', text: 'Cancel' },
+              { onPress: () => void signOut(), style: 'destructive', text: 'Sign Out' },
+            ]);
+          }}
+          variant="destructive"
+        >
           Sign Out
         </Button>
       </View>

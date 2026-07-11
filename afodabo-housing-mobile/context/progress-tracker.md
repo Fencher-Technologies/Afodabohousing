@@ -144,13 +144,73 @@ Update this file after every meaningful implementation change.
   - `message-composer.tsx`: replaced `Audio.Recording` + manual `setInterval` timer with `useAudioRecorder` / `useAudioRecorderState`; replaced `allowsRecordingIOS` → `allowsRecording`; replaced `recording.getURI()` → `recorder.uri`; removed `Audio.RecordingOptionsPresets` → `RecordingPresets`
   - Confirmed zero remaining `expo-av` references in `src/`; no new TypeScript errors introduced
 
+- Implemented **Property Boost** (high-priority web gap):
+  - Created `src/services/boosts.ts` with `initiateBoost()` and `fetchBoostPrice()` — calls `POST /boosts/initiate` and `GET /boosts/price/default`
+  - Created `src/screens/boost-property-screen.tsx` — manager selects duration (7/14/30 days), enters phone number, pays via NylonPay mobile money
+  - Added `BoostProperty` route to navigation types and `AppNavigator`
+  - Added "Boost Listing" button to `ManagerPropertyDetailsScreen` (secondary variant)
+
+- Implemented **Accept Invite** (high-priority web gap):
+  - Added `acceptInvite()` to `src/services/auth.ts` — calls `POST /auth/accept-invite`, stores session
+  - Created `src/screens/accept-invite-screen.tsx` — form with token, name, phone, password, confirm password
+  - Added `AcceptInvite` route to navigation types and `AppNavigator`
+  - Added "Accept Invitation" button to Account screen (guest view)
+
+- Implemented **Change Password** (high-priority web gap):
+  - **Backend**: Added `POST /auth/change-password` endpoint to `backend/routers/auth.py` with `ChangePasswordRequest` model (current+new password), verifies current credentials via sign-in then updates via admin API
+  - **Backend**: Added `change_password()` method to `backend/services/auth.py`
+  - **Mobile**: Added `changePassword()` to `src/services/auth.ts`
+  - Created `src/screens/change-password-screen.tsx` — current, new, confirm password fields with validation
+  - Added `ChangePassword` route to navigation types and `AppNavigator`
+  - Added "Change Password" button to Account screen (authenticated view)
+
+## Completed This Session (cont.)
+
+- **Password visibility toggle** — Switched Change Password and Accept Invite screens from raw `TextInput` to `InputField` component so both now have native eye/eye-off toggles on all password fields.
+- **Popular District Quick Links** — Added horizontal chip row below hero on Explore screen for Kampala, Wakiso, Mukono, Entebbe, Jinja, Mbarara. Tapping a chip filters by that district; tapping again clears.
+- **Revenue Chart** — Created `src/components/revenue-chart.tsx` using `react-native-svg`-free pure View-based bar chart. Shows last 6 months of confirmed payment revenue on Manager Dashboard, replacing the old static revenue card.
+- **Renewal Request**:
+  - **Backend**: Added `POST /leases/{lease_id}/renewal-request` endpoint; added `request_renewal()` to `LeaseService`; added `RenewalRequest` model + migration-ready pattern.
+  - **Mobile**: Added `requestRenewal()` to `src/services/tenant.ts`; added "Request Renewal" button to Tenant Dashboard within the Current Tenancy card.
+- **Property Bookmarks / Favorites**:
+  - **Backend**: Created `PropertyBookmarkService` with full CRUD; created `backend/routers/bookmarks.py` with `GET /bookmarks`, `POST /bookmarks/{property_id}`, `DELETE /bookmarks/{property_id}`, `GET /bookmarks/check/{property_id}`; registered in `main.py` and `routers/__init__.py`.
+  - **Mobile**: Created `src/services/favorites.ts`; created `src/screens/favorites-screen.tsx`; added `Favorites` route to navigation types and `AppNavigator`; added heart toggle icon on `PropertyDetailsScreen` (heart/outline, toggles via mutation).
+- **Interactive Map**:
+  - **Backend**: Added `latitude`/`longitude` optional fields to Property, PropertyCreate, PropertyUpdate, PropertyResponse models.
+  - **Mobile**: Added lat/lng to `BackendProperty` type, mapper, and `PropertyRow` type; added `MapView` with `Marker` on PropertyDetails using `react-native-maps` when coordinates are present; existing "Open Directions" button remains as fallback.
+- **Push Notifications MVP**:
+  - **Backend**: Added `POST /notifications/push-token` endpoint for Expo push token registration; added `backend/migrations/016_push_tokens.sql` for `push_tokens` table.
+  - **Mobile**: Installed `expo-notifications`; created `src/services/notifications.ts` with `registerForPushNotifications()` and `uploadPushToken()`; wired into auth context so push token is registered automatically on login/session restore.
+
+- **In‑App Notifications + Send Invite + Password Fix + Rent Reminder Notification**:
+  - **Backend**: Created `services/notifications.py` with `create_notification`, `send_push_notification`, `notify` helpers.
+  - **Backend**: Notifications hooked into `payments.py` (confirm/reject), `messages.py` (send), `leases.py` (renewal request, lease create).
+  - **Mobile**: Firebase push‑registration crash fixed — `registerForPushNotifications()` wrapped in try/catch.
+  - **Mobile**: Manager dashboard resilience — individual try/catch for each of 5 parallel requests in `fetchManagerDashboard()`.
+  - **Mobile**: Share listing expanded to include title, location, price, bed/bath, description, manager contacts.
+  - **Send Invite**: `sendInvite()` in `auth.ts`, `SendInviteScreen`, route in `ManagerTabs` (hidden tab), button on Manager Tenancies screen; backend `InviteResponse` returns `email`/`role`/`token`/`expires_at`/`status`.
+  - **Send Invite**: Uses RN built-in `Clipboard` instead of missing `expo-clipboard`.
+  - **Accept Invite**: Wrapped in `KeyboardAvoidingView` for scrollable form.
+  - **Change Password**: Backend fixed to use `get_service_client` with `admin.update_user_by_id` (was using anon key).
+  - **Rent Reminder → Notification**: Added `POST /sms/send-reminder` backend endpoint that sends SMS + creates in‑app notification for tenant; updated mobile `sendRentReminder()` to call it.
+
 ## Next Up
 
-- Improve interaction polish:
+- Medium-priority web gaps:
+  - Support/feedback form parity
+  - Forgot password flow (backend already has `POST /auth/reset-password`)
+  - Maintenance request reporting from tenant side
+- Polish:
   - richer empty/loading states
   - tighter form UX
-  - deeper manager/admin workflows such as finer-grained unit management, property editing in dedicated detail screens, and proof review UX
   - continue decomposing large manager/admin dashboard screens into smaller feature-level components
+
+## Fixed This Session
+
+- **Fixed Manager Dashboard, Properties, and Tenancies screens not rendering**:
+  - **Root cause**: `TenantService.get_all()` in `backend/services/crud.py:190` only accepted `(owner_id, skip, limit)` but `routers/tenants.py:39-48` called it with keyword arguments `status=`, `search=`, `has_user_account=`, `created_from=`, `created_to=`, causing a `TypeError` → 500 on `GET /tenants`. Since `fetchManagerDashboard()` in `src/services/manager.ts:120` uses `Promise.all([5 API calls])`, this single failure rejected the entire batch and blocked all three manager screens.
+  - **Fix**: Updated `TenantService.get_all()` to accept and apply all 5 filter parameters using Supabase query chaining (`.eq()`, `.ilike()`, `.gte()`, `.lte()`).
+  - **Files changed**: `backend/services/crud.py` — added `date` import and expanded `get_all()` signature.
 
 ## Open Questions
 

@@ -1,15 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RouteProp } from '@react-navigation/native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import React, { useMemo, useState } from 'react';
-import { Alert, Image, Linking, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { Badge } from '../components/badge';
 import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
 import { InputField } from '../components/input-field';
 import { Screen } from '../components/screen';
 import { useAuth } from '../context/auth-context';
+import { addBookmark, checkBookmark, removeBookmark } from '../services/favorites';
 import { fetchPropertyDetails } from '../services/properties';
 import { sendTenantMessage } from '../services/tenant';
 import propertyImage1 from '../../assets/brand/property-1.jpg';
@@ -30,9 +33,31 @@ export function PropertyDetailsScreen() {
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
 
+  const queryClient = useQueryClient();
+
   const detailsQuery = useQuery({
     queryFn: () => fetchPropertyDetails(route.params.propertyId),
     queryKey: ['property-details', route.params.propertyId],
+  });
+
+  const bookmarkQuery = useQuery({
+    enabled: Boolean(user),
+    queryFn: () => checkBookmark(route.params.propertyId),
+    queryKey: ['bookmark-check', route.params.propertyId, user?.id],
+  });
+
+  const bookmarkToggle = useMutation({
+    mutationFn: async () => {
+      if (bookmarkQuery.data?.bookmarked) {
+        await removeBookmark(route.params.propertyId);
+      } else {
+        await addBookmark(route.params.propertyId);
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['bookmark-check', route.params.propertyId] });
+      void queryClient.invalidateQueries({ queryKey: ['favorites'] });
+    },
   });
 
   const property = detailsQuery.data?.property ?? null;
@@ -94,7 +119,25 @@ export function PropertyDetailsScreen() {
             {property.status === 'available' ? 'Available now' : property.status}
           </Badge>
         </View>
-        <Text style={styles.title}>{property.title}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{property.title}</Text>
+          {user ? (
+            <Pressable
+              hitSlop={8}
+              onPress={() => {
+                if (!bookmarkToggle.isPending) {
+                  void bookmarkToggle.mutateAsync();
+                }
+              }}
+            >
+              <Ionicons
+                color={bookmarkQuery.data?.bookmarked ? colors.accent : colors.textMuted}
+                name={bookmarkQuery.data?.bookmarked ? 'heart' : 'heart-outline'}
+                size={26}
+              />
+            </Pressable>
+          ) : null}
+        </View>
         <Text style={styles.location}>{locationLabel || `${property.district}, Uganda`}</Text>
         <Text style={styles.priceLabel}>
           {formatUGX(property.rent_amount)}{' '}
@@ -200,6 +243,27 @@ export function PropertyDetailsScreen() {
         </View>
       ) : null}
 
+      {property.latitude && property.longitude ? (
+        <View style={styles.panel}>
+          <Text style={styles.panelTitle}>Location</Text>
+          <View style={styles.mapContainer}>
+            <MapView
+              initialRegion={{
+                latitude: property.latitude,
+                latitudeDelta: 0.05,
+                longitude: property.longitude,
+                longitudeDelta: 0.05,
+              }}
+              scrollEnabled={false}
+              style={styles.map}
+              zoomEnabled={false}
+            >
+              <Marker coordinate={{ latitude: property.latitude, longitude: property.longitude }} />
+            </MapView>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Contact House Manager</Text>
         <View style={styles.actionGroup}>
@@ -241,11 +305,26 @@ export function PropertyDetailsScreen() {
             Open Directions
           </Button>
           <Button
-            onPress={() =>
-              Share.share({
-                message: `${property.title} in ${property.district} - ${formatUGXFull(property.rent_amount)}`,
-              })
-            }
+            onPress={() => {
+              const lines = [
+                `🏠 ${property.title}`,
+                `📍 ${[property.address, property.city, property.district].filter(Boolean).join(', ')}`,
+                `💰 ${formatUGXFull(property.rent_amount)}/${property.rent_period}`,
+              ];
+              if (property.bedrooms || property.bathrooms) {
+                lines.push(`🛏 ${property.bedrooms} bed · 🚿 ${property.bathrooms} bath`);
+              }
+              if (property.description) {
+                lines.push(`📝 ${property.description}`);
+              }
+              if (property.latitude && property.longitude) {
+                lines.push(`🗺 View on map: https://www.google.com/maps/search/?api=1&query=${mapsQuery}`);
+              }
+              if (property.manager_email || property.manager_phone) {
+                lines.push(`\n📞 Contact: ${[property.manager_email, property.manager_phone].filter(Boolean).join(' · ')}`);
+              }
+              Share.share({ message: lines.join('\n') });
+            }}
             variant="outline"
           >
             Share Listing
@@ -410,10 +489,26 @@ const styles = StyleSheet.create({
   section: {
     gap: 8,
   },
+  map: {
+    borderRadius: radii.card,
+    height: 200,
+    width: '100%',
+  },
+  mapContainer: {
+    borderRadius: radii.card,
+    overflow: 'hidden',
+  },
   title: {
     color: colors.textPrimary,
+    flex: 1,
     fontFamily: typography.display,
     fontSize: 32,
+  },
+  titleRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'space-between',
   },
   unitCard: {
     backgroundColor: colors.surfaceMuted,

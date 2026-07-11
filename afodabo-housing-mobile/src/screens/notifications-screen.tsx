@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { StackScreenProps } from '@react-navigation/stack';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp, StackScreenProps } from '@react-navigation/stack';
 import React from 'react';
 import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { EmptyState } from '../components/empty-state';
@@ -10,6 +11,7 @@ import {
   useMarkNotificationRead,
   useNotifications,
 } from '../hooks/use-notifications';
+import type { AppNotification } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import { formatDateLabel } from '../utils/format';
@@ -50,10 +52,18 @@ export function NotificationsScreen({}: StackScreenProps<
   RootStackParamList,
   'Notifications'
 >) {
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { data, isLoading, isError, error, refetch, isRefetching } =
     useNotifications();
   const markReadMutation = useMarkNotificationRead();
   const notifications = data?.notifications ?? [];
+
+  function handleTap(n: AppNotification) {
+    if (!n.is_read) {
+      markReadMutation.mutate(n.id);
+    }
+    navigation.navigate('NotificationDetail', { notification: n });
+  }
 
   if (isLoading) {
     return <LoadingState message="Loading notifications" />;
@@ -99,11 +109,7 @@ export function NotificationsScreen({}: StackScreenProps<
           return (
             <Pressable
               key={notification.id}
-              onPress={() => {
-                if (isUnread) {
-                  markReadMutation.mutate(notification.id);
-                }
-              }}
+              onPress={() => { handleTap(notification); }}
               style={[
                 styles.card,
                 isUnread ? styles.unreadCard : styles.readCard,

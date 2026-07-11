@@ -78,7 +78,14 @@ export function ManagerTenanciesScreen() {
           {tenanciesQuery.tenancies.length} tenancy
           {tenanciesQuery.tenancies.length === 1 ? '' : 'ies'} in your account.
         </Text>
-        <Button onPress={() => navigation.navigate('ManagerCreateTenancy')}>Create Tenancy</Button>
+        <View style={styles.actionRow}>
+          <View style={styles.actionFlex}>
+            <Button onPress={() => navigation.navigate('ManagerCreateTenancy')}>Create Tenancy</Button>
+          </View>
+          <View style={styles.actionFlex}>
+            <Button onPress={() => navigation.navigate('SendInvite')} variant="outline">Send Invite</Button>
+          </View>
+        </View>
       </View>
 
       <AdvancedFilterModal
@@ -221,6 +228,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionFlex: {
+    flex: 1,
   },
   healthText: {
     fontFamily: typography.bodyStrong,

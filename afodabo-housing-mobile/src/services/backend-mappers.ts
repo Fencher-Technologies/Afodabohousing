@@ -19,6 +19,8 @@ type BackendProperty = {
   description?: string | null;
   id: string;
   images?: string[] | null;
+  latitude?: number | null;
+  longitude?: number | null;
   manager_email?: string | null;
   manager_phone?: string | null;
   monthly_rent: number | string;
@@ -188,6 +190,8 @@ export function mapBackendPropertyToPropertyRow(property: BackendProperty): Prop
     id: property.id,
     images: property.images ?? null,
     kitchens: 1,
+    latitude: property.latitude ?? null,
+    longitude: property.longitude ?? null,
     manager_email: property.manager_email ?? null,
     manager_id: property.owner_id,
     manager_phone: property.manager_phone ?? null,

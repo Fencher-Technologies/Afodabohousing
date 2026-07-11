@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 
 interface SegmentedControlProps<T extends string> {
@@ -15,53 +15,16 @@ export function SegmentedControl<T extends string>({
   value,
   variant = 'segments',
 }: SegmentedControlProps<T>) {
-  const positions = useRef<number[]>([]);
-  const widths = useRef<number[]>([]);
-  const translateX = useRef(new Animated.Value(0)).current;
-  const [indicatorWidth, setIndicatorWidth] = useState(0);
-
-  const activeIndex = options.findIndex((o) => o.value === value);
-
-  useEffect(() => {
-    const x = positions.current[activeIndex];
-    const w = widths.current[activeIndex];
-    if (x !== undefined) {
-      Animated.spring(translateX, {
-        toValue: x,
-        useNativeDriver: true,
-        tension: 120,
-        friction: 10,
-      }).start();
-    }
-    if (w !== undefined) {
-      setIndicatorWidth(w);
-    }
-  }, [value, activeIndex, translateX]);
-
   if (variant === 'pills') {
     return (
       <View style={styles.pillsContainer}>
-        <Animated.View
-          style={[
-            styles.pillsIndicator,
-            {
-              width: indicatorWidth,
-              transform: [{ translateX }],
-            },
-          ]}
-        />
-        {options.map((option, idx) => {
-          const isActive = idx === activeIndex;
+        {options.map((option) => {
+          const isActive = option.value === value;
           return (
             <Pressable
               key={option.value}
-              onLayout={(e) => {
-                const { x, width } = e.nativeEvent.layout;
-                positions.current[idx] = x;
-                widths.current[idx] = width;
-              }}
               onPress={() => onChange(option.value)}
-              style={styles.pillsSegment}
+              style={[styles.pillsSegment, isActive && styles.pillsSegmentActive]}
             >
               <Text style={[styles.pillsText, isActive && styles.pillsTextActive]}>
                 {option.label}
@@ -120,31 +83,25 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     flexDirection: 'row',
     padding: 4,
-    position: 'relative',
-  },
-  pillsIndicator: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.pill - 4,
-    position: 'absolute',
-    top: 4,
-    bottom: 4,
   },
   pillsSegment: {
     alignItems: 'center',
+    borderRadius: radii.pill,
     flex: 1,
     justifyContent: 'center',
     minHeight: 38,
     paddingHorizontal: spacing.md,
-    zIndex: 1,
+  },
+  pillsSegmentActive: {
+    backgroundColor: colors.primary,
   },
   pillsText: {
-    color: colors.textMuted,
-    fontFamily: typography.body,
+    color: colors.textSecondary,
+    fontFamily: typography.bodyStrong,
     fontSize: 14,
   },
   pillsTextActive: {
-    color: colors.textPrimary,
-    fontFamily: typography.bodyStrong,
+    color: colors.primaryForeground,
   },
   scrollContent: {
     alignItems: 'flex-start',
