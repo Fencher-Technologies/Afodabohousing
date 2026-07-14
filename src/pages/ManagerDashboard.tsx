@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
@@ -13,19 +13,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { listPayments, updatePayment, createPayment, PaymentData } from '@/services/payments';
-import VoiceRecorder from '@/components/VoiceRecorder';
+import { listPayments, updatePayment, PaymentData } from '@/services/payments';
+import AvatarUpload from '@/components/AvatarUpload';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
-  Eye, RefreshCcw, UserPlus, Bell, Home, Upload, MessageSquare,
-  TrendingUp, Send, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
-  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2, ArrowLeft
+  Eye, RefreshCcw, UserPlus, Bell, Home, Upload,
+  TrendingUp, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
+  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2, Settings
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 type TenancyRow = Database['public']['Tables']['tenancies']['Row'];
-type Message = Database['public']['Tables']['messages']['Row'];
 
 const AMENITIES_LIST = ['Water', 'Electricity', 'WiFi', 'Parking', 'Security', 'Garden', 'Generator', 'DSTV', 'Borehole', 'Tiled Floors'];
 const DISTRICTS_LIST = ['Kampala', 'Wakiso', 'Mukono', 'Mbarara', 'Gulu', 'Jinja', 'Entebbe', 'Mbale', 'Lira', 'Arua', 'Fort Portal', 'Masaka', 'Kabale', 'Hoima', 'Kasese', 'Soroti', 'Tororo'];
@@ -43,14 +42,14 @@ const statusBadge = (s: string) => ({
   terminated: 'status-rejected',
 }[s] ?? 'status-pending');
 
-type Tab = 'overview' | 'properties' | 'tenants' | 'payments' | 'messages';
+type Tab = 'overview' | 'properties' | 'tenants' | 'payments' | 'profile';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: 'properties', label: 'Properties', icon: <Building2 className="h-4 w-4" /> },
   { id: 'tenants', label: 'Tenants', icon: <Users className="h-4 w-4" /> },
   { id: 'payments', label: 'Payments', icon: <DollarSign className="h-4 w-4" /> },
-  { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-4 w-4" /> },
+  { id: 'profile', label: 'Profile', icon: <Settings className="h-4 w-4" /> },
 ];
 
 export default function ManagerDashboard() {
@@ -62,7 +61,6 @@ export default function ManagerDashboard() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [leases, setLeases] = useState<(TenancyRow & { tenant_name?: string; tenant_phone?: string; tenant_user_id?: string; property_title?: string })[]>([]);
   const [payments, setPayments] = useState<(PaymentData & { tenant_name?: string; property_title?: string })[]>([]);
-  const [messages, setMessages] = useState<(Message & { sender_name?: string; receiver_name?: string; property_title?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [propDialogOpen, setPropDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
@@ -70,25 +68,12 @@ export default function ManagerDashboard() {
   const [tenancyDialogOpen, setTenancyDialogOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('overview');
   const [sendingAction, setSendingAction] = useState('');
-  const [replyDialog, setReplyDialog] = useState<{ open: boolean; receiverId: string; name: string; propertyId?: string }>({ open: false, receiverId: '', name: '' });
-  const [replyText, setReplyText] = useState('');
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
   const [selectedPropertyForUnit, setSelectedPropertyForUnit] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [composeDialog, setComposeDialog] = useState<{ open: boolean; tenantId: string; tenantName: string; propertyId?: string }>({ open: false, tenantId: '', tenantName: '' });
-  const [composeText, setComposeText] = useState('');
-  const [composePropId, setComposePropId] = useState('');
-const [composeVoiceUrl, setComposeVoiceUrl] = useState<string | null>(null);
-const [replyVoiceUrl, setReplyVoiceUrl] = useState<string | null>(null);
-const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-const [selectedConv, setSelectedConv] = useState<string | null>(null);
-const [selectedConvName, setSelectedConvName] = useState('');
-const [selectedConvProperty, setSelectedConvProperty] = useState('');
-const [selectedConvReceiverId, setSelectedConvReceiverId] = useState('');
-const [threadText, setThreadText] = useState('');
-const [threadVoiceUrl, setThreadVoiceUrl] = useState<string | null>(null);
-const [threadSending, setThreadSending] = useState(false);
-const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
+  const [profile, setProfile] = useState<{ photo_url: string | null; full_name: string | null; email: string } | null>(null);
 
   const [form, setForm] = useState({
     title: '', description: '', property_type: 'house', state: '', city: '',
@@ -118,12 +103,13 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
-    const [propsRes, tenancyRes, leaseRes, tenantRes, payRes] = await Promise.all([
+    const [propsRes, tenancyRes, leaseRes, tenantRes, payRes, profileRes] = await Promise.all([
       supabase.from('properties').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
       supabase.from('tenancies').select('*').eq('manager_id', user.id).order('created_at', { ascending: false }),
       supabase.from('leases').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
       supabase.from('tenants').select('id, first_name, last_name, phone, user_id').eq('owner_id', user.id),
       listPayments().catch(() => ({ items: [], total: 0 })),
+      supabase.from('profiles').select('photo_url, full_name, email').eq('user_id', user.id).single(),
     ]);
 
     const allPayments = payRes.items || [];
@@ -163,22 +149,14 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
         property_title: propMap[t.property_id] || '',
       };
     }));
+    if (profileRes.data) {
+      setProfile({ photo_url: profileRes.data.photo_url, full_name: profileRes.data.full_name, email: profileRes.data.email });
+    }
     setPayments(allPayments.map(p => ({
       ...p,
       tenant_name: tenantMap[p.tenant_id]?.name || '',
       property_title: propMap[tenancyMap[p.tenancy_id]?.property_id || ''] || '',
     })));
-    if (user) {
-      const msgRes = await supabase.from('messages').select('*, profiles!sender_id(full_name)').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false });
-      const profileMap: Record<string, string> = {};
-      msgRes.data?.forEach(m => { profileMap[m.sender_id] = m.profiles?.full_name || 'Unknown'; });
-      setMessages((msgRes.data || []).map(m => ({
-        ...m,
-        sender_name: m.sender_id === user.id ? 'You' : profileMap[m.sender_id],
-        receiver_name: m.receiver_id === user.id ? 'You' : profileMap[m.receiver_id],
-        property_title: propMap[m.property_id] || '',
-      })));
-    } else { setMessages([]); }
     setLoading(false);
   };
 
@@ -377,122 +355,12 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
     setSendingAction('');
   };
 
-  const handleReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !replyDialog.receiverId || (!replyText.trim() && !replyVoiceUrl)) return;
-    setSendingAction('reply');
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: replyDialog.receiverId,
-      property_id: replyDialog.propertyId || null,
-      content: replyText.trim() || null,
-      voice_note_url: replyVoiceUrl,
-    });
-    setSendingAction('');
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Reply sent!' });
-    const newReply = {
-      id: 'temp-' + Date.now(),
-      sender_id: user.id,
-      receiver_id: replyDialog.receiverId,
-      property_id: replyDialog.propertyId || null,
-      content: replyText.trim() || null,
-      voice_note_url: replyVoiceUrl,
-      created_at: new Date().toISOString(),
-      is_read: false,
-      profiles: { full_name: user.email?.split('@')[0] || 'You' },
-      sender_name: 'You',
-      receiver_name: replyDialog.name,
-      property_title: '',
-    };
-    setMessages(prev => [...prev, newReply]);
-    setReplyText('');
-    setReplyVoiceUrl(null);
-    setReplyDialog({ open: false, receiverId: '', name: '' });
-  };
-
-  const handleCompose = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !composeDialog.tenantId || (!composeText.trim() && !composeVoiceUrl)) return;
-    setSendingAction('compose');
-    const tenant = leases.find(t => t.tenant_id === composeDialog.tenantId);
-    const receiverId = tenant?.tenant_user_id;
-    if (!receiverId) { toast({ title: 'Error', description: 'Tenant user not found. They may not have registered yet.', variant: 'destructive' }); setSendingAction(''); return; }
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: receiverId,
-      property_id: composeDialog.propertyId || null,
-      content: composeText.trim() || null,
-      voice_note_url: composeVoiceUrl,
-    });
-    setSendingAction('');
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Message sent!' });
-    const newMsg = {
-      id: 'temp-' + Date.now(),
-      sender_id: user.id,
-      receiver_id: receiverId,
-      property_id: composeDialog.propertyId || null,
-      content: composeText.trim() || null,
-      voice_note_url: composeVoiceUrl,
-      created_at: new Date().toISOString(),
-      is_read: false,
-      profiles: { full_name: user.email?.split('@')[0] || 'You' },
-      sender_name: 'You',
-      receiver_name: composeDialog.tenantName,
-      property_title: '',
-    };
-    setMessages(prev => [...prev, newMsg]);
-    setComposeText('');
-    setComposeVoiceUrl(null);
-    setComposePropId('');
-    setComposeDialog({ open: false, tenantId: '', tenantName: '' });
-  };
-
-  const handleThreadSend = async () => {
-    if (!user || !selectedConvReceiverId || (!threadText.trim() && !threadVoiceUrl)) return;
-    setThreadSending(true);
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: selectedConvReceiverId,
-      property_id: null,
-      content: threadText.trim() || null,
-      voice_note_url: threadVoiceUrl,
-    });
-    setThreadSending(false);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Sent!' });
-    const newMsg = {
-      id: 'temp-' + Date.now(),
-      sender_id: user.id,
-      receiver_id: selectedConvReceiverId,
-      property_id: null,
-      content: threadText.trim() || null,
-      voice_note_url: threadVoiceUrl,
-      created_at: new Date().toISOString(),
-      is_read: false,
-      profiles: { full_name: user.email?.split('@')[0] || 'You' },
-      sender_name: 'You',
-      receiver_name: selectedConvName,
-      property_title: selectedConvProperty,
-    };
-    setMessages(prev => [...prev, newMsg]);
-    setThreadText('');
-    setThreadVoiceUrl(null);
-  };
-
-  const markMessageRead = async (msgId: string) => {
-    const { error } = await supabase.from('messages').update({ is_read: true }).eq('id', msgId);
-    if (!error) setMessages(prev => prev.map(m => m.id === msgId ? { ...m, is_read: true } : m));
-  };
-
   const toggleAmenity = (a: string) =>
     setForm(f => ({ ...f, amenities: f.amenities.includes(a) ? f.amenities.filter(x => x !== a) : [...f.amenities, a] }));
 
   const occupied = properties.filter(p => p.status === 'occupied').length;
   const available = properties.filter(p => p.status === 'available').length;
   const pendingPayments = payments.filter(p => p.status === 'uploaded');
-  const unreadMessages = messages.filter(m => !m.is_read && m.receiver_id === user?.id).length;
   const confirmedRevenue = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0);
   const dueSoonTenancies = leases.filter(l => {
     if (l.status !== 'active') return false;
@@ -504,7 +372,6 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
     { label: 'Total Listings', val: properties.length, sub: `${available} available · ${occupied} occupied`, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
     { label: 'Active Tenants', val: leases.filter(t => t.status === 'active').length, sub: `${dueSoonTenancies.length} rent due soon`, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10', trend: null },
     { label: 'Revenue Confirmed', val: `UGX ${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
-    { label: 'Unread Messages', val: unreadMessages, sub: `${messages.length} total conversations`, icon: <MessageSquare className="h-5 w-5" />, color: unreadMessages > 0 ? 'text-accent' : 'text-muted-foreground', bg: unreadMessages > 0 ? 'bg-accent/10' : 'bg-muted', trend: null },
   ];
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
@@ -524,7 +391,7 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {NAV_ITEMS.map(item => {
-          const badge = item.id === 'payments' ? pendingPayments.length : item.id === 'messages' ? unreadMessages : 0;
+          const badge = item.id === 'payments' ? pendingPayments.length : 0;
           return (
             <button
               key={item.id}
@@ -756,47 +623,6 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
                     )}
                   </div>
 
-                  {/* Recent Messages */}
-                  <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
-                    <div className="flex items-center justify-between mb-5">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5 text-primary" />
-                        <h3 className="font-display font-semibold text-base">Recent Messages</h3>
-                      </div>
-                      <button onClick={() => setTab('messages')} className="text-xs text-primary hover:underline flex items-center gap-1">
-                        View all <ChevronRight className="h-3 w-3" />
-                      </button>
-                    </div>
-                    {messages.filter(m => m.sender_id !== user?.id).length === 0 ? (
-                      <div className="text-center py-8">
-                        <MessageSquare className="h-10 w-10 text-muted-foreground/20 mx-auto mb-2" />
-                        <p className="text-muted-foreground text-sm">No messages yet</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {messages.filter(m => m.sender_id !== user?.id).slice(0, 4).map(m => (
-                          <div key={m.id} className={`flex gap-3 p-3 rounded-xl border transition-all cursor-pointer ${!m.is_read ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-transparent hover:border-border'}`}
-                            onClick={() => { if (!m.is_read) markMessageRead(m.id); }}>
-                            <div className="h-8 w-8 rounded-lg bg-accent/10 text-accent font-bold text-xs flex items-center justify-center shrink-0">
-                              {(m.sender_name || 'T').charAt(0)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 mb-0.5">
-                                <span className="text-sm font-semibold text-foreground">{m.sender_name}</span>
-                                {!m.is_read && <span className="h-1.5 w-1.5 bg-primary rounded-full" />}
-                              </div>
-                              <p className="text-xs text-muted-foreground truncate">{m.content}</p>
-                            </div>
-                            <button className="shrink-0 text-xs text-primary hover:underline font-medium"
-                              onClick={e => { e.stopPropagation(); setReplyDialog({ open: true, receiverId: m.sender_id, name: m.sender_name || 'Tenant', propertyId: m.property_id || undefined }); if (!m.is_read) markMessageRead(m.id); }}>
-                              Reply
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
                   {/* Property Status */}
                   <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
                     <div className="flex items-center justify-between mb-5">
@@ -998,14 +824,15 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
                               </td>
                               <td className="py-3.5 px-4">
                                 <div className="flex gap-1.5">
+                                  {t.tenant_phone && (
+                                    <a href={`https://wa.me/${t.tenant_phone.replace(/[^0-9]/g, '')}`}
+                                      target="_blank" rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 transition-colors">
+                                      WhatsApp
+                                    </a>
+                                  )}
                                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1" disabled={sendingAction === `remind-${t.id}`} onClick={() => sendRentReminder(t)}>
                                     <Bell className="h-3 w-3" />{sendingAction === `remind-${t.id}` ? '...' : 'Remind'}
-                                  </Button>
-                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => {
-                                    setComposeDialog({ open: true, tenantId: t.tenant_id, tenantName: t.tenant_name || 'Tenant', propertyId: t.property_id });
-                                    setComposePropId(t.property_id);
-                                  }}>
-                                    <Send className="h-3 w-3" />Message
                                   </Button>
                                 </div>
                               </td>
@@ -1102,194 +929,39 @@ const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm
               </div>
             )}
 
-            {/* MESSAGES */}
-            {tab === 'messages' && (
-              <>
-                {selectedConv ? (
-                  <div className="flex flex-col h-[calc(100vh-12rem)]">
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card sticky top-0 z-10">
-                      <button onClick={() => { setSelectedConv(null); setSelectedConvReceiverId(''); }} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-                        <ArrowLeft className="h-5 w-5" />
-                      </button>
-                      <div className="h-9 w-9 rounded-xl bg-accent/10 text-accent font-bold flex items-center justify-center text-sm">
-                        {(selectedConvName || 'T').charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm truncate">{selectedConvName}</p>
-                        {selectedConvProperty && <p className="text-xs text-muted-foreground truncate">{selectedConvProperty}</p>}
-                      </div>
+            {/* PROFILE */}
+            {tab === 'profile' && (
+              <div className="max-w-lg">
+                <h2 className="font-display font-bold text-xl mb-6">Profile</h2>
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
+                  <AvatarUpload
+                    userId={user?.id || ''}
+                    photoUrl={profile?.photo_url || null}
+                    fullName={profile?.full_name || ''}
+                    email={profile?.email || user?.email || ''}
+                    size="xl"
+                    onUpdate={(url) => setProfile(p => p ? { ...p, photo_url: url } : p)}
+                  />
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Full Name</label>
+                      <p className="text-sm font-semibold text-foreground">{profile?.full_name || '—'}</p>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                      {messages.filter(m => (m.sender_id === user?.id && m.receiver_id === selectedConv) || (m.sender_id === selectedConv && m.receiver_id === user?.id)).map(m => {
-                        const isMe = m.sender_id === user?.id;
-                        return (
-                          <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${isMe ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted text-foreground rounded-bl-md'}`}>
-                              {m.content && <p className="text-sm">{m.content}</p>}
-                              {m.voice_note_url && <audio src={m.voice_note_url} controls className="h-8 mt-1" />}
-                              <p className={`text-xs mt-1 opacity-60 ${isMe ? 'text-right' : 'text-left'}`}>
-                                {format(new Date(m.created_at), 'h:mm a')}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="sticky bottom-0 bg-card border-t border-border p-3">
-                      <div className="flex gap-2 max-w-lg mx-auto w-full">
-                        <Input value={threadText} onChange={e => setThreadText(e.target.value)}
-                          placeholder="Type a message..." className="rounded-xl h-11"
-                          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleThreadSend())} />
-                        <VoiceRecorder onRecordingComplete={setThreadVoiceUrl} onClear={() => setThreadVoiceUrl(null)} audioUrl={threadVoiceUrl} />
-                        <Button onClick={handleThreadSend} disabled={threadSending || (!threadText.trim() && !threadVoiceUrl)}
-                          className="rounded-xl h-11 w-11 p-0"><Send className="h-4 w-4" /></Button>
-                      </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Email</label>
+                      <p className="text-sm font-semibold text-foreground">{profile?.email || user?.email || '—'}</p>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="font-display font-bold text-xl">Messages</h2>
-                        <p className="text-sm text-muted-foreground">{unreadMessages} unread · {(() => {
-                          const seen = new Set<string>();
-                          messages.forEach(m => {
-                            const id = m.sender_id === user?.id ? m.receiver_id : m.sender_id;
-                            seen.add(id);
-                          });
-                          return seen.size;
-                        })()} conversations</p>
-                      </div>
-                      {leases.filter(t => t.status === 'active').length > 0 && (
-                        <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => {
-                          const active = leases.find(t => t.status === 'active');
-                          if (active) { setComposeDialog({ open: true, tenantId: active.tenant_id, tenantName: active.tenant_name || 'Tenant', propertyId: active.property_id }); setComposePropId(active.property_id); }
-                        }}>
-                          <Pencil className="h-3.5 w-3.5" /> New Message
-                        </Button>
-                      )}
-                    </div>
-
-                    {messages.length === 0 ? (
-                      <div className="text-center py-24 bg-card border border-border rounded-2xl">
-                        <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground/20" />
-                        <p className="text-xl font-display font-bold text-foreground">No messages yet</p>
-                        <p className="text-sm mt-2 text-muted-foreground">Messages from tenants will appear here</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {(() => {
-                          const groups: Record<string, { name: string; property: string; messages: typeof messages; unread: number }> = {};
-                          messages.forEach(m => {
-                            const isFromTenant = m.sender_id !== user?.id;
-                            const cId = isFromTenant ? m.sender_id : m.receiver_id;
-                            const cName = isFromTenant ? m.sender_name : m.receiver_name;
-                            if (!groups[cId]) groups[cId] = { name: cName || 'Unknown', property: m.property_title || '', messages: [], unread: 0 };
-                            groups[cId].messages.push(m);
-                            if (!groups[cId].property && m.property_title) groups[cId].property = m.property_title;
-                            if (!m.is_read && isFromTenant) groups[cId].unread++;
-                          });
-                          return Object.entries(groups).sort((a, b) => {
-                            const aLast = a[1].messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, a[1].messages[0]);
-                            const bLast = b[1].messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, b[1].messages[0]);
-                            return new Date(bLast.created_at).getTime() - new Date(aLast.created_at).getTime();
-                          }).map(([cId, group]) => {
-                            const lastMsg = group.messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, group.messages[0]);
-                            return (
-                              <button key={cId} onClick={() => {
-                                setSelectedConv(cId);
-                                setSelectedConvName(group.name);
-                                setSelectedConvProperty(group.property);
-                                setSelectedConvReceiverId(cId);
-                                // Mark all unread from this conversation as read
-                                group.messages.filter(m => !m.is_read && m.sender_id !== user?.id).forEach(m => markMessageRead(m.id));
-                              }}
-                                className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-2xl hover:shadow-sm transition-all text-left">
-                                <div className={`h-11 w-11 rounded-xl font-bold text-sm flex items-center justify-center shrink-0 ${group.unread > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                  {(group.name || 'T').charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className={`text-sm ${group.unread > 0 ? 'font-bold text-foreground' : 'font-semibold text-foreground'}`}>{group.name}</span>
-                                    {group.unread > 0 && <span className="h-2 w-2 rounded-full bg-primary" />}
-                                  </div>
-                                  <p className="text-xs text-muted-foreground truncate">{group.property}</p>
-                                  <p className="text-xs text-muted-foreground truncate mt-0.5">{lastMsg.content || (lastMsg.voice_note_url ? '🎤 Voice note' : '')}</p>
-                                </div>
-                                <div className="flex flex-col items-end gap-1 shrink-0">
-                                  <span className="text-xs text-muted-foreground">{format(new Date(lastMsg.created_at), 'MMM dd')}</span>
-                                  {group.unread > 0 && <span className="text-xs font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full min-w-[20px] text-center">{group.unread}</span>}
-                                </div>
-                              </button>
-                            );
-                          });
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => setPasswordDialogOpen(true)}>
+                    Change Password
+                  </Button>
+                </div>
+              </div>
             )}
+
           </div>
         </main>
       </div>
-
-      {/* ── DIALOGS ── */}
-
-      {/* Reply Dialog */}
-      <Dialog open={replyDialog.open} onOpenChange={o => setReplyDialog(d => ({ ...d, open: o }))}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">Reply to {replyDialog.name}</DialogTitle>
-            <DialogDescription>Send an in-app message to this tenant.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleReply} className="space-y-4 mt-4">
-            <Textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={4} placeholder="Type your reply (or record voice)..." />
-            <VoiceRecorder onRecordingComplete={setReplyVoiceUrl} onClear={() => setReplyVoiceUrl(null)} audioUrl={replyVoiceUrl} />
-            <Button type="submit" disabled={sendingAction === 'reply' || (!replyText.trim() && !replyVoiceUrl)} className="w-full gradient-primary text-primary-foreground">
-              {sendingAction === 'reply' ? 'Sending...' : 'Send Message'}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Compose New Message Dialog */}
-      <Dialog open={composeDialog.open} onOpenChange={o => setComposeDialog(d => ({ ...d, open: o }))}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">Message {composeDialog.tenantName}</DialogTitle>
-            <DialogDescription>Send a message to your tenant. They will see it in their dashboard.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCompose} className="space-y-4 mt-4">
-            {leases.filter(t => t.status === 'active').length > 1 && (
-              <div>
-                <Label>Select Tenant</Label>
-                <Select value={composeDialog.tenantId} onValueChange={v => {
-                  const t = leases.find(ten => ten.tenant_id === v);
-                  setComposeDialog(d => ({ ...d, tenantId: v, tenantName: t?.tenant_name || 'Tenant', propertyId: t?.property_id }));
-                  setComposePropId(t?.property_id || '');
-                }}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {leases.filter(t => t.status === 'active').map(t => (
-                      <SelectItem key={t.tenant_id} value={t.tenant_id}>{t.tenant_name} — {t.property_title}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div>
-              <Label>Message</Label>
-              <Textarea value={composeText} onChange={e => setComposeText(e.target.value)} rows={4} placeholder="Type your message to the tenant (or record voice)..." className="mt-1" maxLength={500} />
-              <p className="text-xs text-muted-foreground mt-1">{composeText.length}/500</p>
-            </div>
-            <VoiceRecorder onRecordingComplete={setComposeVoiceUrl} onClear={() => setComposeVoiceUrl(null)} audioUrl={composeVoiceUrl} />
-            <Button type="submit" disabled={sendingAction === 'compose' || !composeDialog.tenantId || (!composeText.trim() && !composeVoiceUrl)} className="w-full gradient-primary text-primary-foreground">
-              {sendingAction === 'compose' ? 'Sending...' : 'Send Message'}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Add Tenant Dialog */}
       <Dialog open={tenancyDialogOpen} onOpenChange={setTenancyDialogOpen}>

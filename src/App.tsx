@@ -15,12 +15,14 @@ import ManagerDashboard from "./pages/ManagerDashboard";
 import BoostPage from "./pages/BoostPage";
 import TenantDashboard from "./pages/TenantDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import ManagerDetail from "./pages/ManagerDetail";
 import AcceptInvitePage from "./pages/AcceptInvite";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AboutPage from "./pages/About";
 import ContactPage from "./pages/Contact";
 import PrivacyPage from "./pages/Privacy";
 import TermsPage from "./pages/Terms";
+import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -67,11 +69,13 @@ const App = () => (
               <Route path="/properties" element={<PropertiesPage />} />
               <Route path="/properties/:id" element={<PropertyDetailPage />} />
               <Route path="/dashboard/super-admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
+              <Route path="/dashboard/super-admin/managers/:id" element={<ProtectedRoute allowedRoles={['super_admin']}><ManagerDetail /></ProtectedRoute>} />
               <Route path="/dashboard/manager" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerDashboard /></ProtectedRoute>} />
               <Route path="/dashboard/manager/boost/:id" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><BoostPage /></ProtectedRoute>} />
               <Route path="/dashboard/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/terms" element={<TermsPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

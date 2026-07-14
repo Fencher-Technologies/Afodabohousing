@@ -1,9 +1,10 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from dependencies import get_current_user
+from dependencies import CurrentUser, get_current_user
 from main import app
 
+UID_OWNER = "00000000-0000-0000-0000-000000000001"
 UID_ADMIN = "00000000-0000-0000-0000-000000000003"
 PID_PROP = "00000000-0000-0000-0000-000000000010"
 PID_PROP_2 = "00000000-0000-0000-0000-000000000011"
@@ -190,19 +191,22 @@ class TestLeases:
 
 class TestPayments:
     def test_list_payments(self, client: TestClient):
+        from dependencies import CurrentUser
+        owner = CurrentUser(id=UID_OWNER, email="owner@test.com", role="house_manager", status="active")
+        app.dependency_overrides[get_current_user] = lambda: owner
         resp = client.get("/payments")
         assert resp.status_code == 200
 
-    def test_get_payment(self, client: TestClient):
-        resp = client.get(f"/payments/{PID_PAYMENT}")
+    def test_get_payment(self, admin_client: TestClient):
+        resp = admin_client.get(f"/payments/{PID_PAYMENT}")
         assert resp.status_code == 200
         assert resp.json()["status"] == "completed"
 
-    def test_get_payment_not_found(self, client: TestClient):
-        resp = client.get("/payments/00000000-0000-0000-0000-00000000ffff")
+    def test_get_payment_not_found(self, admin_client: TestClient):
+        resp = admin_client.get("/payments/00000000-0000-0000-0000-00000000ffff")
         assert resp.status_code == 404
 
-    def test_create_payment(self, client: TestClient):
+    def test_create_payment(self, admin_client: TestClient):
         payload = {
             "lease_id": PID_LEASE,
             "tenant_id": PID_TENANT,
@@ -210,11 +214,11 @@ class TestPayments:
             "payment_type": "rent",
             "due_date": "2026-03-01",
         }
-        resp = client.post("/payments", json=payload)
+        resp = admin_client.post("/payments", json=payload)
         assert resp.status_code == 201
 
-    def test_update_payment(self, client: TestClient):
-        resp = client.patch(f"/payments/{PID_PAYMENT}", json={"status": "completed"})
+    def test_update_payment(self, admin_client: TestClient):
+        resp = admin_client.patch(f"/payments/{PID_PAYMENT}", json={"status": "completed"})
         assert resp.status_code == 200
 
 

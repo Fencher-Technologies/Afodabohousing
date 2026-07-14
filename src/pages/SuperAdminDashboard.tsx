@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,8 +11,20 @@ import { useToast } from '@/hooks/use-toast';
 import {
   LayoutDashboard, Users, Building2, LogOut, Menu,
   RefreshCcw, Mail, Shield, Plus, DollarSign, Copy, CheckCircle2,
-  TrendingUp, AlertTriangle, Home, UserCheck
+  TrendingUp, AlertTriangle, Home, UserCheck, Calendar, Activity,
+  ChevronRight, ArrowUp, ArrowDown, BarChart3, Search,
+  MoreHorizontal, X, Download, ArrowUpDown, ChevronLeft, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
+  Legend
+} from 'recharts';
 
 type Tab = 'overview' | 'managers' | 'settings';
 
@@ -29,9 +41,47 @@ type DashboardStats = {
 
 type Manager = {
   id: string; user_id: string; email: string;
-  full_name: string | null; role: string; status: string;
+  full_name: string | null; photo_url?: string | null; role: string; status: string;
   created_at: string | null; property_count: number;
 };
+
+function avatarInitials(name: string | null, email: string): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
+  }
+  return email.charAt(0).toUpperCase();
+}
+
+function avatarColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  const hues = [14, 182, 200, 340, 48, 260, 30];
+  return `hsl(${hues[Math.abs(hash) % hues.length]}, 50%, ${40 + Math.abs(hash >> 4) % 20}%)`;
+}
+
+function ManagerAvatar({ photoUrl, fullName, email, userId, size = 'h-8 w-8 text-xs' }: { photoUrl?: string | null; fullName: string | null; email: string; userId: string; size?: string }) {
+  return (
+    <Avatar className={`${size} ring-2 ring-border shrink-0`}>
+      <AvatarImage src={photoUrl || undefined} alt={fullName || email} />
+      <AvatarFallback style={{ backgroundColor: avatarColor(userId), color: '#fff' }}>
+        {avatarInitials(fullName, email)}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  active: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+  suspended: 'text-red-700 bg-red-50 border-red-200',
+  pending: 'text-amber-700 bg-amber-50 border-amber-200',
+};
+
+type TrendData = { month: string; amount: number; property?: string; manager?: string };
+type RevenueShare = { name: string; value: number; color: string };
+type ActivityRow = { id: string; name: string; action: string; status: 'completed' | 'pending' | 'overdue'; timestamp: string; };
+type AuditEntry = { id: string; icon: React.ReactNode; description: string; time: string; };
+type BarFilter = 'today' | 'week' | 'month';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -39,9 +89,65 @@ const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'settings', label: 'Settings', icon: <Shield className="h-4 w-4" /> },
 ];
 
+const CHART_COLORS = ['#10b981', '#6366f1', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
 function formatUGX(amount: number): string {
   return `UGX ${(amount || 0).toLocaleString()}`;
 }
+
+function MiniSparkline({ data, color = '#10b981' }: { data: number[]; color?: string }) {
+  const w = 60; const h = 28;
+  if (!data.length) return null;
+  const max = Math.max(...data, 1);
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / max) * h}`).join(' ');
+  return (
+    <svg width={w} height={h} className="shrink-0" viewBox={`0 0 ${w} ${h}`}>
+      <polyline fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={pts} />
+    </svg>
+  );
+}
+
+function SparklineBar({ data, color = '#10b981' }: { data: number[]; color?: string }) {
+  if (!data.length) return null;
+  const max = Math.max(...data, 1);
+  return (
+    <div className="flex items-end gap-[2px] h-8">
+      {data.map((v, i) => (
+        <div key={i} className="w-1.5 rounded-t-sm transition-all" style={{ height: `${(v / max) * 100}%`, background: color, opacity: 0.3 + 0.7 * (v / max) }} />
+      ))}
+    </div>
+  );
+}
+
+function TrendBadge({ value, label }: { value: number; label?: string }) {
+  const up = value >= 0;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-full ${up ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+      {up ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+      {Math.abs(value)}%{label ? ` ${label}` : ''}
+    </span>
+  );
+}
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-card border border-border rounded-xl shadow-lg px-3 py-2 text-xs space-y-1">
+      <p className="font-semibold text-foreground">{label}</p>
+      {payload.map((p: any, i: number) => (
+        <p key={i} style={{ color: p.color }}>{p.name}: {formatUGX(p.value)}</p>
+      ))}
+    </div>
+  );
+};
+
+const CenterLabel = ({ total }: { total: number }) => (
+  <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+    <tspan x="50%" dy="-0.5em" className="text-2xl font-bold fill-foreground">{formatUGX(total)}</tspan>
+    <tspan x="50%" dy="1.5em" className="text-xs fill-muted-foreground">Total</tspan>
+  </text>
+);
 
 export default function SuperAdminDashboard() {
   const { user, signOut } = useAuth();
@@ -55,6 +161,91 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Managers table state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortColumn, setSortColumn] = useState<'name' | 'properties' | 'status' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Filtered & sorted managers
+  const filteredManagers = useMemo(() => {
+    let list = [...managers];
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(m => (m.full_name || '').toLowerCase().includes(q) || m.email.toLowerCase().includes(q));
+    }
+    if (statusFilter !== 'all') list = list.filter(m => m.status === statusFilter);
+    if (sortColumn) {
+      list.sort((a, b) => {
+        let cmp = 0;
+        if (sortColumn === 'name') cmp = (a.full_name || a.email).localeCompare(b.full_name || b.email);
+        else if (sortColumn === 'properties') cmp = a.property_count - b.property_count;
+        else if (sortColumn === 'status') cmp = a.status.localeCompare(b.status);
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+    }
+    return list;
+  }, [managers, searchQuery, statusFilter, sortColumn, sortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredManagers.length / pageSize));
+  const paginatedManagers = filteredManagers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const allSelected = paginatedManagers.length > 0 && paginatedManagers.every(m => selectedRows.has(m.id));
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, pageSize]);
+
+  const toggleSort = (col: 'name' | 'properties' | 'status') => {
+    if (sortColumn === col) setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortColumn(col); setSortDirection('asc'); }
+  };
+
+  const toggleRow = (id: string) => {
+    setSelectedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (allSelected) setSelectedRows(new Set());
+    else setSelectedRows(new Set(paginatedManagers.map(m => m.id)));
+  };
+
+  const clearSelection = () => setSelectedRows(new Set());
+
+  const handleBulkSuspend = async () => {
+    const headers = await getHeaders();
+    const ids = Array.from(selectedRows);
+    for (const id of ids) {
+      await fetch(`${apiBase}/admin/users/${id}/status`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({ status: 'suspended' }),
+      }).catch(() => {});
+    }
+    toast({ title: `Suspended ${ids.length} manager(s)` });
+    clearSelection();
+    fetchData();
+  };
+
+  const handleBulkExport = () => {
+    const selected = managers.filter(m => selectedRows.has(m.id));
+    const csv = [['Name', 'Email', 'Status', 'Properties', 'Joined'].join(',')];
+    selected.forEach(m => csv.push([m.full_name || '', m.email, m.status, m.property_count, m.created_at || ''].join(',')));
+    const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'managers.csv'; a.click();
+    URL.revokeObjectURL(url);
+    clearSelection();
+  };
+
+  // Bar chart filters
+  const [registrationsFilter, setRegistrationsFilter] = useState<BarFilter>('month');
+  const [leasesFilter, setLeasesFilter] = useState<BarFilter>('month');
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -75,6 +266,8 @@ export default function SuperAdminDashboard() {
       ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
     };
   };
+
+  // ─── Data Fetching ──────────────────────────────────────────
 
   const fetchData = async () => {
     setLoading(true);
@@ -98,6 +291,93 @@ export default function SuperAdminDashboard() {
     if (!user) { navigate('/login'); return; }
     fetchData();
   }, [user]);
+
+  // ─── Derived / Mock Data ────────────────────────────────────
+
+  const now = new Date();
+  const curMonth = now.getMonth();
+
+  // TODO: Replace with real Supabase queries when backend endpoints exist
+  // Stat card trend percentages (mock)
+  const propertyTrend = 12;
+  const managerTrend = -3;
+  const tenantTrend = 8;
+  const rentTrend = 15;
+
+  // Sparkline data for stat cards (mock — last 8 periods)
+  // TODO: query from payments/tenancies tables
+  const propertySparkline = [12, 14, 13, 15, 16, 15, 17, 18];
+  const managerSparkline = [8, 9, 9, 10, 10, 9, 10, 10];
+  const tenantSparkline = [24, 26, 28, 30, 32, 35, 38, 42];
+  const rentSparkline = [18000000, 19500000, 21000000, 20500000, 22000000, 21500000, 23000000, 25000000];
+
+  // Rent Collection Trend — multi-line per property/manager
+  // TODO: query Supabase for monthly collection grouped by property
+  const rentTrendLines = [
+    { name: 'Ntinda Apts', data: MONTHS.slice(0, curMonth + 1).map((_, i) => 3000000 + Math.random() * 2000000) },
+    { name: 'Bukoto Heights', data: MONTHS.slice(0, curMonth + 1).map((_, i) => 2500000 + Math.random() * 1500000) },
+    { name: 'Muyenga Villas', data: MONTHS.slice(0, curMonth + 1).map((_, i) => 2000000 + Math.random() * 2500000) },
+  ];
+  const collectionTrendData = MONTHS.slice(0, curMonth + 1).map((month, i) => ({
+    month,
+    ...Object.fromEntries(rentTrendLines.map(l => [l.name, l.data[i]])),
+  }));
+  const rangeLabel = `${MONTHS[Math.max(0, curMonth - 5)]} – ${MONTHS[curMonth]} ${now.getFullYear()}`;
+
+  // Revenue Breakdown — donut
+  // TODO: query by property or manager
+  const revenueShares: RevenueShare[] = [
+    { name: 'Ntinda Apts', value: 45000000, color: CHART_COLORS[0] },
+    { name: 'Bukoto Heights', value: 32000000, color: CHART_COLORS[1] },
+    { name: 'Muyenga Villas', value: 28000000, color: CHART_COLORS[2] },
+    { name: 'Kololo Residency', value: 15000000, color: CHART_COLORS[3] },
+    { name: 'Other', value: 8000000, color: CHART_COLORS[4] },
+  ];
+  const totalRevenue = revenueShares.reduce((s, r) => s + r.value, 0);
+
+  // Bar chart — New Tenant Registrations
+  // TODO: query from tenants table grouped by created_at
+  const genBarData = (len: number) => Array.from({ length: len }, (_, i) => ({
+    label: len <= 7 ? `Day ${i + 1}` : MONTHS[i] || `M${i + 1}`,
+    value: Math.floor(Math.random() * 20 + 5),
+  }));
+  const registrationsData = registrationsFilter === 'today' ? genBarData(7)
+    : registrationsFilter === 'week' ? genBarData(7)
+    : genBarData(curMonth + 1);
+
+  // Bar chart — Active Leases
+  // TODO: query from tenancies/leases table
+  const leasesData = leasesFilter === 'today' ? genBarData(7)
+    : leasesFilter === 'week' ? genBarData(7)
+    : genBarData(curMonth + 1);
+
+  // Pending Manager Invites
+  // TODO: query from invitations table
+  const pendingInvitesData = [{ label: 'Pending', value: 3 }, { label: 'Accepted', value: 7 }, { label: 'Expired', value: 1 }];
+
+  // Recent Activity
+  // TODO: replace with real data from activity_log or events table
+  const recentActivity: ActivityRow[] = [
+    { id: '1', name: 'Sarah Nakato', action: 'Lease Signed — Ntinda Apts', status: 'completed', timestamp: '2 hours ago' },
+    { id: '2', name: 'John Mukasa', action: 'Payment Made — UGX 450,000', status: 'completed', timestamp: '4 hours ago' },
+    { id: '3', name: 'Grace Akello', action: 'Maintenance Request — Plumbing', status: 'pending', timestamp: '1 day ago' },
+    { id: '4', name: 'Peter Ssali', action: 'Rent Overdue — Bukoto Heights', status: 'overdue', timestamp: '2 days ago' },
+    { id: '5', name: 'Amina Wasso', action: 'Lease Renewed — Muyenga Villas', status: 'completed', timestamp: '3 days ago' },
+    { id: '6', name: 'David Okello', action: 'Payment Pending — UGX 320,000', status: 'pending', timestamp: '4 days ago' },
+  ];
+
+  // Audit Log
+  // TODO: replace with real data from audit_logs table
+  const auditLog: AuditEntry[] = [
+    { id: '1', icon: <Shield className="h-3.5 w-3.5" />, description: 'Role changed: John Mukasa → house_manager', time: '1 hour ago' },
+    { id: '2', icon: <Mail className="h-3.5 w-3.5" />, description: 'Invite sent to grace@example.com', time: '3 hours ago' },
+    { id: '3', icon: <Building2 className="h-3.5 w-3.5" />, description: 'Property added: Kololo Residency by Sarah', time: '1 day ago' },
+    { id: '4', icon: <Users className="h-3.5 w-3.5" />, description: 'Tenant registered: Peter Ssali', time: '1 day ago' },
+    { id: '5', icon: <AlertTriangle className="h-3.5 w-3.5" />, description: 'Account suspended: mike@example.com', time: '2 days ago' },
+    { id: '6', icon: <CheckCircle2 className="h-3.5 w-3.5" />, description: 'Manager approved: Grace Akello', time: '3 days ago' },
+  ];
+
+  // ── Manager dialogs ──
 
   const openDialog = (mode: 'invite' | 'create') => {
     setDialogMode(mode);
@@ -176,48 +456,14 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  // ── KPI cards ──
-  const kpiCards = stats ? [
-    {
-      label: 'Total Collected', val: formatUGX(stats.total_collected),
-      icon: <TrendingUp className="h-5 w-5" />, color: 'text-emerald-600', bg: 'bg-emerald-50',
-    },
-    {
-      label: 'Occupancy Rate', val: `${(stats.occupancy_rate * 100).toFixed(1)}%`,
-      icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10',
-    },
-    {
-      label: 'Active Tenants', val: String(stats.active_tenants),
-      sub: `+${stats.new_this_month} this month`,
-      icon: <UserCheck className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10',
-    },
-    {
-      label: 'Outstanding', val: formatUGX(stats.total_outstanding),
-      icon: <AlertTriangle className="h-5 w-5" />, color: 'text-rose-600', bg: 'bg-rose-50',
-    },
-    ...(boostStats ? [
-      {
-        label: 'Boost Revenue', val: formatUGX(boostStats.total_revenue),
-        sub: `${boostStats.active_boosts} active boosts`,
-        icon: <TrendingUp className="h-5 w-5" />, color: 'text-purple-600', bg: 'bg-purple-50',
-      },
-      {
-        label: 'Active Boosts', val: String(boostStats.active_boosts),
-        sub: boostStats.active_boosts > 0 ? `Avg UGX ${Math.round(boostStats.total_revenue / boostStats.active_boosts).toLocaleString()}/boost` : '',
-        icon: <TrendingUp className="h-5 w-5" />, color: 'text-indigo-600', bg: 'bg-indigo-50',
-      },
-    ] : []),
-  ] : [];
+  // ── Status badge helper ──
+  const statusBadge = (s: string) => ({
+    completed: 'bg-emerald-50 text-emerald-700',
+    pending: 'bg-amber-50 text-amber-700',
+    overdue: 'bg-rose-50 text-rose-700',
+  }[s] ?? 'bg-muted text-muted-foreground');
 
-  // ── Monthly revenue (for demo: evenly distribute) ──
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const now = new Date();
-  const monthlyData = months.map((m, i) => ({
-    month: m,
-    amount: stats ? Math.round(stats.total_collected / 12 * (0.8 + Math.random() * 0.4)) : 0,
-    active: i <= now.getMonth(),
-  }));
-  const maxAmount = Math.max(...monthlyData.filter(d => d.active).map(d => d.amount), 1);
+  // ── Render ──
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -262,128 +508,262 @@ export default function SuperAdminDashboard() {
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {/* ═══════════ OVERVIEW ═══════════ */}
           {tab === 'overview' && (
-            <div className="space-y-6 max-w-5xl">
-              {/* KPI Cards */}
+            <div className="space-y-6 max-w-7xl">
+
+              {/* ── TOP STAT CARDS ── */}
               <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
-                {kpiCards.map(s => (
-                  <div key={s.label} className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-sm">
-                    <div className={`${s.bg} ${s.color} w-9 h-9 rounded-xl flex items-center justify-center mb-3`}>{s.icon}</div>
-                    <div className="text-lg md:text-2xl font-display font-bold">
-                      {loading ? <div className="h-6 w-20 bg-muted animate-pulse rounded" /> : s.val}
+                {[
+                  {
+                    label: 'Total Properties', icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10',
+                    val: String(stats?.total_properties ?? 0), sub: `${stats?.occupied_properties ?? 0} occupied · ${stats?.vacant_properties ?? 0} vacant`,
+                    trend: propertyTrend, spark: propertySparkline, sparkColor: '#6366f1',
+                  },
+                  {
+                    label: 'House Managers', icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10',
+                    // TODO: pending invites count from invitations table
+                    val: String(stats?.active_managers ?? 0), sub: `${(stats?.total_managers ?? 0) - (stats?.active_managers ?? 0)} pending invite`,
+                    trend: managerTrend, spark: managerSparkline, sparkColor: '#10b981',
+                  },
+                  {
+                    label: 'Active Tenants', icon: <UserCheck className="h-5 w-5" />, color: 'text-sky-600', bg: 'bg-sky-50',
+                    val: String(stats?.active_tenants ?? 0), sub: `+${stats?.new_this_month ?? 0} this month`,
+                    trend: tenantTrend, spark: tenantSparkline, sparkColor: '#06b6d4',
+                  },
+                  {
+                    label: 'Monthly Rent Collected', icon: <DollarSign className="h-5 w-5" />, color: 'text-emerald-600', bg: 'bg-emerald-50',
+                    val: formatUGX(stats?.total_collected ?? 0), sub: `${stats?.recent_payments_count ?? 0} payments this period`,
+                    trend: rentTrend, spark: rentSparkline, sparkColor: '#10b981',
+                  },
+                ].map(card => (
+                  <div key={card.label} className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-sm relative overflow-hidden">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className={`${card.bg} ${card.color} w-9 h-9 rounded-xl flex items-center justify-center`}>{card.icon}</div>
+                      <MiniSparkline data={card.spark} color={card.sparkColor} />
                     </div>
-                    <div className="text-sm font-semibold text-foreground mt-0.5">{s.label}</div>
-                    {s.sub && <p className="text-xs text-muted-foreground mt-0.5">{s.sub}</p>}
+                    <div className="text-xl md:text-2xl font-display font-bold">
+                      {loading ? <div className="h-6 w-24 bg-muted animate-pulse rounded" /> : card.val}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-sm font-semibold text-foreground">{card.label}</span>
+                      <TrendBadge value={card.trend} />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{card.sub}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Monthly Revenue */}
-              <div className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
-                <h3 className="font-display font-semibold text-base mb-1">Monthly Revenue</h3>
-                <p className="text-xs text-muted-foreground mb-6">Estimated distribution (UGX)</p>
-                <div className="flex items-end gap-2 md:gap-3 h-36">
-                  {monthlyData.map(d => (
-                    <div key={d.month} className="flex-1 flex flex-col items-center gap-1.5">
-                      <span className="text-[10px] text-muted-foreground font-medium">
-                        {d.active ? formatUGX(d.amount).replace('UGX ', '').slice(0, 6) : ''}
-                      </span>
-                      <div
-                        className={`w-full rounded-md transition-all duration-300 ${
-                          d.active ? 'bg-accent/70 hover:bg-accent' : 'bg-muted/30'
-                        }`}
-                        style={{ height: d.active ? `${(d.amount / maxAmount) * 120}px` : '4px' }}
-                      />
-                      <span className={`text-[10px] font-semibold ${d.active ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {d.month}
-                      </span>
-                    </div>
-                  ))}
+              {/* ── MAIN CHART ROW ── */}
+              <div className="grid lg:grid-cols-2 gap-4">
+
+                {/* Rent Collection Trend — Multi-line */}
+                <div className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-display font-semibold text-base">Rent Collection Trend</h3>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-4">{rangeLabel}</p>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={collectionTrendData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                        <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v: number) => `UGX ${(v / 1000000).toFixed(1)}M`} />
+                        <Tooltip content={<CustomTooltip />} />
+                        {rentTrendLines.map((l, i) => (
+                          <Line key={l.name} type="monotone" dataKey={l.name} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                        ))}
+                        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">Showing collection activity from {rangeLabel}</p>
+                </div>
+
+                {/* Revenue Breakdown — Donut */}
+                <div className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-display font-semibold text-base">Revenue Breakdown</h3>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-4">Split by property</p>
+                  <div className="h-64 flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={revenueShares} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" paddingAngle={2}>
+                          {revenueShares.map((entry, i) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="fill-foreground">
+                          <tspan x="50%" dy="-0.5em" className="text-lg font-bold">{formatUGX(totalRevenue)}</tspan>
+                          <tspan x="50%" dy="1.3em" className="text-xs fill-muted-foreground">Total</tspan>
+                        </text>
+                        <Tooltip formatter={(v: number) => formatUGX(v)} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                    {revenueShares.map(s => (
+                      <div key={s.name} className="flex items-center gap-1.5 text-xs">
+                        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+                        <span className="text-muted-foreground">{s.name}</span>
+                        <span className="font-semibold text-foreground">{((s.value / totalRevenue) * 100).toFixed(0)}%</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Property + Users */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Property Breakdown */}
-                <div className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
-                  <h3 className="font-display font-semibold text-base mb-4">Property Breakdown</h3>
-                  {loading ? (
-                    <div className="h-20 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-primary" />
-                          <span className="text-sm">Occupied</span>
-                        </div>
-                        <span className="text-sm font-semibold">{stats?.occupied_properties ?? 0}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-muted-foreground/40" />
-                          <span className="text-sm">Vacant</span>
-                        </div>
-                        <span className="text-sm font-semibold">{stats?.vacant_properties ?? 0}</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden mt-2">
-                        <div className="h-full bg-primary rounded-full transition-all"
-                          style={{ width: `${((stats?.occupancy_rate ?? 0) * 100)}%` }} />
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {stats?.total_properties ?? 0} total properties · {(stats?.occupancy_rate ?? 0) * 100}% occupied
-                      </p>
+              {/* ── SECONDARY ROW (Filterable Bar Charts) ── */}
+              <div className="grid md:grid-cols-3 gap-4">
+                {/* New Tenant Registrations */}
+                <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-display font-semibold text-sm">New Tenant Registrations</h4>
+                    <div className="flex gap-1">
+                      {(['today', 'week', 'month'] as BarFilter[]).map(f => (
+                        <button key={f} onClick={() => setRegistrationsFilter(f)}
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${registrationsFilter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
+                          {f === 'today' ? 'Today' : f === 'week' ? 'Week' : 'Month'}
+                        </button>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                  <div className="h-32">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={registrationsData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
+                        <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
+                        <Tooltip contentStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
 
-                {/* User Summary */}
-                <div className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
-                  <h3 className="font-display font-semibold text-base mb-4">User Summary</h3>
-                  {loading ? (
-                    <div className="h-20 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-accent" />
-                          <span className="text-sm">Managers</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-muted-foreground">{stats?.active_managers ?? 0} active</span>
-                          <span className="text-sm font-semibold">{stats?.total_managers ?? 0}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <UserCheck className="h-4 w-4 text-primary" />
-                          <span className="text-sm">Tenants</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-muted-foreground">{stats?.active_tenants ?? 0} active</span>
-                          <span className="text-sm font-semibold">{stats?.total_tenants ?? 0}</span>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-border">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>Collection rate</span>
-                          <span className="font-semibold text-foreground">
-                            {((stats?.avg_collection_rate ?? 0) * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
-                          <span>New this month</span>
-                          <span className="font-semibold text-foreground">+{stats?.new_this_month ?? 0}</span>
-                        </div>
-                      </div>
+                {/* Active Leases */}
+                <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-display font-semibold text-sm">Active Leases</h4>
+                    <div className="flex gap-1">
+                      {(['today', 'week', 'month'] as BarFilter[]).map(f => (
+                        <button key={f} onClick={() => setLeasesFilter(f)}
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${leasesFilter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
+                          {f === 'today' ? 'Today' : f === 'week' ? 'Week' : 'Month'}
+                        </button>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                  <div className="h-32">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={leasesData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
+                        <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
+                        <Tooltip contentStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Pending Manager Invites */}
+                <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-display font-semibold text-sm">Pending Manager Invites</h4>
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="h-32">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={pendingInvitesData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
+                        <YAxis type="category" dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" width={70} />
+                        <Tooltip contentStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                          {pendingInvitesData.map((entry, i) => (
+                            <Cell key={entry.label} fill={[CHART_COLORS[2], CHART_COLORS[0], CHART_COLORS[3]][i]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
+
+              {/* ── TABLES ROW ── */}
+              <div className="grid lg:grid-cols-2 gap-4">
+
+                {/* Recent Activity Table */}
+                <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+                  <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                    <h3 className="font-display font-semibold text-base flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-primary" /> Recent Activity
+                    </h3>
+                    <button className="text-xs text-primary hover:underline flex items-center gap-1">
+                      View all <ChevronRight className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/50">
+                          <th className="text-left py-2.5 px-4 font-semibold text-xs text-muted-foreground">Person</th>
+                          <th className="text-left py-2.5 px-4 font-semibold text-xs text-muted-foreground">Action</th>
+                          <th className="text-left py-2.5 px-4 font-semibold text-xs text-muted-foreground">Status</th>
+                          <th className="text-right py-2.5 px-4 font-semibold text-xs text-muted-foreground">When</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentActivity.map(row => (
+                          <tr key={row.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                            <td className="py-3 px-4 font-semibold text-foreground text-xs">{row.name}</td>
+                            <td className="py-3 px-4 text-muted-foreground text-xs">{row.action}</td>
+                            <td className="py-3 px-4">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${statusBadge(row.status)}`}>{row.status}</span>
+                            </td>
+                            <td className="py-3 px-4 text-right text-muted-foreground text-xs">{row.timestamp}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Audit Log Feed */}
+                <div className="bg-card border border-border rounded-2xl shadow-sm">
+                  <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                    <h3 className="font-display font-semibold text-base flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-primary" /> Audit Log
+                    </h3>
+                    <button className="text-xs text-primary hover:underline flex items-center gap-1">
+                      View all <ChevronRight className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto divide-y divide-border/50">
+                    {auditLog.map(entry => (
+                      <div key={entry.id} className="flex items-start gap-3 px-5 py-3 hover:bg-muted/20 transition-colors">
+                        <div className="h-7 w-7 rounded-lg bg-primary/5 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                          {entry.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-foreground">{entry.description}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{entry.time}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
             </div>
           )}
 
           {/* ═══════════ MANAGERS ═══════════ */}
           {tab === 'managers' && (
-            <div className="space-y-5 max-w-4xl">
+            <div className="space-y-5 max-w-6xl">
+              {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-display font-bold text-xl">House Managers</h2>
@@ -399,42 +779,224 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
 
+              {/* Stat strip */}
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { label: 'Total Managers', value: managers.length, color: 'bg-primary/10 text-primary' },
+                  { label: 'Active', value: managers.filter(m => m.status === 'active').length, color: 'bg-emerald-50 text-emerald-700' },
+                  { label: 'Suspended', value: managers.filter(m => m.status === 'suspended').length, color: 'bg-red-50 text-red-700' },
+                  { label: 'Pending Invite', value: managers.filter(m => m.status === 'pending').length, color: 'bg-amber-50 text-amber-700' },
+                ].map(s => (
+                  <div key={s.label} className="bg-card border border-border rounded-xl p-3 shadow-sm">
+                    <div className={`text-2xl font-display font-bold ${s.color.split(' ')[1]}`}>{s.value}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Search & Filter */}
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name or email..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="pl-9 h-9 text-sm"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-36 h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setCurrentPage(1); }}>
+                    <SelectTrigger className="h-9 w-16 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span>per page</span>
+                </div>
+              </div>
+
+              {/* Bulk action bar */}
+              {selectedRows.size > 0 && (
+                <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-2">
+                  <span className="text-sm font-medium text-foreground">{selectedRows.size} selected</span>
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleBulkSuspend}>
+                    <X className="h-3 w-3" /> Suspend All
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleBulkExport}>
+                    <Download className="h-3 w-3" /> Export CSV
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs ml-auto" onClick={clearSelection}>
+                    Clear
+                  </Button>
+                </div>
+              )}
+
+              {/* Table */}
               <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-muted border-b border-border">
-                        <th className="text-left py-3 px-4 font-semibold">Name</th>
-                        <th className="text-left py-3 px-4 font-semibold">Email</th>
-                        <th className="text-left py-3 px-4 font-semibold">Properties</th>
-                        <th className="text-left py-3 px-4 font-semibold">Status</th>
-                        <th className="text-left py-3 px-4 font-semibold">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {managers.length === 0 ? (
-                        <tr><td colSpan={5} className="py-12 text-center text-muted-foreground">No managers found</td></tr>
-                      ) : managers.map(m => (
-                        <tr key={m.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                          <td className="py-3 px-4 font-semibold">{m.full_name || '—'}</td>
-                          <td className="py-3 px-4 text-muted-foreground">{m.email}</td>
-                          <td className="py-3 px-4">{m.property_count}</td>
-                          <td className="py-3 px-4">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${m.status === 'active' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
-                              {m.status}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Button size="sm" variant={m.status === 'active' ? 'destructive' : 'outline'}
-                              className="h-7 text-xs" onClick={() => handleToggleStatus(m)}>
-                              {m.status === 'active' ? 'Suspend' : 'Activate'}
-                            </Button>
-                          </td>
+                  {loading ? (
+                    // Skeleton loading
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted border-b border-border">
+                          <th className="py-3 px-4 w-10"><div className="h-4 w-4 bg-muted-foreground/20 rounded" /></th>
+                          <th className="text-left py-3 px-4 font-semibold">Name</th>
+                          <th className="text-left py-3 px-4 font-semibold">Properties</th>
+                          <th className="text-left py-3 px-4 font-semibold">Status</th>
+                          <th className="text-left py-3 px-4 font-semibold">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <tr key={i} className="border-b border-border">
+                            <td className="py-3 px-4"><div className="h-4 w-4 bg-muted rounded animate-pulse" /></td>
+                            <td className="py-3 px-4"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-muted animate-pulse" /><div className="h-4 w-32 bg-muted rounded animate-pulse" /></div></td>
+                            <td className="py-3 px-4"><div className="h-4 w-12 bg-muted rounded animate-pulse" /></td>
+                            <td className="py-3 px-4"><div className="h-5 w-16 bg-muted rounded-full animate-pulse" /></td>
+                            <td className="py-3 px-4"><div className="h-6 w-8 bg-muted rounded animate-pulse" /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : filteredManagers.length === 0 ? (
+                    // Empty state
+                    <div className="py-16 text-center">
+                      <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
+                      <p className="font-display font-semibold text-foreground text-lg">No managers yet</p>
+                      <p className="text-sm text-muted-foreground mt-1 mb-4">Invite your first house manager to get started</p>
+                      <Button size="sm" className="gap-1.5" onClick={() => openDialog('invite')}>
+                        <Mail className="h-4 w-4" /> Invite House Manager
+                      </Button>
+                    </div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted border-b border-border">
+                          <th className="py-3 px-4 w-10">
+                            <input type="checkbox" className="rounded border-border accent-primary cursor-pointer"
+                              checked={allSelected} onChange={toggleAll} />
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold cursor-pointer select-none" onClick={() => toggleSort('name')}>
+                            <span className="inline-flex items-center gap-1">
+                              Name {sortColumn === 'name' && <ArrowUpDown className="h-3 w-3" />}
+                            </span>
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold cursor-pointer select-none" onClick={() => toggleSort('properties')}>
+                            <span className="inline-flex items-center gap-1">
+                              Properties {sortColumn === 'properties' && <ArrowUpDown className="h-3 w-3" />}
+                            </span>
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold cursor-pointer select-none" onClick={() => toggleSort('status')}>
+                            <span className="inline-flex items-center gap-1">
+                              Status {sortColumn === 'status' && <ArrowUpDown className="h-3 w-3" />}
+                            </span>
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedManagers.map(m => (
+                          <tr key={m.id} className="border-b border-border hover:bg-muted/30 transition-colors cursor-pointer"
+                            onClick={(e) => {
+                              if ((e.target as HTMLElement).closest('.actions-cell, input[type="checkbox"]')) return;
+                              navigate(`/dashboard/super-admin/managers/${m.user_id}`);
+                            }}>
+                            <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" className="rounded border-border accent-primary cursor-pointer"
+                                checked={selectedRows.has(m.id)} onChange={() => toggleRow(m.id)} />
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <ManagerAvatar photoUrl={m.photo_url} fullName={m.full_name} email={m.email} userId={m.user_id} />
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-foreground truncate">{m.full_name || '—'}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{m.email}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={m.property_count === 0 ? 'text-muted-foreground' : 'font-semibold text-foreground'}>
+                                {m.property_count === 0 ? 'Unassigned' : m.property_count}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[m.status] || 'bg-muted text-muted-foreground border-border'}`}>
+                                {m.status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 actions-cell" onClick={e => e.stopPropagation()}>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="min-w-[140px]">
+                                  <DropdownMenuItem onClick={() => navigate(`/dashboard/super-admin/managers/${m.user_id}`)}>
+                                    View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    setCreateName(m.full_name || '');
+                                    setCreateEmail(m.email);
+                                    setDialogMode('create');
+                                    setDialogOpen(true);
+                                  }}>
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className={m.status === 'active' ? 'text-destructive' : ''}
+                                    onClick={() => handleToggleStatus(m)}
+                                  >
+                                    {m.status === 'active' ? 'Suspend' : 'Reactivate'}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
+                {/* Pagination */}
+                {!loading && filteredManagers.length > 0 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                    <span className="text-xs text-muted-foreground">
+                      Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredManagers.length)} of {filteredManagers.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>
+                        <ChevronsLeft className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </Button>
+                      <span className="text-xs font-medium text-foreground px-2">{currentPage} / {totalPages}</span>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>
+                        <ChevronsRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -466,7 +1028,6 @@ export default function SuperAdminDashboard() {
           </DialogHeader>
 
           {createdPassword ? (
-            /* Success state — show password */
             <div className="mt-4 space-y-4">
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
                 <CheckCircle2 className="h-10 w-10 text-emerald-600 mx-auto mb-2" />
@@ -491,7 +1052,6 @@ export default function SuperAdminDashboard() {
             </div>
           ) : (
             <>
-              {/* Mode tabs */}
               <Tabs value={dialogMode} onValueChange={(v) => setDialogMode(v as 'invite' | 'create')} className="mt-2">
                 <TabsList className="w-full">
                   <TabsTrigger value="invite" className="flex-1">Send Invite</TabsTrigger>

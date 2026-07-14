@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -12,11 +12,44 @@ import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('pw_recovery')) {
+      setResetting(true);
+      sessionStorage.removeItem('pw_recovery');
+    }
+  }, []);
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast({ title: 'Password too short', description: 'Must be at least 6 characters.', variant: 'destructive' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: 'Passwords do not match', variant: 'destructive' });
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setLoading(false);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Password updated!', description: 'You can now sign in with your new password.' });
+    sessionStorage.removeItem('pw_recovery');
+    setResetting(false);
+    await supabase.auth.signOut();
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,10 +101,35 @@ export default function LoginPage() {
             </div>
           </Link>
 
-          <h1 className="text-3xl font-display font-bold text-foreground mb-1.5">Welcome back</h1>
-          <p className="text-muted-foreground mb-8">Sign in to your account to continue</p>
-
-          <form ref={formRef} onSubmit={handleLogin} className="space-y-5">
+          {resetting ? (
+            <>
+              <h1 className="text-3xl font-display font-bold text-foreground mb-1.5">Set new password</h1>
+              <p className="text-muted-foreground mb-8">Enter your new password below.</p>
+              <form onSubmit={handleResetPassword} className="space-y-5">
+                <div>
+                  <Label htmlFor="new-password">New password</Label>
+                  <div className="relative mt-1.5">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="new-password" type={showNewPw ? 'text' : 'password'} placeholder="At least 6 characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={6} className="pl-9 pr-10" />
+                    <button type="button" onClick={() => setShowNewPw(!showNewPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {showNewPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="confirm-password">Confirm password</Label>
+                  <Input id="confirm-password" type="password" placeholder="Repeat the new password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6} className="mt-1.5" />
+                </div>
+                <Button type="submit" disabled={loading} className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
+                  {loading ? 'Updating...' : 'Update Password'}
+                </Button>
+              </form>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl font-display font-bold text-foreground mb-1.5">Welcome back</h1>
+              <p className="text-muted-foreground mb-8">Sign in to your account to continue</p>
+              <form onSubmit={handleLogin} className="space-y-5">
             <div>
               <Label htmlFor="email">Email address</Label>
               <div className="relative mt-1.5">
@@ -132,6 +190,8 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
+            </>
+          )}
         </div>
       </div>
 

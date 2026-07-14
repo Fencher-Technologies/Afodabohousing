@@ -8,6 +8,7 @@ from .messages import router as messages_router
 from .payments import router as payments_router
 from .properties import router as properties_router
 from .rental_units import router as rental_units_router
+from .subscriptions import router as subscriptions_router
 from .tenants import router as tenants_router
 from .uploads import router as uploads_router
 from .webhooks import router as webhooks_router
@@ -17,6 +18,7 @@ __all__ = [
     "auth_router",
     "boosts_router",
     "exports_router",
+    "subscriptions_router",
     "leases_router",
     "maintenance_requests_router",
     "messages_router",

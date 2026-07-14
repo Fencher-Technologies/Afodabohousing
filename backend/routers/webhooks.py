@@ -13,6 +13,7 @@ from supabase import Client
 from config import get_settings
 from dependencies import get_service_client
 from services.boost import get_boost_service
+from services.subscription import get_subscription_service
 from services.nylonpay import verify_webhook as verify_nylonpay_webhook
 
 logger = logging.getLogger(__name__)
@@ -199,16 +200,23 @@ async def nylonpay_webhook(
     logger.info("NylonPay webhook: event=%s reference=%s status=%s", event, reference, status_str)
 
     if event == "transaction.successful":
-        svc = get_boost_service(supabase)
-        activated = svc.activate_by_reference(reference, txn_id)
+        boost_svc = get_boost_service(supabase)
+        activated = boost_svc.activate_by_reference(reference, txn_id)
         if activated:
             logger.info("Boost %s activated via NylonPay webhook", activated["id"])
         else:
-            supabase.table("payments").update({"status": "completed", "transaction_id": txn_id}).eq("transaction_id", reference).execute()
+            sub_svc = get_subscription_service(supabase)
+            sub_activated = sub_svc.activate_by_reference(reference, txn_id)
+            if sub_activated:
+                logger.info("Subscription %s activated via NylonPay webhook", sub_activated["id"])
+            else:
+                supabase.table("payments").update({"status": "completed", "transaction_id": txn_id}).eq("transaction_id", reference).execute()
 
     elif event in ("transaction.failed", "transaction.cancelled"):
-        svc = get_boost_service(supabase)
-        svc.table.update({"status": "failed"}).eq("transaction_id", reference).eq("status", "pending").execute()
+        boost_svc = get_boost_service(supabase)
+        boost_svc.table.update({"status": "failed"}).eq("transaction_id", reference).eq("status", "pending").execute()
+        sub_svc = get_subscription_service(supabase)
+        sub_svc.table.update({"status": "failed"}).eq("transaction_id", reference).eq("status", "pending").execute()
         supabase.table("payments").update({"status": "failed"}).eq("transaction_id", reference).execute()
 
     return {"status": "received"}

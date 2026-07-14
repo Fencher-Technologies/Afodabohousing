@@ -23,6 +23,7 @@ from routers import (
     payments_router,
     properties_router,
     rental_units_router,
+    subscriptions_router,
     tenants_router,
     uploads_router,
     webhooks_router,
@@ -189,6 +190,7 @@ app.include_router(auth_router)
 app.include_router(exports_router)
 app.include_router(boosts_router)
 app.include_router(properties_router)
+app.include_router(subscriptions_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)
 app.include_router(messages_router)

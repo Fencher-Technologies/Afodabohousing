@@ -1,27 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerTrigger, DrawerClose } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer';
 import { useToast } from '@/hooks/use-toast';
-import VoiceRecorder from '@/components/VoiceRecorder';
-import { listPayments, createPayment, initiateNylonPay, PaymentData } from '@/services/payments';
 import {
-  Home, MessageSquare, Send, Upload, CheckCircle, X,
-  Calendar, MapPin, Phone, Mail, ChevronRight, Building2, Clock, Image, Settings, LogOut, Smartphone
+  Home, MapPin, Phone, ChevronRight, Building2, Clock, Image, Settings, LogOut
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
-type Tab = 'home' | 'payments' | 'messages' | 'settings';
+type Tab = 'home' | 'settings';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'home', label: 'Home', icon: <Home className="h-5 w-5" /> },
-  { id: 'payments', label: 'Payments', icon: <span className="text-[10px] font-extrabold h-5 w-5 flex items-center justify-center">UGX</span> },
-  { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
   { id: 'settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> },
 ];
 
@@ -34,25 +27,11 @@ export default function TenantDashboard() {
   const [activeLease, setActiveLease] = useState<any>(null);
   const [tenantRecord, setTenantRecord] = useState<any>(null);
   const [managerProfile, setManagerProfile] = useState<any>(null);
-  const [payments, setPayments] = useState<PaymentData[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [paymentNote, setPaymentNote] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [memoOpen, setMemoOpen] = useState(false);
-  const [messageText, setMessageText] = useState('');
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [voiceUrl, setVoiceUrl] = useState<string | null>(null);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ new: '', confirm: '' });
   const [sendingPassword, setSendingPassword] = useState(false);
-  const [npayPhone, setNpayPhone] = useState('');
-  const [npaySending, setNpaySending] = useState(false);
-  const [npayMessage, setNpayMessage] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -60,19 +39,11 @@ export default function TenantDashboard() {
     fetchData();
   }, [user, authLoading]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
 
-    const [tenantResult, payResult] = await Promise.all([
-      supabase.from('tenants').select('*, leases!inner(*, properties(*))').eq('user_id', user.id).maybeSingle(),
-      listPayments().catch(() => ({ items: [], total: 0 })),
-    ]);
-
+    const tenantResult = await supabase.from('tenants').select('*, leases!inner(*, properties(*))').eq('user_id', user.id).maybeSingle();
     const tenant = tenantResult.data;
     setTenantRecord(tenant);
     const lease = tenant?.leases?.[0] || null;
@@ -82,113 +53,16 @@ export default function TenantDashboard() {
       const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', lease.owner_id).maybeSingle();
       setManagerProfile(profile);
     }
-
-    setPayments(payResult.items || []);
-
-    if (user) {
-      const msgRes = await supabase.from('messages').select('*, profiles!sender_id(full_name)').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false });
-      setMessages((msgRes.data || []).map(m => ({
-        ...m,
-        sender_name: m.sender_id === user.id ? 'You' : m.profiles?.full_name || 'Manager',
-      })).reverse());
-    } else {
-      setMessages([]);
-    }
     setLoading(false);
   };
 
   const daysLeft = activeLease ? differenceInDays(new Date(activeLease.end_date), new Date()) : null;
   const isOverdue = daysLeft !== null && daysLeft < 0;
   const isDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
-  const unreadMessages = messages.filter(m => !m.is_read && m.receiver_id === user?.id).length;
-  const confirmedPayments = payments.filter(p => p.status === 'confirmed');
-  const totalPaid = confirmedPayments.reduce((s, p) => s + (p.amount || 0), 0);
-  const lastPayment = payments[0];
-  const nextDue = activeLease ? new Date(activeLease.end_date) : null;
 
   const property = activeLease?.properties;
 
-  const activityFeed = [
-    ...payments.map(p => ({
-      id: `pay-${p.id}`,
-      type: 'payment' as const,
-      title: p.status === 'confirmed' ? 'Payment confirmed' : p.status === 'uploaded' ? 'Payment submitted' : 'Payment recorded',
-      detail: `UGX ${p.amount?.toLocaleString()} — ${p.status}`,
-      date: p.paid_date || p.created_at,
-      status: p.status,
-    })),
-    ...messages.filter(m => m.sender_id !== user?.id).map(m => ({
-      id: `msg-${m.id}`,
-      type: 'message' as const,
-      title: `Message from ${m.sender_name || 'Manager'}`,
-      detail: m.content || 'Voice note',
-      date: m.created_at,
-      isUnread: !m.is_read,
-    })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
-
-  const handleUploadPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeLease || !tenantRecord || !user) return;
-    setUploading(true);
-
-    let proofUrl = '';
-    if (proofFile) {
-      const ext = proofFile.name.split('.').pop();
-      const filePath = `${user.id}/${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from('payment-proofs').upload(filePath, proofFile);
-      if (uploadErr) {
-        toast({ title: 'Upload failed', description: uploadErr.message, variant: 'destructive' });
-        setUploading(false); return;
-      }
-      proofUrl = filePath;
-    }
-
-    try {
-      await createPayment({
-        lease_id: activeLease.id,
-        tenant_id: tenantRecord.id,
-        amount: activeLease.monthly_rent,
-        payment_type: 'rent',
-        payment_method: proofFile ? 'mobile_money' : undefined,
-        due_date: activeLease.end_date,
-        status: proofFile ? 'uploaded' : 'pending',
-        notes: paymentNote || null,
-      });
-      toast({ title: 'Payment submitted!' });
-      setMemoOpen(false);
-      setProofFile(null);
-      setPaymentNote('');
-      fetchData();
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    }
-    setUploading(false);
-  };
-
-  const handleNylonPayPayment = async () => {
-    if (!activeLease || !tenantRecord || !user) return;
-    if (!npayPhone.trim()) { toast({ title: 'Enter your phone number', variant: 'destructive' }); return; }
-    setNpaySending(true);
-    setNpayMessage(null);
-    try {
-      const res = await initiateNylonPay({
-        amount: activeLease.monthly_rent,
-        phone_number: npayPhone.trim(),
-        description: `Rent payment for ${activeLease.properties?.title || 'property'}`,
-        payment_id: activeLease.id,
-        first_name: user.email?.split('@')[0] || 'Tenant',
-        last_name: '',
-        email: user.email || undefined,
-      });
-      setNpayMessage(res.message);
-      if (res.success) toast({ title: 'Payment initiated!', description: res.message });
-      else toast({ title: 'Payment failed', description: res.message, variant: 'destructive' });
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    }
-    setNpaySending(false);
-  };
+  const activityFeed: any[] = [];
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,36 +79,6 @@ export default function TenantDashboard() {
     toast({ title: 'Password updated', description: 'Use your new password next time you sign in.' });
     setPasswordDialogOpen(false);
     setPasswordForm({ new: '', confirm: '' });
-  };
-
-  const handleSendMessage = async () => {
-    if (!user || !activeLease?.owner_id || (!messageText.trim() && !voiceUrl)) return;
-    setSendingMessage(true);
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: activeLease.owner_id,
-      property_id: activeLease.property_id,
-      content: messageText.trim() || null,
-      voice_note_url: voiceUrl,
-    });
-    setSendingMessage(false);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Message sent!' });
-    const newMsg = {
-      id: 'temp-' + Date.now(),
-      sender_id: user.id,
-      receiver_id: activeLease.owner_id,
-      property_id: activeLease.property_id,
-      content: messageText.trim() || null,
-      voice_note_url: voiceUrl,
-      created_at: new Date().toISOString(),
-      is_read: false,
-      profiles: { full_name: user.email?.split('@')[0] || 'You' },
-      sender_name: 'You',
-    };
-    setMessages(prev => [...prev, newMsg]);
-    setMessageText('');
-    setVoiceUrl(null);
   };
 
   if (loading) {
@@ -263,9 +107,6 @@ export default function TenantDashboard() {
             </p>
           </div>
         </div>
-        {unreadMessages > 0 && (
-          <span className="h-2 w-2 rounded-full bg-primary" />
-        )}
       </header>
 
       {/* Content */}
@@ -312,7 +153,7 @@ export default function TenantDashboard() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Total Paid</p>
-                    <p className="text-sm font-semibold mt-0.5 text-primary">UGX {totalPaid.toLocaleString()}</p>
+                    <p className="text-sm font-semibold mt-0.5 text-primary">UGX {activeLease.monthly_rent?.toLocaleString()}</p>
                   </div>
                 </div>
 
@@ -321,40 +162,12 @@ export default function TenantDashboard() {
                     Request Renewal
                   </button>
                 )}
-                <button onClick={() => setTab('payments')} className="w-full mt-2 text-sm font-semibold text-primary bg-primary/5 border border-primary/20 rounded-xl py-2.5 hover:bg-primary/10 transition-colors flex items-center justify-center gap-1">
-                  Pay Rent <ChevronRight className="h-4 w-4" />
-                </button>
               </div>
             ) : (
               <div className="bg-card border border-border rounded-2xl p-8 text-center shadow-sm">
                 <Building2 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
                 <h3 className="text-lg font-bold">No active lease</h3>
                 <p className="text-sm text-muted-foreground mt-1">Contact your house manager to set up your lease.</p>
-              </div>
-            )}
-
-            {/* Rent Summary */}
-            {activeLease && (
-              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
-                <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                  <span className="text-xs font-extrabold text-primary h-4 w-4 flex items-center justify-center">UGX</span> Rent Overview
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <span className="text-sm text-muted-foreground">Current month</span>
-                    <span className={`text-sm font-bold ${lastPayment?.status === 'confirmed' ? 'text-primary' : lastPayment?.status === 'uploaded' ? 'text-accent' : 'text-muted-foreground'}`}>
-                      {lastPayment?.status === 'confirmed' ? 'Paid ✓' : lastPayment?.status === 'uploaded' ? 'Pending review' : 'Due'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <span className="text-sm text-muted-foreground">Next due</span>
-                    <span className="text-sm font-bold">{nextDue ? format(nextDue, 'MMM dd') : '—'}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <span className="text-sm text-muted-foreground">Lifetime paid</span>
-                    <span className="text-sm font-bold text-primary">UGX {totalPaid.toLocaleString()}</span>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -370,11 +183,9 @@ export default function TenantDashboard() {
                   {activityFeed.map(item => (
                     <div key={item.id} className="flex items-start gap-3 py-3 border-b border-border last:border-0">
                       <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${
-                        item.type === 'payment'
-                          ? item.status === 'confirmed' ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent'
-                          : item.isUnread ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                        item.isUnread ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
                       }`}>
-                        {item.type === 'payment' ? <span className="text-[9px] font-extrabold">UGX</span> : <MessageSquare className="h-4 w-4" />}
+                        <MessageSquare className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold">{item.title}</p>
@@ -427,9 +238,10 @@ export default function TenantDashboard() {
                   </div>
                 )}
                 {property.manager_phone && (
-                  <a href={`tel:${property.manager_phone}`}
+                  <a href={`https://wa.me/${property.manager_phone.replace(/[^0-9]/g, '')}`}
+                    target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-2 text-sm text-primary font-semibold mt-3 pt-3 border-t border-border">
-                    <Phone className="h-4 w-4" /> {property.manager_phone}
+                    <Phone className="h-4 w-4" /> Chat on WhatsApp · {property.manager_phone}
                   </a>
                 )}
               </div>
@@ -437,213 +249,6 @@ export default function TenantDashboard() {
           </div>
         )}
 
-        {/* PAYMENTS TAB */}
-        {tab === 'payments' && (
-          <div className="p-4 space-y-4 max-w-lg mx-auto w-full">
-            {activeLease && (
-              <>
-                {/* Pay via Mobile Money (USSD) */}
-                <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Smartphone className="h-5 w-5 text-primary" />
-                    <h3 className="font-bold text-sm">Pay via Mobile Money</h3>
-                  </div>
-                  <div className="bg-muted/50 rounded-xl p-4 mb-3">
-                    <p className="text-xs text-muted-foreground">Amount Due</p>
-                    <p className="text-2xl font-bold mt-1">UGX {activeLease.monthly_rent?.toLocaleString()}</p>
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-semibold mb-1.5">Phone Number (MTN / Airtel)</p>
-                      <Input value={npayPhone} onChange={e => setNpayPhone(e.target.value)}
-                        placeholder="e.g. 2567XXXXXXXX" className="rounded-xl h-11" />
-                    </div>
-                    <Button onClick={handleNylonPayPayment} disabled={npaySending || !npayPhone.trim()}
-                      className="w-full rounded-xl h-11 font-bold gap-2">
-                      <Smartphone className="h-4 w-4" />
-                      {npaySending ? 'Initiating...' : 'Pay Now'}
-                    </Button>
-                    {npayMessage && (
-                      <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 text-sm text-primary font-medium">
-                        {npayMessage}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Upload Proof */}
-                <Drawer open={memoOpen} onOpenChange={setMemoOpen}>
-                  <DrawerTrigger asChild>
-                    <Button variant="outline" className="w-full h-11 rounded-xl gap-2 text-sm font-bold">
-                      <Upload className="h-4 w-4" /> Upload Payment Proof
-                    </Button>
-                  </DrawerTrigger>
-                  <DrawerContent>
-                    <DrawerHeader className="text-left">
-                      <DrawerTitle>Upload Payment Proof</DrawerTitle>
-                      <DrawerDescription>Already paid? Submit your receipt for manager review.</DrawerDescription>
-                    </DrawerHeader>
-                    <form onSubmit={handleUploadPayment} className="px-4 pb-6 space-y-4">
-                      <div className="bg-muted/50 rounded-xl p-4">
-                        <p className="text-xs text-muted-foreground">Amount</p>
-                        <p className="text-2xl font-bold mt-1">UGX {activeLease.monthly_rent?.toLocaleString()}</p>
-                      </div>
-
-                      <div>
-                        <p className="text-sm font-semibold mb-2">Payment Screenshot / Receipt</p>
-                        <div onClick={() => fileRef.current?.click()}
-                          className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-primary transition-colors">
-                          {proofFile ? (
-                            <p className="text-sm font-medium text-primary flex items-center justify-center gap-2">
-                              <CheckCircle className="h-4 w-4" /> {proofFile.name}
-                            </p>
-                          ) : (
-                            <>
-                              <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                              <p className="text-sm text-muted-foreground">Tap to upload screenshot or receipt</p>
-                            </>
-                          )}
-                          <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={e => setProofFile(e.target.files?.[0] || null)} />
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-sm font-semibold mb-2">Note (optional)</p>
-                        <Textarea value={paymentNote} onChange={e => setPaymentNote(e.target.value)}
-                          placeholder="MTN Mobile Money, ref number..."
-                          className="rounded-xl" rows={2} />
-                      </div>
-
-                      <div className="flex gap-3">
-                        <DrawerClose asChild>
-                          <Button type="button" variant="outline" className="flex-1 rounded-xl h-11">Cancel</Button>
-                        </DrawerClose>
-                        <Button type="submit" disabled={uploading}
-                          className="flex-1 rounded-xl h-11 font-bold">
-                          {uploading ? 'Submitting...' : 'Submit'}
-                        </Button>
-                      </div>
-                    </form>
-                  </DrawerContent>
-                </Drawer>
-              </>
-            )}
-
-            {/* Payment History */}
-            <div className="bg-card border border-border rounded-2xl shadow-sm">
-              <div className="px-5 py-4 border-b border-border">
-                <h3 className="font-bold text-sm">Payment History</h3>
-              </div>
-              {payments.length === 0 ? (
-                <div className="text-center py-10 px-5">
-                  <span className="text-lg font-extrabold text-muted-foreground/30 h-10 w-10 flex items-center justify-center mx-auto mb-3">UGX</span>
-                  <p className="text-sm font-medium">No payments yet</p>
-                  {activeLease && (
-                    <p className="text-xs text-muted-foreground mt-1">Tap "Pay Rent" to make your first payment.</p>
-                  )}
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {payments.map(p => (
-                    <div key={p.id} className="px-5 py-4 flex items-center gap-4">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        p.status === 'confirmed' ? 'bg-primary/10 text-primary' :
-                        p.status === 'rejected' ? 'bg-destructive/10 text-destructive' :
-                        'bg-accent/10 text-accent'
-                      }`}>
-                        {p.status === 'confirmed' ? <CheckCircle className="h-4 w-4" /> :
-                         p.status === 'rejected' ? <X className="h-4 w-4" /> :
-                         <Clock className="h-4 w-4" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold">UGX {p.amount?.toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {p.due_date ? format(new Date(p.due_date), 'MMM dd, yyyy') : ''}
-                          {p.paid_date ? ` · Paid ${format(new Date(p.paid_date), 'MMM dd')}` : ''}
-                        </p>
-                      </div>
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        p.status === 'confirmed' ? 'bg-primary/10 text-primary' :
-                        p.status === 'uploaded' ? 'bg-accent/10 text-accent' :
-                        p.status === 'rejected' ? 'bg-destructive/10 text-destructive' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
-                        {p.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* MESSAGES TAB */}
-        {tab === 'messages' && (
-          <div className="flex flex-col h-[calc(100vh-10rem)]">
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 max-w-lg mx-auto w-full">
-              {messages.length === 0 ? (
-                <div className="text-center py-16">
-                  <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-sm font-medium">No messages yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Say hello to {managerProfile?.full_name || 'your property manager'}!
-                  </p>
-                </div>
-              ) : messages.map(m => {
-                const isMe = m.sender_id === user?.id;
-                return (
-                  <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] ${isMe ? 'order-1' : 'order-1'}`}>
-                      {!isMe && (
-                        <p className="text-xs text-muted-foreground mb-1 px-1">{m.sender_name || 'Manager'}</p>
-                      )}
-                      <div className={`rounded-2xl px-4 py-2.5 ${
-                        isMe
-                          ? 'bg-primary text-primary-foreground rounded-br-md'
-                          : 'bg-muted text-foreground rounded-bl-md'
-                      }`}>
-                        {m.content && <p className="text-sm">{m.content}</p>}
-                        {m.voice_note_url && <audio src={m.voice_note_url} controls className="h-8 mt-1" />}
-                      </div>
-                      <p className={`text-xs text-muted-foreground mt-1 ${isMe ? 'text-right' : 'text-left'}`}>
-                        {format(new Date(m.created_at), 'h:mm a')}
-                        {!m.is_read && !isMe && <span className="ml-2 text-primary font-bold">· New</span>}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Message Input */}
-            {activeLease && (
-              <div className="sticky bottom-0 bg-card border-t border-border p-3">
-                <div className="flex gap-2 max-w-lg mx-auto w-full">
-                  <Input
-                    value={messageText}
-                    onChange={e => setMessageText(e.target.value)}
-                    placeholder="Type a message..."
-                    className="rounded-xl h-11"
-                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                  />
-                  <VoiceRecorder
-                    onRecordingComplete={setVoiceUrl}
-                    onClear={() => setVoiceUrl(null)}
-                    audioUrl={voiceUrl}
-                  />
-                  <Button onClick={handleSendMessage}
-                    disabled={sendingMessage || (!messageText.trim() && !voiceUrl)}
-                    className="rounded-xl h-11 w-11 p-0">
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
         {/* SETTINGS TAB */}
         {tab === 'settings' && (
           <div className="p-4 space-y-4 max-w-lg mx-auto w-full">
@@ -692,28 +297,18 @@ export default function TenantDashboard() {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-10 bg-card border-t border-border">
         <div className="max-w-lg mx-auto flex">
-          {NAV_ITEMS.map(item => {
-            const badge = item.id === 'messages' ? unreadMessages : 0;
-            return (
-              <button key={item.id}
-                onClick={() => setTab(item.id)}
-                className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-xs font-medium transition-colors ${
-                  tab === item.id
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}>
-                <span className="relative">
-                  {item.icon}
-                  {badge > 0 && (
-                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
-                      {badge > 9 ? '9+' : badge}
-                    </span>
-                  )}
-                </span>
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
+          {NAV_ITEMS.map(item => (
+            <button key={item.id}
+              onClick={() => setTab(item.id)}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-xs font-medium transition-colors ${
+                tab === item.id
+                  ? 'text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}>
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
         </div>
       </nav>
       {/* Change Password Dialog */}

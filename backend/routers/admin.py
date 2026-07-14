@@ -36,6 +36,7 @@ class UserResponse(BaseModel):
     user_id: str
     email: str
     full_name: str | None = None
+    photo_url: str | None = None
     role: str
     status: str
     created_at: str | None = None
@@ -150,7 +151,7 @@ def list_users(
     current_user: CurrentUser = Depends(require_super_admin),
     supabase: Client = Depends(get_service_client),
 ) -> list[UserResponse]:
-    query = supabase.table("profiles").select("user_id, full_name, role, status, created_at, email")
+    query = supabase.table("profiles").select("user_id, full_name, role, status, created_at, email, photo_url")
 
     if role:
         query = query.eq("role", role)
@@ -173,6 +174,7 @@ def list_users(
             user_id=str(u.get("user_id", "")),
             email=u.get("email", ""),
             full_name=u.get("full_name"),
+            photo_url=u.get("photo_url"),
             role=u.get("role", ""),
             status=u.get("status", "active"),
             created_at=str(u.get("created_at")) if u.get("created_at") else None,

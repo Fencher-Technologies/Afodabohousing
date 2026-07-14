@@ -22,6 +22,7 @@ PID_PAYMENT = "00000000-0000-0000-0000-000000000040"
 PID_MAINT = "00000000-0000-0000-0000-000000000050"
 PID_PROFILE = "00000000-0000-0000-0000-000000000060"
 PID_BOOST = "00000000-0000-0000-0000-000000000070"
+PID_SUB = "00000000-0000-0000-0000-000000000080"
 PID_PROP_2 = "00000000-0000-0000-0000-000000000011"
 
 
@@ -229,6 +230,23 @@ class MockTableBuilder:
                     "is_active": True,
                     "created_at": "2026-02-01T00:00:00Z",
                     "updated_at": "2026-02-01T00:00:00Z",
+                },
+            ]
+        if self._name == "manager_subscriptions":
+            return [
+                {
+                    "id": PID_SUB,
+                    "manager_id": UID_OWNER,
+                    "plan_type": "12mo",
+                    "status": "active",
+                    "start_date": "2026-01-01T00:00:00Z",
+                    "expiry_date": "2126-12-31T00:00:00Z",
+                    "amount_paid": 111000,
+                    "payment_method": "nylonpay",
+                    "transaction_id": "sub-txn-001",
+                    "auto_renew": False,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
                 },
             ]
         if self._name == "property_boosts":

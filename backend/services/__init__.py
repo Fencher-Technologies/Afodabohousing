@@ -6,6 +6,7 @@ from .nylonpay import (
     verify_webhook,
 )
 from .boost import BoostService, get_boost_service
+from .subscription import SubscriptionService, get_subscription_service
 from .crud import (
     LeaseService,
     MaintenanceRequestService,
@@ -22,6 +23,8 @@ from .crud import (
 __all__ = [
     "BoostService",
     "get_boost_service",
+    "SubscriptionService",
+    "get_subscription_service",
     "PropertyService",
     "TenantService",
     "LeaseService",
