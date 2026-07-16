@@ -504,6 +504,31 @@ export default function SuperAdminDashboard() {
           </nav>
         </aside>
 
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
+            <aside className="absolute left-0 top-0 h-full w-64 bg-card flex flex-col shadow-xl">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <span className="font-display font-bold">Menu</span>
+                <button onClick={() => setSidebarOpen(false)} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <nav className="flex-1 px-3 py-4 space-y-1">
+                {NAV_ITEMS.map(item => (
+                  <button key={item.id} onClick={() => { setTab(item.id); setSidebarOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      tab === item.id ? 'bg-accent/10 text-accent' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}>
+                    {item.icon} {item.label}
+                  </button>
+                ))}
+              </nav>
+            </aside>
+          </div>
+        )}
+
         {/* Content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {/* ═══════════ OVERVIEW ═══════════ */}

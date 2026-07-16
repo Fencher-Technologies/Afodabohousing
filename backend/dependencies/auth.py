@@ -154,9 +154,26 @@ def require_active_user(
 
 
 def require_super_admin(
-    current_user: CurrentUser = Depends(require_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
 ) -> CurrentUser:
-    if current_user.role != "super_admin":
+    role = None
+    try:
+        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
+        data = result.data if hasattr(result, "data") else result
+        role = data[0] if isinstance(data, list) and data else data
+    except Exception:
+        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
+
+    if role != "super_admin":
+        try:
+            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+            if result.data:
+                role = result.data[0].get("role")
+        except Exception:
+            logger.error("Failed to check super_admin role from profiles table", exc_info=True)
+
+    if role != "super_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Super admin access required",
@@ -165,9 +182,26 @@ def require_super_admin(
 
 
 def require_manager(
-    current_user: CurrentUser = Depends(require_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
 ) -> CurrentUser:
-    if current_user.role != "house_manager":
+    role = None
+    try:
+        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
+        data = result.data if hasattr(result, "data") else result
+        role = data[0] if isinstance(data, list) and data else data
+    except Exception:
+        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
+
+    if role != "house_manager":
+        try:
+            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+            if result.data:
+                role = result.data[0].get("role")
+        except Exception:
+            logger.error("Failed to check house_manager role from profiles table", exc_info=True)
+
+    if role != "house_manager":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="House manager access required",
@@ -176,9 +210,26 @@ def require_manager(
 
 
 def require_super_admin_or_manager(
-    current_user: CurrentUser = Depends(require_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
 ) -> CurrentUser:
-    if current_user.role not in ("super_admin", "house_manager"):
+    role = None
+    try:
+        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
+        data = result.data if hasattr(result, "data") else result
+        role = data[0] if isinstance(data, list) and data else data
+    except Exception:
+        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
+
+    if role not in ("super_admin", "house_manager"):
+        try:
+            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+            if result.data:
+                role = result.data[0].get("role")
+        except Exception:
+            logger.error("Failed to check role from profiles table", exc_info=True)
+
+    if role not in ("super_admin", "house_manager"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Super admin or house manager access required",
@@ -187,9 +238,26 @@ def require_super_admin_or_manager(
 
 
 def require_tenant(
-    current_user: CurrentUser = Depends(require_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
 ) -> CurrentUser:
-    if current_user.role != "tenant":
+    role = None
+    try:
+        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
+        data = result.data if hasattr(result, "data") else result
+        role = data[0] if isinstance(data, list) and data else data
+    except Exception:
+        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
+
+    if role != "tenant":
+        try:
+            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+            if result.data:
+                role = result.data[0].get("role")
+        except Exception:
+            logger.error("Failed to check tenant role from profiles table", exc_info=True)
+
+    if role != "tenant":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tenant access required",
