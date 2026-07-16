@@ -15,12 +15,8 @@ interface Property {
 const fallbackImages = [prop1, prop2, prop3];
 
 const typeLabels: Record<string, string> = {
-  house: 'House',
-  apartment: 'Apartment',
-  self_contained: 'Self-Contained',
-  room: 'Room',
-  studio: 'Studio',
-  bungalow: 'Bungalow',
+  Residential: 'Residential',
+  'Office Space': 'Office Space',
 };
 
 const periodLabels: Record<string, string> = {

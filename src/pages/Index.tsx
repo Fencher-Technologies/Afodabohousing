@@ -144,12 +144,8 @@ export default function HomePage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="house">House</SelectItem>
-                <SelectItem value="apartment">Apartment</SelectItem>
-                <SelectItem value="self_contained">Self-Contained</SelectItem>
-                <SelectItem value="room">Single Room</SelectItem>
-                <SelectItem value="studio">Studio</SelectItem>
-                <SelectItem value="bungalow">Bungalow</SelectItem>
+                <SelectItem value="Residential">Residential</SelectItem>
+                <SelectItem value="Office Space">Office Space</SelectItem>
               </SelectContent>
             </Select>
             <Button

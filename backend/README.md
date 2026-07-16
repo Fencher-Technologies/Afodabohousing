@@ -4,17 +4,19 @@ FastAPI backend for the Afodabo Housing rental management platform.
 
 ## Architecture
 
-- **Framework**: FastAPI (Python)
+- **Framework**: FastAPI (async Python)
 - **Database**: Supabase (PostgreSQL with Row-Level Security)
-- **Auth**: Bearer tokens validated against Supabase Auth; role-based access control via `profiles.role`
-- **Role hierarchy**: `super_admin` → `house_manager` → `tenant`
-  - `super_admin`: full access to all data + create managers
-  - `house_manager`: CRUD own properties, leases, tenants
-  - `tenant`: view own leases, make payments, submit maintenance requests
-- **Invite-only registration**: Public signup restricted to `tenant` role; `house_manager` and `super_admin` created via invite or direct creation
-- **Resilience**: Retry with exponential backoff + jitter on all Supabase calls (handles transient DNS failures)
-- **Observability**: Per-request structured JSON logging, request ID tracking, metrics endpoint
-- **Property boosts**: Paid visibility — boosted properties ranked first in public listings via boost recency sort
+- **Auth**: Protected routes validate bearer tokens against Supabase Auth using the existing project credentials
+- **Roles**: Stored on `profiles.role` and enforced by Supabase RLS
+
+## Key Design Decisions
+
+1. **Schema alignment**: Models match the current Supabase schema (properties, tenants, leases, payments, maintenance requests)
+2. **Resilience**: Retry with exponential backoff + jitter on all Supabase calls
+3. **Observability**: Per-request structured JSON logging, real-time latency metrics, request ID tracking
+4. **Rate limiting**: Configurable per-client-IP rate limiting middleware
+5. **Auth**: Token validation is delegated to Supabase Auth so the backend stays aligned with the project's real token format without extra secrets
+6. **Client caching**: Supabase client instances are cached and reused (not recreated per request)
 
 ## API Endpoints
 
@@ -30,56 +32,42 @@ FastAPI backend for the Afodabo Housing rental management platform.
 
 ### Auth
 
-| Method | Path                   | Auth          | Description                                 |
-| ------ | ---------------------- | ------------- | ------------------------------------------- |
-| POST   | `/auth/signup`         | No            | Register new user (tenant role only)        |
-| POST   | `/auth/signin`         | No            | Email/password sign-in                      |
-| POST   | `/auth/signin/form`    | No            | OAuth2 form-based sign-in                   |
-| POST   | `/auth/signout`        | Yes           | Sign out                                    |
-| POST   | `/auth/reset-password` | No            | Request password reset                      |
-| POST   | `/auth/invite`         | Super Admin   | Create invitation token                     |
-| POST   | `/auth/accept-invite`  | No (token)    | Accept invitation, create account + session |
-| GET    | `/auth/me`             | Yes           | Current user info with full profile         |
-| GET    | `/auth/profile`        | Yes           | Get user profile                            |
-| PATCH  | `/auth/profile`        | Yes           | Update user profile                         |
-| GET    | `/auth/roles`          | Yes           | Get current user role                       |
-
-### Admin (super_admin only)
-
-| Method | Path                              | Description                               |
-| ------ | --------------------------------- | ----------------------------------------- |
-| POST   | `/admin/create-manager`           | Create house_manager account + temp pass  |
-| GET    | `/admin/users`                    | List all users (filterable by `?role=`)   |
-| PATCH  | `/admin/users/{user_id}/status`   | Suspend or activate a user                |
-| GET    | `/admin/stats`                    | Dashboard stats (financial/property/user) |
-
-### Boosts (super_admin only)
-
-Property visibility boosts — paid placements that appear first in search results.
-
-| Method | Path                          | Auth         | Description                           |
-| ------ | ----------------------------- | ------------ | ------------------------------------- |
-| POST   | `/boosts`                     | Super Admin  | Create boost for a property           |
-| GET    | `/boosts`                     | Super Admin  | List all boosts                       |
-| GET    | `/boosts/stats`               | Super Admin  | Boost revenue and usage stats         |
-| GET    | `/boosts/{id}`                | Super Admin  | Get boost details                     |
-| PATCH  | `/boosts/{id}/cancel`         | Super Admin  | Cancel an active boost                |
-| POST   | `/boosts/expire-old`          | Super Admin  | Sweep expired boosts                  |
-| GET    | `/boosts/price/default`       | No           | Default pricing (UGX 10K/day)         |
-
-> **Ranking**: Boosted properties appear first on `/properties/public`, sorted by boost recency (newest first). Multiple managers' boosted properties compete equally — newer boost wins. Future tiered priority is supported via the migration's commented columns.
+| Method | Path                   | Auth  | Description                                 |
+| ------ | ---------------------- | ----- | ------------------------------------------- |
+| POST   | `/auth/signup`         | No    | Register new user                           |
+| POST   | `/auth/signin`         | No    | Email/password sign-in                      |
+| POST   | `/auth/signin/form`    | No    | OAuth2 form-based sign-in                   |
+| POST   | `/auth/signout`        | Yes   | Sign out                                    |
+| POST   | `/auth/reset-password` | No    | Request password reset                      |
+| GET    | `/auth/me`             | Yes   | Current user info + roles                   |
+| GET    | `/auth/profile`        | Yes   | Get user profile                            |
+| PATCH  | `/auth/profile`        | Yes   | Update user profile                         |
+| GET    | `/auth/roles`          | Yes   | Get current user role from profiles         |
+| POST   | `/auth/roles`          | Admin | Assign role to user (updates profiles.role) |
 
 ### Properties
 
-| Method | Path                      | Auth  | Description                    |
-| ------ | ------------------------- | ----- | ------------------------------ |
-| GET    | `/properties`             | Yes   | List my properties (paginated) |
-| GET    | `/properties/public`      | No    | List public listings (boosted first) |
-| GET    | `/properties/{id}`        | Yes   | Get my property by ID          |
-| GET    | `/properties/public/{id}` | No    | Get public property listing    |
-| POST   | `/properties`             | Yes   | Create property                |
-| PATCH  | `/properties/{id}`        | Yes   | Update my property             |
-| DELETE | `/properties/{id}`        | Yes   | Delete my property             |
+| Method | Path                      | Auth | Description                    |
+| ------ | ------------------------- | ---- | ------------------------------ |
+| GET    | `/properties`             | Yes  | List my properties (paginated) |
+| GET    | `/properties/public`      | No   | List public listings           |
+| GET    | `/properties/{id}`        | Yes  | Get my property by ID          |
+| GET    | `/properties/public/{id}` | No   | Get public property listing    |
+| POST   | `/properties`             | Yes  | Create property                |
+| PATCH  | `/properties/{id}`        | Yes  | Update my property             |
+| DELETE | `/properties/{id}`        | Yes  | Delete my property             |
+
+`property_type` is restricted to `Residential` or `Office Space`. Create and update requests with any other value fail request validation before reaching the database.
+
+Property and public listing list endpoints support combined filters: `property_type`, `status`, `occupancy`, `is_active`, `city`, `state`, `country`, `min_rent`, `max_rent`, `min_bedrooms`, `min_bathrooms`, `created_from`, `created_to`, and `search`.
+
+### Managers
+
+| Method | Path        | Auth | Description                |
+| ------ | ----------- | ---- | -------------------------- |
+| GET    | `/managers` | No   | List house managers        |
+
+Manager list filters: `search`, `user_id`, `email`, and `phone`.
 
 ### Tenants
 
@@ -91,6 +79,8 @@ Property visibility boosts — paid placements that appear first in search resul
 | PATCH  | `/tenants/{id}` | Yes  | Update tenant            |
 | DELETE | `/tenants/{id}` | Yes  | Delete tenant            |
 
+Tenant list filters: `status`, `search`, `has_user_account`, `created_from`, and `created_to`.
+
 ### Leases
 
 | Method | Path           | Auth | Description             |
@@ -101,14 +91,32 @@ Property visibility boosts — paid placements that appear first in search resul
 | PATCH  | `/leases/{id}` | Yes  | Update lease            |
 | DELETE | `/leases/{id}` | Yes  | Delete lease            |
 
+Lease list filters: `status`, `property_id`, `tenant_id` for manager views, `start_from`, `start_to`, `end_from`, and `end_to`.
+
+### Agreements
+
+| Method | Path                         | Auth | Description                                      |
+| ------ | ---------------------------- | ---- | ------------------------------------------------ |
+| GET    | `/agreements/{lease_id}`     | Yes  | Get current agreement document and consent state |
+| POST   | `/agreements/{lease_id}/upload`  | Yes  | Upload a PDF/image tenancy agreement             |
+| POST   | `/agreements/{lease_id}/consent` | Yes  | Record explicit consent for the current document |
+
+Agreement uploads accept `application/pdf` and image MIME types. Each upload stores a SHA-256 agreement hash, creates a new current agreement document for the lease, and leaves prior evidence immutable. Consent records are party-specific (`tenant` or `manager`) and include user ID, timestamp, agreement hash, IP address, and user agent.
+
 ### Payments
 
-| Method | Path             | Auth | Description                        |
-| ------ | ---------------- | ---- | ---------------------------------- |
-| GET    | `/payments`      | Yes  | List my payments (paginated)       |
-| GET    | `/payments/{id}` | Yes  | Get payment by ID                  |
-| POST   | `/payments`      | Yes  | Create payment (tenant or manager) |
-| PATCH  | `/payments/{id}` | Yes  | Update payment                     |
+| Method | Path                         | Auth | Description                               |
+| ------ | ---------------------------- | ---- | ----------------------------------------- |
+| GET    | `/payments`                  | Yes  | List my payments (paginated)              |
+| GET    | `/payments/{id}`             | Yes  | Get payment by ID                         |
+| GET    | `/payments/{id}/receipt.pdf` | Yes  | Download a rent payment receipt PDF       |
+| GET    | `/payments/{id}/receipt`     | Yes  | View a printable rent payment receipt     |
+| POST   | `/payments`                  | Yes  | Create payment (tenant or manager)        |
+| PATCH  | `/payments/{id}`             | Yes  | Update payment                            |
+
+Payment list filters: `property_id`, `lease_id`, `tenant_id` for manager views, `status`, `payment_type`, `payment_method`, `due_from`, `due_to`, `paid_from`, `paid_to`, `created_from`, and `created_to`.
+
+Receipts include the receipt number, tenant, property, manager, amount, payment date, payment method, status, and transaction ID. Tenants can download receipts for their own payments; managers/owners can download receipts for payments on leases they own. The PDF endpoint returns `application/pdf` with an attachment filename, while the printable endpoint returns `text/html`.
 
 ### Maintenance Requests
 
@@ -120,41 +128,46 @@ Property visibility boosts — paid placements that appear first in search resul
 | PATCH  | `/maintenance/{id}`                   | Yes  | Update request               |
 | DELETE | `/maintenance/{id}`                   | Yes  | Delete request               |
 
+## Background Jobs
+
+The API starts an APScheduler async worker outside the test environment.
+
+- Rent reminders run on the existing schedule.
+- Tenancy expiry reminders run daily at 06:00 in production. The job checks active leases expiring in exactly `30`, `14`, `7`, `1`, or `0` days.
+- Each reminder writes an in-app row to `notifications` and attempts push/email delivery when `PUSH_PROVIDER_URL`/`PUSH_PROVIDER_API_KEY` or `EMAIL_PROVIDER_URL`/`EMAIL_PROVIDER_API_KEY` are configured.
+- Delivery idempotency is enforced by `notification_deliveries(event_key, channel)`, so rerunning the job does not spam tenants with duplicate in-app, email, or push reminders for the same lease milestone.
+
+## Rate Limiting
+
+All non-health endpoints are protected by global per-client-IP rate limiting. Authentication endpoints (`/auth/signin`, `/auth/signin/form`, `/auth/signup`, plus `/login` and `/register` aliases) and payment endpoints (`/payments*`) use stricter buckets. Limit responses return HTTP `429` with `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `X-RateLimit-Policy` headers. Blocked requests are logged with the matched policy.
+
+Local load probe:
+
+```bash
+uv run python scripts/load_test_rate_limit.py --base-url http://127.0.0.1:8000 --requests 40
+```
+
 ## Running
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-# or: uv sync
-
-uvicorn main:app --reload
-# Server starts at http://localhost:8000
-# API docs at http://localhost:8000/docs
+uv sync
+uv run uvicorn main:app --reload
+uv run python -m uvicorn main:app --reload
 ```
 
 ## Testing
 
 ```bash
-cd backend
-source .venv/bin/activate
-pytest
+uv run pytest
 ```
 
 ## Environment Variables
 
-See `backend/.env.example` (or `backend/.env` for local overrides).
+See `.env.example` for all configuration options.
 
-| Variable                     | Default                                       | Description                  |
-| ---------------------------- | --------------------------------------------- | ---------------------------- |
-| `SUPABASE_URL`               | —                                             | Supabase project URL         |
-| `SUPABASE_ANON_KEY`          | —                                             | Supabase anon/public key     |
-| `SUPABASE_SERVICE_ROLE_KEY`  | —                                             | Supabase service_role key    |
-| `SECRET_KEY`                 | `change-me-in-production`                     | JWT secret                   |
-| `ENVIRONMENT`                | `development`                                 | `development`/`production`   |
-| `CORS_ORIGINS`               | `["http://localhost:5173","http://localhost:8080"]` | Allowed CORS origins   |
-| `DATABASE_URL`               | —                                             | Direct DB connection string  |
-| `PESAPAL_CONSUMER_KEY`       | —                                             | PesaPal API key              |
-| `PESAPAL_CONSUMER_SECRET`    | —                                             | PesaPal API secret           |
-| `PESAPAL_ENVIRONMENT`        | `sandbox`                                     | `sandbox` or `live`          |
+### Sentry
+
+Set `SENTRY_ENDPOINT` or `SENTRY_DSN` to the Sentry DSN from your project settings.
+Leave it empty locally if you do not want crash reporting enabled.
+
+For automated tests, keep `TESTING=true` so Sentry stays disabled.

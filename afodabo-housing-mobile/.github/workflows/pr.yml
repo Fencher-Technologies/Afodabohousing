@@ -1,0 +1,45 @@
+name: PR Quality Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./afodabo-housing-mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install root dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: .
+        run: pnpm exec eslint afodabo-housing-mobile/src afodabo-housing-mobile/index.ts
+
+      - name: Format Check
+        run: pnpm exec prettier --check src index.ts app.json babel.config.js jest.config.js eas.json tsconfig.json
+
+      - name: Type Check
+        run: pnpm tsc
+
+      - name: Run Tests
+        run: pnpm test --passWithNoTests

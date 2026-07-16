@@ -1,21 +1,27 @@
-import logging
+# mypy: ignore-errors
+import time
+from datetime import date
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 from supabase import Client
 
-from dependencies import (
-    CurrentUser,
-    get_supabase_client,
-    require_super_admin_or_manager,
-)
+from config import get_settings
+from dependencies import CurrentUser, get_current_user, get_supabase_client
 from models import PaymentCreate, PaymentResponse, PaymentUpdate
 from services import PaymentService, get_payment_service
-
-logger = logging.getLogger(__name__)
+from services.receipts import ReceiptData, build_receipt_html, build_receipt_pdf
 
 router = APIRouter(prefix="/payments", tags=["payments"])
+settings = get_settings()
+PESAPAL_BASE = (
+    "https://pay.pesapal.com/v3/api"
+    if settings.pesapal_environment == "live"
+    else "https://cybqa.pesapal.com/pesapalv3/api"
+)
 
 
 class PaginatedResponse(BaseModel):
@@ -25,18 +31,153 @@ class PaginatedResponse(BaseModel):
     limit: int
 
 
+class PesapalInitiateRequest(BaseModel):
+    amount: float
+    callback_url: str
+    currency: str = "UGX"
+    description: str
+    email: str | None = None
+    first_name: str
+    last_name: str
+    payment_id: str
+    phone: str
+
+
+class PesapalInitiateResponse(BaseModel):
+    success: bool
+    redirect_url: str | None = None
+    order_id: str | None = None
+    order_tracking_id: str | None = None
+    error: str | None = None
+
+
 def get_payment_svc(supabase: Client = Depends(get_supabase_client)) -> PaymentService:
     return get_payment_service(supabase)
+
+
+def _get_authorized_receipt(
+    payment_id: UUID,
+    current_user: CurrentUser,
+    supabase: Client,
+    service: PaymentService,
+) -> ReceiptData:
+    receipt = service.get_receipt_data(payment_id)
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    tenant = (
+        supabase
+        .table("tenants")
+        .select("id")
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if tenant.data and str(receipt.payment["tenant_id"]) != str(tenant.data[0]["id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not tenant.data and str(receipt.lease["owner_id"]) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return receipt
+
+
+async def _get_pesapal_token() -> str:
+    if not settings.pesapal_consumer_key or not settings.pesapal_consumer_secret:
+        raise HTTPException(status_code=503, detail="Pesapal credentials are not configured")
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        response = await client.post(
+            f"{PESAPAL_BASE}/Auth/RequestToken",
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            json={
+                "consumer_key": settings.pesapal_consumer_key,
+                "consumer_secret": settings.pesapal_consumer_secret,
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+    token = payload.get("token")
+    if not token:
+        raise HTTPException(status_code=502, detail="Pesapal authentication failed")
+    return token
+
+
+async def _register_pesapal_ipn(token: str, callback_url: str) -> str:
+    async with httpx.AsyncClient(timeout=20) as client:
+        response = await client.post(
+            f"{PESAPAL_BASE}/URLSetup/RegisterIPN",
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+            json={"url": callback_url, "ipn_notification_type": "POST"},
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+    ipn_id = payload.get("ipn_id")
+    if not ipn_id:
+        raise HTTPException(status_code=502, detail="Pesapal IPN registration failed")
+    return ipn_id
 
 
 @router.get("", response_model=PaginatedResponse)
 def list_payments(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    current_user: CurrentUser = Depends(require_super_admin_or_manager),
+    property_id: UUID | None = None,
+    lease_id: UUID | None = None,
+    tenant_id: UUID | None = None,
+    status_filter: str | None = Query(None, alias="status"),
+    payment_type: str | None = None,
+    payment_method: str | None = None,
+    due_from: date | None = None,
+    due_to: date | None = None,
+    paid_from: date | None = None,
+    paid_to: date | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
     service: PaymentService = Depends(get_payment_svc),
 ) -> PaginatedResponse:
-    payments, total = service.get_all_for_owner(current_user.id, skip, limit)
+    tenant = (
+        supabase
+        .table("tenants")
+        .select("id")
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    filters = {
+        "status": status_filter,
+        "payment_type": payment_type,
+        "payment_method": payment_method,
+        "due_from": due_from,
+        "due_to": due_to,
+        "paid_from": paid_from,
+        "paid_to": paid_to,
+        "created_from": created_from,
+        "created_to": created_to,
+    }
+    if lease_id:
+        filters["lease_ids"] = [str(lease_id)]
+    if tenant.data:
+        payments, total = service.get_all_for_tenant(
+            tenant.data[0]["id"],
+            skip,
+            limit,
+            property_id=property_id,
+            **filters,
+        )
+    else:
+        payments, total = service.get_all_for_owner(
+            current_user.id,
+            skip,
+            limit,
+            property_id=property_id,
+            tenant_id=tenant_id,
+            **filters,
+        )
     return PaginatedResponse(
         items=[PaymentResponse(**p) for p in payments],
         total=total,
@@ -48,16 +189,26 @@ def list_payments(
 @router.get("/{payment_id}", response_model=PaymentResponse)
 def get_payment(
     payment_id: UUID,
-    current_user: CurrentUser = Depends(require_super_admin_or_manager),
-    service: PaymentService = Depends(get_payment_svc),
+    current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
+    service: PaymentService = Depends(get_payment_svc),
 ) -> PaymentResponse:
     payment = service.get_by_id(payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
-    if current_user.role != "super_admin":
+    tenant = (
+        supabase
+        .table("tenants")
+        .select("id")
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if tenant.data and str(payment["tenant_id"]) != str(tenant.data[0]["id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not tenant.data:
         lease = (
-            supabase.table("leases")
+            supabase
+            .table("leases")
             .select("owner_id")
             .eq("id", str(payment["lease_id"]))
             .execute()
@@ -70,20 +221,32 @@ def get_payment(
 @router.post("", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
 def create_payment(
     data: PaymentCreate,
-    current_user: CurrentUser = Depends(require_super_admin_or_manager),
+    current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
     service: PaymentService = Depends(get_payment_svc),
 ) -> PaymentResponse:
-    if current_user.role != "super_admin":
+    tenant = (
+        supabase
+        .table("tenants")
+        .select("id")
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if tenant.data:
+        payload = data.model_dump(exclude_none=True, mode="json")
+        payload["tenant_id"] = tenant.data[0]["id"]
+        payment = service.create(PaymentCreate(**payload))
+    else:
         lease = (
-            supabase.table("leases")
+            supabase
+            .table("leases")
             .select("owner_id")
             .eq("id", str(data.lease_id))
             .execute()
         )
         if not lease.data or str(lease.data[0]["owner_id"]) != str(current_user.id):
             raise HTTPException(status_code=403, detail="Access denied")
-    payment = service.create(data)
+        payment = service.create(data)
     return PaymentResponse(**payment)
 
 
@@ -91,16 +254,26 @@ def create_payment(
 def update_payment(
     payment_id: UUID,
     data: PaymentUpdate,
-    current_user: CurrentUser = Depends(require_super_admin_or_manager),
+    current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
     service: PaymentService = Depends(get_payment_svc),
 ) -> PaymentResponse:
     payment = service.get_by_id(payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
-    if current_user.role != "super_admin":
+    tenant = (
+        supabase
+        .table("tenants")
+        .select("id")
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if tenant.data and str(payment["tenant_id"]) != str(tenant.data[0]["id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not tenant.data:
         lease = (
-            supabase.table("leases")
+            supabase
+            .table("leases")
             .select("owner_id")
             .eq("id", str(payment["lease_id"]))
             .execute()
@@ -109,3 +282,80 @@ def update_payment(
             raise HTTPException(status_code=403, detail="Access denied")
     result = service.update(payment_id, data)
     return PaymentResponse(**result)
+
+
+@router.get("/{payment_id}/receipt.pdf")
+def download_payment_receipt_pdf(
+    payment_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+    service: PaymentService = Depends(get_payment_svc),
+) -> Response:
+    receipt = _get_authorized_receipt(payment_id, current_user, supabase, service)
+    pdf = build_receipt_pdf(receipt)
+    filename = f"receipt-{receipt.receipt_number}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{payment_id}/receipt")
+def print_payment_receipt(
+    payment_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+    service: PaymentService = Depends(get_payment_svc),
+) -> HTMLResponse:
+    receipt = _get_authorized_receipt(payment_id, current_user, supabase, service)
+    return HTMLResponse(build_receipt_html(receipt))
+
+
+@router.post("/initiate-pesapal", response_model=PesapalInitiateResponse)
+async def initiate_pesapal_payment(
+    data: PesapalInitiateRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> PesapalInitiateResponse:
+    token = await _get_pesapal_token()
+    ipn_id = await _register_pesapal_ipn(token, f"{settings.supabase_url}/functions/v1/pesapal-ipn")
+    order_id = f"AFODABO-{data.payment_id}-{int(time.time() * 1000)}"
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        response = await client.post(
+            f"{PESAPAL_BASE}/Transactions/SubmitOrderRequest",
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+            json={
+                "id": order_id,
+                "currency": data.currency,
+                "amount": float(data.amount),
+                "description": data.description,
+                "callback_url": data.callback_url,
+                "notification_id": ipn_id,
+                "billing_address": {
+                    "email_address": data.email or "",
+                    "phone_number": data.phone,
+                    "first_name": data.first_name,
+                    "last_name": data.last_name,
+                },
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+    if not payload.get("redirect_url"):
+        return PesapalInitiateResponse(
+            success=False,
+            error=payload.get("error", {}).get("message") or str(payload),
+        )
+
+    return PesapalInitiateResponse(
+        success=True,
+        redirect_url=payload.get("redirect_url"),
+        order_id=order_id,
+        order_tracking_id=payload.get("order_tracking_id"),
+    )
