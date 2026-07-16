@@ -16,8 +16,9 @@ import {
   MapPin, Bed, Bath, Home, Phone, Mail, ChevronLeft, ChevronRight,
   Wifi, Car, Zap, Droplets, Shield, Send, MessageSquare, Share2,
   Heart, CheckCircle, TreePine, Tv, Waves, Navigation, Sofa,
-  ChefHat, ExternalLink, Building2
+  ChefHat, ExternalLink, Building2, Sparkles
 } from 'lucide-react';
+import { isPropertyBoosted } from '@/services/property-boosts';
 import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
@@ -193,6 +194,7 @@ export default function PropertyDetailPage() {
   const periodLabel = { monthly: 'per month', quarterly: 'per quarter', annually: 'per year' }[property.rent_period] || '';
   const fullLocation = [property.address, property.area, property.city, property.district].filter(Boolean).join(', ');
   const availableUnits = units.filter(u => u.status === 'available');
+  const isBoosted = isPropertyBoosted(property);
 
   return (
     <div className="min-h-screen bg-background">
@@ -246,6 +248,12 @@ export default function PropertyDetailPage() {
 
           {/* Badges */}
           <div className="absolute top-5 left-5 flex gap-2">
+            {isBoosted && (
+              <Badge className="bg-amber-400 text-amber-950 font-semibold shadow gap-1">
+                <Sparkles className="h-3.5 w-3.5" />
+                Boosted
+              </Badge>
+            )}
             <Badge className="bg-accent text-accent-foreground font-semibold shadow">
               {typeLabels[property.property_type]}
             </Badge>

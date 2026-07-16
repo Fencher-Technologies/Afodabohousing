@@ -11,6 +11,7 @@ import { InputField } from '../components/input-field';
 import { Screen } from '../components/screen';
 import { useAuth } from '../context/auth-context';
 import { fetchPropertyDetails } from '../services/properties';
+import { isPropertyBoosted } from '../services/property-boosts';
 import { sendTenantMessage } from '../services/tenant';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import { formatUGX, formatUGXFull, propertyTypeLabel } from '../utils/format';
@@ -90,6 +91,7 @@ export function PropertyDetailsScreen() {
 
       <View style={styles.section}>
         <View style={styles.badgeRow}>
+          {isPropertyBoosted(property) ? <Badge tone="gold">Boosted</Badge> : null}
           <Badge tone="accent">{propertyTypeLabel(property.property_type)}</Badge>
           <Badge tone={property.status === 'available' ? 'primary' : 'default'}>
             {property.status === 'available' ? 'Available now' : property.status}

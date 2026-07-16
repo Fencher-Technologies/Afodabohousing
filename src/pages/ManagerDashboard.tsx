@@ -10,16 +10,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { listPayments, updatePayment, createPayment, PaymentData } from '@/services/payments';
+import { BOOST_PLANS, formatBoostPrice, getBoostedUntil, isPropertyBoosted, purchasePropertyBoost } from '@/services/property-boosts';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload, MessageSquare,
   TrendingUp, Send, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
-  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2
+  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2, Sparkles
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
@@ -80,6 +81,8 @@ export default function ManagerDashboard() {
   const [composePropId, setComposePropId] = useState('');
   const [composeVoiceUrl, setComposeVoiceUrl] = useState<string | null>(null);
   const [replyVoiceUrl, setReplyVoiceUrl] = useState<string | null>(null);
+  const [boostDialog, setBoostDialog] = useState<{ open: boolean; property: Property | null }>({ open: false, property: null });
+  const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
 
   const [form, setForm] = useState({
     title: '', description: '', property_type: 'house', district: '', city: '',
@@ -220,6 +223,29 @@ export default function ManagerDashboard() {
     if (error) { toast({ title: 'Error deleting property', description: error.message, variant: 'destructive' }); }
     else { toast({ title: 'Property deleted', description: 'The listing has been removed.' }); fetchData(); }
     setDeleteConfirmProperty(null);
+  };
+
+  const handleBoostProperty = async () => {
+    if (!boostDialog.property) return;
+
+    setSendingAction(`boost-${boostDialog.property.id}`);
+    try {
+      await purchasePropertyBoost(boostDialog.property.id, selectedBoostDays);
+      toast({
+        title: 'Property boost purchased',
+        description: `${boostDialog.property.title} will be promoted for ${selectedBoostDays} days.`,
+      });
+      setBoostDialog({ open: false, property: null });
+      fetchData();
+    } catch (err: any) {
+      toast({
+        title: 'Could not boost property',
+        description: err.message || 'Please try again when checkout is available.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingAction('');
+    }
   };
 
   const handleAddUnit = async (e: React.FormEvent) => {
@@ -760,7 +786,11 @@ export default function ManagerDashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {properties.map(p => (
+                          {properties.map(p => {
+                            const boosted = isPropertyBoosted(p);
+                            const boostedUntil = getBoostedUntil(p);
+
+                            return (
                             <tr key={p.id} className="border-b border-border hover:bg-muted/30 transition-colors last:border-0">
                               <td className="py-3.5 px-4">
                                 <div className="flex items-center gap-3">
@@ -768,8 +798,18 @@ export default function ManagerDashboard() {
                                     <Home className="h-4 w-4" />
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="font-semibold text-foreground truncate max-w-[200px]">{p.title}</p>
-                                    <p className="text-xs text-muted-foreground capitalize">{p.property_type.replace('_', ' ')}</p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-semibold text-foreground truncate max-w-[200px]">{p.title}</p>
+                                      {boosted && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">
+                                          <Sparkles className="h-3 w-3" /> Boosted
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground capitalize">
+                                      {p.property_type.replace('_', ' ')}
+                                      {boostedUntil ? ` · Boost ends ${format(new Date(boostedUntil), 'MMM dd')}` : ''}
+                                    </p>
                                   </div>
                                 </div>
                               </td>
@@ -791,6 +831,17 @@ export default function ManagerDashboard() {
                                    </Button>
                                    <Button
                                      size="sm"
+                                     variant="outline"
+                                     className="h-7 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-50"
+                                     onClick={() => {
+                                       setSelectedBoostDays(BOOST_PLANS[0].days);
+                                       setBoostDialog({ open: true, property: p });
+                                     }}
+                                   >
+                                     <Sparkles className="h-3 w-3" />{boosted ? 'Extend Boost' : 'Boost Property'}
+                                   </Button>
+                                   <Button
+                                     size="sm"
                                      variant={p.status !== 'inactive' ? 'secondary' : 'default'}
                                      className={`h-7 text-xs ${p.status === 'inactive' ? 'gradient-primary text-primary-foreground' : ''}`}
                                      disabled={!!sendingAction}
@@ -809,7 +860,7 @@ export default function ManagerDashboard() {
                                  </div>
                                </td>
                             </tr>
-                          ))}
+                          )})}
                         </tbody>
                       </table>
                     </div>
@@ -1041,6 +1092,54 @@ export default function ManagerDashboard() {
       </div>
 
       {/* ── DIALOGS ── */}
+
+      {/* Boost Checkout Dialog */}
+      <Dialog open={boostDialog.open} onOpenChange={open => setBoostDialog(current => ({ ...current, open }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Boost Property</DialogTitle>
+            <DialogDescription>
+              Promote {boostDialog.property?.title || 'this listing'} higher in search results for the selected duration.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              {BOOST_PLANS.map(plan => (
+                <button
+                  key={plan.days}
+                  type="button"
+                  onClick={() => setSelectedBoostDays(plan.days)}
+                  className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors ${
+                    selectedBoostDays === plan.days
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border bg-background hover:border-primary/40'
+                  }`}
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-foreground">{plan.label}</span>
+                    <span className="text-xs text-muted-foreground">Featured placement on public listings</span>
+                  </span>
+                  <span className="font-display text-base font-bold text-primary">{formatBoostPrice(plan.price)}</span>
+                </button>
+              ))}
+            </div>
+            <div className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">
+              Checkout will charge the selected boost package and activate the boosted badge once payment succeeds.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBoostDialog({ open: false, property: null })}>Cancel</Button>
+            <Button
+              className="gradient-primary text-primary-foreground gap-2"
+              disabled={sendingAction.startsWith('boost-')}
+              onClick={handleBoostProperty}
+            >
+              <Sparkles className="h-4 w-4" />
+              {sendingAction.startsWith('boost-') ? 'Processing...' : 'Checkout'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reply Dialog */}
       <Dialog open={replyDialog.open} onOpenChange={o => setReplyDialog(d => ({ ...d, open: o }))}>
