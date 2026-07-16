@@ -19,7 +19,8 @@ import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload,
   TrendingUp, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
-  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2, Settings
+  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2, Settings,
+  Wrench, MessageCircle, ArrowLeft, KeyRound, Ban, Copy
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
@@ -42,13 +43,14 @@ const statusBadge = (s: string) => ({
   terminated: 'status-rejected',
 }[s] ?? 'status-pending');
 
-type Tab = 'overview' | 'properties' | 'tenants' | 'payments' | 'profile';
+type Tab = 'overview' | 'properties' | 'tenants' | 'payments' | 'requests' | 'profile';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: 'properties', label: 'Properties', icon: <Building2 className="h-4 w-4" /> },
   { id: 'tenants', label: 'Tenants', icon: <Users className="h-4 w-4" /> },
   { id: 'payments', label: 'Payments', icon: <DollarSign className="h-4 w-4" /> },
+  { id: 'requests', label: 'Requests', icon: <Wrench className="h-4 w-4" /> },
   { id: 'profile', label: 'Profile', icon: <Settings className="h-4 w-4" /> },
 ];
 
@@ -61,11 +63,11 @@ export default function ManagerDashboard() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [leases, setLeases] = useState<(TenancyRow & { tenant_name?: string; tenant_phone?: string; tenant_user_id?: string; property_title?: string })[]>([]);
   const [payments, setPayments] = useState<(PaymentData & { tenant_name?: string; property_title?: string })[]>([]);
+  const [maintenanceReqs, setMaintenanceReqs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [propDialogOpen, setPropDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [deleteConfirmProperty, setDeleteConfirmProperty] = useState<Property | null>(null);
-  const [tenancyDialogOpen, setTenancyDialogOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('overview');
   const [sendingAction, setSendingAction] = useState('');
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
@@ -73,7 +75,15 @@ export default function ManagerDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
-  const [profile, setProfile] = useState<{ photo_url: string | null; full_name: string | null; email: string } | null>(null);
+  const [profile, setProfile] = useState<{ photo_url: string | null; full_name: string | null; email: string; phone: string } | null>(null);
+  const [showTenantForm, setShowTenantForm] = useState(false);
+  const [tenantFormData, setTenantFormData] = useState({
+    full_name: '', phone: '', email: '', property_id: '',
+    start_date: '', end_date: '', monthly_rent: 0,
+  });
+  const [createdPassword, setCreatedPassword] = useState<string | null>(null);
+  const [otpPassword, setOtpPassword] = useState<string | null>(null);
+  const [copiedPwd, setCopiedPwd] = useState(false);
 
   const [form, setForm] = useState({
     title: '', description: '', property_type: 'Residential', state: '', city: '',
@@ -87,13 +97,13 @@ export default function ManagerDashboard() {
     kitchens: 1, rent_amount: 0, description: '',
   });
 
-  const [tenancyForm, setTenancyForm] = useState({
-    property_id: '', tenant_email: '', start_date: '', end_date: '',
-    monthly_rent: 0,
-  });
-
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
+  const [agreementLease, setAgreementLease] = useState<any>(null);
+  const [agreementFile, setAgreementFile] = useState<File | null>(null);
+  const [uploadingAgreement, setUploadingAgreement] = useState(false);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -109,7 +119,7 @@ export default function ManagerDashboard() {
       supabase.from('leases').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
       supabase.from('tenants').select('id, first_name, last_name, phone, user_id').eq('owner_id', user.id),
       listPayments().catch(() => ({ items: [], total: 0 })),
-      supabase.from('profiles').select('photo_url, full_name, email').eq('user_id', user.id).single(),
+      supabase.from('profiles').select('photo_url, full_name, email, phone').eq('user_id', user.id).single(),
     ]);
 
     const allPayments = payRes.items || [];
@@ -150,13 +160,24 @@ export default function ManagerDashboard() {
       };
     }));
     if (profileRes.data) {
-      setProfile({ photo_url: profileRes.data.photo_url, full_name: profileRes.data.full_name, email: profileRes.data.email });
+      setProfile({ photo_url: profileRes.data.photo_url, full_name: profileRes.data.full_name, email: profileRes.data.email, phone: profileRes.data.phone || '' });
     }
     setPayments(allPayments.map(p => ({
       ...p,
       tenant_name: tenantMap[p.tenant_id]?.name || '',
       property_title: propMap[tenancyMap[p.tenancy_id]?.property_id || ''] || '',
     })));
+
+    // Fetch maintenance requests for manager's properties
+    const propIds = propsRes.data?.map(p => p.id) || [];
+    if (propIds.length > 0) {
+      const { data: reqs } = await supabase.from('maintenance_requests').select('*').in('property_id', propIds).order('created_at', { ascending: false });
+      setMaintenanceReqs((reqs || []).map(r => ({
+        ...r,
+        tenant_name: tenantMap[r.tenant_id]?.name || '',
+        property_title: propMap[r.property_id] || '',
+      })));
+    }
     setLoading(false);
   };
 
@@ -273,51 +294,47 @@ export default function ManagerDashboard() {
     setSelectedPropertyForUnit('');
   };
 
+  const apiBase = import.meta.env.VITE_API_URL || '';
+  const getHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return {
+      'Content-Type': 'application/json',
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+    };
+  };
+
   const handleCreateTenancy = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setSendingAction('creating');
-    const { data: userId } = await supabase.rpc('get_user_id_by_email', { _email: tenancyForm.tenant_email });
-    if (!userId) {
-      toast({ title: 'Tenant not found', description: 'No registered account for that email.', variant: 'destructive' });
-      setSendingAction(''); return;
+    setCreatedPassword(null);
+    try {
+      const headers = await getHeaders();
+      const res = await fetch(`${apiBase}/admin/create-tenant`, {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          email: tenantFormData.email,
+          full_name: tenantFormData.full_name,
+          phone: tenantFormData.phone || null,
+          property_id: tenantFormData.property_id || null,
+          rent_start_date: tenantFormData.start_date || null,
+          rent_end_date: tenantFormData.end_date || null,
+          rent_amount: tenantFormData.monthly_rent || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to create tenant');
+      }
+      const data = await res.json();
+      setCreatedPassword(data.temporary_password);
+      toast({ title: 'Tenant created!', description: `Account created for ${tenantFormData.email}` });
+      setTenantFormData({ full_name: '', phone: '', email: '', property_id: '', start_date: '', end_date: '', monthly_rent: 0 });
+      try { await fetchData(); } catch (e) { console.error('fetchData after create failed', e); }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
-    const prop = properties.find(p => p.id === tenancyForm.property_id);
-    const monthlyRent = Number(tenancyForm.monthly_rent) || prop?.monthly_rent || prop?.rent_amount || 0;
-    const profile = await supabase.from('profiles').select('full_name, phone').eq('user_id', userId).single();
-    const name = profile.data?.full_name || 'Tenant';
-    const nameParts = name.split(' ');
-    const firstName = nameParts[0] || name;
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    const { data: existingTenant } = await supabase.from('tenants').select('id').eq('user_id', userId).eq('owner_id', user.id).maybeSingle();
-    let tenantId = existingTenant?.id;
-    if (!tenantId) {
-      const { data: newTenant } = await supabase.from('tenants').insert({
-        owner_id: user.id, user_id: userId, first_name: firstName, last_name: lastName,
-        email: tenancyForm.tenant_email, status: 'active',
-      }).select('id').single();
-      tenantId = newTenant?.id;
-    }
-    if (!tenantId) { toast({ title: 'Error', description: 'Could not create tenant record', variant: 'destructive' }); setSendingAction(''); return; }
-
-    const { error } = await supabase.from('tenancies').insert({
-      manager_id: user.id, property_id: tenancyForm.property_id, tenant_id: tenantId,
-      rent_start_date: tenancyForm.start_date, rent_end_date: tenancyForm.end_date,
-      rent_amount: monthlyRent, status: 'active',
-    });
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); setSendingAction(''); return; }
-    await supabase.from('properties').update({ status: 'occupied' }).eq('id', tenancyForm.property_id);
-    if (profile.data?.phone) {
-      await sendSMS(profile.data.phone, `Welcome to ${prop?.title || 'your new home'}! Your lease with Afodabo Housing has been activated. Rent: UGX ${(monthlyRent || 0).toLocaleString()}.`);
-
-
-    }
-    toast({ title: 'Lease created!', description: 'Tenant linked and notified via SMS.' });
-    setTenancyDialogOpen(false);
-    setTenancyForm({ property_id: '', tenant_email: '', start_date: '', end_date: '', monthly_rent: 0 });
     setSendingAction('');
-    fetchData();
   };
 
   const handleConfirmPayment = async (payment: PaymentData) => {
@@ -344,6 +361,34 @@ export default function ManagerDashboard() {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
     setSendingAction(''); fetchData();
+  };
+
+  const handleUploadAgreement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!agreementLease || !agreementFile) return;
+    setUploadingAgreement(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) { toast({ title: 'Not authenticated', variant: 'destructive' }); return; }
+      const formData = new FormData();
+      formData.append('file', agreementFile);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/agreements/${agreementLease.id}/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: formData,
+      });
+      if (res.ok) {
+        toast({ title: 'Agreement uploaded' });
+        setAgreementDialogOpen(false);
+        setAgreementFile(null);
+      } else {
+        const err = await res.json();
+        toast({ title: 'Upload failed', description: err.detail || 'Unknown error', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Upload failed', description: 'Network error', variant: 'destructive' });
+    }
+    setUploadingAgreement(false);
   };
 
   const sendRentReminder = async (lease: typeof leases[0]) => {
@@ -414,7 +459,7 @@ export default function ManagerDashboard() {
       {/* Actions */}
       <div className="px-3 py-4 border-t border-sidebar-border space-y-2">
         <button
-          onClick={() => { setTenancyDialogOpen(true); setSidebarOpen(false); }}
+          onClick={() => { setShowTenantForm(true); setSidebarOpen(false); }}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all"
         >
           <UserPlus className="h-4 w-4" /><span>Add Tenant</span>
@@ -426,7 +471,11 @@ export default function ManagerDashboard() {
           <Layers className="h-4 w-4" /><span>Add Unit</span>
         </button>
         <button
-          onClick={() => { setPropDialogOpen(true); setSidebarOpen(false); }}
+          onClick={() => {
+            setForm({ title: '', description: '', property_type: 'Residential', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: profile?.phone || '', manager_email: profile?.email || '', amenities: [] });
+            setEditingProperty(null);
+            setPropDialogOpen(true); setSidebarOpen(false);
+          }}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-sidebar-primary hover:bg-sidebar-accent transition-all"
         >
           <Plus className="h-4 w-4" /><span>Add Property</span>
@@ -494,6 +543,89 @@ export default function ManagerDashboard() {
           </div>
 
           <div className="p-6 space-y-6">
+            {showTenantForm ? (
+              <div className="max-w-2xl mx-auto">
+                <button onClick={() => setShowTenantForm(false)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+                  <ArrowLeft className="h-4 w-4" /> Back to Tenants
+                </button>
+                <h2 className="font-display font-bold text-2xl mb-1">Add Tenant</h2>
+                <p className="text-sm text-muted-foreground mb-8">Create a tenant account with a temporary password.</p>
+                {createdPassword ? (
+                  <div className="space-y-4">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                      <CheckCircle2 className="h-10 w-10 text-emerald-600 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-emerald-800">Tenant Account Created</p>
+                      <p className="text-xs text-emerald-600 mt-1">Share this temporary password with the tenant</p>
+                    </div>
+                    <div className="bg-muted rounded-xl p-4">
+                      <label className="text-xs font-medium text-muted-foreground">Temporary Password</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono select-all">{createdPassword}</code>
+                        <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(createdPassword); setCopiedPwd(true); }} className="shrink-0 gap-1.5">
+                          {copiedPwd ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copiedPwd ? 'Copied' : 'Copy'}
+                        </Button>
+                      </div>
+                    </div>
+                    <Button className="w-full" variant="outline" onClick={() => { setShowTenantForm(false); setTab('tenants'); setCreatedPassword(null); setCopiedPwd(false); fetchData(); }}>
+                      Done
+                    </Button>
+                  </div>
+                ) : (
+                <form onSubmit={handleCreateTenancy} className="space-y-6">
+                  <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                    <h3 className="font-display font-semibold text-base">Personal Details</h3>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2">
+                        <Label>Full Name</Label>
+                        <Input value={tenantFormData.full_name} onChange={e => setTenantFormData(f => ({ ...f, full_name: e.target.value }))} placeholder="e.g. John Mugisha" required className="mt-1" />
+                      </div>
+                      <div>
+                        <Label>WhatsApp Phone</Label>
+                        <div className="relative mt-1">
+                          <Input value={tenantFormData.phone} onChange={e => setTenantFormData(f => ({ ...f, phone: e.target.value }))} placeholder="+256 788 100145" required className="pl-9" />
+                          <MessageCircle className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Email Address</Label>
+                        <Input type="email" value={tenantFormData.email} onChange={e => setTenantFormData(f => ({ ...f, email: e.target.value }))} placeholder="tenant@example.com" required className="mt-1" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                    <h3 className="font-display font-semibold text-base">Property & Lease Details</h3>
+                    <div>
+                      <Label>Assigned Property</Label>
+                      <Select value={tenantFormData.property_id} onValueChange={v => {
+                        const p = properties.find(pr => pr.id === v);
+                        setTenantFormData(f => ({ ...f, property_id: v, monthly_rent: p?.monthly_rent || p?.rent_amount || 0 }));
+                      }}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select property..." /></SelectTrigger>
+                        <SelectContent>
+                          {properties.filter(p => p.status !== 'inactive').map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.title} — {p.status}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div><Label>Start Date</Label><Input type="date" value={tenantFormData.start_date} onChange={e => setTenantFormData(f => ({ ...f, start_date: e.target.value }))} required className="mt-1" /></div>
+                      <div><Label>End Date</Label><Input type="date" value={tenantFormData.end_date} onChange={e => setTenantFormData(f => ({ ...f, end_date: e.target.value }))} required className="mt-1" /></div>
+                      <div><Label>Monthly Rent (UGX)</Label><Input type="number" value={tenantFormData.monthly_rent || ''} onChange={e => setTenantFormData(f => ({ ...f, monthly_rent: Number(e.target.value) }))} className="mt-1" /></div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button type="submit" disabled={sendingAction === 'creating'} className="gradient-primary text-primary-foreground">
+                      {sendingAction === 'creating' ? 'Creating...' : 'Create Tenant'}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setShowTenantForm(false)}>Cancel</Button>
+                  </div>
+                </form>
+                )}
+              </div>
+            ) : (
+            <>
             {/* Alerts */}
             {pendingPayments.length > 0 && (
               <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
@@ -775,7 +907,7 @@ export default function ManagerDashboard() {
                     <h2 className="font-display font-bold text-xl">Tenants</h2>
                     <p className="text-sm text-muted-foreground">{leases.filter(t => t.status === 'active').length} active · {leases.filter(t => t.status !== 'active').length} historical</p>
                   </div>
-                  <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => setTenancyDialogOpen(true)}>
+                  <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => setShowTenantForm(true)}>
                     <UserPlus className="h-3.5 w-3.5" /> Add Tenant
                   </Button>
                 </div>
@@ -797,7 +929,7 @@ export default function ManagerDashboard() {
                           <tr><td colSpan={6} className="py-16 text-center text-muted-foreground">
                             <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
                             <p className="font-display font-semibold text-foreground">No tenants linked yet</p>
-                            <p className="text-xs mt-1">Use "Add Tenant" to link a registered user to a property</p>
+                            <p className="text-xs mt-1">Click "Add Tenant" to register a new tenant</p>
                           </td></tr>
                         ) : leases.map(t => {
                           const days = differenceInDays(new Date(t.end_date), new Date());
@@ -833,6 +965,42 @@ export default function ManagerDashboard() {
                                   )}
                                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1" disabled={sendingAction === `remind-${t.id}`} onClick={() => sendRentReminder(t)}>
                                     <Bell className="h-3 w-3" />{sendingAction === `remind-${t.id}` ? '...' : 'Remind'}
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                                    onClick={() => { setAgreementLease(t); setAgreementFile(null); setAgreementDialogOpen(true); }}>
+                                    <Upload className="h-3 w-3" /> Agreement
+                                  </Button>
+                                  {t.tenant_user_id && (
+                                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                                      disabled={sendingAction === `otp-${t.id}`}
+                                      onClick={async () => {
+                                        setSendingAction(`otp-${t.id}`);
+                                        try {
+                                          const h = await getHeaders();
+                                          const r = await fetch(`${apiBase}/admin/reset-tenant-password`, {
+                                            method: 'POST', headers: h,
+                                            body: JSON.stringify({ user_id: t.tenant_user_id }),
+                                          });
+                                          if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).detail || r.statusText));
+                                          const d = await r.json();
+                                          setOtpPassword(d.temporary_password);
+                                          toast({ title: 'New OTP generated' });
+                                        } catch (err: any) { toast({ title: 'OTP Error', description: err.message, variant: 'destructive' }); }
+                                        setSendingAction('');
+                                      }}>
+                                      <KeyRound className="h-3 w-3" />{sendingAction === `otp-${t.id}` ? '...' : 'OTP'}
+                                    </Button>
+                                  )}
+                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                                    disabled={sendingAction === `deact-${t.id}`}
+                              onClick={async () => {
+                                setSendingAction(`deact-${t.id}`);
+                                const { error } = await supabase.from('leases').update({ status: 'inactive' }).eq('id', t.id);
+                                if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+                                else { toast({ title: 'Tenancy deactivated' }); fetchData(); }
+                                setSendingAction('');
+                              }}>
+                                    <Ban className="h-3 w-3" />{sendingAction === `deact-${t.id}` ? '...' : 'Deactivate'}
                                   </Button>
                                 </div>
                               </td>
@@ -929,6 +1097,83 @@ export default function ManagerDashboard() {
               </div>
             )}
 
+            {/* REQUESTS */}
+            {tab === 'requests' && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-display font-bold text-xl">Maintenance Requests</h2>
+                    <p className="text-sm text-muted-foreground">{maintenanceReqs.filter(r => r.status === 'open' || r.status === 'in_progress').length} open · {maintenanceReqs.filter(r => r.status === 'resolved' || r.status === 'completed').length} resolved</p>
+                  </div>
+                </div>
+                {maintenanceReqs.length === 0 ? (
+                  <div className="text-center py-24 bg-card border border-border rounded-2xl">
+                    <Wrench className="h-16 w-16 mx-auto mb-4 text-muted-foreground/20" />
+                    <p className="text-xl font-display font-bold text-foreground">No maintenance requests</p>
+                    <p className="text-sm mt-2 text-muted-foreground">Tenants haven't submitted any requests yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {maintenanceReqs.map(r => {
+                      const days = differenceInDays(new Date(r.created_at), new Date());
+                      return (
+                        <div key={r.id} className="bg-card border border-border rounded-2xl p-5">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+                                  r.priority === 'high' ? 'bg-destructive' :
+                                  r.priority === 'medium' ? 'bg-gold' : 'bg-success'
+                                }`} />
+                                <p className="font-semibold text-foreground">{r.title}</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{r.description}</p>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
+                                <span>{r.property_title || 'Unknown property'}</span>
+                                {r.tenant_name && <span>· {r.tenant_name}</span>}
+                                <span>· {r.created_at ? format(new Date(r.created_at), 'MMM dd, yyyy') : ''}</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2 shrink-0">
+                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusBadge(r.status === 'completed' ? 'confirmed' : r.status)}`}>
+                                {r.status === 'completed' ? 'Resolved' : r.status === 'in_progress' ? 'In progress' : r.status}
+                              </span>
+                              <div className="flex gap-1.5">
+                                {r.status === 'open' && (
+                                  <Button size="sm" className="gradient-primary text-primary-foreground h-7 text-xs gap-1"
+                                    disabled={sendingAction === `start-${r.id}`}
+                                    onClick={async () => {
+                                      setSendingAction(`start-${r.id}`);
+                                      await supabase.from('maintenance_requests').update({ status: 'in_progress' }).eq('id', r.id);
+                                      toast({ title: 'Request marked in progress' });
+                                      setSendingAction(''); fetchData();
+                                    }}>
+                                    <Clock className="h-3 w-3" /> Start
+                                  </Button>
+                                )}
+                                {(r.status === 'open' || r.status === 'in_progress') && (
+                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                                    disabled={sendingAction === `done-${r.id}`}
+                                    onClick={async () => {
+                                      setSendingAction(`done-${r.id}`);
+                                      await supabase.from('maintenance_requests').update({ status: 'completed', completed_date: new Date().toISOString().split('T')[0] }).eq('id', r.id);
+                                      toast({ title: 'Request resolved' });
+                                      setSendingAction(''); fetchData();
+                                    }}>
+                                    <CheckCircle className="h-3 w-3" /> Resolve
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* PROFILE */}
             {tab === 'profile' && (
               <div className="max-w-lg">
@@ -958,49 +1203,10 @@ export default function ManagerDashboard() {
                 </div>
               </div>
             )}
-
+            </>)}
           </div>
         </main>
       </div>
-
-      {/* Add Tenant Dialog */}
-      <Dialog open={tenancyDialogOpen} onOpenChange={setTenancyDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">Create Tenancy Agreement</DialogTitle>
-            <DialogDescription>Link a registered tenant to one of your properties. They will be notified via SMS.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreateTenancy} className="space-y-4 mt-4">
-            <div>
-              <Label>Property</Label>
-              <Select value={tenancyForm.property_id} onValueChange={v => {
-                const p = properties.find(pr => pr.id === v);
-                setTenancyForm(f => ({ ...f, property_id: v, monthly_rent: p?.monthly_rent || p?.rent_amount || 0 }));
-              }}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select property..." /></SelectTrigger>
-                <SelectContent>
-                  {properties.filter(p => p.status !== 'inactive').map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.title} — {p.status}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Tenant Email</Label>
-              <Input type="email" value={tenancyForm.tenant_email} onChange={e => setTenancyForm(f => ({ ...f, tenant_email: e.target.value }))} placeholder="tenant@example.com" required className="mt-1" />
-              <p className="text-xs text-muted-foreground mt-1">Tenant must already have an Afodabohousing account</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Start Date</Label><Input type="date" value={tenancyForm.start_date} onChange={e => setTenancyForm(f => ({ ...f, start_date: e.target.value }))} required className="mt-1" /></div>
-              <div><Label>End Date</Label><Input type="date" value={tenancyForm.end_date} onChange={e => setTenancyForm(f => ({ ...f, end_date: e.target.value }))} required className="mt-1" /></div>
-              <div><Label>Monthly Rent (UGX)</Label><Input type="number" value={tenancyForm.monthly_rent || ''} onChange={e => setTenancyForm(f => ({ ...f, monthly_rent: Number(e.target.value) }))} className="mt-1" /></div>
-            </div>
-            <Button type="submit" disabled={sendingAction === 'creating'} className="w-full gradient-primary text-primary-foreground">
-              {sendingAction === 'creating' ? 'Creating...' : 'Create Tenancy & Notify Tenant'}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Add / Edit Property Dialog */}
       <Dialog open={propDialogOpen} onOpenChange={o => { setPropDialogOpen(o); if (!o) setEditingProperty(null); }}>
@@ -1032,7 +1238,6 @@ export default function ManagerDashboard() {
                   <SelectContent>{DISTRICTS_LIST.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>City</Label><Input value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="e.g. Kampala City" className="mt-1" /></div>
               <div><Label>Area / Neighbourhood</Label><Input value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} placeholder="e.g. Ntinda, Bukoto" className="mt-1" /></div>
               <div className="col-span-2"><Label>Full Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Plot 45, Road name..." className="mt-1" /></div>
             </div>
@@ -1153,6 +1358,30 @@ export default function ManagerDashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* Upload Agreement Dialog */}
+      <Dialog open={agreementDialogOpen} onOpenChange={o => { if (!o) { setAgreementDialogOpen(false); setAgreementFile(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Tenancy Agreement</DialogTitle>
+            <DialogDescription>
+              Upload a signed agreement PDF or image for {agreementLease?.tenant_name || 'this tenant'}.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUploadAgreement} className="space-y-4 mt-4">
+            <div>
+              <Label>Agreement Document</Label>
+              <Input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                onChange={e => setAgreementFile(e.target.files?.[0] || null)}
+                required className="mt-1" />
+              <p className="text-xs text-muted-foreground mt-1">PDF or image files accepted</p>
+            </div>
+            <Button type="submit" disabled={!agreementFile || uploadingAgreement} className="w-full">
+              {uploadingAgreement ? 'Uploading...' : 'Upload Agreement'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Property Confirmation */}
       <AlertDialog open={!!deleteConfirmProperty} onOpenChange={o => { if (!o) setDeleteConfirmProperty(null); }}>
         <AlertDialogContent>
@@ -1175,6 +1404,25 @@ export default function ManagerDashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!otpPassword} onOpenChange={o => { if (!o) setOtpPassword(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>New One-Time Password</DialogTitle>
+            <DialogDescription>Share this temporary password with the tenant. They can change it after logging in.</DialogDescription>
+          </DialogHeader>
+          <div className="bg-muted rounded-xl p-4 mt-2">
+            <label className="text-xs font-medium text-muted-foreground">Temporary Password</label>
+            <div className="flex items-center gap-2 mt-1">
+              <code className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono select-all">{otpPassword}</code>
+              <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(otpPassword || ''); toast({ title: 'Copied!' }); }} className="shrink-0 gap-1.5">
+                <Copy className="h-3.5 w-3.5" /> Copy
+              </Button>
+            </div>
+          </div>
+          <Button className="w-full" variant="outline" onClick={() => setOtpPassword(null)}>Done</Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
