@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_requests: int = 200
     rate_limit_window_seconds: int = 60
+    auth_rate_limit_requests: int = 10
+    auth_rate_limit_window_seconds: int = 60
+    payment_rate_limit_requests: int = 30
+    payment_rate_limit_window_seconds: int = 60
 
     retry_max_attempts: int = 3
     retry_base_delay: float = 0.5
@@ -26,6 +30,8 @@ class Settings(BaseSettings):
 
     # Sentry
     sentry_dsn: str = ""
+    sentry_endpoint: str = ""
+    testing: bool = False
 
     # Pesapal
     pesapal_consumer_key: str = ""
@@ -36,12 +42,20 @@ class Settings(BaseSettings):
     sms_provider_api_key: str = ""
     sms_provider_url: str = "https://api.example.com/sms/send"
 
+    # Notifications
+    email_provider_api_key: str = ""
+    email_provider_url: str = ""
+    email_from_address: str = "no-reply@afodabohousing.com"
+    push_provider_api_key: str = ""
+    push_provider_url: str = ""
+
     # Webhooks
     webhook_secret: str = ""
 
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 @lru_cache

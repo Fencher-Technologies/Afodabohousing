@@ -2,6 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import React, { useState } from 'react';
 import { Alert, Modal, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { AdvancedFilterModal, type ListFilters } from '../components/advanced-filter-modal';
 import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
@@ -37,7 +38,8 @@ const initialUnitForm = {
 export function ManagerPropertiesScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
-  const propertiesQuery = useManagerProperties(user?.id);
+  const [filters, setFilters] = useState<ListFilters>({});
+  const propertiesQuery = useManagerProperties(user?.id, filters);
   const [saving, setSaving] = useState(false);
   const [showUnitForm, setShowUnitForm] = useState(false);
   const [unitForm, setUnitForm] = useState(initialUnitForm);
@@ -125,6 +127,15 @@ export function ManagerPropertiesScreen() {
           </Button>
         </View>
       </View>
+
+      <AdvancedFilterModal
+        filters={filters}
+        onApply={setFilters}
+        onClear={() => setFilters({})}
+        showOccupancy
+        showSearch
+        title="Filter Properties"
+      />
 
       {showUnitForm ? (
         <View style={styles.formCard}>

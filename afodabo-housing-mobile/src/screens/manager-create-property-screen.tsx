@@ -21,12 +21,8 @@ import {
 } from '../utils/constants';
 
 const propertyTypeLabels: Record<Database['public']['Enums']['property_type'], string> = {
-  apartment: 'Apartment',
-  bungalow: 'Bungalow',
-  house: 'House',
-  room: 'Single Room',
-  self_contained: 'Self-Contained Unit',
-  studio: 'Studio Room',
+  Residential: 'Residential',
+  'Office Space': 'Office Space',
 };
 
 const rentPeriodLabels: Record<Database['public']['Enums']['rent_period'], string> = {
@@ -46,7 +42,7 @@ const initialPropertyForm = {
   kitchens: '1',
   manager_email: '',
   manager_phone: '',
-  property_type: 'house' as Database['public']['Enums']['property_type'],
+  property_type: 'Residential' as Database['public']['Enums']['property_type'],
   rent_amount: '',
   rent_period: 'monthly' as Database['public']['Enums']['rent_period'],
   sitting_rooms: '1',

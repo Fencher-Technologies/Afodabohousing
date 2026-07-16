@@ -12,6 +12,7 @@ async function uploadWithAuthRetry(
   asset: UploadAsset,
   defaultMimeType: string,
   allowRefreshRetry = true,
+  expectUrl = true,
 ) {
   const accessToken = await getAccessToken();
   if (!accessToken) {
@@ -40,7 +41,7 @@ async function uploadWithAuthRetry(
     const refreshedSession = await refreshStoredAuthSession();
 
     if (refreshedSession?.accessToken) {
-      return uploadWithAuthRetry(path, asset, defaultMimeType, false);
+      return uploadWithAuthRetry(path, asset, defaultMimeType, false, expectUrl);
     }
   }
 
@@ -50,6 +51,10 @@ async function uploadWithAuthRetry(
         ? String(payload.detail)
         : 'File upload failed.',
     );
+  }
+
+  if (!expectUrl) {
+    return payload;
   }
 
   if (!payload || typeof payload !== 'object' || !('url' in payload)) {
@@ -73,4 +78,14 @@ export async function uploadPropertyImages(userId: string, assets: UploadAsset[]
   }
 
   return uploadedUrls;
+}
+
+export async function uploadAgreementDocument(leaseId: string, asset: UploadAsset) {
+  return uploadWithAuthRetry(
+    `/agreements/${leaseId}/upload`,
+    asset,
+    asset.mimeType ?? 'application/pdf',
+    true,
+    false,
+  );
 }

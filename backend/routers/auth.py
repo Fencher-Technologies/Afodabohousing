@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status

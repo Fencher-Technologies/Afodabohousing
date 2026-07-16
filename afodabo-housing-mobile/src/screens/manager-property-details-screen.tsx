@@ -22,15 +22,14 @@ import { ScrollableScreenContainer } from '../components/scrollable-screen-conta
 import { useAuth } from '../context/auth-context';
 import { useManagerProperty } from '../hooks/manager/use-manager-properties';
 import { deleteProperty, fetchManagerPropertyUnits, updateProperty } from '../services/manager';
+import propertyImage1 from '../../assets/brand/property-1.jpg';
+import propertyImage2 from '../../assets/brand/property-2.jpg';
+import propertyImage3 from '../../assets/brand/property-3.jpg';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import type { RootStackParamList } from '../navigation/types';
 import { formatUGX, formatUGXFull, propertyTypeLabel, rentPeriodSuffix } from '../utils/format';
 
-const fallbackImages = [
-  require('../../assets/brand/property-1.jpg'),
-  require('../../assets/brand/property-2.jpg'),
-  require('../../assets/brand/property-3.jpg'),
-];
+const fallbackImages = [propertyImage1, propertyImage2, propertyImage3];
 
 export function ManagerPropertyDetailsScreen({
   navigation,

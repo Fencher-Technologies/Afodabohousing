@@ -4,8 +4,10 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from json import dumps
+from math import ceil
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -13,9 +15,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from config import get_settings
 from dependencies.database import get_supabase_client
 from routers import (
+    agreements_router,
     auth_router,
     leases_router,
     maintenance_requests_router,
+    managers_router,
     messages_router,
     payments_router,
     properties_router,
@@ -23,6 +27,11 @@ from routers import (
     tenants_router,
     uploads_router,
     webhooks_router,
+)
+from services.observability import (
+    capture_sentry_exception,
+    init_sentry,
+    set_sentry_request_context,
 )
 
 settings = get_settings()
@@ -33,18 +42,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-if settings.sentry_dsn:
-    try:
-        import sentry_sdk
-        sentry_sdk.init(
-            dsn=settings.sentry_dsn,
-            environment=settings.environment,
-            traces_sample_rate=0.25,
-            profiles_sample_rate=0.1,
-        )
-        logger.info("Sentry initialized")
-    except Exception as e:
-        logger.warning("Failed to initialize Sentry: %s", str(e))
+init_sentry()
 
 
 _scheduler_started = False
@@ -62,6 +60,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
+        set_sentry_request_context(request_id, request.method, request.url.path)
         start = time.monotonic()
         response = await call_next(request)
         elapsed = time.monotonic() - start
@@ -92,33 +91,142 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, requests: int = 100, window_seconds: int = 60):
+    def __init__(
+        self,
+        app,
+        requests: int = 100,
+        window_seconds: int = 60,
+        auth_requests: int = 10,
+        auth_window_seconds: int = 60,
+        payment_requests: int = 30,
+        payment_window_seconds: int = 60,
+    ):
         super().__init__(app)
         self.requests = requests
         self.window = window_seconds
-        self._clients: dict[str, list[float]] = {}
+        self.auth_requests = auth_requests
+        self.auth_window = auth_window_seconds
+        self.payment_requests = payment_requests
+        self.payment_window = payment_window_seconds
+        self._clients: dict[str, dict[str, list[float]]] = {}
+
+    def _client_key(self, request: Request) -> str:
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            return forwarded_for.split(",", 1)[0].strip()
+        return request.client.host if request.client else "unknown"
+
+    def _policy_for_path(self, path: str) -> tuple[str, int, int]:
+        auth_paths = {
+            "/login",
+            "/register",
+            "/auth/signin",
+            "/auth/signin/form",
+            "/auth/signup",
+        }
+        if path in auth_paths:
+            return "auth", self.auth_requests, self.auth_window
+        if path.startswith("/payments"):
+            return "payments", self.payment_requests, self.payment_window
+        return "global", self.requests, self.window
+
+    def _headers(
+        self,
+        *,
+        limit: int,
+        remaining: int,
+        reset_at: float,
+        policy: str,
+        now: float,
+    ) -> dict[str, str]:
+        retry_after = max(0, ceil(reset_at - now))
+        return {
+            "Retry-After": str(retry_after),
+            "X-RateLimit-Limit": str(limit),
+            "X-RateLimit-Remaining": str(max(0, remaining)),
+            "X-RateLimit-Reset": str(ceil(time.time() + retry_after)),
+            "X-RateLimit-Policy": policy,
+        }
 
     async def dispatch(self, request: Request, call_next):
         if not settings.rate_limit_enabled or request.url.path in ("/health", "/health/ready", "/metrics"):
             return await call_next(request)
 
-        client_ip = request.client.host if request.client else "unknown"
+        policy, limit, window = self._policy_for_path(request.url.path)
+        client_ip = self._client_key(request)
         now = time.monotonic()
-        cutoff = now - self.window
+        cutoff = now - window
+        client_buckets = self._clients.setdefault(client_ip, {})
+        bucket = [timestamp for timestamp in client_buckets.get(policy, []) if timestamp > cutoff]
+        reset_at = (min(bucket) + window) if bucket else (now + window)
 
-        if client_ip in self._clients:
-            self._clients[client_ip] = [t for t in self._clients[client_ip] if t > cutoff]
-            if len(self._clients[client_ip]) >= self.requests:
-                logger.warning("Rate limit exceeded for %s", client_ip)
-                return JSONResponse(
-                    status_code=429,
-                    content={"detail": "Too many requests", "retry_after_seconds": self.window},
-                )
-            self._clients[client_ip].append(now)
-        else:
-            self._clients[client_ip] = [now]
+        if len(bucket) >= limit:
+            headers = self._headers(
+                limit=limit,
+                remaining=0,
+                reset_at=reset_at,
+                policy=policy,
+                now=now,
+            )
+            logger.warning(
+                "Rate limit exceeded for %s on %s with policy=%s limit=%s window=%ss",
+                client_ip,
+                request.url.path,
+                policy,
+                limit,
+                window,
+            )
+            return JSONResponse(
+                status_code=429,
+                headers=headers,
+                content={
+                    "detail": "Too many requests",
+                    "error": "rate_limit_exceeded",
+                    "limit": limit,
+                    "policy": policy,
+                    "retry_after_seconds": int(headers["Retry-After"]),
+                    "window_seconds": window,
+                },
+            )
 
-        return await call_next(request)
+        bucket.append(now)
+        client_buckets[policy] = bucket
+        response = await call_next(request)
+        response.headers.update(
+            self._headers(
+                limit=limit,
+                remaining=limit - len(bucket),
+                reset_at=reset_at,
+                policy=policy,
+                now=now,
+            )
+        )
+        return response
+
+
+def _error_response(
+    *,
+    request_id: str,
+    status_code: int,
+    detail: str,
+    error: str,
+    extra: dict | None = None,
+    headers: dict[str, str] | None = None,
+) -> JSONResponse:
+    payload = {
+        "detail": detail,
+        "error": error,
+        "request_id": request_id,
+        "status_code": status_code,
+    }
+    if extra:
+        payload.update(extra)
+
+    response_headers = {"X-Request-ID": request_id}
+    if headers:
+        response_headers.update(headers)
+
+    return JSONResponse(status_code=status_code, headers=response_headers, content=payload)
 
 
 @asynccontextmanager
@@ -159,12 +267,21 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Client-Info", "X-Request-ID"],
 )
-app.add_middleware(RateLimitMiddleware)
+app.add_middleware(
+    RateLimitMiddleware,
+    requests=settings.rate_limit_requests,
+    window_seconds=settings.rate_limit_window_seconds,
+    auth_requests=settings.auth_rate_limit_requests,
+    auth_window_seconds=settings.auth_rate_limit_window_seconds,
+    payment_requests=settings.payment_rate_limit_requests,
+    payment_window_seconds=settings.payment_rate_limit_window_seconds,
+)
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", "unknown")
+    capture_sentry_exception(exc)
     logger.error(
         dumps({
             "request_id": request_id,
@@ -174,17 +291,47 @@ async def global_exception_handler(request: Request, exc: Exception):
         }),
         exc_info=True,
     )
-    return JSONResponse(
+    return _error_response(
+        request_id=request_id,
         status_code=500,
-        headers={"X-Request-ID": request_id},
-        content={"detail": "Internal server error", "request_id": request_id},
+        detail="Internal server error",
+        error="internal_server_error",
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    request_id = getattr(request.state, "request_id", "unknown")
+    if exc.status_code >= 500:
+        capture_sentry_exception(exc)
+
+    return _error_response(
+        request_id=request_id,
+        status_code=exc.status_code,
+        detail=str(exc.detail),
+        error="http_exception",
+        headers=dict(exc.headers or {}),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    request_id = getattr(request.state, "request_id", "unknown")
+    return _error_response(
+        request_id=request_id,
+        status_code=422,
+        detail="Request validation failed",
+        error="validation_error",
+        extra={"errors": exc.errors()},
     )
 
 
 app.include_router(auth_router)
+app.include_router(agreements_router)
 app.include_router(properties_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)
+app.include_router(managers_router)
 app.include_router(messages_router)
 app.include_router(payments_router)
 app.include_router(rental_units_router)
@@ -202,8 +349,8 @@ async def health_check() -> dict:
     }
 
 
-@app.get("/health/ready")
-async def readiness_check() -> dict:
+@app.get("/health/ready", response_model=None)
+async def readiness_check() -> dict[str, str] | JSONResponse:
     try:
         supabase = get_supabase_client()
         supabase.table("properties").select("id").limit(1).execute()

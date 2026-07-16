@@ -14,9 +14,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/auth-context';
 import { AppNavigator } from './navigation/AppNavigator';
+import { initializeSentry } from './services/sentry';
 import { colors } from './theme/tokens';
 
 const queryClient = new QueryClient();
+
+initializeSentry();
 
 export default function App() {
   const [fontsLoaded] = useFonts({

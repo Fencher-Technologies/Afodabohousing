@@ -136,20 +136,15 @@ function toPropertyStatus(status?: string | null): PropertyRow['status'] {
 }
 
 function toPropertyType(type?: string | null): PropertyRow['property_type'] {
-  const supportedTypes: PropertyRow['property_type'][] = [
-    'house',
-    'apartment',
-    'self_contained',
-    'room',
-    'studio',
-    'bungalow',
-  ];
-
-  if (type && supportedTypes.includes(type as PropertyRow['property_type'])) {
-    return type as PropertyRow['property_type'];
+  if (type === 'Office Space' || type === 'office_space' || type === 'office' || type === 'commercial') {
+    return 'Office Space';
   }
 
-  return 'house';
+  if (type === 'Residential') {
+    return 'Residential';
+  }
+
+  return 'Residential';
 }
 
 function toTenancyStatus(status?: string | null): TenancyRow['status'] {

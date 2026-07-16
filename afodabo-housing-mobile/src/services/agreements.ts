@@ -3,6 +3,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import type { Database } from '../types/supabase';
+import { apiRequest } from './backend-api';
+import { uploadAgreementDocument, type UploadAsset } from './uploads';
 
 export interface TenancyAgreementDraft {
   generatedByEmail?: string | null;
@@ -25,6 +27,31 @@ export interface TenancyAgreementSummary {
   rentScheduleLabel: string;
   tenancyPeriodLabel: string;
   totalRentAmount: number;
+}
+
+export interface AgreementPartyConsentState {
+  consented: boolean;
+  consented_at: null | string;
+  user_id: null | string;
+}
+
+export interface AgreementDocument {
+  agreement_hash: string;
+  agreement_url: string;
+  created_at: string;
+  file_mime_type: string;
+  file_name: string;
+  file_size: number;
+  id: string;
+  lease_id: string;
+  storage_path: string;
+  uploaded_by: string;
+}
+
+export interface AgreementConsentState {
+  current_document: AgreementDocument | null;
+  manager: AgreementPartyConsentState;
+  tenant: AgreementPartyConsentState;
 }
 
 function escapeHtml(value: string) {
@@ -294,4 +321,19 @@ export async function downloadTenancyAgreementEditable(draft: TenancyAgreementDr
   }
 
   return targetUri;
+}
+
+export async function fetchAgreementConsentState(leaseId: string) {
+  return apiRequest<AgreementConsentState>(`/agreements/${leaseId}`, { auth: true });
+}
+
+export async function consentToAgreement(leaseId: string) {
+  return apiRequest<{ state: AgreementConsentState }>(`/agreements/${leaseId}/consent`, {
+    auth: true,
+    method: 'POST',
+  });
+}
+
+export async function uploadTenancyAgreement(leaseId: string, asset: UploadAsset) {
+  return uploadAgreementDocument(leaseId, asset) as Promise<AgreementConsentState>;
 }

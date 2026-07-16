@@ -85,7 +85,7 @@ export default function ManagerDashboard() {
   const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
 
   const [form, setForm] = useState({
-    title: '', description: '', property_type: 'house', district: '', city: '',
+    title: '', description: '', property_type: 'Residential', district: '', city: '',
     area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1,
     rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '',
     amenities: [] as string[],
@@ -197,7 +197,7 @@ export default function ManagerDashboard() {
     }
     setPropDialogOpen(false);
     setEditingProperty(null);
-    setForm({ title: '', description: '', property_type: 'house', district: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] });
+    setForm({ title: '', description: '', property_type: 'Residential', district: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] });
     setImageFiles([]);
     fetchData();
   };
@@ -1253,12 +1253,8 @@ export default function ManagerDashboard() {
                 <Select value={form.property_type} onValueChange={v => setForm({ ...form, property_type: v })}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="house">House</SelectItem>
-                    <SelectItem value="apartment">Apartment</SelectItem>
-                    <SelectItem value="self_contained">Self-Contained</SelectItem>
-                    <SelectItem value="room">Single Room</SelectItem>
-                    <SelectItem value="studio">Studio</SelectItem>
-                    <SelectItem value="bungalow">Bungalow</SelectItem>
+                    <SelectItem value="Residential">Residential</SelectItem>
+                    <SelectItem value="Office Space">Office Space</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

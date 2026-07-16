@@ -5,6 +5,7 @@ import { Button } from '../components/button';
 import { InputField } from '../components/input-field';
 import { Screen } from '../components/screen';
 import { signInWithPassword } from '../services/auth';
+import logoImage from '../../assets/brand/logo.png';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -31,7 +32,7 @@ export function LoginScreen({ navigation }: StackScreenProps<RootStackParamList,
   return (
     <Screen>
       <View style={styles.brandCard}>
-        <Image source={require('../../assets/brand/logo.png')} style={styles.logo} />
+        <Image source={logoImage} style={styles.logo} />
         <Text style={styles.title}>Welcome back</Text>
         <Text style={styles.subtitle}>Sign in to continue with Afodabo Housing.</Text>
       </View>

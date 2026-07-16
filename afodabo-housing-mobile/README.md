@@ -29,6 +29,7 @@ Required variables:
 
 ```env
 EXPO_PUBLIC_API_BASE_URL=https://your-backend.onrender.com
+EXPO_PUBLIC_SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
 ```
 
 You can start from:
@@ -38,6 +39,8 @@ cp .env.example .env
 ```
 
 The mobile app now talks to the backend API first. It no longer boots from direct client-side Supabase environment variables.
+
+If you enable Sentry, add `EXPO_PUBLIC_SENTRY_DSN` to your local `.env` file and to the EAS environment used for cloud builds.
 
 Render deployment notes for the backend live in [docs/backend-render-deploy.md](/C:/Users/Michael/Desktop/Projects/AFODABO/afodabo-housing-mobile/docs/backend-render-deploy.md).
 
