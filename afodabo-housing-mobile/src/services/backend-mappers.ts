@@ -19,10 +19,12 @@ type BackendProperty = {
   description?: string | null;
   id: string;
   images?: string[] | null;
+  is_boosted?: boolean | null;
   latitude?: number | null;
   longitude?: number | null;
   manager_email?: string | null;
   manager_phone?: string | null;
+  boosted_until?: string | null;
   monthly_rent: number | string;
   owner_id: string;
   property_type: string;
@@ -194,12 +196,14 @@ export function mapBackendPropertyToPropertyRow(property: BackendProperty): Prop
     district: property.state || property.city || 'Unknown',
     id: property.id,
     images: property.images ?? null,
+    is_boosted: property.is_boosted ?? null,
     kitchens: 1,
     latitude: property.latitude ?? null,
     longitude: property.longitude ?? null,
     manager_email: property.manager_email ?? null,
     manager_id: property.owner_id,
     manager_phone: property.manager_phone ?? null,
+    boosted_until: property.boosted_until ?? null,
     property_type: toPropertyType(property.property_type),
     rent_amount: toNumber(property.monthly_rent),
     rent_currency: 'UGX',

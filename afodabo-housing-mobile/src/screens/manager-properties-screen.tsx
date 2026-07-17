@@ -1,11 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import React, { useState } from 'react';
-import { Alert, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import {
-  AdvancedFilterModal,
-  type ListFilters,
-} from '../components/advanced-filter-modal';
+import { Alert, Modal, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { AdvancedFilterModal, type ListFilters } from '../components/advanced-filter-modal';
 import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
@@ -16,8 +13,16 @@ import { ScrollableScreenContainer } from '../components/scrollable-screen-conta
 import { useAuth } from '../context/auth-context';
 import { useManagerProperties } from '../hooks/manager/use-manager-properties';
 import { addRentalUnit } from '../services/manager';
+import {
+  BOOST_PLANS,
+  formatBoostPrice,
+  getBoostedUntil,
+  isPropertyBoosted,
+  purchasePropertyBoost,
+} from '../services/property-boosts';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import type { RootStackParamList } from '../navigation/types';
+import type { PropertyRow } from '../types/supabase';
 
 const initialUnitForm = {
   bathrooms: '1',
@@ -38,6 +43,12 @@ export function ManagerPropertiesScreen() {
   const [saving, setSaving] = useState(false);
   const [showUnitForm, setShowUnitForm] = useState(false);
   const [unitForm, setUnitForm] = useState(initialUnitForm);
+  const [boosting, setBoosting] = useState(false);
+  const [boostProperty, setBoostProperty] = useState<PropertyRow | null>(null);
+  const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
+
+  const selectedBoostPlan =
+    BOOST_PLANS.find((plan) => plan.days === selectedBoostDays) ?? BOOST_PLANS[0];
 
   if (!user) {
     return (
@@ -228,10 +239,94 @@ export function ManagerPropertiesScreen() {
             />
             <Text style={styles.metaText}>
               Property ID: {property.id} • Status: {property.status}
+              {getBoostedUntil(property)
+                ? ` • Boost ends ${new Date(getBoostedUntil(property) as string).toLocaleDateString()}`
+                : ''}
             </Text>
+            <Button
+              onPress={() => {
+                setSelectedBoostDays(BOOST_PLANS[0].days);
+                setBoostProperty(property);
+              }}
+              variant="outline"
+            >
+              {isPropertyBoosted(property) ? 'Extend Boost' : 'Boost Property'}
+            </Button>
           </View>
         ))
       )}
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setBoostProperty(null)}
+        transparent
+        visible={Boolean(boostProperty)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Boost Property</Text>
+            <Text style={styles.modalSubtitle}>
+              Promote {boostProperty?.title || 'this listing'} higher in search results.
+            </Text>
+
+            <View style={styles.planList}>
+              {BOOST_PLANS.map((plan) => {
+                const selected = plan.days === selectedBoostDays;
+
+                return (
+                  <Pressable
+                    key={plan.days}
+                    onPress={() => setSelectedBoostDays(plan.days)}
+                    style={[styles.planButton, selected ? styles.planButtonSelected : null]}
+                  >
+                    <View>
+                      <Text style={styles.planLabel}>{plan.label}</Text>
+                      <Text style={styles.planMeta}>Featured placement on public listings</Text>
+                    </View>
+                    <Text style={styles.planPrice}>{formatBoostPrice(plan.price)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.checkoutNote}>
+              Checkout will charge {formatBoostPrice(selectedBoostPlan.price)} and activate the
+              boosted badge once payment succeeds.
+            </Text>
+
+            <View style={styles.modalActions}>
+              <Button disabled={boosting} onPress={() => setBoostProperty(null)} variant="outline">
+                Cancel
+              </Button>
+              <Button
+                disabled={boosting}
+                onPress={async () => {
+                  if (!boostProperty) {
+                    return;
+                  }
+
+                  try {
+                    setBoosting(true);
+                    await purchasePropertyBoost(boostProperty.id, selectedBoostDays);
+                    setBoostProperty(null);
+                    await propertiesQuery.refetch();
+                    Alert.alert('Property boost purchased', 'Your listing is now promoted.');
+                  } catch (error) {
+                    Alert.alert(
+                      'Could not boost property',
+                      error instanceof Error ? error.message : 'Please try again.',
+                    );
+                  } finally {
+                    setBoosting(false);
+                  }
+                }}
+              >
+                {boosting ? 'Processing...' : 'Checkout'}
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollableScreenContainer>
   );
 }
@@ -274,5 +369,73 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontFamily: typography.body,
     fontSize: 12,
+  },
+  checkoutNote: {
+    color: colors.textSecondary,
+    fontFamily: typography.body,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.modal,
+    gap: spacing.md,
+    margin: spacing.lg,
+    padding: spacing.lg,
+  },
+  modalOverlay: {
+    alignItems: 'center',
+    backgroundColor: colors.overlay,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  modalSubtitle: {
+    color: colors.textSecondary,
+    fontFamily: typography.body,
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  modalTitle: {
+    color: colors.textPrimary,
+    fontFamily: typography.display,
+    fontSize: 24,
+  },
+  planButton: {
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: radii.input,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.md,
+    justifyContent: 'space-between',
+    padding: spacing.md,
+  },
+  planButtonSelected: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  planLabel: {
+    color: colors.textPrimary,
+    fontFamily: typography.bodyStrong,
+    fontSize: 14,
+  },
+  planList: {
+    gap: spacing.sm,
+  },
+  planMeta: {
+    color: colors.textMuted,
+    fontFamily: typography.body,
+    fontSize: 12,
+  },
+  planPrice: {
+    color: colors.primary,
+    fontFamily: typography.display,
+    fontSize: 18,
   },
 });

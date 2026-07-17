@@ -14,6 +14,7 @@ import { Screen } from '../components/screen';
 import { useAuth } from '../context/auth-context';
 import { addBookmark, checkBookmark, removeBookmark } from '../services/favorites';
 import { fetchPropertyDetails } from '../services/properties';
+import { isPropertyBoosted } from '../services/property-boosts';
 import { sendTenantMessage } from '../services/tenant';
 import propertyImage1 from '../../assets/brand/property-1.jpg';
 import propertyImage2 from '../../assets/brand/property-2.jpg';
@@ -114,6 +115,7 @@ export function PropertyDetailsScreen() {
 
       <View style={styles.section}>
         <View style={styles.badgeRow}>
+          {isPropertyBoosted(property) ? <Badge tone="gold">Boosted</Badge> : null}
           <Badge tone="accent">{propertyTypeLabel(property.property_type)}</Badge>
           <Badge tone={property.status === 'available' ? 'primary' : 'default'}>
             {property.status === 'available' ? 'Available now' : property.status}
