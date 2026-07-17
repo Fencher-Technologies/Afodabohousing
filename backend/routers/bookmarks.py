@@ -1,9 +1,11 @@
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+
+from fastapi import APIRouter, Depends, status
 from supabase import Client
+
 from dependencies import CurrentUser, get_current_user, get_supabase_client
-from services.crud import BookmarkService
 from models import BookmarkResponse
+from services.crud import BookmarkService
 
 router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
 

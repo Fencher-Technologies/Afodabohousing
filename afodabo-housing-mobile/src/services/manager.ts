@@ -30,7 +30,12 @@ import {
 
 export interface ManagerTenancy extends TenancyRow {
   agreement_state?: AgreementConsentState | null;
+  balance_due?: number;
+  effective_status?: string;
+  expected_rent?: number;
+  is_overdue?: boolean;
   property_title?: string;
+  tenant_credit?: number;
   tenant_name?: string;
   tenant_phone?: string;
 }
@@ -340,6 +345,25 @@ export async function createTenancyWithTerms(payload: TenancyInsert, terms: null
   });
 }
 
+export interface RenewTenancyPayload {
+  leaseId: string;
+  newEndDate: string;
+  monthlyRent?: number;
+  notes?: string;
+}
+
+export async function renewTenancy(payload: RenewTenancyPayload) {
+  return apiRequest(`/leases/${payload.leaseId}/renew`, {
+    auth: true,
+    body: {
+      new_end_date: payload.newEndDate,
+      monthly_rent: payload.monthlyRent,
+      notes: payload.notes,
+    },
+    method: 'POST',
+  });
+}
+
 export async function createTenancyWorkflow(payload: {
   agreementText?: string | null;
   managerContact?: string | null;
@@ -406,6 +430,37 @@ export async function resolveTenantByEmail(email: string) {
     ...tenant,
     full_name: buildTenantName(tenant),
   };
+}
+
+export interface UpdateTenancyPayload {
+  leaseId: string;
+  monthlyRent?: number;
+  rentEndDate?: string;
+  rentStartDate?: string;
+  status?: string;
+  tenantEmail?: string;
+}
+
+export async function updateTenancy(payload: UpdateTenancyPayload) {
+  const body: Record<string, unknown> = {};
+  if (payload.monthlyRent != null) {
+    body.monthly_rent = payload.monthlyRent;
+  }
+  if (payload.rentEndDate) {
+    body.end_date = payload.rentEndDate;
+  }
+  if (payload.rentStartDate) {
+    body.start_date = payload.rentStartDate;
+  }
+  if (payload.status) {
+    body.status = payload.status;
+  }
+
+  return apiRequest(`/leases/${payload.leaseId}`, {
+    auth: true,
+    body,
+    method: 'PATCH',
+  });
 }
 
 export async function confirmManagerPayment(paymentId: string) {

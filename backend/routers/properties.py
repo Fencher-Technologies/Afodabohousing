@@ -48,7 +48,6 @@ def list_properties(
 def list_public_properties(
     state: str | None = Query(None),
     property_type: str | None = Query(None),
-    rent_period: str | None = Query(None),
     min_price: float | None = Query(None, ge=0),
     max_price: float | None = Query(None, ge=0),
     skip: int = Query(0, ge=0),
@@ -57,7 +56,7 @@ def list_public_properties(
     svc = PropertyService(get_service_client())
     properties_data, total = svc.get_public_listings(
         skip=skip, limit=limit, state=state,
-        property_type=property_type, rent_period=rent_period,
+        property_type=property_type,
         min_price=min_price, max_price=max_price,
     )
 

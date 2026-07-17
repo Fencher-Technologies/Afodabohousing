@@ -39,7 +39,7 @@ class PropertyCreate(BaseModel):
     address: str
     city: str
     state: str
-    zip_code: str
+    zip_code: str | None = None
     country: str | None = None
     property_type: str
     bedrooms: int = 1

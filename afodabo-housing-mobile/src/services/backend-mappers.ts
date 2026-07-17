@@ -55,14 +55,19 @@ type BackendRentalUnit = {
 };
 
 type BackendLease = {
+  balance_due?: number | string | null;
   created_at: string;
+  effective_status?: string | null;
   end_date: string;
+  expected_rent?: number | string | null;
   id: string;
+  is_overdue?: boolean | null;
   monthly_rent: number | string;
   owner_id: string;
   property_id: string;
   start_date: string;
   status: string;
+  tenant_credit?: number | string | null;
   tenant_id: string;
   termination_date?: string | null;
   updated_at: string;
@@ -226,11 +231,23 @@ export function mapBackendRentalUnitToRentalUnitRow(unit: BackendRentalUnit): Re
   };
 }
 
-export function mapBackendLeaseToTenancyRow(lease: BackendLease): TenancyRow {
+export interface LeaseEnrichment {
+  balance_due?: number;
+  effective_status?: string;
+  expected_rent?: number;
+  is_overdue?: boolean;
+  tenant_credit?: number;
+}
+
+export function mapBackendLeaseToTenancyRow(lease: BackendLease): TenancyRow & LeaseEnrichment {
   return {
     agreement_url: null,
+    balance_due: lease.balance_due != null ? toNumber(lease.balance_due) : undefined,
     created_at: lease.created_at,
+    effective_status: lease.effective_status ?? lease.status,
+    expected_rent: lease.expected_rent != null ? toNumber(lease.expected_rent) : undefined,
     id: lease.id,
+    is_overdue: lease.is_overdue ?? false,
     manager_id: lease.owner_id,
     property_id: lease.property_id,
     rent_amount: toNumber(lease.monthly_rent),
@@ -238,6 +255,7 @@ export function mapBackendLeaseToTenancyRow(lease: BackendLease): TenancyRow {
     rent_period: DEFAULT_RENT_PERIOD,
     rent_start_date: lease.start_date,
     status: toTenancyStatus(lease.status),
+    tenant_credit: lease.tenant_credit != null ? toNumber(lease.tenant_credit) : undefined,
     tenant_id: lease.tenant_id,
     updated_at: lease.updated_at,
   };

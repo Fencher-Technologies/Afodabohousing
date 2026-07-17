@@ -10,6 +10,8 @@ from models import (
     AgreementConsentRecordResponse,
     AgreementConsentResponse,
     AgreementConsentStateResponse,
+    AgreementVersionResponse,
+    AgreementVersionsResponse,
 )
 from services import AgreementService, get_agreement_service
 from services.notifications import notify
@@ -47,8 +49,8 @@ def _notify_party(
         return
 
     if event == "upload":
-        title = "Agreement Uploaded"
-        body = "The tenancy agreement has been uploaded. Please review and consent."
+        title = "Revised Agreement Uploaded"
+        body = "A revised tenancy agreement was uploaded. Please review and consent to the new version."
     elif event == "consent":
         who = "manager" if actor_role == "manager" else "tenant"
         title = "Agreement Consented"
@@ -57,6 +59,25 @@ def _notify_party(
         return
 
     notify(supabase, recipient_id=other_party_id, type=f"agreement_{event}", title=title, body=body)
+
+
+def _notify_both(
+    supabase: Client,
+    *,
+    lease: dict,
+    event: str,
+) -> None:
+    """Notify BOTH manager and tenant about a new agreement version."""
+    manager_id = str(lease["owner_id"])
+    tenant_user_id = _get_other_party_id(supabase, lease)
+    if event == "upload":
+        title = "Revised Agreement Requires Consent"
+        body = "A revised tenancy agreement was uploaded. Both parties must review and consent to the new version."
+    else:
+        return
+    for recipient in {manager_id, tenant_user_id}:
+        if recipient:
+            notify(supabase, recipient_id=recipient, type="agreement_upload", title=title, body=body)
 
 
 def _authorized_lease(
@@ -103,15 +124,31 @@ async def upload_agreement(
         file_bytes=await file.read(),
     )
 
-    _notify_party(
+    _notify_both(
         supabase,
         lease=lease,
-        current_user_id=current_user.id,
         event="upload",
-        actor_role=party_role,
     )
 
     return AgreementConsentStateResponse(**service.build_state(document))
+
+
+@router.get(
+    "/{lease_id}/versions",
+    response_model=AgreementVersionsResponse,
+)
+def list_agreement_versions(
+    lease_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    service: AgreementService = Depends(get_agreement_svc),
+) -> AgreementVersionsResponse:
+    _authorized_lease(lease_id, current_user, service)
+    versions = [
+        AgreementVersionResponse(**v)
+        for v in service.list_versions(lease_id)
+    ]
+    active = next((v.version for v in versions if v.status in {"active", "fully_executed"}), None)
+    return AgreementVersionsResponse(versions=versions, active_version=active)
 
 
 @router.post(

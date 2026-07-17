@@ -13,8 +13,8 @@ from supabase import Client
 from config import get_settings
 from dependencies import get_service_client
 from services.boost import get_boost_service
-from services.nylonpay import verify_webhook as verify_nylonpay_webhook
 from services.notifications import notify
+from services.nylonpay import verify_webhook as verify_nylonpay_webhook
 
 logger = logging.getLogger(__name__)
 

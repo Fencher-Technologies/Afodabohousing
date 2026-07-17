@@ -1,7 +1,7 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 from supabase import Client
@@ -12,7 +12,6 @@ from dependencies import (
     get_service_client,
     get_supabase_client,
     require_active_user,
-    require_super_admin,
     require_super_admin_or_manager,
 )
 from models import ProfileResponse, ProfileUpdate
@@ -305,9 +304,9 @@ def accept_invite(
     if isinstance(expires_at, str):
         expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
     if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
+        expires_at = expires_at.replace(tzinfo=UTC)
 
-    if expires_at < datetime.now(timezone.utc):
+    if expires_at < datetime.now(UTC):
         supabase.table("invitations").update({"status": "expired"}).eq("id", invitation["id"]).execute()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

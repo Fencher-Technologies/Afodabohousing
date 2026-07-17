@@ -16,6 +16,9 @@ class AgreementDocumentResponse(BaseModel):
     storage_path: str
     agreement_url: str
     agreement_hash: str
+    version: int = 1
+    is_active: bool = True
+    status: str = "active"
     created_at: datetime
 
 
@@ -50,3 +53,21 @@ class AgreementConsentStateResponse(BaseModel):
 class AgreementConsentRecordResponse(BaseModel):
     consent: AgreementConsentResponse
     state: AgreementConsentStateResponse
+
+
+class AgreementVersionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    version: int
+    file_name: str
+    agreement_url: str
+    status: str
+    tenant_consented: bool = False
+    manager_consented: bool = False
+    created_at: datetime
+
+
+class AgreementVersionsResponse(BaseModel):
+    versions: list[AgreementVersionResponse]
+    active_version: int | None = None

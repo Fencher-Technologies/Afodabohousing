@@ -1,13 +1,14 @@
 import logging
 from typing import Any
 
-from config import get_settings
 from nylonpay import (
     Customer,
     VerifyWebhookInput,
     create_nylon_pay,
     verify_webhook_signature,
 )
+
+from config import get_settings
 
 logger = logging.getLogger(__name__)
 

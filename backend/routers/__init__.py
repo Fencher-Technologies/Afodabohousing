@@ -13,6 +13,8 @@ from .payments import router as payments_router
 from .properties import router as properties_router
 from .rental_units import router as rental_units_router
 from .tenants import router as tenants_router
+from .reports import router as reports_router
+from .subscriptions import router as subscriptions_router
 from .uploads import router as uploads_router
 from .webhooks import router as webhooks_router
 
@@ -33,5 +35,7 @@ __all__ = [
     "rental_units_router",
     "tenants_router",
     "uploads_router",
+    "reports_router",
+    "subscriptions_router",
     "webhooks_router",
 ]

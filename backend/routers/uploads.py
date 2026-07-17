@@ -44,7 +44,7 @@ async def upload_payment_proof(
         storage_path,
         PAYMENT_PROOF_URL_TTL_SECONDS,
     )
-    signed_url = getattr(signed, "signedURL", None) or getattr(signed, "signedUrl", None)
+    signed_url = signed.get("signedURL") or signed.get("signedUrl")
     if not signed_url:
         raise HTTPException(status_code=500, detail="Failed to create signed payment proof URL")
 
@@ -76,7 +76,7 @@ async def upload_voice_note(
         storage_path,
         VOICE_NOTE_URL_TTL_SECONDS,
     )
-    signed_url = getattr(signed, "signedURL", None) or getattr(signed, "signedUrl", None)
+    signed_url = signed.get("signedURL") or signed.get("signedUrl")
     if not signed_url:
         raise HTTPException(status_code=500, detail="Failed to create signed voice note URL")
 

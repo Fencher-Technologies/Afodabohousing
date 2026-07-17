@@ -1,7 +1,5 @@
 import logging
-from uuid import UUID
 
-import httpx
 from supabase import Client
 
 logger = logging.getLogger(__name__)

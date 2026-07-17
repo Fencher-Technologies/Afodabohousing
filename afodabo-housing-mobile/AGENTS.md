@@ -6,6 +6,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 <!-- END:reactnative-agent-rules -->
 
+## Objective
+- Fix payment flow end-to-end: backend subscription creation → sandbox auto-confirm → mobile polling → success state.
+
+## Important Details
+- Backend sandbox auto-confirm (`services/subscriptions.py`): `threading.Timer(30s)` calls `confirm_subscription()` to simulate NylonPay webhook when `nylonpay_environment == "sandbox"`.
+- Mobile payment screen (`subscription-payment.tsx`): after API success → shows "Payment Initiated" with phone instructions; polls `GET /subscriptions/current` every 5s; shows success only on `status === "active"`; times out after 120s.
+- `manager_subscriptions` table schema: no `amount_paid` column — uses `plan_id`, `status`, `payment_reference`, `payment_status`, `expires_at`.
+- Run migration `015_subscriptions.sql` with **Run without RLS** (drops old table).
+
 ## Application Building Context
 
 Read the following files in order before implementing or making any architectural decision:

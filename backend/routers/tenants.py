@@ -116,7 +116,7 @@ def get_tenant(
     current_user: CurrentUser = Depends(get_current_user),
     service: TenantService = Depends(get_tenant_svc),
 ) -> TenantResponse:
-    tenant = service.get_by_id(tenant_id, current_user.id)
+    tenant = service.get_by_id_for_manager(tenant_id, current_user.id)
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     return TenantResponse(**tenant)

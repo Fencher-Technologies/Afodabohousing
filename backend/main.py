@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import get_settings
-from dependencies.database import get_service_client, get_supabase_client
+from dependencies.database import get_service_client
 from routers import (
     admin_router,
     agreements_router,
@@ -29,6 +29,8 @@ from routers import (
     payments_router,
     properties_router,
     rental_units_router,
+    reports_router,
+    subscriptions_router,
     tenants_router,
     uploads_router,
     webhooks_router,
@@ -344,6 +346,8 @@ app.include_router(managers_router)
 app.include_router(messages_router)
 app.include_router(payments_router)
 app.include_router(rental_units_router)
+app.include_router(reports_router)
+app.include_router(subscriptions_router)
 app.include_router(maintenance_requests_router)
 app.include_router(uploads_router)
 app.include_router(webhooks_router)

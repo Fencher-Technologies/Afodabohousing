@@ -10,7 +10,8 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- Stabilize and refine the first working mobile implementation with full web-route parity and stronger workflow depth.
+- Fix tenant my-tenancy manager contact: added explicit per-lease fallback in `list_leases` endpoint that queries `profiles` via service client when `_enrich_leases` doesn't populate the manager contact fields. The `_enrich_leases` function already uses the service client (via `get_lease_svc` change), but this double-defense ensures manager contact resolves even when the batch profiles query returns empty.
+- Fix agreement consent: migration `020_allow_agreement_status_updates.sql` modifies the `prevent_agreement_evidence_mutation` trigger to allow status/is_active changes on `agreement_documents` while keeping evidence columns immutable.
 
 ## Completed
 
@@ -194,39 +195,103 @@ Update this file after every meaningful implementation change.
   - **Change Password**: Backend fixed to use `get_service_client` with `admin.update_user_by_id` (was using anon key).
   - **Rent Reminder → Notification**: Added `POST /sms/send-reminder` backend endpoint that sends SMS + creates in‑app notification for tenant; updated mobile `sendRentReminder()` to call it.
 
+## Completed This Session
+
+- **Fixed subscription payment flow** — Mobile no longer shows "Subscription Active!" immediately after API call:
+  - **Backend** (`services/subscriptions.py`): Added sandbox auto-confirm via `threading.Timer` — in sandbox mode, `confirm_subscription()` is called 30s after `create_subscription()` to simulate the NylonPay webhook.
+  - **Mobile** (`app/subscription-payment.tsx`): Rewrote status handling to proper payment flow:
+    - After API call → shows "Payment Initiated" with step-by-step instructions ("Check your phone", "Enter your PIN", "Wait for confirmation")
+    - Polls `GET /subscriptions/current` every 5 seconds until status becomes "active"
+    - Shows success only when payment is confirmed (status = "active")
+    - Shows "timeout" state after 120s with "Check Status" and "Try Again" buttons
+    - Cleaned up timers on unmount via `useEffect` return
+  - **DB migration** (`migrations/015_subscriptions.sql`): Fixed schema mismatch — drops old `manager_subscriptions` table (with incompatible columns like `amount_paid`) and recreates it with correct schema matching the service code.
+
+## Phase 1 — Property Module: Backend-First Data
+
+- **Backend** (`services/crud.py` and `routers/properties.py`): Removed `rent_period` filter from `get_public_listings` — DB has no `rent_period` column on `properties` table.
+- **Mobile** (`src/mappers/property-mapper.ts`): Created single mapping layer — `fromBackendProperty()` converts backend field names (`monthly_rent`, `bedrooms`, `property_type`, `owner_id`, `state`) to mobile names (`rent_amount`, `beds`, `type`, `manager_id`, `district`). Mapper also handles `rent_amount ?? monthly_rent` for both normalized and raw backend responses.
+- **Mobile** (`src/types.ts`): Added `BackendProperty` interface matching backend schema; added `manager_email`, `manager_phone`, `square_feet`, `security_deposit` to `Property` UI model.
+- **Mobile** (`src/services/properties.ts`): Aligned `PropertyResponse` → `BackendProperty`; added `listPublic()` and `getByIdPublic()` methods for no-auth endpoints.
+- **Mobile** (`src/hooks/useProperties.ts`): Added `usePublicProperties()` and `usePublicProperty()` hooks using the mapper; existing hooks now use mapper too.
+- **Mobile** (`app/guest/explore.tsx`): Rewired from mock data to `usePublicProperties()` — fetches from `GET /properties/public`. Removed `mockProperties` and `mockDistricts` imports. Districts dynamically derived from API data. Added loading/error states via `LoadingState` and `ErrorState`.
+- **Mobile** (`app/manager/properties.tsx`): Removed manual field mapping — uses `usePropertyList()` which now returns mapped `Property[]` via the mapper. Removed hardcoded `manager_id: ""`, `area: ""`, `sitting_rooms: 0`, `kitchens: 0`. Added loading/error states.
+- **Mobile** (`app/property-detail.tsx`): Uses `usePublicProperty()` for guest role (no auth) and `useProperty()` for manager role. Shows actual contact info (phone/email/call/directions/inquiry) from backend data instead of hardcoded strings. Delete button calls `useDeleteProperty()` mutation. Share uses React Native `Share` API. Hides empty sections (description, amenities, deposit, contact). Shows `square_feet` if present. Removed mock `units`/`sitting_rooms`/`kitchens` sections.
+- **Mobile** (`src/components/PropertyCard.tsx`): Fixed location display — `[area, district].filter(Boolean).join(", ")` avoids leading comma when area is empty.
+
 ## Next Up
 
-- Medium-priority web gaps:
-  - Support/feedback form parity
-  - Forgot password flow (backend already has `POST /auth/reset-password`)
-  - Maintenance request reporting from tenant side
-- Polish:
-  - richer empty/loading states
-  - tighter form UX
-  - continue decomposing large manager/admin dashboard screens into smaller feature-level components
-
 ## Fixed This Session
+
+- **Payment model rework — recorded payments, overdue, days-based health, deposit removal, payment CRUD**:
+  - **Recorded payment = confirmed immediately**: `PaymentCreate.status` default changed from `"pending"` to `"confirmed"` (a manager recording a payment means it happened, so it counts toward the balance right away). Online/NylonPay payments still flow through the webhook as `pending` → `confirmed`.
+  - **Balance now reduces on record**: backend `_enrich_leases` now sums payments with `status in ("confirmed","completed")` (was only `"completed"`) for `total_paid`/`balance_due`, so recording a payment visibly lowers the balance.
+  - **Overdue (payment-based)**: added `is_overdue` to lease enrichment — `balance_due > 0` AND (lease end date in the past OR started >30 days ago). Surfaced as `is_overdue` on `Tenancy` and shown as a "Overdue / Paid up" stat on `TenancyCard` and on the tenant-detail health panel.
+  - **Tenancy health is now days-based, NOT payment-based**: `calculateHealth()` rewritten to return bad when terminated/expired, warn when <30 days remaining, good otherwise. Payment standing is now conveyed separately via `is_overdue`/balance, not via health color.
+  - **Removed deposit from the tenant card**: `TenancyCard` deposit stat replaced by a "Standing" (Overdue/Paid up) stat; the `HealthProgress` panel on `tenant-detail.tsx` no longer shows the security deposit line (the field is still kept in data for other uses).
+  - **Payment detail + CRUD**: new `app/payment-detail.tsx` screen — shows full payment details (amount, tenant, property, type, method, due/paid dates, balance after, notes, status) with **Edit** (amount, paid date, method, notes via PATCH) and **Delete** (with confirm, via new `DELETE /payments/{id}` backend endpoint + `useDeletePayment`). Payment rows in `tenancy-detail.tsx` and `tenant-detail.tsx` now navigate to this screen.
+
+- **Tenancy / Tenant UX overhaul (cards, app bar, agreement upload, tenant-not-found, health progress)**:
+  - **Backend** (`backend/routers/tenants.py`, `backend/services/crud.py`): Added `TenantService.get_by_id_for_manager()` which resolves a tenant either by `owner_id` OR by being linked to a lease owned by the manager. `GET /tenants/{id}` now uses this, so navigating to a tenant from a tenancy no longer hits "Tenant not found" when ownership is recorded on the lease row instead of the tenant row.
+  - **Agreement upload was silently broken** — the mobile `useAgreementState`/`agreementsService` expected response fields (`state`, `document`, `both_consented`) that did NOT match the real backend contract (`current_document`, `manager.consented`, `tenant.consented`). Re-aligned the hook/service types: `useAgreementState` now `select`s `{ document, manager_consented, tenant_consented, both_consented }` from `current_document`/`manager`/`tenant`. This fixes the "Completed" badge, re-upload label, and consent state across `tenancy-detail.tsx` and `tenant/my-tenancy.tsx`.
+  - **`tenancy-detail.tsx`**: Added "View Agreement" action (opens signed URL via `Linking`), kept re-upload for managers, surfaced upload errors, and relabeled the tenant quick action to **"View tenant details"**.
+  - **`TenancyCard.tsx`**: Enriched card with status badge, start–end dates, deposit stat, prominent **days-left** label and a **health-colored progress bar** (via `daysLeft()` / `leaseProgress()`).
+  - **`app/manager/tenancies.tsx`**: Redesigned the app bar into a modern primary hero with a 3-stat summary (Overdue / Good / Expiring), real search `TextInput`, and polished filter chips with icons and counts.
+  - **`tenant-detail.tsx`**: Added a prominent tenancy-health panel showing health label, **days-left**, a **progress bar**, and the security deposit.
+  - **`src/mappers/tenancy-mapper.ts` + `src/types.ts`**: Added `deposit_amount` mapping from backend `security_deposit`.
+  - **`src/utils/tenancy-health.ts`**: Added `daysLeft()`, `leaseProgress()`, and `HealthText` helpers.
 
 - **Fixed Manager Dashboard, Properties, and Tenancies screens not rendering**:
   - **Root cause**: `TenantService.get_all()` in `backend/services/crud.py:190` only accepted `(owner_id, skip, limit)` but `routers/tenants.py:39-48` called it with keyword arguments `status=`, `search=`, `has_user_account=`, `created_from=`, `created_to=`, causing a `TypeError` → 500 on `GET /tenants`. Since `fetchManagerDashboard()` in `src/services/manager.ts:120` uses `Promise.all([5 API calls])`, this single failure rejected the entire batch and blocked all three manager screens.
   - **Fix**: Updated `TenantService.get_all()` to accept and apply all 5 filter parameters using Supabase query chaining (`.eq()`, `.ilike()`, `.gte()`, `.lte()`).
   - **Files changed**: `backend/services/crud.py` — added `date` import and expanded `get_all()` signature.
 
+## Fixed This Session
+
+- **Restored Guest Browsing Flow**:
+  - **Root cause**: `app/_layout.tsx:36` redirected all unauthenticated users to `/login`, preventing guests from browsing properties.
+  - **Fix**: Changed redirect to `/guest/explore` so unauthenticated users land on the Explore tab.
+  - **Auth gates**: Added `requireAuth()` helper to `app/property-detail.tsx` — shows Alert with "Sign In" / "Create Account" / "Cancel" options for actions requiring login (bookmark/save). Phone, email, WhatsApp, and directions remain open to guests.
+  - **Guest flow verified**: `usePublicProperties()` and `usePublicProperty()` use no-auth endpoints (`/properties/public`), so explore, search, filter, and property details work without a session.
+- **Fixed property detail data loading for guests**:
+  - **Directions/Location**: Removed `{property.lat && property.lng}` gate that hid the entire section when coordinates are null. Always renders "View on Map" button. `handleDirections` now falls back to the address text (`encodeURIComponent`) when lat/lng are unavailable instead of showing an error alert.
+  - **Contact Manager**: Removed `{(phone || email)}` gate that hid the entire section when backend profile enrichment returns nulls. Always renders the section; shows "Phone not provided" / "Email not provided" in italic muted text when missing, and tappable buttons when present.
+  - **No mock data**: Both `app/guest/explore.tsx` and `app/property-detail.tsx` use real backend API calls (`usePublicProperties` / `usePublicProperty`). Mock data is only referenced in `app/reports.tsx` (a separate screen).
+- **Fixed 401 from auth query on guest property detail**: The auth-required `useProperty(id)` hook was always called (even for guests), firing `GET /properties/{id}` which returned 401 for unauthenticated requests. Added `enabled: isManager` option to `useProperty()` hook signature — the auth query is now disabled for guests, eliminating the unnecessary 401 calls and preventing stale-token refresh loops.
+- **Fixed guest explore not showing all properties**: Backend `get_public_listings` in `services/crud.py:168` filtered by `.eq("status", "available")`, which excluded occupied properties. Changed to `.eq("is_active", True)` so all manager-public listings appear — available and occupied — in the guest Explore view.
+- **Added WhatsApp message button to guest actions**: Added a `MessageCircle` icon button in the guest secondary actions row (Share → WhatsApp → Call) that opens WhatsApp with a generic interest message via `handleMessage()`. Styled with WhatsApp green (#25D366). The existing "Send Inquiry" primary CTA remains unchanged (uses inquiry template).
+- **Confirmed NylonPay for subscriptions**: Payment flow uses NylonPay only (no Pesapal) for manager subscription payments.
+- **UI/UX Accent Color Audit**: Thoughtfully introduced the brand orange (`#D4783C` / `accentSoft: #F5E6DC`) in strategic places while keeping green/white dominant:
+  - **PropertyCard**: Added "Featured" badge (`tone="accent"`) for boosted listings in guest explore
+  - **Guest Explore**: Passes `featured={item.isBoosted}` to highlight boosted properties
+  - **Subscription Screen**: Popular plan card uses `accentSoft` background + accent badge; selected state refined
+  - **Subscription Payment**: Recommended payment method highlighted with accent border/background + "Recommended" badge
+  - **Tenant My Tenancy**: WhatsApp manager button uses accent background (matching WhatsApp green)
+  - **Manager Dashboard**: "Collected This Month" stat card icon uses accent; FAB uses accent; "See all" links use accent
+  - **Manager Account**: Verified badge uses accent; subscription card icon uses accentSoft; "Manage Subscription" button uses accent tone
+  - **Tenant Account**: Verified user avatar uses accent background
+  - **Register**: Footer link uses accent color
+  - **Create Property**: Selected amenity chips use accent tone
+  - **Property Detail**: "Send Inquiry" primary CTA uses accent tone
+  - **Onboarding**: Already used accent for active dot indicator
+  - **Badge Component**: Already supports `accent` tone via ThemeColors
+  - Green remains primary brand color; orange used sparingly for emphasis, premium features, and WhatsApp actions
+
 ## Open Questions
 
-- Payment flows should continue using the same backend capabilities as web, including proof upload and Pesapal initiation where supported on mobile.
+- Payment flows should continue using the same backend capabilities as web, including proof upload and NylonPay initiation where supported on mobile.
 - Some desktop-only website pages will likely be folded into profile/help entry points rather than mirrored as standalone app screens.
-- Deep-link or post-payment return handling can be expanded later if mobile-specific Pesapal callbacks are needed.
+- Deep-link or post-payment return handling can be expanded later if mobile-specific NylonPay callbacks are needed.
 - Tenant creation/linking from mobile still needs backend endpoint alignment because the Python service models tenants and leases differently from the original Supabase-first flow.
 - Admin mobile should remain a limited-access surface until the Python backend exposes broader platform-wide reporting and mutation endpoints.
-- File uploads and Pesapal initiation still need first-class Python backend endpoints before payment proof upload, online pay, and mobile image upload can return in a backend-only architecture.
+- File uploads and NylonPay initiation still need first-class Python backend endpoints before payment proof upload, online pay, and mobile image upload can return in a backend-only architecture.
 
 ## Architecture Decisions
 
 - **React Navigation v7**: Chosen for robust navigation handling.
 - **Supabase JS**: Shared backend client with the web app for auth, database, storage, and edge functions.
 - **SecureStore-backed Supabase session persistence**: Selected so auth tokens live in secure native storage instead of AsyncStorage.
-- **Hybrid mobile backend strategy**: Keep Supabase for auth session lifecycle, storage uploads, and edge functions like Pesapal/SMS where already working, while routing aligned CRUD reads/writes through the Python FastAPI backend with bearer-token auth.
+- **Hybrid mobile backend strategy**: Keep Supabase for auth session lifecycle, storage uploads, and edge functions like NylonPay/SMS where already working, while routing aligned CRUD reads/writes through the Python FastAPI backend with bearer-token auth.
 - **Backend-only mobile runtime**: The mobile app should depend only on the Python API at runtime, with any Supabase usage hidden fully behind backend services rather than the client app.
 
 ## Session Notes

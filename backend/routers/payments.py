@@ -10,11 +10,11 @@ from pydantic import BaseModel
 from supabase import Client
 
 from config import get_settings
-from dependencies import CurrentUser, get_current_user, get_supabase_client
+from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client
 from models import PaymentCreate, PaymentResponse, PaymentUpdate
 from services import PaymentService, get_payment_service
-from services.nylonpay import initiate_payment
 from services.notifications import notify
+from services.nylonpay import initiate_payment
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 settings = get_settings()
@@ -52,7 +52,7 @@ class PesapalInitiateResponse(BaseModel):
     error: str | None = None
 
 
-def get_payment_svc(supabase: Client = Depends(get_supabase_client)) -> PaymentService:
+def get_payment_svc(supabase: Client = Depends(get_service_client)) -> PaymentService:
     return get_payment_service(supabase)
 
 
@@ -174,18 +174,24 @@ def create_payment(
     if tenant.data:
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["tenant_id"] = tenant.data[0]["id"]
+        if not payload.get("due_date"):
+            payload["due_date"] = payload.get("paid_date") or date.today().isoformat()
         payment = service.create(PaymentCreate(**payload))
     else:
         lease = (
             supabase
             .table("leases")
-            .select("owner_id")
+            .select("owner_id, tenant_id")
             .eq("id", str(data.lease_id))
             .execute()
         )
         if not lease.data or str(lease.data[0]["owner_id"]) != str(current_user.id):
             raise HTTPException(status_code=403, detail="Access denied")
-        payment = service.create(data)
+        payload = data.model_dump(exclude_none=True, mode="json")
+        payload.setdefault("tenant_id", lease.data[0]["tenant_id"])
+        if not payload.get("due_date"):
+            payload["due_date"] = payload.get("paid_date") or date.today().isoformat()
+        payment = service.create(PaymentCreate(**payload))
     return PaymentResponse(**payment)
 
 
@@ -262,6 +268,37 @@ def update_payment(
             )
 
     return PaymentResponse(**result)
+
+
+@router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_payment(
+    payment_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+    service: PaymentService = Depends(get_payment_svc),
+):
+    payment = service.get_by_id(payment_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    tenant = (
+        supabase
+        .table("tenants")
+        .select("id")
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if tenant.data and str(payment["tenant_id"]) != str(tenant.data[0]["id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not tenant.data:
+        lease = (
+            supabase.table("leases")
+            .select("owner_id")
+            .eq("id", str(payment["lease_id"]))
+            .execute()
+        )
+        if not lease.data or str(lease.data[0]["owner_id"]) != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Access denied")
+    service.delete(payment_id)
 
 
 @router.post("/initiate-pesapal", response_model=PesapalInitiateResponse)

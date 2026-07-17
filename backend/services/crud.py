@@ -1,5 +1,6 @@
 import logging
 from datetime import date
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -22,6 +23,31 @@ from .base import BaseService, with_retry
 from .boost import BoostService
 
 logger = logging.getLogger(__name__)
+
+
+# Mobile PropertyType values -> backend enum values
+_MOBILE_TO_ENUM = {
+    "apartment": "Residential",
+    "house": "Residential",
+    "studio": "Residential",
+    "single_room": "Residential",
+    "shop": "Office Space",
+}
+
+
+def _normalize_property_type(value: str | None) -> str | None:
+    """Coerce a mobile/legacy property_type value into the backend enum.
+
+    Accepts already-valid enum values ('Residential' | 'Office Space') as-is,
+    and maps mobile values ('apartment', 'shop', ...) to the correct enum.
+    Returns None for unknown/empty values so the DB keeps its existing value.
+    """
+    if not value:
+        return None
+    value = value.strip()
+    if value in ("Residential", "Office Space"):
+        return value
+    return _MOBILE_TO_ENUM.get(value)
 
 
 def _normalize_row(row: dict[str, Any], column_map: dict[str, str]) -> dict[str, Any]:
@@ -53,6 +79,30 @@ def _normalize_property(p: dict[str, Any]) -> dict[str, Any]:
     return p
 
 
+def _enrich_with_manager_contact(
+    props: list[dict[str, Any]], supabase: Client
+) -> list[dict[str, Any]]:
+    """Populate manager_email/manager_phone from profiles if missing on property."""
+    owner_ids = {str(p["owner_id"]) for p in props if p.get("owner_id")}
+    if not owner_ids:
+        return props
+    resp = (
+        supabase.table("profiles")
+        .select("user_id, email, phone")
+        .in_("user_id", list(owner_ids))
+        .execute()
+    )
+    profiles = {str(p["user_id"]): p for p in (resp.data or [])}
+    for p in props:
+        oid = str(p.get("owner_id", ""))
+        if oid in profiles:
+            if not p.get("manager_email"):
+                p["manager_email"] = profiles[oid].get("email")
+            if not p.get("manager_phone"):
+                p["manager_phone"] = profiles[oid].get("phone")
+    return props
+
+
 LEASE_OLD_TO_NEW: dict[str, str] = {
     "manager_id": "owner_id",
     "rent_amount": "monthly_rent",
@@ -61,10 +111,209 @@ LEASE_OLD_TO_NEW: dict[str, str] = {
 }
 
 
+def _normalize_lease_status(value: str | None) -> str:
+    """Collapse legacy / invalid lease statuses to a valid TenancyStatus.
+
+    Only `terminated` and `expired` are terminal states. Anything else
+    (including legacy values like `draft`, `pending`, `created`, or empty)
+    is treated as `active` so the UI never displays an unknown label.
+    """
+    if value in ("terminated", "expired"):
+        return value
+    return "active"
+
+
 def _normalize_lease(l: dict[str, Any]) -> dict[str, Any]:
     l = _normalize_row(l, LEASE_OLD_TO_NEW)
     l.setdefault("security_deposit", 0)
+    l["status"] = _normalize_lease_status(l.get("status"))
     return l
+
+
+def _months_between(start, end) -> int:
+    """Calendar-month difference between two dates (minimum 1).
+
+    Jan 15 -> Mar 15 == 2 months. Computed purely from year/month, never
+    via days/30.44 or rounding.
+    """
+    try:
+        from datetime import date as _date
+
+        if not isinstance(start, _date):
+            start = _date.fromisoformat(str(start)[:10])
+        if not isinstance(end, _date):
+            end = _date.fromisoformat(str(end)[:10])
+    except (TypeError, ValueError):
+        return 1
+    months = (end.year - start.year) * 12 + (end.month - start.month)
+    return max(1, months)
+
+
+def _enrich_leases(
+    leases: list[dict[str, Any]], supabase: Client
+) -> list[dict[str, Any]]:
+    """Populate tenant, property and payment-summary fields on lease rows.
+
+    Mirrors _enrich_with_manager_contact but for leases. All enrichment is
+    read-only and performed in batch to avoid N+1 queries.
+    """
+    if not leases:
+        return leases
+
+    tenant_ids = {str(l["tenant_id"]) for l in leases if l.get("tenant_id")}
+    property_ids = {str(l["property_id"]) for l in leases if l.get("property_id")}
+    lease_ids = {str(l["id"]) for l in leases if l.get("id")}
+
+    # Tenant identity (name / phone / email)
+    tenants_by_id: dict[str, dict[str, Any]] = {}
+    if tenant_ids:
+        resp = (
+            supabase.table("tenants")
+            .select("id, first_name, last_name, phone, email")
+            .in_("id", list(tenant_ids))
+            .execute()
+        )
+        for t in resp.data or []:
+            tid = str(t["id"])
+            first = t.get("first_name") or ""
+            last = t.get("last_name") or ""
+            name = f"{first} {last}".strip()
+            tenants_by_id[tid] = {
+                "tenant_name": name or None,
+                "tenant_phone": t.get("phone"),
+                "tenant_email": t.get("email"),
+            }
+
+    # Property title + first image + any manager contact stored on the property
+    props_by_id: dict[str, dict[str, Any]] = {}
+    if property_ids:
+        resp = (
+            supabase.table("properties")
+            .select("id, title, images, manager_phone, manager_email")
+            .in_("id", list(property_ids))
+            .execute()
+        )
+        for p in resp.data or []:
+            images = p.get("images") or []
+            props_by_id[str(p["id"])] = {
+                "title": p.get("title"),
+                "image": images[0] if images else None,
+                "manager_phone": p.get("manager_phone"),
+                "manager_email": p.get("manager_email"),
+            }
+
+    # Manager / owner contact (name / phone / email). Prefer values stored on
+    # the property, then fall back to the owner's profile. Centralised here so
+    # every tenancy response carries its manager contact without extra
+    # client-side lookups.
+    owner_ids = {str(l["owner_id"]) for l in leases if l.get("owner_id")}
+    managers_by_id: dict[str, dict[str, Any]] = {}
+    if owner_ids:
+        resp = (
+            supabase.table("profiles")
+            .select("user_id, full_name, phone, email")
+            .in_("user_id", list(owner_ids))
+            .execute()
+        )
+        for m in resp.data or []:
+            mid = str(m["user_id"])
+            managers_by_id[mid] = {
+                "manager_name": (m.get("full_name") or "").strip() or None,
+                "manager_phone": m.get("phone"),
+                "manager_email": m.get("email"),
+            }
+
+    # Payment summary per lease (confirmed or completed payments count toward balance)
+    payments_by_lease: dict[str, list[dict[str, Any]]] = {}
+    if lease_ids:
+        resp = (
+            supabase.table("payments")
+            .select("lease_id, amount, status, paid_date, payment_method")
+            .in_("lease_id", list(lease_ids))
+            .in_("status", ["confirmed", "completed"])
+            .execute()
+        )
+        for p in resp.data or []:
+            payments_by_lease.setdefault(str(p["lease_id"]), []).append(p)
+
+    for l in leases:
+        tid = str(l.get("tenant_id", ""))
+        pid = str(l.get("property_id", ""))
+        lid = str(l.get("id", ""))
+
+        if tid in tenants_by_id:
+            l.update(tenants_by_id[tid])
+        else:
+            l.setdefault("tenant_name", None)
+            l.setdefault("tenant_phone", None)
+            l.setdefault("tenant_email", None)
+
+        prop = props_by_id.get(pid) or {}
+        l["property_title"] = prop.get("title")
+        l["property_image"] = prop.get("image")
+
+        # Manager contact: property-stored values win, profile is fallback.
+        prop_phone = prop.get("manager_phone")
+        prop_email = prop.get("manager_email")
+        oid = str(l.get("owner_id", ""))
+        profile = managers_by_id.get(oid) or {}
+        l["manager_name"] = (
+            profile.get("manager_name")
+            or l.get("manager_name")
+            or None
+        )
+        l["manager_phone"] = prop_phone or profile.get("manager_phone") or None
+        l["manager_email"] = prop_email or profile.get("manager_email") or None
+
+        lease_payments = payments_by_lease.get(lid, [])
+        total_paid = sum(float(p["amount"]) for p in lease_payments)
+        l["total_paid"] = total_paid
+
+        try:
+            monthly_rent = float(l.get("monthly_rent") or 0)
+        except (TypeError, ValueError):
+            monthly_rent = 0.0
+
+        # Full-period expected rent: monthly rent × number of calendar months
+        # in the tenancy period (minimum 1 month).
+        months = _months_between(l.get("start_date"), l.get("end_date"))
+        expected_rent = monthly_rent * months
+        l["expected_rent"] = expected_rent
+
+        l["balance_due"] = max(0.0, expected_rent - total_paid)
+        l["tenant_credit"] = max(0.0, total_paid - expected_rent)
+
+        # Effective status is derived dynamically from the current date rather
+        # than relying on a scheduled job to flip stored status.
+        stored_status = str(l.get("status") or "active")
+        if stored_status == "terminated":
+            effective_status = "terminated"
+        else:
+            end = l.get("end_date")
+            now = date.today()
+            if end and str(end) < now.isoformat():
+                effective_status = "expired"
+            else:
+                effective_status = stored_status if stored_status in ("active", "expired", "terminated") else "active"
+        l["effective_status"] = effective_status
+
+        # Overdue (payment-based): there is an outstanding balance on a lease.
+        l["is_overdue"] = l["balance_due"] > 0
+
+        last_payment = None
+        for p in lease_payments:
+            if p.get("paid_date"):
+                if last_payment is None or p["paid_date"] > last_payment["paid_date"]:
+                    last_payment = p
+        l["last_payment_date"] = last_payment.get("paid_date") if last_payment else None
+        l["last_payment_amount"] = (
+            float(last_payment["amount"]) if last_payment else None
+        )
+        l["last_payment_method"] = (
+            last_payment.get("payment_method") if last_payment else None
+        )
+
+    return leases
 
 
 PAYMENT_OLD_TO_NEW: dict[str, str] = {
@@ -104,7 +353,9 @@ class PropertyService(BaseService):
             .range(skip, skip + limit - 1)
             .execute()
         )
-        return [_normalize_property(r) for r in (response.data or [])], total
+        items = [_normalize_property(r) for r in (response.data or [])]
+        items = _enrich_with_manager_contact(items, self.supabase)
+        return items, total
 
     @with_retry
     def get_all_for_tenant(
@@ -139,13 +390,11 @@ class PropertyService(BaseService):
         max_price: float | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
         # Fetch all matching properties (no range — we sort in Python)
-        query = self.supabase.table(self._table).select("*", count="exact").eq("status", "available")
+        query = self.supabase.table(self._table).select("*", count="exact").eq("is_active", True)
         if state:
             query = query.ilike("state", f"%{state}%")
         if property_type:
             query = query.eq("property_type", property_type)
-        if rent_period:
-            query = query.eq("rent_period", rent_period)
         if min_price is not None:
             query = query.gte("monthly_rent", min_price)
         if max_price is not None:
@@ -184,6 +433,7 @@ class PropertyService(BaseService):
 
         # Apply pagination after ranking sort
         all_properties = [_normalize_property(r) for r in all_properties]
+        all_properties = _enrich_with_manager_contact(all_properties, self.supabase)
         paginated = all_properties[skip:skip + limit]
         return paginated, total
 
@@ -196,7 +446,11 @@ class PropertyService(BaseService):
             .execute()
         )
         row = response.data[0] if response.data else None
-        return _normalize_property(row) if row else None
+        if not row:
+            return None
+        prop = _normalize_property(row)
+        enriched = _enrich_with_manager_contact([prop], self.supabase)
+        return enriched[0]
 
     @with_retry
     def get_by_id_public(self, property_id: UUID) -> dict[str, Any] | None:
@@ -206,12 +460,22 @@ class PropertyService(BaseService):
             .execute()
         )
         row = response.data[0] if response.data else None
-        return _normalize_property(row) if row else None
+        if not row:
+            return None
+        prop = _normalize_property(row)
+        enriched = _enrich_with_manager_contact([prop], self.supabase)
+        return enriched[0]
 
     @with_retry
     def create(self, data: PropertyCreate, owner_id: UUID) -> dict[str, Any]:
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
+        # DB column is NOT NULL; supply a default when client omits it
+        if not payload.get("zip_code"):
+            payload["zip_code"] = ""
+        normalized = _normalize_property_type(payload.get("property_type"))
+        if normalized:
+            payload["property_type"] = normalized
         response = self.table.insert(payload).execute()
         return response.data[0]
 
@@ -220,6 +484,9 @@ class PropertyService(BaseService):
         self, property_id: UUID, data: PropertyUpdate, owner_id: UUID
     ) -> dict[str, Any] | None:
         payload = data.model_dump(exclude_none=True, mode="json")
+        normalized = _normalize_property_type(payload.get("property_type"))
+        if normalized:
+            payload["property_type"] = normalized
         if not payload:
             return self.get_by_id(property_id, owner_id)
         response = (
@@ -314,6 +581,38 @@ class TenantService(BaseService):
         return response.data[0] if response.data else None
 
     @with_retry
+    def get_by_id_for_manager(
+        self, tenant_id: UUID, manager_id: UUID
+    ) -> dict[str, Any] | None:
+        """Fetch a tenant the manager owns, or a tenant linked to a lease owned by the manager.
+
+        This guarantees navigation from a tenancy always resolves the tenant even when
+        ownership is recorded on the lease rather than the tenant row.
+        """
+        owned = (
+            self.table.select("*")
+            .eq("id", str(tenant_id))
+            .eq("owner_id", str(manager_id))
+            .execute()
+        )
+        if owned.data:
+            return owned.data[0]
+        lease_link = (
+            self.supabase.table("leases")
+            .select("id")
+            .eq("owner_id", str(manager_id))
+            .eq("tenant_id", str(tenant_id))
+            .limit(1)
+            .execute()
+        )
+        if lease_link.data:
+            linked = (
+                self.table.select("*").eq("id", str(tenant_id)).execute()
+            )
+            return linked.data[0] if linked.data else None
+        return None
+
+    @with_retry
     def create(self, data: TenantCreate, owner_id: UUID) -> dict[str, Any]:
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
@@ -370,7 +669,10 @@ class LeaseService(BaseService):
             .range(skip, skip + limit - 1)
             .execute()
         )
-        return [_normalize_lease(r) for r in (response.data or [])], total
+        leases = _enrich_leases(
+            [_normalize_lease(r) for r in (response.data or [])], self.supabase
+        )
+        return leases, total
 
     @with_retry
     def get_all(
@@ -391,7 +693,10 @@ class LeaseService(BaseService):
             .range(skip, skip + limit - 1)
             .execute()
         )
-        return [_normalize_lease(r) for r in (response.data or [])], total
+        leases = _enrich_leases(
+            [_normalize_lease(r) for r in (response.data or [])], self.supabase
+        )
+        return leases, total
 
     @with_retry
     def get_by_id(self, lease_id: UUID, owner_id: UUID) -> dict[str, Any] | None:
@@ -402,7 +707,9 @@ class LeaseService(BaseService):
             .execute()
         )
         row = response.data[0] if response.data else None
-        return _normalize_lease(row) if row else None
+        if not row:
+            return None
+        return _enrich_leases([_normalize_lease(row)], self.supabase)[0]
 
     @with_retry
     def get_by_id_for_tenant(self, lease_id: UUID, tenant_id: UUID) -> dict[str, Any] | None:
@@ -413,14 +720,16 @@ class LeaseService(BaseService):
             .execute()
         )
         row = response.data[0] if response.data else None
-        return _normalize_lease(row) if row else None
+        if not row:
+            return None
+        return _enrich_leases([_normalize_lease(row)], self.supabase)[0]
 
     @with_retry
     def create(self, data: LeaseCreate, owner_id: UUID) -> dict[str, Any]:
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
         response = self.table.insert(payload).execute()
-        return _normalize_lease(response.data[0])
+        return _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]
 
     @with_retry
     def update(
@@ -435,7 +744,9 @@ class LeaseService(BaseService):
             .eq("owner_id", str(owner_id))
             .execute()
         )
-        return response.data[0] if response.data else None
+        if not response.data:
+            return None
+        return _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]
 
     @with_retry
     def delete(self, lease_id: UUID, owner_id: UUID) -> bool:
@@ -469,6 +780,82 @@ class LeaseService(BaseService):
         }
         response = self.supabase.table("renewal_requests").insert(payload).execute()
         return response.data[0]
+
+    @with_retry
+    def renew(
+        self,
+        lease_id: UUID,
+        owner_id: UUID,
+        new_end_date: date,
+        monthly_rent: Decimal | None = None,
+        notes: str | None = None,
+    ) -> dict[str, Any]:
+        """In-place renewal (Option B): a single lease row per tenant/property.
+
+        Authorization: only the manager who owns the lease (property owner /
+        manager assigned to the property) may renew. The new end date must be
+        strictly later than the current lease end date, otherwise the rent
+        calculation window would collapse.
+        """
+        # Ownership-scoped fetch: returns None for any lease the caller does
+        # not own, so a random authenticated user cannot renew someone else's
+        # lease.
+        lease = self.get_by_id(lease_id, owner_id)
+        if not lease:
+            raise PermissionError("Lease not found or not authorized")
+
+        current_end = lease.get("end_date")
+        if current_end is not None:
+            try:
+                cur_end_d = (
+                    current_end
+                    if isinstance(current_end, date)
+                    else date.fromisoformat(str(current_end)[:10])
+                )
+            except (TypeError, ValueError):
+                cur_end_d = None
+            if cur_end_d is not None and new_end_date <= cur_end_d:
+                raise ValueError(
+                    "New end date must be later than the current lease end date"
+                )
+
+        update_payload: dict[str, Any] = {
+            "end_date": new_end_date.isoformat(),
+            "status": "active",
+        }
+        if monthly_rent is not None:
+            update_payload["monthly_rent"] = float(monthly_rent)
+
+        response = (
+            self.table.update(update_payload)
+            .eq("id", str(lease_id))
+            .eq("owner_id", str(owner_id))
+            .execute()
+        )
+        if not response.data:
+            raise PermissionError("Lease not found or not authorized")
+
+        renewal_record = {
+            "lease_id": str(lease_id),
+            "previous_end_date": (
+                current_end.isoformat()
+                if isinstance(current_end, date)
+                else str(current_end)[:10]
+                if current_end
+                else None
+            ),
+            "new_end_date": new_end_date.isoformat(),
+            "monthly_rent": float(monthly_rent) if monthly_rent is not None else None,
+            "notes": notes,
+            "renewed_by": str(owner_id),
+        }
+        try:
+            self.supabase.table("renewal_history").insert(renewal_record).execute()
+        except Exception:
+            # Renewal of the lease itself succeeded; history is best-effort.
+            pass
+
+        return _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]
 
 
 class BookmarkService(BaseService):
@@ -590,8 +977,14 @@ class PaymentService(BaseService):
     @with_retry
     def create(self, data: PaymentCreate) -> dict[str, Any]:
         payload = data.model_dump(exclude_none=True, mode="json")
+        if not payload.get("due_date"):
+            payload["due_date"] = date.today().isoformat()
         response = self.table.insert(payload).execute()
         return response.data[0]
+
+    @with_retry
+    def delete(self, payment_id: UUID) -> None:
+        self.table.delete().eq("id", str(payment_id)).execute()
 
     @with_retry
     def update(self, payment_id: UUID, data: PaymentUpdate) -> dict[str, Any] | None:
