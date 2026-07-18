@@ -6,6 +6,7 @@ import {
   getStoredAuthSession,
   subscribeToAuthSession,
 } from '../services/auth-storage';
+import { registerForPushNotifications, uploadPushToken } from '../services/notifications';
 import { setSentryUser } from '../services/sentry';
 import type { AuthSession, AuthUser } from '../types/auth';
 
@@ -59,6 +60,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRole(snapshot.role);
       setSession(snapshot.session);
       setUser(snapshot.user);
+
+      if (snapshot.user) {
+        registerForPushNotifications().then((token) => {
+          if (token) {
+            uploadPushToken(token).catch(() => {});
+          }
+        }).catch(() => {});
+      }
     } catch (error) {
       if (isUnauthorizedHydrationError(error)) {
         await clearStoredAuthSession();

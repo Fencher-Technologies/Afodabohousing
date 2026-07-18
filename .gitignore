@@ -22,20 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
 .env
 backend/.env
 backend/**/__pycache__
+__pycache__/
 docs/Integration_Guide.docx
 Afodabo_Housing_Backend_Documentation.docx
 
 mobile/.expo/
 mobile/android/
 mobile/ios/
-<<<<<<< HEAD
-.env
-.env
-.env
-=======
-
-__pycache__/
->>>>>>> main

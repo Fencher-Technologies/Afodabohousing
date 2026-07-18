@@ -1,8 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import React from 'react';
-import { Alert, Image, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/button';
+import { CollapsibleSection } from '../components/collapsible-section';
 import { Screen } from '../components/screen';
 import { useAuth } from '../context/auth-context';
 import logoImage from '../../assets/brand/logo.png';
@@ -36,23 +38,29 @@ export function AccountScreen() {
           <Button onPress={() => navigation.navigate('Register')} variant="outline">
             Create Account
           </Button>
+          <Button onPress={() => navigation.navigate('AcceptInvite')} variant="ghost">
+            Accept Invitation
+          </Button>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Learn More</Text>
-          <Button onPress={() => navigation.navigate('About')} variant="outline">
-            About Afodabo Housing
-          </Button>
-          <Button onPress={() => navigation.navigate('Contact')} variant="outline">
-            Contact Support
-          </Button>
-          <Button onPress={() => navigation.navigate('Privacy')} variant="outline">
-            Privacy Policy
-          </Button>
-          <Button onPress={() => navigation.navigate('Terms')} variant="outline">
-            Terms of Service
-          </Button>
-        </View>
+        <CollapsibleSection title="Learn More">
+          <Pressable onPress={() => navigation.navigate('About')} style={styles.menuRow}>
+            <Ionicons color={colors.textSecondary} name="information-circle-outline" size={20} />
+            <Text style={styles.menuLabel}>About Afodabo Housing</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Contact')} style={styles.menuRow}>
+            <Ionicons color={colors.textSecondary} name="chatbubble-ellipses-outline" size={20} />
+            <Text style={styles.menuLabel}>Contact Support</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Privacy')} style={styles.menuRow}>
+            <Ionicons color={colors.textSecondary} name="shield-outline" size={20} />
+            <Text style={styles.menuLabel}>Privacy Policy</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Terms')} style={styles.menuRow}>
+            <Ionicons color={colors.textSecondary} name="document-text-outline" size={20} />
+            <Text style={styles.menuLabel}>Terms of Service</Text>
+          </Pressable>
+        </CollapsibleSection>
       </Screen>
     );
   }
@@ -78,6 +86,9 @@ export function AccountScreen() {
         <Button onPress={() => navigation.navigate('EditProfile')} variant="outline">
           Edit Profile
         </Button>
+        <Button onPress={() => navigation.navigate('ChangePassword')} variant="ghost">
+          Change Password
+        </Button>
         {resolvedRole === 'tenant' ? (
           <Button onPress={() => navigation.navigate('TenantPayments')} variant="outline">
             Open Payment Centre
@@ -95,36 +106,49 @@ export function AccountScreen() {
         ) : null}
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Support and Policies</Text>
-        <Button onPress={() => navigation.navigate('Onboarding')} variant="outline">
-          View Welcome Tour
-        </Button>
-        <Button onPress={() => navigation.navigate('About')} variant="outline">
-          About Afodabo Housing
-        </Button>
-        <Button onPress={() => navigation.navigate('Contact')} variant="outline">
-          Contact Support
-        </Button>
-        <Button onPress={() => navigation.navigate('Privacy')} variant="outline">
-          Privacy Policy
-        </Button>
-        <Button onPress={() => navigation.navigate('Terms')} variant="outline">
-          Terms of Service
-        </Button>
-      </View>
+      <CollapsibleSection title="Support & Policies">
+        <Pressable onPress={() => navigation.navigate('Onboarding')} style={styles.menuRow}>
+          <Ionicons color={colors.textSecondary} name="star-outline" size={20} />
+          <Text style={styles.menuLabel}>View Welcome Tour</Text>
+        </Pressable>
+        <Pressable onPress={() => navigation.navigate('About')} style={styles.menuRow}>
+          <Ionicons color={colors.textSecondary} name="information-circle-outline" size={20} />
+          <Text style={styles.menuLabel}>About Afodabo Housing</Text>
+        </Pressable>
+        <Pressable onPress={() => navigation.navigate('Contact')} style={styles.menuRow}>
+          <Ionicons color={colors.textSecondary} name="chatbubble-ellipses-outline" size={20} />
+          <Text style={styles.menuLabel}>Contact Support</Text>
+        </Pressable>
+        <Pressable onPress={() => navigation.navigate('Privacy')} style={styles.menuRow}>
+          <Ionicons color={colors.textSecondary} name="shield-outline" size={20} />
+          <Text style={styles.menuLabel}>Privacy Policy</Text>
+        </Pressable>
+        <Pressable onPress={() => navigation.navigate('Terms')} style={styles.menuRow}>
+          <Ionicons color={colors.textSecondary} name="document-text-outline" size={20} />
+          <Text style={styles.menuLabel}>Terms of Service</Text>
+        </Pressable>
+      </CollapsibleSection>
 
       <View style={styles.card}>
         <Button
-          onPress={async () => {
-            try {
-              await signOut();
-            } catch (error) {
-              Alert.alert(
-                'Could not sign out',
-                error instanceof Error ? error.message : 'Please try again.',
-              );
-            }
+          onPress={() => {
+            Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+              { style: 'cancel', text: 'Cancel' },
+              {
+                onPress: async () => {
+                  try {
+                    await signOut();
+                  } catch (error) {
+                    Alert.alert(
+                      'Could not sign out',
+                      error instanceof Error ? error.message : 'Please try again.',
+                    );
+                  }
+                },
+                style: 'destructive',
+                text: 'Sign Out',
+              },
+            ]);
           }}
           variant="destructive"
         >
@@ -177,6 +201,17 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: typography.bodyStrong,
     fontSize: 16,
+  },
+  menuLabel: {
+    color: colors.textPrimary,
+    fontFamily: typography.body,
+    fontSize: 15,
+  },
+  menuRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
   },
   sectionTitle: {
     color: colors.textPrimary,

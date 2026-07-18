@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Bed, Bath, Home, Sofa } from 'lucide-react';
+import { MapPin, Bed, Bath, Sofa, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Database } from '@/integrations/supabase/types';
+import { isPropertyBoosted } from '@/services/property-boosts';
 import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
@@ -39,6 +41,7 @@ interface PropertyCardProps {
 
 function PropertyCard({ property, index = 0 }: PropertyCardProps) {
   const imageUrl = property.images?.[0] || fallbackImages[index % 3];
+  const isBoosted = isPropertyBoosted(property);
 
   return (
     <Link to={`/properties/${property.id}`} className="group block">
@@ -52,9 +55,17 @@ function PropertyCard({ property, index = 0 }: PropertyCardProps) {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="absolute top-3 left-3">
-            <Badge className="bg-accent text-accent-foreground font-medium text-xs shadow-sm">
-              {typeLabels[property.property_type] || property.property_type}
-            </Badge>
+            <div className="flex flex-wrap gap-2">
+              {isBoosted && (
+                <Badge className="bg-amber-400 text-amber-950 font-semibold text-xs shadow-sm gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  Boosted
+                </Badge>
+              )}
+              <Badge className="bg-accent text-accent-foreground font-medium text-xs shadow-sm">
+                {typeLabels[property.property_type] || property.property_type}
+              </Badge>
+            </div>
           </div>
           <div className="absolute top-3 right-3">
             <Badge

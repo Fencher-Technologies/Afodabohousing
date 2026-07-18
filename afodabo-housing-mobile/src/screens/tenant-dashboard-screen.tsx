@@ -2,7 +2,6 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
-import { differenceInDays } from 'date-fns';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
@@ -12,11 +11,13 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { Badge } from '../components/badge';
 import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
+import { SegmentedControl } from '../components/segmented-control';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
 import { ScrollableScreenContainer } from '../components/scrollable-screen-container';
@@ -26,11 +27,14 @@ import { consentToAgreement, uploadTenancyAgreement } from '../services/agreemen
 import {
   buildTenantPaymentProofNote,
   createTenantPayment,
+  initiateNylonPay,
   initiatePesapalPayment,
+  requestRenewal,
 } from '../services/tenant';
 import { uploadPaymentProof } from '../services/uploads';
 import { colors, radii, shadows, spacing, typography } from '../theme/tokens';
 import { formatDateLabel, formatUGXFull } from '../utils/format';
+import { getTenancyHealth } from '../utils/tenancy-health';
 
 type TenantView = 'overview' | 'payments';
 type BlockedAction = 'pay' | 'upload' | null;
@@ -41,8 +45,6 @@ const dashboardPalette = {
   alertWarningBackground: '#F4EBD9',
   alertWarningBorder: '#E2C88F',
   paymentsIconBackground: '#FBEADF',
-  quickActionBackground: '#F5EEE0',
-  quickActionBorder: '#E5D2A7',
   sectionIconBackground: '#E9F0EC',
   unreadBannerBackground: '#EEF6F1',
   unreadBannerBorder: '#C8DED1',
@@ -56,6 +58,9 @@ export function TenantDashboardScreen() {
   const [note, setNote] = useState('');
   const [selectedView, setSelectedView] = useState<TenantView>('overview');
   const [submitting, setSubmitting] = useState(false);
+  const [npayPhone, setNpayPhone] = useState('');
+  const [npaySending, setNpaySending] = useState(false);
+  const [npayMessage, setNpayMessage] = useState<string | null>(null);
   const dashboardQuery = useTenantDashboard(user?.id);
 
   const activeTenancy = useMemo(
@@ -66,14 +71,14 @@ export function TenantDashboardScreen() {
   const messages = dashboardQuery.data?.messages ?? [];
   const confirmedPayments = payments.filter((payment) => payment.status === 'confirmed');
   const totalPaid = confirmedPayments.reduce((sum, payment) => sum + payment.amount, 0);
-  const daysLeft = activeTenancy
-    ? differenceInDays(new Date(activeTenancy.rent_end_date), new Date())
-    : null;
   const unreadMessages = messages.filter(
     (message) => !message.is_read && message.receiver_id === user?.id,
   ).length;
-  const isRentOverdue = daysLeft !== null && daysLeft < 0;
-  const isRentDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
+  const health = activeTenancy
+    ? getTenancyHealth(activeTenancy.rent_start_date, activeTenancy.rent_end_date)
+    : null;
+  const isRentOverdue = health !== null && health.daysRemaining < 0;
+  const isRentDueSoon = health !== null && health.daysRemaining >= 0 && health.daysRemaining <= 14;
   const agreementState = activeTenancy?.agreement_state ?? null;
   const tenantConsented = agreementState?.tenant.consented ?? false;
   const managerConsented = agreementState?.manager.consented ?? false;
@@ -87,14 +92,16 @@ export function TenantDashboardScreen() {
       label: 'Tenancy Status',
       tone: activeTenancy ? colors.accent : colors.error,
       value: activeTenancy ? 'Active' : 'No Active',
+      strikethrough: false,
     },
     {
       helper: activeTenancy ? formatDateLabel(activeTenancy.rent_end_date) : 'No active tenancy',
       icon: 'calendar' as const,
       iconBackground: '#E9F0EC',
       label: 'Days Remaining',
-      tone: isRentOverdue ? colors.error : isRentDueSoon ? colors.accent : colors.primary,
-      value: daysLeft === null ? '—' : isRentOverdue ? 'Overdue' : `${daysLeft}d`,
+      tone: health?.color ?? colors.textMuted,
+      value: health === null ? '—' : health.daysRemaining > 0 ? `${health.daysRemaining}d` : health.label,
+      strikethrough: health?.status === 'expired',
     },
     {
       helper: `${confirmedPayments.length} confirmed payments`,
@@ -246,6 +253,49 @@ export function TenantDashboardScreen() {
     }
   };
 
+  const handleNylonPayPayment = async () => {
+    if (!activeTenancy) {
+      setBlockedAction('pay');
+      return;
+    }
+
+    const phone = npayPhone.trim();
+    if (!phone) {
+      Alert.alert('Phone number required', 'Enter your MTN or Airtel phone number to pay via mobile money.');
+      return;
+    }
+
+    try {
+      setNpaySending(true);
+      setNpayMessage(null);
+      const nameParts = (profile?.full_name || 'Tenant').trim().split(' ');
+      const response = await initiateNylonPay({
+        amount: activeTenancy.rent_amount,
+        description: `Rent payment for ${activeTenancy.property_title || 'Property'}`,
+        email: user.email,
+        firstName: nameParts[0] || 'Tenant',
+        lastName: nameParts.slice(1).join(' '),
+        paymentId: `pay-${activeTenancy.id}-${Date.now()}`,
+        phoneNumber: phone,
+      });
+
+      if (response.success) {
+        setNpayMessage(
+          response.message || 'Check your phone for the payment prompt. Enter your PIN to confirm.',
+        );
+      } else {
+        Alert.alert(
+          'Payment initiation failed',
+          response.message || 'Please try again.',
+        );
+      }
+    } catch (error) {
+      Alert.alert('Payment error', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setNpaySending(false);
+    }
+  };
+
   const handleAgreementUpload = async () => {
     if (!activeTenancy) {
       Alert.alert('No active tenancy', 'You need an active tenancy before uploading an agreement.');
@@ -323,20 +373,15 @@ export function TenantDashboardScreen() {
         />
       }
     >
-      <View style={styles.headerActions}>
-        <Button
-          onPress={() => setSelectedView('overview')}
-          variant={selectedView === 'overview' ? 'primary' : 'outline'}
-        >
-          Overview
-        </Button>
-        <Button
-          onPress={() => setSelectedView('payments')}
-          variant={selectedView === 'payments' ? 'primary' : 'outline'}
-        >
-          Payments
-        </Button>
-      </View>
+      <SegmentedControl
+        onChange={setSelectedView}
+        options={[
+          { label: 'Overview', value: 'overview' },
+          { label: 'Payments', value: 'payments' },
+        ]}
+        value={selectedView}
+        variant="pills"
+      />
 
       {selectedView === 'overview' ? (
         <>
@@ -359,7 +404,7 @@ export function TenantDashboardScreen() {
             <View style={[styles.alertCard, styles.alertWarning]}>
               <View style={styles.alertContent}>
                 <Text style={styles.alertTitle}>
-                  Rent Due in {daysLeft} Day{daysLeft === 1 ? '' : 's'}
+                  Rent Due in {health?.daysRemaining} Day{health?.daysRemaining === 1 ? '' : 's'}
                 </Text>
                 <Text style={styles.alertText}>
                   UGX {activeTenancy?.rent_amount.toLocaleString()} due on{' '}
@@ -393,38 +438,46 @@ export function TenantDashboardScreen() {
                 <View style={[styles.iconBadge, { backgroundColor: stat.iconBackground }]}>
                   <Feather color={stat.tone} name={stat.icon} size={22} />
                 </View>
-                <Text style={[styles.statValue, { color: stat.tone }]}>{stat.value}</Text>
+                <Text
+                  style={[
+                    styles.statValue,
+                    { color: stat.tone },
+                    stat.strikethrough && { textDecorationLine: 'line-through' },
+                  ]}
+                >
+                  {stat.value}
+                </Text>
                 <Text style={styles.statHeading}>{stat.label}</Text>
                 <Text style={styles.statLabel}>{stat.helper}</Text>
               </View>
             ))}
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Quick Actions</Text>
-            <View style={styles.quickActionsGrid}>
-              <Pressable onPress={handleUpload} style={styles.quickActionCard}>
-                <Feather color={colors.primary} name="upload" size={24} />
-                <Text style={styles.quickActionTitle}>Upload Proof</Text>
-                <Text style={styles.quickActionText}>Submit payment confirmation</Text>
-              </Pressable>
-              <Pressable onPress={handlePayOnline} style={styles.quickActionCard}>
-                <Feather color={colors.primary} name="credit-card" size={24} />
-                <Text style={styles.quickActionTitle}>Pay Online</Text>
-                <Text style={styles.quickActionText}>Mobile money or card</Text>
-              </Pressable>
-              <Pressable onPress={() => jumpToTab('Messages')} style={styles.quickActionCard}>
-                <Feather color={colors.primary} name="message-square" size={24} />
-                <Text style={styles.quickActionTitle}>Message Manager</Text>
-                <Text style={styles.quickActionText}>Send or read messages</Text>
-              </Pressable>
-              <Pressable onPress={() => jumpToTab('Explore')} style={styles.quickActionCard}>
-                <Feather color={colors.primary} name="home" size={24} />
-                <Text style={styles.quickActionTitle}>Browse Homes</Text>
-                <Text style={styles.quickActionText}>Find a property</Text>
-              </Pressable>
+          {health ? (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Tenancy Progress</Text>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${health.progressPercent}%`, backgroundColor: health.color },
+                  ]}
+                />
+              </View>
+              <View style={styles.progressLabels}>
+                <Text style={styles.progressText}>{health.progressPercent}% of tenancy period elapsed</Text>
+                <Text
+                  style={[
+                    styles.progressDays,
+                    { color: health.color },
+                    health.status === 'expired' && { textDecorationLine: 'line-through' },
+                  ]}
+                >
+                  {health.daysRemaining > 0 ? `${health.daysRemaining} days left` : health.label}
+                </Text>
+              </View>
             </View>
-          </View>
+          ) : null}
 
           {activeTenancy ? (
             <View style={styles.card}>
@@ -448,8 +501,21 @@ export function TenantDashboardScreen() {
                 Ends: {formatDateLabel(activeTenancy.rent_end_date)}
               </Text>
               <View style={styles.badgeRow}>
-                <Badge tone={daysLeft !== null && daysLeft <= 14 ? 'warning' : 'success'}>
-                  {daysLeft !== null ? `${daysLeft} days remaining` : 'Active'}
+                <Badge
+                  textDecorationLine={
+                    health?.status === 'expired' ? 'line-through' : undefined
+                  }
+                  tone={
+                    health?.status === 'expired'
+                      ? 'default'
+                      : health?.status === 'overdue' || health?.status === 'attention'
+                        ? 'warning'
+                        : 'success'
+                  }
+                >
+                  {health?.daysRemaining !== undefined && health.daysRemaining > 0
+                    ? `${health.daysRemaining} days remaining`
+                    : health?.label ?? 'Active'}
                 </Badge>
                 <Badge tone="primary">{activeTenancy.rent_period}</Badge>
               </View>
@@ -508,6 +574,19 @@ export function TenantDashboardScreen() {
                   Call Manager
                 </Button>
               ) : null}
+              <Button
+                onPress={async () => {
+                  try {
+                    await requestRenewal(activeTenancy.id);
+                    Alert.alert('Request sent', 'Your house manager will review the renewal request.');
+                  } catch (error) {
+                    Alert.alert('Could not send request', error instanceof Error ? error.message : 'Please try again.');
+                  }
+                }}
+                variant="secondary"
+              >
+                Request Renewal
+              </Button>
             </View>
           ) : (
             <View style={styles.card}>
@@ -646,6 +725,55 @@ export function TenantDashboardScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <View style={styles.sectionHeading}>
+            <View style={[styles.iconBadge, styles.npayIconBadge]}>
+              <Feather color={colors.accent} name="smartphone" size={22} />
+            </View>
+            <Text style={styles.cardTitle}>Pay via Mobile Money</Text>
+          </View>
+        </View>
+        {activeTenancy ? (
+          <>
+            <View style={styles.npayAmountRow}>
+              <Text style={styles.npayAmountLabel}>Amount Due</Text>
+              <Text style={styles.npayAmountValue}>
+                UGX {activeTenancy.rent_amount.toLocaleString()}
+              </Text>
+            </View>
+            <Text style={styles.npayInputLabel}>Phone Number (MTN / Airtel)</Text>
+            <TextInput
+              keyboardType="phone-pad"
+              onChangeText={(value) => {
+                setNpayPhone(value);
+                setNpayMessage(null);
+              }}
+              placeholder="e.g. 2567XXXXXXXX"
+              placeholderTextColor={colors.textMuted}
+              style={styles.npayInput}
+              value={npayPhone}
+            />
+            <Button
+              disabled={npaySending || !npayPhone.trim()}
+              onPress={handleNylonPayPayment}
+            >
+              {npaySending ? 'Sending...' : 'Pay Now'}
+            </Button>
+            {npayMessage ? (
+              <View style={styles.npaySuccessBox}>
+                <Feather color={colors.success} name="check-circle" size={18} />
+                <Text style={styles.npaySuccessText}>{npayMessage}</Text>
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <Text style={styles.cardText}>
+            Link an active tenancy to pay via mobile money.
+          </Text>
+        )}
+      </View>
     </ScrollableScreenContainer>
   );
 }
@@ -736,11 +864,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     justifyContent: 'space-between',
   },
-  headerActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
   historyActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -830,31 +953,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.bodyStrong,
     fontSize: 15,
   },
-  quickActionCard: {
-    backgroundColor: dashboardPalette.quickActionBackground,
-    borderColor: dashboardPalette.quickActionBorder,
-    borderRadius: radii.card,
-    borderWidth: 1,
-    flexBasis: '48%',
-    gap: 6,
-    padding: spacing.md,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  quickActionText: {
-    color: colors.textSecondary,
-    fontFamily: typography.body,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  quickActionTitle: {
-    color: colors.textPrimary,
-    fontFamily: typography.bodyStrong,
-    fontSize: 15,
-  },
   sectionHeading: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -902,5 +1000,85 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     justifyContent: 'space-between',
     padding: spacing.md,
+  },
+  progressTrack: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 6,
+    height: 10,
+    overflow: 'hidden',
+    marginTop: spacing.sm,
+  },
+  progressFill: {
+    borderRadius: 6,
+    height: '100%',
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+  },
+  progressText: {
+    color: colors.textMuted,
+    fontFamily: typography.body,
+    fontSize: 12,
+  },
+  progressDays: {
+    fontFamily: typography.bodyStrong,
+    fontSize: 12,
+  },
+  npayAmountRow: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: radii.input,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+  },
+  npayAmountLabel: {
+    color: colors.textSecondary,
+    fontFamily: typography.body,
+    fontSize: 14,
+  },
+  npayAmountValue: {
+    color: colors.primary,
+    fontFamily: typography.display,
+    fontSize: 22,
+  },
+  npayIconBadge: {
+    backgroundColor: '#F4EBD9',
+  },
+  npayInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.input,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    fontFamily: typography.body,
+    fontSize: 15,
+    minHeight: 50,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+  },
+  npayInputLabel: {
+    color: colors.textSecondary,
+    fontFamily: typography.bodyStrong,
+    fontSize: 13,
+  },
+  npaySuccessBox: {
+    alignItems: 'center',
+    backgroundColor: '#EEF6F1',
+    borderColor: '#C8DED1',
+    borderRadius: radii.input,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  npaySuccessText: {
+    color: colors.textPrimary,
+    flex: 1,
+    fontFamily: typography.body,
+    fontSize: 14,
+    lineHeight: 22,
   },
 });

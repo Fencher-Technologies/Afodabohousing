@@ -171,10 +171,12 @@ export type Database = {
           description: string | null
           id: string
           images: string[] | null
+          is_boosted?: boolean | null
           kitchens: number
           manager_email: string | null
           manager_id: string
           manager_phone: string | null
+          boosted_until?: string | null
           property_type: Database["public"]["Enums"]["property_type"]
           rent_amount: number
           rent_currency: string
@@ -197,10 +199,12 @@ Insert: {
           description?: string | null
           id?: string
           images?: string[] | null
+          is_boosted?: boolean | null
           kitchens?: number
           manager_email?: string | null
           manager_id: string
-          manager_phone: string | null
+          manager_phone?: string | null
+          boosted_until?: string | null
           property_type?: Database["public"]["Enums"]["property_type"]
           rent_amount: number
           rent_currency?: string
@@ -224,10 +228,12 @@ Insert: {
           district?: string
           id?: string
           images?: string[] | null
+          is_boosted?: boolean | null
           kitchens?: number
           manager_email?: string | null
           manager_id?: string
           manager_phone?: string | null
+          boosted_until?: string | null
           property_type?: Database["public"]["Enums"]["property_type"]
           rent_amount?: number
           rent_currency?: string

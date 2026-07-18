@@ -24,12 +24,12 @@ class Payment(BaseModel):
 
 class PaymentCreate(BaseModel):
     lease_id: UUID
-    tenant_id: UUID
+    tenant_id: UUID | None = None
     amount: Decimal
     payment_type: str
     payment_method: str | None = None
-    status: str = "pending"
-    due_date: date
+    status: str = "confirmed"
+    due_date: date | None = None
     paid_date: date | None = None
     transaction_id: str | None = None
     notes: str | None = None

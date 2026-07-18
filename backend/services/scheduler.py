@@ -21,8 +21,10 @@ async def check_rent_reminders():
     """Check for upcoming rent due dates and send reminders."""
     try:
         supabase = _get_supabase_for_scheduler()
-        tomorrow = (date.today() + timedelta(days=1)).isoformat()
-        three_days = (date.today() + timedelta(days=3)).isoformat()
+        dispatcher = NotificationDispatcher(supabase)
+        today = date.today()
+        tomorrow = (today + timedelta(days=1)).isoformat()
+        three_days = (today + timedelta(days=3)).isoformat()
 
         payments = (
             supabase.table("payments")
@@ -34,12 +36,120 @@ async def check_rent_reminders():
         )
 
         for payment in (payments.data or []):
-            logger.info(
-                "Rent reminder: payment %s of %.2f due on %s",
-                payment.get("id"),
-                payment.get("amount", 0),
-                payment.get("due_date"),
-            )
+            payment_id = payment["id"]
+            amount = payment.get("amount", 0)
+            due_date = payment.get("due_date", "")
+            lease_id = payment.get("lease_id")
+            tenant_id = payment.get("tenant_id")
+
+            if not lease_id or not tenant_id:
+                continue
+
+            days_until_due = _days_until(due_date, today)
+
+            lease = _fetch_single(supabase, "leases", lease_id)
+            if not lease:
+                continue
+
+            prop = _fetch_single(supabase, "properties", lease.get("property_id"))
+            tenant = _fetch_single(supabase, "tenants", tenant_id)
+            if not tenant:
+                continue
+
+            recipient_id = tenant.get("user_id")
+            to_email = tenant.get("email")
+            property_title = prop.get("title") if prop else None
+
+            if days_until_due == 1:
+                title = "Rent due tomorrow"
+                body = (
+                    f"Your rent of UGX {amount:,.0f} is due tomorrow ({due_date}). "
+                    "Please make your payment to avoid any inconvenience."
+                )
+            else:
+                title = f"Rent due in {days_until_due} days"
+                body = (
+                    f"Your rent of UGX {amount:,.0f} is due on {due_date} "
+                    f"({days_until_due} days away). "
+                    "Please make your payment on time."
+                )
+
+            property_suffix = f" for {property_title}" if property_title else ""
+            body += property_suffix
+
+            event_key = f"rent_reminder:{payment_id}:{days_until_due}"
+            metadata = {
+                "payment_id": payment_id,
+                "lease_id": lease_id,
+                "property_id": lease.get("property_id"),
+                "amount": amount,
+                "due_date": due_date,
+                "days_until_due": days_until_due,
+            }
+
+            if recipient_id and not await dispatcher.has_delivery(event_key, "in_app"):
+                try:
+                    await dispatcher.send_in_app(
+                        recipient_id=recipient_id,
+                        type="rent_reminder",
+                        title=title,
+                        body=body,
+                        metadata=metadata,
+                    )
+                    await dispatcher.record_delivery(
+                        event_key=event_key,
+                        channel="in_app",
+                        recipient_id=recipient_id,
+                        status="sent",
+                    )
+                except Exception as exc:
+                    await dispatcher.record_delivery(
+                        event_key=event_key,
+                        channel="in_app",
+                        recipient_id=recipient_id,
+                        status="failed",
+                        error=str(exc),
+                    )
+                    logger.error("Failed to create rent reminder notification: %s", exc)
+
+            if to_email and not await dispatcher.has_delivery(event_key, "email"):
+                try:
+                    sent = await dispatcher.send_email(to_email=to_email, subject=title, body=body)
+                    await dispatcher.record_delivery(
+                        event_key=event_key,
+                        channel="email",
+                        recipient_id=recipient_id,
+                        status="sent" if sent else "skipped",
+                    )
+                except Exception as exc:
+                    await dispatcher.record_delivery(
+                        event_key=event_key,
+                        channel="email",
+                        recipient_id=recipient_id,
+                        status="failed",
+                        error=str(exc),
+                    )
+                    logger.error("Failed to send rent reminder email: %s", exc)
+
+            if recipient_id and not await dispatcher.has_delivery(event_key, "push"):
+                try:
+                    sent = await dispatcher.send_push(recipient_id=recipient_id, title=title, body=body)
+                    await dispatcher.record_delivery(
+                        event_key=event_key,
+                        channel="push",
+                        recipient_id=recipient_id,
+                        status="sent" if sent else "skipped",
+                    )
+                except Exception as exc:
+                    await dispatcher.record_delivery(
+                        event_key=event_key,
+                        channel="push",
+                        recipient_id=recipient_id,
+                        status="failed",
+                        error=str(exc),
+                    )
+                    logger.error("Failed to send rent reminder push: %s", exc)
+
     except Exception as e:
         logger.error("Rent reminder check failed: %s", str(e), exc_info=True)
 
@@ -90,13 +200,14 @@ class NotificationDispatcher:
         self,
         *,
         recipient_id: str,
+        type: str = "tenancy_expiry",
         title: str,
         body: str,
         metadata: dict[str, Any],
     ) -> None:
         self.supabase.table("notifications").insert({
             "recipient_id": recipient_id,
-            "type": "tenancy_expiry",
+            "type": type,
             "title": title,
             "body": body,
             "metadata": metadata,

@@ -17,6 +17,7 @@ export function Screen({ children, padded = true, scrollable = true }: ScreenPro
       {scrollable ? (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {content}

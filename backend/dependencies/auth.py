@@ -10,7 +10,7 @@ from supabase import Client
 from services.base import with_retry
 from services.observability import set_sentry_user
 
-from .database import get_service_client, get_supabase_client
+from .database import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
@@ -75,28 +75,20 @@ def _resolve_user_via_supabase(token: str, supabase: Client) -> CurrentUser:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    current_user = CurrentUser(
+    return CurrentUser(
         id=str(user_data.get("id") or ""),
         email=user_data.get("email") or "",
         role=user_data.get("role") or "authenticated",
     )
-
-    set_sentry_user(
-        {
-            "id": current_user.id,
-            "email": current_user.email,
-            "role": current_user.role,
-        }
-    )
-
-    return current_user
 
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     supabase: Client = Depends(get_supabase_client),
 ) -> CurrentUser:
-    return _resolve_user_via_supabase(credentials.credentials, supabase)
+    user = _resolve_user_via_supabase(credentials.credentials, supabase)
+    set_sentry_user(user)
+    return user
 
 
 def get_optional_user(
@@ -109,7 +101,7 @@ def get_optional_user(
         return None
 
     try:
-        return _resolve_user_via_supabase(credentials.credentials, supabase)
+        return get_current_user(credentials, supabase)
     except HTTPException:
         return None
 

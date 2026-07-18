@@ -19,8 +19,12 @@ type BackendProperty = {
   description?: string | null;
   id: string;
   images?: string[] | null;
+  is_boosted?: boolean | null;
+  latitude?: number | null;
+  longitude?: number | null;
   manager_email?: string | null;
   manager_phone?: string | null;
+  boosted_until?: string | null;
   monthly_rent: number | string;
   owner_id: string;
   property_type: string;
@@ -53,14 +57,19 @@ type BackendRentalUnit = {
 };
 
 type BackendLease = {
+  balance_due?: number | string | null;
   created_at: string;
+  effective_status?: string | null;
   end_date: string;
+  expected_rent?: number | string | null;
   id: string;
+  is_overdue?: boolean | null;
   monthly_rent: number | string;
   owner_id: string;
   property_id: string;
   start_date: string;
   status: string;
+  tenant_credit?: number | string | null;
   tenant_id: string;
   termination_date?: string | null;
   updated_at: string;
@@ -92,6 +101,7 @@ type BackendMessage = {
   receiver_name?: string | null;
   sender_id: string;
   sender_name?: string | null;
+  voice_note_url?: string | null;
 };
 
 type BackendProfile = {
@@ -186,10 +196,14 @@ export function mapBackendPropertyToPropertyRow(property: BackendProperty): Prop
     district: property.state || property.city || 'Unknown',
     id: property.id,
     images: property.images ?? null,
+    is_boosted: property.is_boosted ?? null,
     kitchens: 1,
+    latitude: property.latitude ?? null,
+    longitude: property.longitude ?? null,
     manager_email: property.manager_email ?? null,
     manager_id: property.owner_id,
     manager_phone: property.manager_phone ?? null,
+    boosted_until: property.boosted_until ?? null,
     property_type: toPropertyType(property.property_type),
     rent_amount: toNumber(property.monthly_rent),
     rent_currency: 'UGX',
@@ -221,11 +235,23 @@ export function mapBackendRentalUnitToRentalUnitRow(unit: BackendRentalUnit): Re
   };
 }
 
-export function mapBackendLeaseToTenancyRow(lease: BackendLease): TenancyRow {
+export interface LeaseEnrichment {
+  balance_due?: number;
+  effective_status?: string;
+  expected_rent?: number;
+  is_overdue?: boolean;
+  tenant_credit?: number;
+}
+
+export function mapBackendLeaseToTenancyRow(lease: BackendLease): TenancyRow & LeaseEnrichment {
   return {
     agreement_url: null,
+    balance_due: lease.balance_due != null ? toNumber(lease.balance_due) : undefined,
     created_at: lease.created_at,
+    effective_status: lease.effective_status ?? lease.status,
+    expected_rent: lease.expected_rent != null ? toNumber(lease.expected_rent) : undefined,
     id: lease.id,
+    is_overdue: lease.is_overdue ?? false,
     manager_id: lease.owner_id,
     property_id: lease.property_id,
     rent_amount: toNumber(lease.monthly_rent),
@@ -233,6 +259,7 @@ export function mapBackendLeaseToTenancyRow(lease: BackendLease): TenancyRow {
     rent_period: DEFAULT_RENT_PERIOD,
     rent_start_date: lease.start_date,
     status: toTenancyStatus(lease.status),
+    tenant_credit: lease.tenant_credit != null ? toNumber(lease.tenant_credit) : undefined,
     tenant_id: lease.tenant_id,
     updated_at: lease.updated_at,
   };
@@ -300,6 +327,7 @@ export function mapBackendMessage<T extends { receiver_name?: string; sender_nam
   property_id: string | null;
   receiver_id: string;
   sender_id: string;
+  voice_note_url: string | null;
 } {
   return {
     content: message.content || '',
@@ -311,6 +339,7 @@ export function mapBackendMessage<T extends { receiver_name?: string; sender_nam
     receiver_name: message.receiver_name ?? undefined,
     sender_id: message.sender_id,
     sender_name: message.sender_name ?? undefined,
+    voice_note_url: message.voice_note_url ?? null,
   } as T & {
     content: string;
     created_at: string;
@@ -319,6 +348,7 @@ export function mapBackendMessage<T extends { receiver_name?: string; sender_nam
     property_id: string | null;
     receiver_id: string;
     sender_id: string;
+    voice_note_url: string | null;
   };
 }
 

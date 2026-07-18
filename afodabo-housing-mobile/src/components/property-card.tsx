@@ -6,6 +6,7 @@ import propertyImage3 from '../../assets/brand/property-3.jpg';
 import type { PropertyRow } from '../types/supabase';
 import { colors, radii, shadows, spacing, typography } from '../theme/tokens';
 import { formatUGX, propertyTypeLabel, rentPeriodSuffix } from '../utils/format';
+import { isPropertyBoosted } from '../services/property-boosts';
 
 const fallbackImages = [propertyImage1, propertyImage2, propertyImage3];
 
@@ -17,6 +18,7 @@ interface PropertyCardProps {
 
 function PropertyCardComponent({ index = 0, onPress, property }: PropertyCardProps) {
   const imageUri = property.images?.[0];
+  const isBoosted = isPropertyBoosted(property);
 
   return (
     <Pressable
@@ -31,8 +33,15 @@ function PropertyCardComponent({ index = 0, onPress, property }: PropertyCardPro
 
       <View style={styles.content}>
         <View style={styles.topRow}>
-          <View style={styles.typePill}>
-            <Text style={styles.typeText}>{propertyTypeLabel(property.property_type)}</Text>
+          <View style={styles.pillCluster}>
+            {isBoosted ? (
+              <View style={styles.boostedPill}>
+                <Text style={styles.boostedText}>Boosted</Text>
+              </View>
+            ) : null}
+            <View style={styles.typePill}>
+              <Text style={styles.typeText}>{propertyTypeLabel(property.property_type)}</Text>
+            </View>
           </View>
           <View
             style={[
@@ -122,6 +131,23 @@ const styles = StyleSheet.create({
     fontFamily: typography.body,
     fontSize: 12,
     textTransform: 'capitalize',
+  },
+  boostedPill: {
+    backgroundColor: colors.gold,
+    borderRadius: radii.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  boostedText: {
+    color: colors.textPrimary,
+    fontFamily: typography.bodyStrong,
+    fontSize: 12,
+  },
+  pillCluster: {
+    flexDirection: 'row',
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   price: {
     color: colors.primary,

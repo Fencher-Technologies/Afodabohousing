@@ -1,7 +1,6 @@
 import logging
 import secrets
-from datetime import datetime, timezone
-from collections import defaultdict
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, EmailStr
@@ -344,7 +343,7 @@ def get_dashboard_stats(
     active_tenants = _count(supabase, "profiles", role="tenant", status="active")
 
     # New users this month
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     try:
         new_users = (

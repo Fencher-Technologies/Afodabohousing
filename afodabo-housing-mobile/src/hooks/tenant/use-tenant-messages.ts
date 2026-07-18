@@ -91,8 +91,15 @@ export function useSendTenantMessage(userId?: string) {
       propertyId?: string;
       receiverId: string;
       senderId: string;
+      voiceNoteUrl?: string;
     }) =>
-      sendTenantMessage(payload.senderId, payload.receiverId, payload.content, payload.propertyId),
+      sendTenantMessage(
+        payload.senderId,
+        payload.receiverId,
+        payload.content,
+        payload.propertyId,
+        payload.voiceNoteUrl,
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ['tenant-dashboard', userId],

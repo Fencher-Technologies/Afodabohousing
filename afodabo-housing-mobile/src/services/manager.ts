@@ -30,7 +30,12 @@ import {
 
 export interface ManagerTenancy extends TenancyRow {
   agreement_state?: AgreementConsentState | null;
+  balance_due?: number;
+  effective_status?: string;
+  expected_rent?: number;
+  is_overdue?: boolean;
   property_title?: string;
+  tenant_credit?: number;
   tenant_name?: string;
   tenant_phone?: string;
 }
@@ -111,14 +116,18 @@ export async function fetchManagerDashboard(
   filters?: ListFilters,
 ): Promise<ManagerDashboardPayload> {
   void userId;
-  const [
-    propertiesResponse,
-    tenanciesResponse,
-    paymentsResponse,
-    messagesResponse,
-    tenantsResponse,
-  ] = await Promise.all([
-    apiRequest<
+
+  async function safeFetch<T>(label: string, request: Promise<T>): Promise<T | null> {
+    try {
+      return await request;
+    } catch (e) {
+      console.warn(`[manager dashboard] ${label} failed:`, e);
+      return null;
+    }
+  }
+
+  const results = await Promise.all([
+    safeFetch('properties', apiRequest<
       PaginatedResponse<{
         address: string;
         amenities?: string[] | null;
@@ -138,8 +147,8 @@ export async function fetchManagerDashboard(
         updated_at: string;
         zip_code?: string;
       }>
-    >('/properties', { auth: true, query: { limit: 100, skip: 0, ...propertyQuery(filters) } }),
-    apiRequest<
+    >('/properties', { auth: true, query: { limit: 100, skip: 0, ...propertyQuery(filters) } })),
+    safeFetch('leases', apiRequest<
       PaginatedResponse<{
         created_at: string;
         end_date: string;
@@ -152,8 +161,8 @@ export async function fetchManagerDashboard(
         tenant_id: string;
         updated_at: string;
       }>
-    >('/leases', { auth: true, query: { limit: 100, skip: 0, ...tenancyQuery(filters) } }),
-    apiRequest<
+    >('/leases', { auth: true, query: { limit: 100, skip: 0, ...tenancyQuery(filters) } })),
+    safeFetch('payments', apiRequest<
       PaginatedResponse<{
         amount: number | string;
         created_at: string;
@@ -168,8 +177,8 @@ export async function fetchManagerDashboard(
         transaction_id?: string | null;
         updated_at: string;
       }>
-    >('/payments', { auth: true, query: { limit: 100, skip: 0, ...paymentQuery(filters) } }),
-    apiRequest<
+    >('/payments', { auth: true, query: { limit: 100, skip: 0, ...paymentQuery(filters) } })),
+    safeFetch('messages', apiRequest<
       PaginatedResponse<{
         content: string | null;
         created_at: string;
@@ -181,8 +190,8 @@ export async function fetchManagerDashboard(
         sender_id: string;
         sender_name?: string | null;
       }>
-    >('/messages', { auth: true, query: { limit: 100, skip: 0 } }),
-    apiRequest<
+    >('/messages', { auth: true, query: { limit: 100, skip: 0 } })),
+    safeFetch('tenants', apiRequest<
       PaginatedResponse<{
         email: string;
         first_name: string;
@@ -191,11 +200,13 @@ export async function fetchManagerDashboard(
         phone?: string | null;
         user_id?: string | null;
       }>
-    >('/tenants', { auth: true, query: { limit: 100, skip: 0 } }),
+    >('/tenants', { auth: true, query: { limit: 100, skip: 0 } })),
   ]);
 
-  const properties = propertiesResponse.items.map(mapBackendPropertyToPropertyRow);
-  const tenancies = tenanciesResponse.items.map(mapBackendLeaseToTenancyRow);
+  const [propertiesResponse, tenanciesResponse, paymentsResponse, messagesResponse, tenantsResponse] = results;
+
+  const properties = (propertiesResponse?.items ?? []).map(mapBackendPropertyToPropertyRow);
+  const tenancies = (tenanciesResponse?.items ?? []).map(mapBackendLeaseToTenancyRow);
   const agreementStateResults = await Promise.allSettled(
     tenancies.map((tenancy) => fetchAgreementConsentState(tenancy.id)),
   );
@@ -211,7 +222,7 @@ export async function fetchManagerDashboard(
     properties.map((property) => [property.id, property.title]),
   );
   const tenantMap = Object.fromEntries(
-    tenantsResponse.items.map((tenant) => [
+    (tenantsResponse?.items ?? []).map((tenant) => [
       tenant.id,
       {
         name: buildTenantName(tenant),
@@ -220,13 +231,13 @@ export async function fetchManagerDashboard(
     ]),
   );
   const tenancyById = Object.fromEntries(tenancies.map((tenancy) => [tenancy.id, tenancy]));
-  const payments = paymentsResponse.items.map((payment) =>
+  const payments = (paymentsResponse?.items ?? []).map((payment) =>
     mapBackendPaymentToPaymentRow(payment, {
       managerId: tenancyById[payment.lease_id]?.manager_id,
       tenancy: tenancyById[payment.lease_id] ?? null,
     }),
   );
-  const messages = messagesResponse.items.map((message) =>
+  const messages = (messagesResponse?.items ?? []).map((message) =>
     mapBackendMessage<ManagerMessage>(message),
   );
 
@@ -334,6 +345,25 @@ export async function createTenancyWithTerms(payload: TenancyInsert, terms: null
   });
 }
 
+export interface RenewTenancyPayload {
+  leaseId: string;
+  newEndDate: string;
+  monthlyRent?: number;
+  notes?: string;
+}
+
+export async function renewTenancy(payload: RenewTenancyPayload) {
+  return apiRequest(`/leases/${payload.leaseId}/renew`, {
+    auth: true,
+    body: {
+      new_end_date: payload.newEndDate,
+      monthly_rent: payload.monthlyRent,
+      notes: payload.notes,
+    },
+    method: 'POST',
+  });
+}
+
 export async function createTenancyWorkflow(payload: {
   agreementText?: string | null;
   managerContact?: string | null;
@@ -402,6 +432,37 @@ export async function resolveTenantByEmail(email: string) {
   };
 }
 
+export interface UpdateTenancyPayload {
+  leaseId: string;
+  monthlyRent?: number;
+  rentEndDate?: string;
+  rentStartDate?: string;
+  status?: string;
+  tenantEmail?: string;
+}
+
+export async function updateTenancy(payload: UpdateTenancyPayload) {
+  const body: Record<string, unknown> = {};
+  if (payload.monthlyRent != null) {
+    body.monthly_rent = payload.monthlyRent;
+  }
+  if (payload.rentEndDate) {
+    body.end_date = payload.rentEndDate;
+  }
+  if (payload.rentStartDate) {
+    body.start_date = payload.rentStartDate;
+  }
+  if (payload.status) {
+    body.status = payload.status;
+  }
+
+  return apiRequest(`/leases/${payload.leaseId}`, {
+    auth: true,
+    body,
+    method: 'PATCH',
+  });
+}
+
 export async function confirmManagerPayment(paymentId: string) {
   await apiRequest(`/payments/${paymentId}`, {
     auth: true,
@@ -449,13 +510,19 @@ export async function rejectManagerPaymentWorkflow(payment: ManagerPayment) {
 }
 
 export async function sendManagerMessage(payload: MessageInsert) {
+  const body: Record<string, unknown> = {
+    content: payload.content,
+    property_id: payload.property_id ?? null,
+    receiver_id: payload.receiver_id,
+  };
+
+  if (payload.voice_note_url) {
+    body.voice_note_url = payload.voice_note_url;
+  }
+
   await apiRequest('/messages', {
     auth: true,
-    body: {
-      content: payload.content,
-      property_id: payload.property_id ?? null,
-      receiver_id: payload.receiver_id,
-    },
+    body,
     method: 'POST',
   });
 }
@@ -469,19 +536,18 @@ export async function markManagerMessageRead(messageId: string) {
 }
 
 export async function sendRentReminder(
-  tenancy: Pick<ManagerTenancy, 'rent_amount' | 'rent_end_date' | 'tenant_phone'>,
+  tenancy: Pick<ManagerTenancy, 'id' | 'rent_amount' | 'rent_end_date' | 'tenant_phone'>,
   managerContact?: string | null,
 ) {
-  if (!tenancy.tenant_phone) {
-    return;
-  }
-
   const daysUntilDue = Math.ceil(
     (new Date(tenancy.rent_end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
   );
 
-  await sendSmsMessage(
-    tenancy.tenant_phone,
-    `RENT REMINDER: Your rent of UGX ${tenancy.rent_amount.toLocaleString()} is due ${daysUntilDue > 0 ? `in ${daysUntilDue} days` : 'today'}. Please pay and upload proof on Afodabo Housing. Contact: ${managerContact || 'your house manager'}`,
-  );
+  const message = `RENT REMINDER: Your rent of UGX ${tenancy.rent_amount.toLocaleString()} is due ${daysUntilDue > 0 ? `in ${daysUntilDue} days` : 'today'}. Please pay and upload proof on Afodabo Housing. Contact: ${managerContact || 'your house manager'}`;
+
+  await apiRequest('/sms/send-reminder', {
+    auth: true,
+    body: { tenancy_id: tenancy.id, message },
+    method: 'POST',
+  });
 }

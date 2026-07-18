@@ -8,6 +8,7 @@ from supabase import Client
 
 from dependencies import CurrentUser, get_current_user, get_supabase_client
 from models import MessageCreate, MessageResponse, MessageUpdate
+from services.notifications import notify
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +191,15 @@ def send_message(
 
     receiver_profile = supabase.table("profiles").select("full_name").eq("user_id", data.receiver_id).execute()
     receiver_name = receiver_profile.data[0].get("full_name") if receiver_profile.data else None
+
+    notify(
+        supabase,
+        recipient_id=data.receiver_id,
+        type="new_message",
+        title=f"New message from {current_user.email}",
+        body=payload.get("content", "")[:200],
+        metadata={"message_id": msg["id"], "sender_id": current_user.id},
+    )
 
     return MessageResponse(
         **msg,

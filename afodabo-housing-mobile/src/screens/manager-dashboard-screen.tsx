@@ -17,6 +17,7 @@ import { Button } from '../components/button';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
+import { RevenueChart } from '../components/revenue-chart';
 import { ScrollableScreenContainer } from '../components/scrollable-screen-container';
 import { SegmentedControl } from '../components/segmented-control';
 import { useAuth } from '../context/auth-context';
@@ -26,6 +27,7 @@ import { resolvePaymentProofUrl } from '../services/platform';
 import { downloadPaymentReceiptPdf } from '../services/receipts';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import { formatDateLabel, formatUGXFull } from '../utils/format';
+import { getTenancyHealth } from '../utils/tenancy-health';
 
 type ManagerView = 'overview' | 'payments';
 const emptyInsightBackground = `${colors.surfaceMuted}73`;
@@ -138,6 +140,14 @@ export function ManagerDashboardScreen() {
       })
       .reduce((sum, payment) => sum + payment.amount, 0);
 
+    const tenancyHealthList = tenancies
+      .filter((tenancy) => tenancy.status === 'active')
+      .map((tenancy) => ({
+        ...tenancy,
+        health: getTenancyHealth(tenancy.rent_start_date, tenancy.rent_end_date),
+      }))
+      .sort((left, right) => left.health.daysRemaining - right.health.daysRemaining);
+
     return {
       confirmedPayments,
       dueSoonTenancies,
@@ -146,6 +156,7 @@ export function ManagerDashboardScreen() {
       rentCollectedThisMonth,
       rentDueThisMonth,
       rentReviewDue,
+      tenancyHealthList,
     };
   }, [dashboardQuery.data]);
   const currentMonthLabel = format(new Date(), 'MMMM yyyy');
@@ -203,6 +214,7 @@ export function ManagerDashboardScreen() {
           { label: 'Payments', value: 'payments' },
         ]}
         value={selectedView}
+        variant="pills"
       />
 
       {selectedView === 'overview' ? (
@@ -229,8 +241,9 @@ export function ManagerDashboardScreen() {
           </View>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Revenue</Text>
-            <Text style={styles.largeValue}>{formatUGXFull(stats.revenue)}</Text>
-            <Text style={styles.cardText}>Confirmed payment value across your properties.</Text>
+            <RevenueChart
+              data={dashboardQuery.data?.payments.filter((p) => p.status === 'confirmed') ?? []}
+            />
           </View>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>This Month</Text>
@@ -251,12 +264,16 @@ export function ManagerDashboardScreen() {
             </View>
           </View>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Tenants Due To Pay</Text>
-            {dashboardInsights.dueSoonTenancies.length === 0 ? (
-              <EmptyInsightPanel message="No active tenant is due within the next 14 days." />
+            <Text style={styles.cardTitle}>Tenancy Health</Text>
+            <Text style={styles.cardText}>
+              All active tenancies sorted by urgency. Green = healthy, red = overdue.
+            </Text>
+            {dashboardInsights.tenancyHealthList.length === 0 ? (
+              <EmptyInsightPanel message="No active tenancies to display." />
             ) : (
-              dashboardInsights.dueSoonTenancies.map((tenancy) => (
+              dashboardInsights.tenancyHealthList.map((tenancy) => (
                 <View key={tenancy.id} style={styles.listRow}>
+                  <View style={[styles.healthDot, { backgroundColor: tenancy.health.color }]} />
                   <View style={styles.listCopy}>
                     <Text style={styles.listTitle}>
                       {tenancy.tenant_name || 'Tenant'} • {formatUGXFull(tenancy.rent_amount)}
@@ -266,27 +283,16 @@ export function ManagerDashboardScreen() {
                       {formatDateLabel(tenancy.rent_end_date)}
                     </Text>
                   </View>
-                  <Text style={styles.emphasisText}>{tenancy.daysRemaining}d</Text>
-                </View>
-              ))
-            )}
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Overdue Rent</Text>
-            {dashboardInsights.overdueTenancies.length === 0 ? (
-              <EmptyInsightPanel message="No overdue active tenancy at the moment." />
-            ) : (
-              dashboardInsights.overdueTenancies.map((tenancy) => (
-                <View key={tenancy.id} style={styles.listRow}>
-                  <View style={styles.listCopy}>
-                    <Text style={styles.listTitle}>{tenancy.tenant_name || 'Tenant'}</Text>
-                    <Text style={styles.cardText}>
-                      {tenancy.property_title || 'Property'} • due{' '}
-                      {formatDateLabel(tenancy.rent_end_date)}
-                    </Text>
-                  </View>
-                  <Text style={[styles.emphasisText, styles.dangerText]}>
-                    {tenancy.daysOverdue}d late
+                  <Text
+                    style={[
+                      styles.healthDays,
+                      { color: tenancy.health.color },
+                      tenancy.health.status === 'expired' && { textDecorationLine: 'line-through' },
+                    ]}
+                  >
+                    {tenancy.health.daysRemaining > 0
+                      ? `${tenancy.health.daysRemaining}d`
+                      : 'Expired'}
                   </Text>
                 </View>
               ))
@@ -486,6 +492,16 @@ const styles = StyleSheet.create({
   },
   dangerText: {
     color: colors.error,
+  },
+  healthDays: {
+    fontFamily: typography.bodyStrong,
+    fontSize: 13,
+  },
+  healthDot: {
+    borderRadius: 6,
+    height: 12,
+    marginTop: 4,
+    width: 12,
   },
   emptyInsightPanel: {
     alignItems: 'center',

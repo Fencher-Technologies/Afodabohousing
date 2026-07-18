@@ -6,13 +6,36 @@ interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void;
   options: { label: string; value: T }[];
   value: T;
+  variant?: 'segments' | 'pills';
 }
 
 export function SegmentedControl<T extends string>({
   onChange,
   options,
   value,
+  variant = 'segments',
 }: SegmentedControlProps<T>) {
+  if (variant === 'pills') {
+    return (
+      <View style={styles.pillsContainer}>
+        {options.map((option) => {
+          const isActive = option.value === value;
+          return (
+            <Pressable
+              key={option.value}
+              onPress={() => onChange(option.value)}
+              style={[styles.pillsSegment, isActive && styles.pillsSegmentActive]}
+            >
+              <Text style={[styles.pillsText, isActive && styles.pillsTextActive]}>
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       contentContainerStyle={styles.scrollContent}
@@ -54,6 +77,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     padding: 6,
+  },
+  pillsContainer: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radii.pill,
+    flexDirection: 'row',
+    padding: 4,
+  },
+  pillsSegment: {
+    alignItems: 'center',
+    borderRadius: radii.pill,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 38,
+    paddingHorizontal: spacing.md,
+  },
+  pillsSegmentActive: {
+    backgroundColor: colors.primary,
+  },
+  pillsText: {
+    color: colors.textSecondary,
+    fontFamily: typography.bodyStrong,
+    fontSize: 14,
+  },
+  pillsTextActive: {
+    color: colors.primaryForeground,
   },
   scrollContent: {
     alignItems: 'flex-start',

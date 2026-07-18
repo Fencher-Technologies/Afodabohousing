@@ -17,10 +17,12 @@ import {
   consentToAgreement,
   uploadTenancyAgreement,
 } from '../services/agreements';
-import { sendRentReminder } from '../services/manager';
+import { renewTenancy, sendRentReminder } from '../services/manager';
+import { RenewTenancyModal } from '../components/renew-tenancy-modal';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 import type { RootStackParamList } from '../navigation/types';
 import { formatDateLabel, formatUGXFull } from '../utils/format';
+import { getTenancyHealth } from '../utils/tenancy-health';
 
 export function ManagerTenancyDetailsScreen({
   route,
@@ -28,6 +30,8 @@ export function ManagerTenancyDetailsScreen({
   const { profile, user } = useAuth();
   const tenancyQuery = useManagerTenancy(user?.id, route.params.tenancyId);
   const [agreementBusy, setAgreementBusy] = useState<null | 'consent' | 'upload'>(null);
+  const [renewing, setRenewing] = useState(false);
+  const [renewOpen, setRenewOpen] = useState(false);
   const [sending, setSending] = useState(false);
 
   if (!user) {
@@ -62,6 +66,9 @@ export function ManagerTenancyDetailsScreen({
   }
 
   const tenancy = tenancyQuery.tenancy;
+  const health = tenancy
+    ? getTenancyHealth(tenancy.rent_start_date, tenancy.rent_end_date)
+    : null;
 
   if (!tenancy) {
     return (
@@ -85,6 +92,85 @@ export function ManagerTenancyDetailsScreen({
         subtitle={`${tenancy.tenant_name || 'Tenant'} • ${tenancy.status}`}
         title={tenancy.property_title || 'Tenancy'}
       />
+
+      {health ? (
+        <View style={styles.card}>
+          <View style={styles.healthRow}>
+            <View style={[styles.healthDot, { backgroundColor: health.color }]} />
+            <Text
+              style={[
+                styles.healthLabel,
+                { color: health.color },
+                health.status === 'expired' && { textDecorationLine: 'line-through' },
+              ]}
+            >
+              {health.label}
+            </Text>
+            <Text
+              style={[
+                styles.healthDays,
+                health.status === 'expired' && { textDecorationLine: 'line-through' },
+              ]}
+            >
+              {health.daysRemaining > 0
+                ? `${health.daysRemaining} days remaining`
+                : 'Period expired'}
+            </Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${health.progressPercent}%`, backgroundColor: health.color },
+              ]}
+            />
+          </View>
+          <View style={styles.progressLabels}>
+            <Text style={styles.progressText}>{health.progressPercent}% elapsed</Text>
+            <Text style={styles.progressText}>{health.totalDays} days total</Text>
+          </View>
+        </View>
+      ) : null}
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Payment standing</Text>
+        <View style={styles.standingRow}>
+          <View style={styles.standingItem}>
+            <Text style={styles.standingLabel}>Outstanding</Text>
+            <Text
+              style={[
+                styles.standingValue,
+                (tenancy.balance_due ?? 0) > 0 ? styles.standingDue : null,
+              ]}
+            >
+              {formatUGXFull(tenancy.balance_due ?? tenancy.expected_rent ?? 0)}
+            </Text>
+            <Text style={styles.standingMeta}>
+              {tenancy.is_overdue ? 'Overdue' : 'Expected for period'}
+            </Text>
+          </View>
+          <View style={styles.standingItem}>
+            <Text style={styles.standingLabel}>Tenant credit</Text>
+            <Text style={[styles.standingValue, styles.standingCredit]}>
+              {formatUGXFull(tenancy.tenant_credit ?? 0)}
+            </Text>
+            <Text style={styles.standingMeta}>
+              {formatUGXFull(tenancy.expected_rent ?? 0)} expected rent
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {tenancy.effective_status === 'expired' || tenancy.status === 'expired' ? (
+        <View style={styles.renewBanner}>
+          <Text style={styles.renewBannerText}>
+            This tenancy has expired. Renew it to extend the lease period.
+          </Text>
+          <Button disabled={renewing} onPress={() => setRenewOpen(true)} variant="primary">
+            Renew tenancy
+          </Button>
+        </View>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.value}>{formatUGXFull(tenancy.rent_amount)}</Text>
@@ -275,6 +361,29 @@ export function ManagerTenancyDetailsScreen({
           ) : null}
         </View>
       </View>
+      {renewOpen ? (
+        <RenewTenancyModal
+          currentEndDate={tenancy.rent_end_date}
+          currentRent={tenancy.rent_amount}
+          onClose={() => setRenewOpen(false)}
+          onRenew={async ({ monthlyRent, newEndDate, notes }) => {
+            try {
+              setRenewing(true);
+              await renewTenancy({
+                leaseId: tenancy.id,
+                monthlyRent,
+                newEndDate,
+                notes,
+              });
+              await tenancyQuery.refetch();
+              Alert.alert('Tenancy renewed', `New period ends ${formatDateLabel(newEndDate)}.`);
+            } finally {
+              setRenewing(false);
+            }
+          }}
+          tenantName={tenancy.tenant_name}
+        />
+      ) : null}
     </ScrollableScreenContainer>
   );
 }
@@ -321,5 +430,88 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontFamily: typography.display,
     fontSize: 28,
+  },
+  healthRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  healthDot: {
+    borderRadius: 6,
+    height: 12,
+    width: 12,
+  },
+  healthLabel: {
+    fontFamily: typography.bodyStrong,
+    fontSize: 15,
+  },
+  healthDays: {
+    color: colors.textSecondary,
+    fontFamily: typography.body,
+    fontSize: 13,
+    marginLeft: 'auto',
+  },
+  progressTrack: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 6,
+    height: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    borderRadius: 6,
+    height: '100%',
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  progressText: {
+    color: colors.textMuted,
+    fontFamily: typography.body,
+    fontSize: 12,
+  },
+  renewBanner: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  renewBannerText: {
+    color: colors.textSecondary,
+    fontFamily: typography.body,
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  standingCredit: {
+    color: colors.primary,
+  },
+  standingDue: {
+    color: colors.error,
+  },
+  standingItem: {
+    flex: 1,
+    gap: 2,
+  },
+  standingLabel: {
+    color: colors.textMuted,
+    fontFamily: typography.bodyStrong,
+    fontSize: 12,
+    textTransform: 'uppercase',
+  },
+  standingMeta: {
+    color: colors.textMuted,
+    fontFamily: typography.body,
+    fontSize: 12,
+  },
+  standingRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  standingValue: {
+    color: colors.textPrimary,
+    fontFamily: typography.display,
+    fontSize: 20,
   },
 });

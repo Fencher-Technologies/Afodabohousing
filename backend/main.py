@@ -13,20 +13,23 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import get_settings
-from dependencies.database import get_service_client, get_supabase_client
+from dependencies.database import get_service_client
 from routers import (
     admin_router,
     agreements_router,
     auth_router,
+    bookmarks_router,
     boosts_router,
     exports_router,
     leases_router,
     maintenance_requests_router,
     managers_router,
     messages_router,
+    notifications_router,
     payments_router,
     properties_router,
     rental_units_router,
+    reports_router,
     subscriptions_router,
     tenants_router,
     uploads_router,
@@ -331,21 +334,24 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 app.include_router(admin_router)
+app.include_router(agreements_router)
 app.include_router(auth_router)
+app.include_router(bookmarks_router)
 app.include_router(exports_router)
 app.include_router(boosts_router)
-app.include_router(agreements_router)
 app.include_router(properties_router)
-app.include_router(subscriptions_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)
 app.include_router(managers_router)
 app.include_router(messages_router)
 app.include_router(payments_router)
 app.include_router(rental_units_router)
+app.include_router(reports_router)
+app.include_router(subscriptions_router)
 app.include_router(maintenance_requests_router)
 app.include_router(uploads_router)
 app.include_router(webhooks_router)
+app.include_router(notifications_router)
 
 
 @app.get("/health")

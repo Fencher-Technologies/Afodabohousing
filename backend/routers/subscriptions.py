@@ -1,151 +1,107 @@
 import logging
-from uuid import UUID, uuid4
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from supabase import Client
 
-from dependencies import (
-    CurrentUser,
-    get_service_client,
-    require_super_admin,
-    require_super_admin_or_manager,
-)
+from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client, require_active_user
 from models.subscription import (
-    InitiateSubscriptionRequest,
-    InitiateSubscriptionResponse,
-    SubscriptionResponse,
-    SubscriptionStats,
-    calculate_subscription_price,
+    ManagerSubscriptionResponse,
+    SubscriptionCreateRequest,
+    SubscriptionCreateResponse,
+    SubscriptionPlanResponse,
 )
-from services.nylonpay import initiate_boost_payment
-from services.subscription import SubscriptionService, get_subscription_service
+from services.subscriptions import SubscriptionService, get_subscription_service
+from services.nylonpay import verify_webhook
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
 
-def get_sub_svc(supabase: Client = Depends(get_service_client)) -> SubscriptionService:
-    return get_subscription_service(supabase)
+def get_sub_svc() -> SubscriptionService:
+    return get_subscription_service(get_service_client())
 
 
-class PaginatedSubscriptionResponse(BaseModel):
-    items: list[SubscriptionResponse]
-    total: int
-    skip: int
-    limit: int
+class WebhookPayload(BaseModel):
+    event: str
+    reference: str
+    status: str
+    amount: int
+    currency: str
+    metadata: dict[str, Any] | None = None
 
 
-# ── Super Admin: Subscription Management ──
-
-
-@router.get("", response_model=PaginatedSubscriptionResponse)
-def list_subscriptions(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    current_user: CurrentUser = Depends(require_super_admin),
+@router.get("/plans", response_model=list[SubscriptionPlanResponse])
+def list_plans(
     service: SubscriptionService = Depends(get_sub_svc),
-) -> PaginatedSubscriptionResponse:
-    subs, total = service.get_all(skip=skip, limit=limit)
-    return PaginatedSubscriptionResponse(
-        items=[SubscriptionResponse(**s) for s in subs],
-        total=total,
-        skip=skip,
-        limit=limit,
-    )
+) -> list[SubscriptionPlanResponse]:
+    return service.get_active_plans()
 
 
-@router.get("/my", response_model=SubscriptionResponse)
-def get_my_subscription(
-    current_user: CurrentUser = Depends(require_super_admin_or_manager),
+@router.get("/current", response_model=ManagerSubscriptionResponse | None)
+def get_current_subscription(
+    current_user: CurrentUser = Depends(require_active_user),
     service: SubscriptionService = Depends(get_sub_svc),
-) -> SubscriptionResponse:
-    sub = service.get_by_manager(UUID(current_user.id))
-    if not sub:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No subscription found")
-    return SubscriptionResponse(**sub)
+) -> ManagerSubscriptionResponse | None:
+    if current_user.role not in ("house_manager", "super_admin"):
+        return None
+    return service.get_current_subscription(current_user.id)
 
 
-@router.get("/stats", response_model=SubscriptionStats)
-def get_subscription_stats(
-    current_user: CurrentUser = Depends(require_super_admin),
+@router.post("/create", response_model=SubscriptionCreateResponse)
+def create_subscription(
+    data: SubscriptionCreateRequest,
+    current_user: CurrentUser = Depends(require_active_user),
     service: SubscriptionService = Depends(get_sub_svc),
-) -> SubscriptionStats:
-    return service.get_stats()
+    supabase: Client = Depends(get_supabase_client),
+) -> SubscriptionCreateResponse:
+    if current_user.role not in ("house_manager", "super_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only managers can subscribe")
 
-
-@router.get("/{subscription_id}", response_model=SubscriptionResponse)
-def get_subscription(
-    subscription_id: UUID,
-    current_user: CurrentUser = Depends(require_super_admin),
-    service: SubscriptionService = Depends(get_sub_svc),
-) -> SubscriptionResponse:
-    sub = service.get_by_id(subscription_id)
-    if not sub:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
-    return SubscriptionResponse(**sub)
-
-
-@router.post("/expire-old")
-def expire_old_subscriptions(
-    current_user: CurrentUser = Depends(require_super_admin),
-    service: SubscriptionService = Depends(get_sub_svc),
-) -> dict:
-    count = service.expire_old()
-    return {"message": f"{count} subscription(s) expired", "expired_count": count}
-
-
-@router.patch("/{subscription_id}/cancel")
-def cancel_subscription(
-    subscription_id: UUID,
-    current_user: CurrentUser = Depends(require_super_admin),
-    service: SubscriptionService = Depends(get_sub_svc),
-) -> dict:
-    sub = service.get_by_id(subscription_id)
-    if not sub:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
-    if sub["status"] != "active":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only active subscriptions can be cancelled")
-    service.cancel(subscription_id)
-    return {"message": "Subscription cancelled", "subscription_id": str(subscription_id), "status": "cancelled"}
-
-
-# ── Manager: Self-service ──
-
-
-@router.post("/initiate", response_model=InitiateSubscriptionResponse)
-def initiate_subscription(
-    data: InitiateSubscriptionRequest,
-    current_user: CurrentUser = Depends(require_super_admin_or_manager),
-    service: SubscriptionService = Depends(get_sub_svc),
-) -> InitiateSubscriptionResponse:
-    amount = calculate_subscription_price(data.plan_type)
-    if amount <= 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan type")
-
-    reference = str(uuid4())
-    result = service.create_pending(UUID(current_user.id), data.plan_type, amount, reference)
+    profile_result = supabase.table("profiles").select("*").eq("user_id", current_user.id).limit(1).execute()
+    profile = profile_result.data[0] if profile_result.data else None
 
     try:
-        initiate_boost_payment(
-            amount=int(amount),
-            customer_name=current_user.full_name or current_user.email,
-            customer_phone=data.phone_number,
-            reference=reference,
-            description=f"Subscription {data.plan_type} — Afodabo Housing",
+        return service.create_subscription(
+            manager_id=current_user.id,
+            plan_id=data.plan_id,
+            profile=profile,
+            phone_number=data.phone_number,
         )
-    except Exception as e:
-        logger.error("NylonPay payment initiation failed for subscription %s: %s", result["id"], str(e))
-        service.cancel(result["id"])
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Payment initiation failed. Please try again.",
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    return InitiateSubscriptionResponse(
-        subscription_id=result["id"],
-        reference=reference,
-        status="pending",
-        message="Check your phone for the payment prompt. Enter your PIN to confirm.",
-    )
+
+@router.post("/webhook")
+async def subscription_webhook(
+    request: Request,
+    service: SubscriptionService = Depends(get_sub_svc),
+) -> dict:
+    body = await request.body()
+    signature = request.headers.get("x-nylonpay-signature", "")
+
+    if not verify_webhook(body, signature):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature")
+
+    try:
+        import json
+        payload = json.loads(body)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON body")
+
+    event = payload.get("event", "")
+    reference = payload.get("reference", "")
+    status_val = payload.get("status", "")
+
+    if event == "payment.completed" and status_val == "success":
+        result = service.confirm_subscription(reference)
+        if result:
+            logger.info("Subscription confirmed for reference %s", reference)
+            return {"status": "ok", "message": "Subscription confirmed"}
+        logger.warning("Subscription not found for reference %s", reference)
+        return {"status": "not_found", "message": "No pending subscription found"}
+
+    logger.info("Unhandled webhook event: %s for reference %s", event, reference)
+    return {"status": "ignored", "message": f"Event {event} not handled"}

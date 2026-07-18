@@ -1,9 +1,8 @@
 import csv
 import io
 from datetime import date
-from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from supabase import Client
 

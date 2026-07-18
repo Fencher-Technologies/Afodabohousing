@@ -199,15 +199,22 @@ export async function sendTenantMessage(
   receiverId: string,
   content: string,
   propertyId?: string,
+  voiceNoteUrl?: string,
 ) {
   void senderId;
+  const body: Record<string, unknown> = {
+    content,
+    property_id: propertyId ?? null,
+    receiver_id: receiverId,
+  };
+
+  if (voiceNoteUrl) {
+    body.voice_note_url = voiceNoteUrl;
+  }
+
   await apiRequest('/messages', {
     auth: true,
-    body: {
-      content,
-      property_id: propertyId ?? null,
-      receiver_id: receiverId,
-    },
+    body,
     method: 'POST',
   });
 }
@@ -250,6 +257,46 @@ export async function initiatePesapalPayment(payload: {
     },
     method: 'POST',
   });
+}
+
+export async function initiateNylonPay(payload: {
+  amount: number;
+  description: string;
+  email?: string;
+  firstName: string;
+  lastName: string;
+  paymentId: string;
+  phoneNumber: string;
+}) {
+  return apiRequest<{
+    message?: string;
+    reference?: string;
+    status?: string;
+    success: boolean;
+  }>('/payments/initiate-nylonpay', {
+    auth: true,
+    body: {
+      amount: payload.amount,
+      description: payload.description,
+      email: payload.email,
+      first_name: payload.firstName,
+      last_name: payload.lastName,
+      payment_id: payload.paymentId,
+      phone_number: payload.phoneNumber,
+    },
+    method: 'POST',
+  });
+}
+
+export async function requestRenewal(leaseId: string, notes?: string) {
+  return apiRequest<{ success: boolean; message: string }>(
+    `/leases/${leaseId}/renewal-request`,
+    {
+      auth: true,
+      body: { notes: notes || null },
+      method: 'POST',
+    },
+  );
 }
 
 export function buildTenantPaymentProofNote(

@@ -8,11 +8,9 @@ from supabase import Client
 from dependencies import (
     CurrentUser,
     get_service_client,
-    get_supabase_client,
     require_super_admin,
     require_super_admin_or_manager,
 )
-from services.nylonpay import initiate_boost_payment
 from models.boost import (
     BoostCreate,
     BoostPriceResponse,
@@ -22,6 +20,7 @@ from models.boost import (
     InitiateBoostResponse,
 )
 from services.boost import BoostService, calculate_boost_price, get_boost_service
+from services.nylonpay import initiate_boost_payment
 
 logger = logging.getLogger(__name__)
 

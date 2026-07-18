@@ -1,66 +1,88 @@
 from datetime import datetime
-from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 
-SUBSCRIPTION_PRICES = {
-    "3mo": Decimal("37000"),
-    "6mo": Decimal("66600"),
-    "12mo": Decimal("111000"),
-}
+class SubscriptionPlan(BaseModel):
+    id: str
+    name: str
+    duration_days: int
+    price_usd: float
+    price_ugx: float
+    benefits: list[str] = []
+    is_active: bool = True
+    sort_order: int = 0
+    popular: bool = False
+    created_at: datetime | None = None
 
 
-def calculate_subscription_price(plan_type: str) -> Decimal:
-    return SUBSCRIPTION_PRICES.get(plan_type, Decimal("0"))
+class SubscriptionPlanResponse(BaseModel):
+    id: str
+    name: str
+    duration_days: int
+    price_usd: float
+    price_ugx: float
+    benefits: list[str]
+    is_active: bool
+    sort_order: int
+    popular: bool
 
 
-class Subscription(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class ManagerSubscription(BaseModel):
     id: UUID
     manager_id: UUID
-    plan_type: str
+    plan_id: str
+    status: str = "pending"
+    started_at: datetime | None = None
+    expires_at: datetime | None = None
+    auto_renew: bool = True
+    payment_reference: str | None = None
+    payment_status: str = "pending"
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class ManagerSubscriptionResponse(BaseModel):
+    id: str
+    manager_id: str
+    plan_id: str
+    plan_name: str
     status: str
-    start_date: datetime
-    expiry_date: datetime
-    amount_paid: Decimal
-    payment_method: str | None = None
-    transaction_id: str | None = None
-    auto_renew: bool = False
-    created_at: datetime
-    updated_at: datetime
+    started_at: str | None = None
+    expires_at: str | None = None
+    auto_renew: bool
+    payment_reference: str | None = None
+    payment_status: str
+    days_remaining: int = 0
 
 
-class SubscriptionResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: UUID
-    manager_id: UUID
-    plan_type: str
-    status: str
-    start_date: datetime
-    expiry_date: datetime
-    amount_paid: Decimal
-    payment_method: str | None = None
-    transaction_id: str | None = None
-    auto_renew: bool = False
-    created_at: datetime
+class SubscriptionCreateRequest(BaseModel):
+    plan_id: str
+    phone_number: str | None = None
 
 
-class SubscriptionStats(BaseModel):
-    active_subscriptions: int = 0
-    total_subscriptions: int = 0
-    total_revenue: float = 0
-    plan_breakdown: dict[str, int] = {}
+class PaymentMethodInfo(BaseModel):
+    id: str
+    name: str
+    description: str
+    icon: str = "phone"
+    recommended: bool = False
 
 
-class InitiateSubscriptionRequest(BaseModel):
-    plan_type: str = "3mo"
-    phone_number: str
-
-
-class InitiateSubscriptionResponse(BaseModel):
-    subscription_id: UUID
-    reference: str
-    status: str
+class SubscriptionCreateResponse(BaseModel):
+    subscription_id: str
+    plan_id: str
+    amount: float
+    currency: str = "UGX"
+    payment_reference: str
     message: str
+    payment_methods: list[PaymentMethodInfo] = [
+        PaymentMethodInfo(
+            id="mobile_money",
+            name="Mobile Money (Recommended)",
+            description="MTN or Airtel — instant payment",
+            icon="phone",
+            recommended=True,
+        )
+    ]

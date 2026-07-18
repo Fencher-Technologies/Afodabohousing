@@ -17,6 +17,7 @@ dependencies = [
     "sentry-sdk>=2.0.0",
     "apscheduler>=3.10.0",
     "reportlab>=4.2.0",
+    "openpyxl>=3.1.5",
 ]
 
 [project.optional-dependencies]
@@ -27,7 +28,6 @@ dev = [
     "httpx>=0.26.0",
     "ruff>=0.1.0",
     "mypy>=1.8.0",
-    "pypdf>=5.0.0",
 ]
 
 [tool.ruff]
@@ -41,24 +41,6 @@ ignore = ["E501"]
 [tool.mypy]
 python_version = "3.12"
 plugins = ["pydantic.mypy"]
-
-[[tool.mypy.overrides]]
-module = [
-    "backend.dependencies.auth",
-    "backend.routers.auth",
-    "backend.routers.leases",
-    "backend.routers.maintenance_requests",
-    "backend.routers.messages",
-    "backend.routers.payments",
-    "backend.routers.properties",
-    "backend.routers.rental_units",
-    "backend.routers.tenants",
-    "backend.routers.uploads",
-    "backend.routers.webhooks",
-    "backend.services.crud",
-    "backend.tests.conftest",
-]
-ignore_errors = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

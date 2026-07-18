@@ -23,6 +23,28 @@ export interface UpdateProfilePayload {
   userId: string;
 }
 
+export interface SendInvitePayload {
+  email: string;
+  role: 'tenant';
+}
+
+export interface SendInviteResponse {
+  id: string;
+  email: string;
+  token: string;
+  role: string;
+  status: string;
+  expires_at: string;
+}
+
+export async function sendInvite(payload: SendInvitePayload): Promise<SendInviteResponse> {
+  return apiRequest<SendInviteResponse>('/auth/invite', {
+    auth: true,
+    body: payload,
+    method: 'POST',
+  });
+}
+
 export interface AuthSnapshot {
   profile: ProfileRow | null;
   role: UserRole;
@@ -179,6 +201,60 @@ export async function registerUser(payload: RegisterPayload) {
       return session;
     }
   }
+
+  return session;
+}
+
+export interface AcceptInvitePayload {
+  token: string;
+  password: string;
+  fullName: string;
+  phone: string;
+}
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  await apiRequest('/auth/change-password', {
+    auth: true,
+    body: {
+      current_password: currentPassword,
+      new_password: newPassword,
+    },
+    method: 'POST',
+  });
+}
+
+export async function acceptInvite(payload: AcceptInvitePayload) {
+  const response = await apiRequest<{
+    access_token: string;
+    role?: string | null;
+    user: {
+      email: string;
+      id: string;
+      user_metadata?: Record<string, unknown> | null;
+    };
+    user_id: string;
+  }>('/auth/accept-invite', {
+    body: {
+      token: payload.token,
+      password: payload.password,
+      full_name: payload.fullName,
+      phone: payload.phone || null,
+    },
+    method: 'POST',
+  });
+
+  const session: AuthSession = {
+    accessToken: response.access_token,
+    refreshToken: null,
+    role: response.role === 'tenant' || response.role === 'house_manager' ? response.role : null,
+    user: {
+      email: response.user.email,
+      id: response.user.id,
+      user_metadata: response.user.user_metadata ?? null,
+    },
+  };
+
+  await setStoredAuthSession(session);
 
   return session;
 }

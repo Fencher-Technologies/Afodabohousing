@@ -15,6 +15,7 @@ export type Database = {
           property_id: string | null;
           receiver_id: string;
           sender_id: string;
+          voice_note_url: string | null;
         };
         Insert: {
           content: string;
@@ -24,6 +25,7 @@ export type Database = {
           property_id?: string | null;
           receiver_id: string;
           sender_id: string;
+          voice_note_url?: string | null;
         };
         Update: {
           content?: string;
@@ -33,6 +35,7 @@ export type Database = {
           property_id?: string | null;
           receiver_id?: string;
           sender_id?: string;
+          voice_note_url?: string | null;
         };
         Relationships: [
           {
@@ -146,10 +149,14 @@ export type Database = {
           district: string;
           id: string;
           images: string[] | null;
+          is_boosted?: boolean | null;
           kitchens: number;
+          latitude: number | null;
+          longitude: number | null;
           manager_email: string | null;
           manager_id: string;
           manager_phone: string | null;
+          boosted_until?: string | null;
           property_type: Database['public']['Enums']['property_type'];
           rent_amount: number;
           rent_currency: string;
@@ -171,10 +178,12 @@ export type Database = {
           district: string;
           id?: string;
           images?: string[] | null;
+          is_boosted?: boolean | null;
           kitchens?: number;
           manager_email?: string | null;
           manager_id: string;
           manager_phone?: string | null;
+          boosted_until?: string | null;
           property_type?: Database['public']['Enums']['property_type'];
           rent_amount: number;
           rent_currency?: string;
@@ -196,10 +205,12 @@ export type Database = {
           district?: string;
           id?: string;
           images?: string[] | null;
+          is_boosted?: boolean | null;
           kitchens?: number;
           manager_email?: string | null;
           manager_id?: string;
           manager_phone?: string | null;
+          boosted_until?: string | null;
           property_type?: Database['public']['Enums']['property_type'];
           rent_amount?: number;
           rent_currency?: string;

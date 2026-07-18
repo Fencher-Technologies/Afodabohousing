@@ -1,11 +1,11 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
 from supabase import Client
 
-from models.boost import BoostCreate, BoostResponse, BoostStats
+from models.boost import BoostCreate, BoostStats
 from services.base import BaseService, with_retry
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class BoostService(BaseService):
 
     @with_retry
     def create(self, data: BoostCreate, manager_id: UUID) -> dict:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = now + timedelta(days=data.duration_days)
         payload = {
             "property_id": str(data.property_id),
@@ -42,7 +42,7 @@ class BoostService(BaseService):
 
     @with_retry
     def create_pending(self, data: BoostCreate, manager_id: UUID, transaction_id: str, payment_method: str) -> dict:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = now + timedelta(days=data.duration_days)
         payload = {
             "property_id": str(data.property_id),
@@ -119,7 +119,7 @@ class BoostService(BaseService):
     @with_retry
     def expire_old(self) -> int:
         """Sweep expired boosts to 'expired' status. Returns count expired."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         result = (
             self.table.update({"status": "expired"})
             .eq("status", "active")
@@ -130,7 +130,7 @@ class BoostService(BaseService):
 
     @with_retry
     def get_stats(self) -> BoostStats:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         all_boosts = self.supabase.table(self._table).select("*").execute()
         data = all_boosts.data or []
 
@@ -151,7 +151,7 @@ class BoostService(BaseService):
     @with_retry
     def get_active_boosted_property_ids(self) -> set[str]:
         """Return set of property_ids that have active (non-expired) boosts."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         result = (
             self.supabase.table(self._table)
             .select("property_id")

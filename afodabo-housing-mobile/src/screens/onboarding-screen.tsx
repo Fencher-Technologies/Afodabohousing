@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { StackScreenProps } from '@react-navigation/stack';
-import React, { useState } from 'react';
-import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { FlatList, Image, ImageBackground, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/button';
 import heroImage from '../../assets/brand/hero-bg.jpg';
@@ -35,16 +35,59 @@ const slides = [
   },
 ] as const;
 
+const AUTO_INTERVAL = 4000;
+
 export function OnboardingScreen({
   navigation,
 }: StackScreenProps<RootStackParamList, 'Onboarding'>) {
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
   const [index, setIndex] = useState(0);
+  const flatRef = useRef<FlatList>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const slide = slides[index];
-  const isFirst = index === 0;
   const isLast = index === slides.length - 1;
 
+  const startTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setIndex((prev) => {
+        const next = prev + 1;
+        const clamped = next >= slides.length ? 0 : next;
+        return clamped;
+      });
+    }, AUTO_INTERVAL);
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    startTimer();
+    return stopTimer;
+  }, [startTimer, stopTimer]);
+
+  useEffect(() => {
+    flatRef.current?.scrollToIndex({ animated: true, index });
+  }, [index]);
+
+  const handleManualScroll = useCallback(
+    (e: { nativeEvent: { contentOffset: { x: number } } }) => {
+      const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+      if (newIndex !== index) {
+        setIndex(newIndex);
+      }
+      startTimer();
+    },
+    [index, startTimer],
+  );
+
   const complete = async (target: 'Login' | 'Main' | 'Register') => {
+    stopTimer();
     await markOnboardingSeen();
 
     if (target === 'Main') {
@@ -80,28 +123,47 @@ export function OnboardingScreen({
           </Pressable>
         </View>
 
-        <View style={styles.content}>
-          <ImageBackground imageStyle={styles.visualImage} source={heroImage} style={styles.visual}>
-            <View style={styles.visualOverlay} />
-            <View style={styles.visualInner}>
-              <View style={styles.visualBadge}>
-                <Text style={styles.visualBadgeText}>{slide.kicker}</Text>
-              </View>
-              <View style={styles.visualOrb}>
-                <Image source={logoImage} style={styles.visualLogo} />
-              </View>
-              <Text style={styles.visualCaption}>
-                Trusted rentals, clearer next steps, real workflow depth.
-              </Text>
-            </View>
-          </ImageBackground>
+        <FlatList
+          data={slides}
+          decelerationRate="fast"
+          horizontal
+          keyExtractor={(_item, i) => String(i)}
+          onMomentumScrollEnd={handleManualScroll}
+          onScrollBeginDrag={stopTimer}
+          pagingEnabled
+          ref={flatRef}
+          renderItem={({ item }) => (
+            <View style={[styles.slide, { width }]}>
+              <ImageBackground
+                imageStyle={styles.visualImage}
+                source={heroImage}
+                style={styles.visual}
+              >
+                <View style={styles.visualOverlay} />
+                <View style={styles.visualInner}>
+                  <View style={styles.visualBadge}>
+                    <Text style={styles.visualBadgeText}>{item.kicker}</Text>
+                  </View>
+                  <View style={styles.visualOrb}>
+                    <Image source={logoImage} style={styles.visualLogo} />
+                  </View>
+                  <Text style={styles.visualCaption}>
+                    Trusted rentals, clearer next steps, real workflow depth.
+                  </Text>
+                </View>
+              </ImageBackground>
 
-          <View style={styles.copyBlock}>
-            <Text style={styles.eyebrow}>{slide.eyebrow}</Text>
-            <Text style={styles.title}>{slide.title}</Text>
-            <Text style={styles.description}>{slide.description}</Text>
-          </View>
-        </View>
+              <View style={styles.copyBlock}>
+                <Text style={styles.eyebrow}>{item.eyebrow}</Text>
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.description}>{item.description}</Text>
+              </View>
+            </View>
+          )}
+          scrollEnabled
+          showsHorizontalScrollIndicator={false}
+          style={styles.list}
+        />
 
         <View style={styles.footer}>
           <View style={styles.progressRow}>
@@ -122,26 +184,22 @@ export function OnboardingScreen({
             <View style={styles.actionSide}>
               <Button
                 onPress={() => {
-                  if (isFirst) {
-                    void complete('Main');
-                    return;
-                  }
-
-                  setIndex((current) => current - 1);
+                  stopTimer();
+                  void complete('Main');
                 }}
                 variant="outline"
               >
-                {isFirst ? 'Skip' : 'Back'}
+                Skip
               </Button>
             </View>
             <View style={styles.actionSide}>
               <Button
                 onPress={() => {
+                  stopTimer();
                   if (isLast) {
                     void complete('Main');
                     return;
                   }
-
                   setIndex((current) => current + 1);
                 }}
               >
@@ -155,6 +213,7 @@ export function OnboardingScreen({
               <Pressable
                 hitSlop={8}
                 onPress={() => {
+                  stopTimer();
                   void complete('Login');
                 }}
               >
@@ -164,6 +223,7 @@ export function OnboardingScreen({
               <Pressable
                 hitSlop={8}
                 onPress={() => {
+                  stopTimer();
                   void complete('Register');
                 }}
               >
@@ -225,11 +285,6 @@ const styles = StyleSheet.create({
   closePressed: {
     opacity: 0.85,
   },
-  content: {
-    flex: 1,
-    gap: spacing.xl,
-    justifyContent: 'center',
-  },
   copyBlock: {
     gap: spacing.sm,
     paddingHorizontal: spacing.xl,
@@ -267,6 +322,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     paddingTop: spacing.md,
   },
+  list: {
+    flex: 1,
+  },
   logo: {
     borderRadius: 14,
     height: 38,
@@ -283,6 +341,9 @@ const styles = StyleSheet.create({
   },
   screen: {
     backgroundColor: colors.background,
+    flex: 1,
+  },
+  slide: {
     flex: 1,
   },
   stepText: {

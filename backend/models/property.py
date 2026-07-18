@@ -1,11 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
-
-PropertyType = Literal["Residential", "Office Space"]
 
 
 class Property(BaseModel):
@@ -18,7 +15,7 @@ class Property(BaseModel):
     state: str
     zip_code: str = ''
     country: str | None = None
-    property_type: PropertyType
+    property_type: str
     bedrooms: int
     bathrooms: float
     square_feet: int | None = None
@@ -30,6 +27,8 @@ class Property(BaseModel):
     images: list[str] | None = None
     manager_email: str | None = None
     manager_phone: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     is_active: bool = True
     created_at: datetime
     updated_at: datetime
@@ -40,9 +39,9 @@ class PropertyCreate(BaseModel):
     address: str
     city: str
     state: str
-    zip_code: str = ''
+    zip_code: str | None = None
     country: str | None = None
-    property_type: PropertyType
+    property_type: str
     bedrooms: int = 1
     bathrooms: float = 1.0
     square_feet: int | None = None
@@ -54,6 +53,8 @@ class PropertyCreate(BaseModel):
     images: list[str] | None = None
     manager_email: str | None = None
     manager_phone: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     is_active: bool = True
 
 
@@ -64,7 +65,7 @@ class PropertyUpdate(BaseModel):
     state: str | None = None
     zip_code: str | None = None
     country: str | None = None
-    property_type: PropertyType | None = None
+    property_type: str | None = None
     bedrooms: int | None = None
     bathrooms: float | None = None
     square_feet: int | None = None
@@ -76,6 +77,8 @@ class PropertyUpdate(BaseModel):
     images: list[str] | None = None
     manager_email: str | None = None
     manager_phone: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     is_active: bool | None = None
 
 
@@ -89,7 +92,7 @@ class PropertyResponse(BaseModel):
     state: str
     zip_code: str = ''
     country: str | None = None
-    property_type: PropertyType
+    property_type: str
     bedrooms: int
     bathrooms: float
     square_feet: int | None = None
@@ -101,6 +104,8 @@ class PropertyResponse(BaseModel):
     images: list[str] | None = None
     manager_email: str | None = None
     manager_phone: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
