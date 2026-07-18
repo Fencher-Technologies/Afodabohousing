@@ -69,9 +69,6 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
         set_sentry_request_context(request_id, request.method, request.url.path)
         start = time.monotonic()
-        origin = request.headers.get("origin", "")
-        if origin or request.method == "OPTIONS":
-            logger.info("Request origin=%s method=%s path=%s", origin or "(none)", request.method, request.url.path)
         response = await call_next(request)
         elapsed = time.monotonic() - start
         response.headers["X-Request-ID"] = request_id
@@ -159,6 +156,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         }
 
     async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            logger.info("OPTIONS origin=%s path=%s", request.headers.get("origin", "(none)"), request.url.path)
+
         if not settings.rate_limit_enabled or request.url.path in ("/health", "/health/ready", "/metrics"):
             return await call_next(request)
 
