@@ -150,9 +150,26 @@ uv run python scripts/load_test_rate_limit.py --base-url http://127.0.0.1:8000 -
 ## Running
 
 ```bash
-uv sync
-uv run uvicorn main:app --reload
-uv run python -m uvicorn main:app --reload
+# 1. Navigate to backend directory
+cd backend
+
+# 2. Create and activate virtual environment (first time)
+python3 -m venv venv
+source .venv/bin/activate     # Linux/Mac
+# venv\Scripts\activate      # Windows
+
+# 3. Install dependencies (first time)
+pip install -r requirements.txt
+# or: uv sync
+
+# 4. Start dev server (auto-reload)
+uvicorn main:app --reload
+
+# On a different port
+uvicorn main:app --reload --port 8000
+
+# Production (no reload)
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 ## Testing

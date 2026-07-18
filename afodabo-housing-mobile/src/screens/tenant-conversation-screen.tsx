@@ -130,17 +130,8 @@ export function TenantConversationScreen({
 
       <MessageComposer
         disabled={!conversation.participantId && !activeTenancy}
-        helperText={`Send a short reply to ${conversation.participantName}.`}
-        loading={sendMessageMutation.isPending}
-        onSend={async ({ text, voiceNoteUrl }) => {
-          await sendMessageMutation.mutateAsync({
-            content: text ?? '',
-            voiceNoteUrl,
-            propertyId: conversation.propertyId ?? activeTenancy?.property_id,
-            receiverId: conversation.participantId,
-            senderId: user.id,
-          });
-        }}
+        helperText={`Contact ${conversation.participantName} on WhatsApp.`}
+        phoneNumber={conversation.participantPhone}
       />
 
       {sendMessageMutation.isError ? (

@@ -10,7 +10,7 @@ from supabase import Client
 from services.base import with_retry
 from services.observability import set_sentry_user
 
-from .database import get_supabase_client
+from .database import get_service_client, get_supabase_client
 
 logger = logging.getLogger(__name__)
 

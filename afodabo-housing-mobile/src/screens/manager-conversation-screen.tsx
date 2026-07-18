@@ -131,16 +131,8 @@ export function ManagerConversationScreen({
       </View>
 
       <MessageComposer
-        helperText={`Send a short reply to ${conversation.participantName}.`}
-        loading={sendMessageMutation.isPending}
-        onSend={async ({ text, voiceNoteUrl }) => {
-          await sendMessageMutation.mutateAsync({
-            content: text ?? '',
-            voiceNoteUrl,
-            propertyId: conversation.propertyId,
-            receiverId: conversation.participantId,
-          });
-        }}
+        helperText={`Contact ${conversation.participantName} on WhatsApp.`}
+        phoneNumber={conversation.participantPhone}
       />
 
       {sendMessageMutation.isError ? (
