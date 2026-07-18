@@ -11,20 +11,20 @@ import {
   Home, MapPin, Phone, ChevronRight, Building2, Clock, Image, Settings, LogOut,
   DollarSign, ShieldCheck, Bell, Wrench, FileText, CheckCircle, XCircle,
   AlertTriangle, Menu, MessageSquare, Plus, User, KeyRound, CalendarDays,
-  X, Download, Upload, ThumbsUp, ThumbsDown, FileUp, Sidebar
+  X, Download, Upload, ThumbsUp, ThumbsDown, FileUp, Sidebar, Camera
 } from 'lucide-react';
 import { format, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from 'date-fns';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-type Tab = 'home' | 'payments' | 'requests' | 'agreements' | 'more';
+type Tab = 'home' | 'payments' | 'requests' | 'agreements' | 'account';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'home', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
   { id: 'payments', label: 'Payments', icon: <DollarSign className="h-5 w-5" /> },
   { id: 'requests', label: 'Maintenance', icon: <Wrench className="h-5 w-5" /> },
   { id: 'agreements', label: 'Agreements', icon: <FileText className="h-5 w-5" /> },
-  { id: 'more', label: 'Settings', icon: <Settings className="h-5 w-5" /> },
+  { id: 'account', label: 'Account', icon: <Settings className="h-5 w-5" /> },
 ];
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -153,9 +153,10 @@ export default function TenantDashboard() {
   const [passwordForm, setPasswordForm] = useState({ new: '', confirm: '' });
   const [sendingPassword, setSendingPassword] = useState(false);
 
-  const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
-  const [maintenanceForm, setMaintenanceForm] = useState({ title: '', description: '', priority: 'medium' });
-  const [sendingMaintenance, setSendingMaintenance] = useState(false);
+const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
+const [maintenanceForm, setMaintenanceForm] = useState({ title: '', description: '', priority: 'medium' });
+const [maintenancePhoto, setMaintenancePhoto] = useState<File | null>(null);
+const [sendingMaintenance, setSendingMaintenance] = useState(false);
 
   const [paymentSearch, setPaymentSearch] = useState('');
   const [paymentPage, setPaymentPage] = useState(0);
@@ -305,6 +306,18 @@ export default function TenantDashboard() {
     e.preventDefault();
     if (!tenantRecord?.id || !activeLease?.property_id) return;
     setSendingMaintenance(true);
+
+    let photoURL: string | null = null;
+    if (maintenancePhoto) {
+      const ext = maintenancePhoto.name.split('.').pop();
+      const path = `maintenance/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('photos').upload(path, maintenancePhoto);
+      if (!uploadErr) {
+        const { data: { publicUrl } } = supabase.storage.from('photos').getPublicUrl(path);
+        photoURL = publicUrl;
+      }
+    }
+
     const { error } = await supabase.from('maintenance_requests').insert({
       property_id: activeLease.property_id,
       tenant_id: tenantRecord.id,
@@ -312,12 +325,14 @@ export default function TenantDashboard() {
       description: maintenanceForm.description,
       priority: maintenanceForm.priority,
       status: 'open',
+      photo_url: photoURL,
     });
     setSendingMaintenance(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Request sent!' });
     setMaintenanceDialogOpen(false);
     setMaintenanceForm({ title: '', description: '', priority: 'medium' });
+    setMaintenancePhoto(null);
     fetchData();
   };
 
@@ -910,7 +925,7 @@ export default function TenantDashboard() {
           )}
 
           {/* ==================== SETTINGS TAB ==================== */}
-          {tab === 'more' && (
+          {tab === 'account' && (
             <div className="max-w-4xl mx-auto space-y-6">
               <h2 className="font-bold text-xl">Settings</h2>
               <div className="grid lg:grid-cols-2 gap-6">
@@ -1062,6 +1077,19 @@ export default function TenantDashboard() {
               <Input value={maintenanceForm.description}
                 onChange={e => setMaintenanceForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="Brief description" className="rounded-lg h-11" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold mb-2">Photo (optional)</p>
+              <label className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border cursor-pointer hover:border-primary/50 transition-colors">
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => setMaintenancePhoto(e.target.files?.[0] ?? null)} />
+                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+                  <Camera className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {maintenancePhoto ? maintenancePhoto.name : 'Tap to add a photo'}
+                </span>
+              </label>
             </div>
             <div>
               <p className="text-sm font-semibold mb-2">How urgent?</p>

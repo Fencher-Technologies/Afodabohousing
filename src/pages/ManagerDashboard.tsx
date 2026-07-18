@@ -43,15 +43,15 @@ const statusBadge = (s: string) => ({
   terminated: 'status-rejected',
 }[s] ?? 'status-pending');
 
-type Tab = 'overview' | 'properties' | 'tenants' | 'payments' | 'requests' | 'profile';
+type Tab = 'overview' | 'properties' | 'tenants' | 'payments' | 'requests' | 'account';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: 'properties', label: 'Properties', icon: <Building2 className="h-4 w-4" /> },
   { id: 'tenants', label: 'Tenants', icon: <Users className="h-4 w-4" /> },
   { id: 'payments', label: 'Payments', icon: <DollarSign className="h-4 w-4" /> },
-  { id: 'requests', label: 'Requests', icon: <Wrench className="h-4 w-4" /> },
-  { id: 'profile', label: 'Profile', icon: <Settings className="h-4 w-4" /> },
+  { id: 'requests', label: 'Maintenance', icon: <Wrench className="h-4 w-4" /> },
+  { id: 'account', label: 'Account', icon: <Settings className="h-4 w-4" /> },
 ];
 
 export default function ManagerDashboard() {
@@ -456,19 +456,13 @@ export default function ManagerDashboard() {
           );
         })}
       </nav>
-      {/* Actions */}
+      {/* Quick actions */}
       <div className="px-3 py-4 border-t border-sidebar-border space-y-2">
         <button
           onClick={() => { setShowTenantForm(true); setSidebarOpen(false); }}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all"
         >
           <UserPlus className="h-4 w-4" /><span>Add Tenant</span>
-        </button>
-        <button
-          onClick={() => { setUnitDialogOpen(true); setSidebarOpen(false); }}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all"
-        >
-          <Layers className="h-4 w-4" /><span>Add Unit</span>
         </button>
         <button
           onClick={() => {
@@ -480,15 +474,9 @@ export default function ManagerDashboard() {
         >
           <Plus className="h-4 w-4" /><span>Add Property</span>
         </button>
-        <button
-          onClick={() => { setPasswordDialogOpen(true); setSidebarOpen(false); }}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <span>Change Password</span>
-        </button>
-        <button
-          onClick={signOut}
+      </div>
+      <div className="px-3 pb-3">
+        <button onClick={signOut}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-all"
         >
           <LogOut className="h-4 w-4" /><span>Sign Out</span>
@@ -1175,7 +1163,7 @@ export default function ManagerDashboard() {
             )}
 
             {/* PROFILE */}
-            {tab === 'profile' && (
+            {tab === 'account' && (
               <div className="max-w-lg">
                 <h2 className="font-display font-bold text-xl mb-6">Profile</h2>
                 <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
