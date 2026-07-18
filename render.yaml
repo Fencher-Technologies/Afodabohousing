@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: afodabo-api
+    runtime: docker
+    repo: https://github.com/Fencher-Technologies/Afodabohousing
+    branch: joels-branch
+    rootDir: backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        value: '["https://afodabo-housing.vercel.app"]'
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: PESAPAL_ENVIRONMENT
+        value: sandbox
