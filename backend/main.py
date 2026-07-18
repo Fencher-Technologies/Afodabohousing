@@ -69,6 +69,9 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
         set_sentry_request_context(request_id, request.method, request.url.path)
         start = time.monotonic()
+        origin = request.headers.get("origin", "")
+        if origin or request.method == "OPTIONS":
+            logger.info("Request origin=%s method=%s path=%s", origin or "(none)", request.method, request.url.path)
         response = await call_next(request)
         elapsed = time.monotonic() - start
         response.headers["X-Request-ID"] = request_id
@@ -265,6 +268,8 @@ app = FastAPI(
     redoc_url="/redoc" if settings.environment != "production" else None,
     lifespan=lifespan,
 )
+
+logger.info("CORS origins configured: %s", settings.cors_origins)
 
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
