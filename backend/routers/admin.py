@@ -79,15 +79,17 @@ class DashboardStats(BaseModel):
 # ── Helpers ──
 
 
-def _count(supabase: Client, table: str, column: str = "id", **filters) -> int:
+def _count(supabase: Client, table: str, **filters) -> int:
     try:
-        q = supabase.table(table).select(column, count="exact")
+        q = supabase.table(table).select("*", count="exact")
         for k, v in filters.items():
             q = q.eq(k, v)
         r = q.execute()
-        return r.count if hasattr(r, "count") else 0
+        if r.count is not None:
+            return r.count
+        return len(r.data) if r.data else 0
     except Exception as e:
-        logger.warning("Count query failed on %s: %s", table, e)
+        logger.exception("Count query failed on %s: %s", table, e)
         return 0
 
 
