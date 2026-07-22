@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { apiGet } from '@/services/api';
 import Navbar from '@/components/Navbar';
 import PropertyCard from '@/components/PropertyCard';
 import Footer from '@/components/Footer';
@@ -85,11 +86,13 @@ export default function HomePage() {
 
   const fetchProperties = async () => {
     setLoading(true);
-    let query = supabase.from('properties').select('*').eq('status', 'available').order('created_at', { ascending: false });
-    if (searchDistrict && searchDistrict !== 'all') query = query.ilike('state', `%${searchDistrict}%`);
-    if (filterType && filterType !== 'all') query = query.eq('property_type', filterType);
-    const { data } = await query.limit(9);
-    if (data) setProperties(data.map(p => ({ ...p, rent_amount: p.monthly_rent || p.rent_amount })));
+    try {
+      const params = new URLSearchParams({ limit: '9' });
+      if (searchDistrict && searchDistrict !== 'all') params.set('state', searchDistrict);
+      if (filterType && filterType !== 'all') params.set('property_type', filterType);
+      const res = await apiGet<{ items: any[]; total: number }>(`/properties/public?${params}`);
+      setProperties(res.items.map((p: any) => ({ ...p, rent_amount: p.monthly_rent || p.rent_amount })));
+    } catch { setProperties([]); }
     setLoading(false);
   };
 
