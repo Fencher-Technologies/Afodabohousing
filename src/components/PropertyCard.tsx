@@ -6,6 +6,7 @@ import { Database } from '@/integrations/supabase/types';
 import { isPropertyBoosted } from '@/services/property-boosts';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getCachedRates, formatForex } from '@/services/forex';
 import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
@@ -48,11 +49,14 @@ function PropertyCard({ property, index = 0 }: PropertyCardProps) {
   const { user } = useAuth();
   const [bookmarked, setBookmarked] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [forexRates, setForexRates] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     if (!user) return;
     supabase.from('property_bookmarks').select('id').eq('user_id', user.id).eq('property_id', property.id).maybeSingle().then(({ data }) => setBookmarked(!!data));
   }, [user, property.id]);
+
+  useEffect(() => { getCachedRates().then(setForexRates); }, []);
 
   const toggleBookmark = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -147,6 +151,7 @@ function PropertyCard({ property, index = 0 }: PropertyCardProps) {
               <span className="text-muted-foreground text-sm ml-1">
                 {periodLabels[property.rent_period] || ''}
               </span>
+              {forexRates && <p className="text-xs text-muted-foreground mt-0.5">{formatForex(property.rent_amount, forexRates)}</p>}
             </div>
             <span className="text-xs text-muted-foreground bg-secondary px-2.5 py-1 rounded-full capitalize">
               {property.rent_period}

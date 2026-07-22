@@ -55,6 +55,8 @@ class UserResponse(BaseModel):
     status: str
     created_at: str | None = None
     property_count: int = 0
+    overdue_tenants: int = 0
+    total_outstanding: float = 0
 
 
 class DashboardStats(BaseModel):
@@ -286,10 +288,19 @@ def list_users(
     responses = []
     for u in users:
         prop_count = 0
+        overdue = 0
+        total_outstanding = 0
         if u.get("role") == "house_manager":
             try:
                 cnt = supabase.table("properties").select("id", count="exact").eq("owner_id", u["user_id"]).execute()
                 prop_count = cnt.count if hasattr(cnt, "count") else 0
+
+                owner_leases = supabase.table("leases").select("id, tenant_id, balance_due, monthly_rent").eq("owner_id", u["user_id"]).execute()
+                for lease in owner_leases.data or []:
+                    bal = float(lease.get("balance_due", 0) or 0)
+                    if bal > 0:
+                        overdue += 1
+                        total_outstanding += bal
             except Exception:
                 pass
 
@@ -303,6 +314,8 @@ def list_users(
             status=u.get("status", "active"),
             created_at=str(u.get("created_at")) if u.get("created_at") else None,
             property_count=prop_count,
+            overdue_tenants=overdue,
+            total_outstanding=total_outstanding,
         ))
 
     return responses

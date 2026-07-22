@@ -43,6 +43,7 @@ type Manager = {
   id: string; user_id: string; email: string;
   full_name: string | null; photo_url?: string | null; role: string; status: string;
   created_at: string | null; property_count: number;
+  overdue_tenants: number; total_outstanding: number;
 };
 
 function avatarInitials(name: string | null, email: string): string {
@@ -165,7 +166,7 @@ export default function SuperAdminDashboard() {
   // Managers table state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortColumn, setSortColumn] = useState<'name' | 'properties' | 'status' | null>(null);
+  const [sortColumn, setSortColumn] = useState<'name' | 'properties' | 'status' | 'overdue' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
@@ -178,13 +179,17 @@ export default function SuperAdminDashboard() {
       const q = searchQuery.toLowerCase();
       list = list.filter(m => (m.full_name || '').toLowerCase().includes(q) || m.email.toLowerCase().includes(q));
     }
-    if (statusFilter !== 'all') list = list.filter(m => m.status === statusFilter);
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'overdue') list = list.filter(m => m.overdue_tenants > 0);
+      else list = list.filter(m => m.status === statusFilter);
+    }
     if (sortColumn) {
       list.sort((a, b) => {
         let cmp = 0;
         if (sortColumn === 'name') cmp = (a.full_name || a.email).localeCompare(b.full_name || b.email);
         else if (sortColumn === 'properties') cmp = a.property_count - b.property_count;
         else if (sortColumn === 'status') cmp = a.status.localeCompare(b.status);
+        else if (sortColumn === 'overdue') cmp = a.overdue_tenants - b.overdue_tenants;
         return sortDirection === 'asc' ? cmp : -cmp;
       });
     }
@@ -198,7 +203,7 @@ export default function SuperAdminDashboard() {
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, pageSize]);
 
-  const toggleSort = (col: 'name' | 'properties' | 'status') => {
+  const toggleSort = (col: 'name' | 'properties' | 'status' | 'overdue') => {
     if (sortColumn === col) setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortColumn(col); setSortDirection('asc'); }
   };
@@ -805,12 +810,13 @@ export default function SuperAdminDashboard() {
               </div>
 
               {/* Stat strip */}
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-5 gap-3">
                 {[
                   { label: 'Total Managers', value: managers.length, color: 'bg-primary/10 text-primary' },
                   { label: 'Active', value: managers.filter(m => m.status === 'active').length, color: 'bg-emerald-50 text-emerald-700' },
                   { label: 'Suspended', value: managers.filter(m => m.status === 'suspended').length, color: 'bg-red-50 text-red-700' },
                   { label: 'Pending Invite', value: managers.filter(m => m.status === 'pending').length, color: 'bg-amber-50 text-amber-700' },
+                  { label: 'With Overdue', value: managers.filter(m => m.overdue_tenants > 0).length, color: 'bg-rose-50 text-rose-700' },
                 ].map(s => (
                   <div key={s.label} className="bg-card border border-border rounded-xl p-3 shadow-sm">
                     <div className={`text-2xl font-display font-bold ${s.color.split(' ')[1]}`}>{s.value}</div>
@@ -839,6 +845,7 @@ export default function SuperAdminDashboard() {
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="suspended">Suspended</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="overdue">Overdue Tenants</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -926,6 +933,11 @@ export default function SuperAdminDashboard() {
                               Properties {sortColumn === 'properties' && <ArrowUpDown className="h-3 w-3" />}
                             </span>
                           </th>
+                          <th className="text-left py-3 px-4 font-semibold cursor-pointer select-none" onClick={() => toggleSort('overdue')}>
+                            <span className="inline-flex items-center gap-1">
+                              Overdue {sortColumn === 'overdue' && <ArrowUpDown className="h-3 w-3" />}
+                            </span>
+                          </th>
                           <th className="text-left py-3 px-4 font-semibold cursor-pointer select-none" onClick={() => toggleSort('status')}>
                             <span className="inline-flex items-center gap-1">
                               Status {sortColumn === 'status' && <ArrowUpDown className="h-3 w-3" />}
@@ -958,6 +970,18 @@ export default function SuperAdminDashboard() {
                               <span className={m.property_count === 0 ? 'text-muted-foreground' : 'font-semibold text-foreground'}>
                                 {m.property_count === 0 ? 'Unassigned' : m.property_count}
                               </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              {m.overdue_tenants > 0 ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-semibold text-rose-600">{m.overdue_tenants}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    UGX {(m.total_outstanding || 0).toLocaleString()}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
                             </td>
                             <td className="py-3 px-4">
                               <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[m.status] || 'bg-muted text-muted-foreground border-border'}`}>

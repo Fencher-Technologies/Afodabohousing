@@ -23,25 +23,18 @@ import {
   Wrench, MessageCircle, ArrowLeft, KeyRound, Ban, Copy
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
+import { OverviewTab } from '@/components/manager/OverviewTab';
+import { PropertiesTab } from '@/components/manager/PropertiesTab';
+import { TenantsTab } from '@/components/manager/TenantsTab';
+import { PaymentsTab } from '@/components/manager/PaymentsTab';
+import { MaintenanceTab } from '@/components/manager/MaintenanceTab';
+import { AccountTab } from '@/components/manager/AccountTab';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 type TenancyRow = Database['public']['Tables']['tenancies']['Row'];
 
 const AMENITIES_LIST = ['Water', 'Electricity', 'WiFi', 'Parking', 'Security', 'Garden', 'Generator', 'DSTV', 'Borehole', 'Tiled Floors'];
 const DISTRICTS_LIST = ['Kampala', 'Wakiso', 'Mukono', 'Mbarara', 'Gulu', 'Jinja', 'Entebbe', 'Mbale', 'Lira', 'Arua', 'Fort Portal', 'Masaka', 'Kabale', 'Hoima', 'Kasese', 'Soroti', 'Tororo'];
-
-const statusBadge = (s: string) => ({
-  pending: 'status-pending',
-  uploaded: 'status-uploaded',
-  confirmed: 'status-confirmed',
-  rejected: 'status-rejected',
-  active: 'status-confirmed',
-  expired: 'status-pending',
-  occupied: 'status-uploaded',
-  available: 'status-confirmed',
-  inactive: 'status-pending',
-  terminated: 'status-rejected',
-}[s] ?? 'status-pending');
 
 type Tab = 'overview' | 'properties' | 'tenants' | 'payments' | 'requests' | 'account';
 
@@ -61,7 +54,7 @@ export default function ManagerDashboard() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [properties, setProperties] = useState<Property[]>([]);
-  const [leases, setLeases] = useState<(TenancyRow & { tenant_name?: string; tenant_phone?: string; tenant_user_id?: string; property_title?: string })[]>([]);
+  const [leases, setLeases] = useState<(TenancyRow & { tenant_name?: string; tenant_phone?: string; tenant_user_id?: string; property_title?: string; is_overdue?: boolean; balance_due?: number })[]>([]);
   const [payments, setPayments] = useState<(PaymentData & { tenant_name?: string; property_title?: string })[]>([]);
   const [maintenanceReqs, setMaintenanceReqs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +98,8 @@ export default function ManagerDashboard() {
   const [agreementFile, setAgreementFile] = useState<File | null>(null);
   const [uploadingAgreement, setUploadingAgreement] = useState(false);
 
+  const apiBase = import.meta.env.VITE_API_URL || '';
+
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
     fetchData();
@@ -134,7 +129,6 @@ export default function ManagerDashboard() {
 
     setProperties(propsRes.data || []);
 
-    // Prefer tenancies (new schema), fallback to leases (old schema)
     const tenancyRows = tenancyRes.data || [];
     const leaseRows = leaseRes.data || [];
     const rawTenancies = tenancyRows.length > 0 ? tenancyRows : leaseRows;
@@ -144,7 +138,6 @@ export default function ManagerDashboard() {
     rawTenancies.forEach(t => {
       tenancyMap[t.id] = { property_id: t.property_id, tenant_id: t.tenant_id };
     });
-    // Also map lease IDs (payments may reference old leases.tenant_id)
     leaseRows.forEach(t => { tenancyMap[t.id] = { property_id: t.property_id, tenant_id: t.tenant_id }; });
 
     setLeases(rawTenancies.map(t => {
@@ -168,7 +161,6 @@ export default function ManagerDashboard() {
       property_title: propMap[tenancyMap[p.tenancy_id]?.property_id || ''] || '',
     })));
 
-    // Fetch maintenance requests for manager's properties
     const propIds = propsRes.data?.map(p => p.id) || [];
     if (propIds.length > 0) {
       const { data: reqs } = await supabase.from('maintenance_requests').select('*').in('property_id', propIds).order('created_at', { ascending: false });
@@ -179,6 +171,20 @@ export default function ManagerDashboard() {
       })));
     }
     setLoading(false);
+  };
+
+  const getHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return {
+      'Content-Type': 'application/json',
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+    };
+  };
+
+  const sendSMS = async (phone: string, message: string) => {
+    if (!phone) return;
+    try { await supabase.functions.invoke('send-sms', { body: { phone, message } }); }
+    catch (e) { console.log('SMS failed (non-blocking):', e); }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -196,12 +202,6 @@ export default function ManagerDashboard() {
     toast({ title: 'Password updated', description: 'Use your new password next time you sign in.' });
     setPasswordDialogOpen(false);
     setPasswordForm({ current: '', new: '', confirm: '' });
-  };
-
-  const sendSMS = async (phone: string, message: string) => {
-    if (!phone) return;
-    try { await supabase.functions.invoke('send-sms', { body: { phone, message } }); }
-    catch (e) { console.log('SMS failed (non-blocking):', e); }
   };
 
   const handleAddProperty = async (e: React.FormEvent) => {
@@ -223,9 +223,9 @@ export default function ManagerDashboard() {
       property_type: form.property_type,
       rent_period: form.rent_period,
     };
-    delete payload.rent_amount; // DB column is monthly_rent
-    delete payload.kitchens;    // not in DB
-    delete payload.area;        // not in DB
+    delete payload.rent_amount;
+    delete payload.kitchens;
+    delete payload.area;
     if (imageUrls.length > 0) payload.images = imageUrls;
 
     if (editingProperty) {
@@ -260,6 +260,13 @@ export default function ManagerDashboard() {
     setPropDialogOpen(true);
   };
 
+  const handleToggleStatus = async (p: Property) => {
+    setSendingAction(p.id);
+    await supabase.from('properties').update({ status: p.status !== 'inactive' ? 'inactive' : 'available' }).eq('id', p.id);
+    toast({ title: p.status !== 'inactive' ? 'Property deactivated' : 'Property activated' });
+    setSendingAction(''); fetchData();
+  };
+
   const handleDeleteProperty = async () => {
     if (!deleteConfirmProperty) return;
     setSendingAction(`delete-${deleteConfirmProperty.id}`);
@@ -292,15 +299,6 @@ export default function ManagerDashboard() {
     setUnitDialogOpen(false);
     setUnitForm({ unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 0, kitchens: 1, rent_amount: 0, description: '' });
     setSelectedPropertyForUnit('');
-  };
-
-  const apiBase = import.meta.env.VITE_API_URL || '';
-  const getHeaders = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    return {
-      'Content-Type': 'application/json',
-      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-    };
   };
 
   const handleCreateTenancy = async (e: React.FormEvent) => {
@@ -363,6 +361,15 @@ export default function ManagerDashboard() {
     setSendingAction(''); fetchData();
   };
 
+  const sendRentReminder = async (lease: any) => {
+    if (!lease.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
+    setSendingAction(`remind-${lease.id}`);
+    const days = differenceInDays(new Date(lease.end_date), new Date());
+    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${(lease.monthly_rent || 0).toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Afodabo Housing. Contact: ${user?.email}`);
+    toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${lease.tenant_name}` });
+    setSendingAction('');
+  };
+
   const handleUploadAgreement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!agreementLease || !agreementFile) return;
@@ -372,7 +379,7 @@ export default function ManagerDashboard() {
       if (!session?.access_token) { toast({ title: 'Not authenticated', variant: 'destructive' }); return; }
       const formData = new FormData();
       formData.append('file', agreementFile);
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/agreements/${agreementLease.id}/upload`, {
+      const res = await fetch(`${apiBase}/agreements/${agreementLease.id}/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: formData,
@@ -391,37 +398,51 @@ export default function ManagerDashboard() {
     setUploadingAgreement(false);
   };
 
-  const sendRentReminder = async (lease: typeof leases[0]) => {
-    if (!lease.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
-    setSendingAction(`remind-${lease.id}`);
-    const days = differenceInDays(new Date(lease.end_date), new Date());
-    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${(lease.monthly_rent || 0).toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Afodabo Housing. Contact: ${user?.email}`);
-    toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${lease.tenant_name}` });
+  const handleGenerateOTP = async (lease: any) => {
+    setSendingAction(`otp-${lease.id}`);
+    try {
+      const h = await getHeaders();
+      const r = await fetch(`${apiBase}/admin/reset-tenant-password`, {
+        method: 'POST', headers: h,
+        body: JSON.stringify({ user_id: lease.tenant_user_id }),
+      });
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).detail || r.statusText));
+      const d = await r.json();
+      setOtpPassword(d.temporary_password);
+      toast({ title: 'New OTP generated' });
+    } catch (err: any) { toast({ title: 'OTP Error', description: err.message, variant: 'destructive' }); }
     setSendingAction('');
+  };
+
+  const handleDeactivateTenant = async (lease: any) => {
+    setSendingAction(`deact-${lease.id}`);
+    const { error } = await supabase.from('leases').update({ status: 'inactive' }).eq('id', lease.id);
+    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    else { toast({ title: 'Tenancy deactivated' }); fetchData(); }
+    setSendingAction('');
+  };
+
+  const handleMaintenanceStart = async (id: string) => {
+    setSendingAction(`start-${id}`);
+    await supabase.from('maintenance_requests').update({ status: 'in_progress' }).eq('id', id);
+    toast({ title: 'Request marked in progress' });
+    setSendingAction(''); fetchData();
+  };
+
+  const handleMaintenanceResolve = async (id: string) => {
+    setSendingAction(`done-${id}`);
+    await supabase.from('maintenance_requests').update({ status: 'completed', completed_date: new Date().toISOString().split('T')[0] }).eq('id', id);
+    toast({ title: 'Request resolved' });
+    setSendingAction(''); fetchData();
   };
 
   const toggleAmenity = (a: string) =>
     setForm(f => ({ ...f, amenities: f.amenities.includes(a) ? f.amenities.filter(x => x !== a) : [...f.amenities, a] }));
 
-  const occupied = properties.filter(p => p.status === 'occupied').length;
-  const available = properties.filter(p => p.status === 'available').length;
   const pendingPayments = payments.filter(p => p.status === 'uploaded');
-  const confirmedRevenue = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0);
-  const dueSoonTenancies = leases.filter(l => {
-    if (l.status !== 'active') return false;
-    const d = differenceInDays(new Date(l.end_date), new Date());
-    return d <= 14 && d >= 0;
-  });
-
-  const statCards = [
-    { label: 'Total Listings', val: properties.length, sub: `${available} available · ${occupied} occupied`, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
-    { label: 'Active Tenants', val: leases.filter(t => t.status === 'active').length, sub: `${dueSoonTenancies.length} rent due soon`, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10', trend: null },
-    { label: 'Revenue Confirmed', val: `UGX ${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
-  ];
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div className={`flex flex-col h-full ${mobile ? '' : 'w-60 shrink-0'}`}>
-      {/* Brand */}
       <div className="px-5 py-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground font-display font-bold text-base shadow">
@@ -433,7 +454,6 @@ export default function ManagerDashboard() {
           </div>
         </div>
       </div>
-      {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {NAV_ITEMS.map(item => {
           const badge = item.id === 'payments' ? pendingPayments.length : 0;
@@ -456,7 +476,6 @@ export default function ManagerDashboard() {
           );
         })}
       </nav>
-      {/* Quick actions */}
       <div className="px-3 py-4 border-t border-sidebar-border space-y-2">
         <button
           onClick={() => { setShowTenantForm(true); setSidebarOpen(false); }}
@@ -490,12 +509,10 @@ export default function ManagerDashboard() {
       <Navbar />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Desktop Sidebar */}
         <aside className="hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border min-h-[calc(100vh-64px)] sticky top-16 self-start h-[calc(100vh-64px)] overflow-y-auto w-60 shrink-0">
           <Sidebar />
         </aside>
 
-        {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
             <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
@@ -511,9 +528,7 @@ export default function ManagerDashboard() {
           </div>
         )}
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto min-h-[calc(100vh-64px)]">
-          {/* Top bar */}
           <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg hover:bg-muted transition-colors">
@@ -533,7 +548,7 @@ export default function ManagerDashboard() {
           <div className="p-6 space-y-6">
             {showTenantForm ? (
               <div className="max-w-2xl mx-auto">
-                <button onClick={() => setShowTenantForm(false)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+                <button onClick={() => { setShowTenantForm(false); setCreatedPassword(null); setCopiedPwd(false); }} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
                   <ArrowLeft className="h-4 w-4" /> Back to Tenants
                 </button>
                 <h2 className="font-display font-bold text-2xl mb-1">Add Tenant</h2>
@@ -541,7 +556,7 @@ export default function ManagerDashboard() {
                 {createdPassword ? (
                   <div className="space-y-4">
                     <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
-                      <CheckCircle2 className="h-10 w-10 text-emerald-600 mx-auto mb-2" />
+                      <CheckCircle className="h-10 w-10 text-emerald-600 mx-auto mb-2" />
                       <p className="text-sm font-semibold text-emerald-800">Tenant Account Created</p>
                       <p className="text-xs text-emerald-600 mt-1">Share this temporary password with the tenant</p>
                     </div>
@@ -550,7 +565,7 @@ export default function ManagerDashboard() {
                       <div className="flex items-center gap-2 mt-1">
                         <code className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono select-all">{createdPassword}</code>
                         <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(createdPassword); setCopiedPwd(true); }} className="shrink-0 gap-1.5">
-                          {copiedPwd ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copiedPwd ? <CheckCircle className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                           {copiedPwd ? 'Copied' : 'Copy'}
                         </Button>
                       </div>
@@ -613,636 +628,79 @@ export default function ManagerDashboard() {
                 )}
               </div>
             ) : (
-            <>
-            {/* Alerts */}
-            {pendingPayments.length > 0 && (
-              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
-                <div className="bg-primary/10 rounded-xl p-2 shrink-0"><DollarSign className="h-4 w-4 text-primary" /></div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground text-sm">{pendingPayments.length} payment proof{pendingPayments.length > 1 ? 's' : ''} awaiting your review</p>
-                  <p className="text-xs text-muted-foreground">Review and confirm or reject to notify tenants</p>
-                </div>
-                <Button size="sm" className="gradient-primary text-primary-foreground shrink-0 gap-1 text-xs h-8" onClick={() => setTab('payments')}>
-                  Review <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            )}
-            {dueSoonTenancies.length > 0 && (
-              <div className="bg-accent/5 border border-accent/20 rounded-2xl p-4 flex items-start gap-3">
-                <div className="bg-accent/10 rounded-xl p-2 shrink-0"><AlertTriangle className="h-4 w-4 text-accent" /></div>
-                <div className="flex-1">
-                  <p className="font-semibold text-foreground text-sm mb-2">{dueSoonTenancies.length} tenant{dueSoonTenancies.length > 1 ? 's' : ''} with rent expiring within 14 days</p>
-                  <div className="flex flex-wrap gap-2">
-                    {dueSoonTenancies.map(t => {
-                      const d = differenceInDays(new Date(t.end_date), new Date());
-                      return (
-                        <div key={t.id} className="flex items-center gap-1.5 bg-card rounded-lg px-3 py-1 border border-border text-xs">
-                          <span className="font-semibold">{t.tenant_name}</span>
-                          <Badge className={`text-xs py-0 ${d <= 7 ? 'bg-destructive/10 text-destructive' : 'bg-accent/10 text-accent'}`}>{d}d</Badge>
-                          <button className="text-accent hover:text-accent/80 font-medium ml-1" onClick={() => sendRentReminder(t)} disabled={sendingAction === `remind-${t.id}`}>
-                            {sendingAction === `remind-${t.id}` ? '...' : 'Remind'}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* OVERVIEW */}
-            {tab === 'overview' && (
-              <div className="space-y-6">
-                {/* Stat Cards */}
-                <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-                  {statCards.map(s => (
-                    <div key={s.label} className="bg-card border border-border rounded-2xl p-5 shadow-card hover:shadow-md transition-all group">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className={`${s.bg} ${s.color} w-10 h-10 rounded-xl flex items-center justify-center`}>{s.icon}</div>
-                        <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                      <div className="text-2xl font-display font-bold text-foreground">{loading ? <div className="h-7 w-16 bg-muted animate-pulse rounded" /> : s.val}</div>
-                      <div className="text-sm font-semibold text-foreground mt-1">{s.label}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{s.sub}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid lg:grid-cols-2 gap-6">
-                  {/* Revenue Breakdown */}
-                  <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
-                    <div className="flex items-center gap-2 mb-5">
-                      <BarChart2 className="h-5 w-5 text-primary" />
-                      <h3 className="font-display font-semibold text-base">Revenue Breakdown</h3>
-                    </div>
-                    {[
-                      { label: 'Confirmed', val: payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0), color: 'bg-accent', textColor: 'text-accent' },
-                      { label: 'Awaiting Review', val: payments.filter(p => p.status === 'uploaded').reduce((s, p) => s + p.amount, 0), color: 'bg-primary', textColor: 'text-primary' },
-                      { label: 'Pending Upload', val: payments.filter(p => p.status === 'pending').reduce((s, p) => s + p.amount, 0), color: 'bg-muted-foreground', textColor: 'text-muted-foreground' },
-                    ].map(r => {
-                      const total = payments.reduce((s, p) => s + p.amount, 0);
-                      const pct = total > 0 ? Math.round((r.val / total) * 100) : 0;
-                      return (
-                        <div key={r.label} className="mb-4">
-                          <div className="flex justify-between items-center mb-1.5">
-                            <span className="text-sm text-muted-foreground">{r.label}</span>
-                            <span className={`text-sm font-bold ${r.textColor}`}>UGX {(r.val || 0).toLocaleString()}</span>
-                          </div>
-                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className={`h-full ${r.color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Pending Payments Queue */}
-                  <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
-                    <div className="flex items-center justify-between mb-5">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-5 w-5 text-accent" />
-                        <h3 className="font-display font-semibold text-base">Payment Queue</h3>
-                      </div>
-                      {pendingPayments.length > 0 && (
-                        <Badge className="bg-accent/10 text-accent border border-accent/20 text-xs">{pendingPayments.length} pending</Badge>
-                      )}
-                    </div>
-                    {pendingPayments.length === 0 ? (
-                      <div className="text-center py-8">
-                        <CheckCircle className="h-10 w-10 text-accent/40 mx-auto mb-2" />
-                        <p className="text-muted-foreground text-sm font-medium">All caught up!</p>
-                        <p className="text-muted-foreground text-xs mt-1">No payments awaiting review</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {pendingPayments.slice(0, 4).map(p => (
-                          <div key={p.id} className="flex items-center gap-3 p-3 bg-primary/5 rounded-xl border border-primary/10">
-                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                              {(p.tenant_name || 'T').charAt(0)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-foreground truncate">{p.tenant_name || 'Tenant'}</p>
-                              <p className="text-xs text-muted-foreground">UGX {(p.amount || 0).toLocaleString()} · {format(new Date(p.created_at), 'MMM dd')}</p>
-                            </div>
-                            <div className="flex gap-1.5 shrink-0">
-                              <Button size="sm" className="gradient-primary text-primary-foreground h-7 w-7 p-0" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
-                                <CheckCircle className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button size="sm" variant="destructive" className="h-7 w-7 p-0" disabled={!!sendingAction} onClick={() => handleRejectPayment(p)}>
-                                <XCircle className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                        {pendingPayments.length > 4 && (
-                          <button onClick={() => setTab('payments')} className="w-full text-xs text-center text-primary hover:underline py-1">
-                            View all {pendingPayments.length} pending →
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Property Status */}
-                  <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
-                    <div className="flex items-center justify-between mb-5">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-5 w-5 text-accent" />
-                        <h3 className="font-display font-semibold text-base">Properties</h3>
-                      </div>
-                      <button onClick={() => setTab('properties')} className="text-xs text-primary hover:underline flex items-center gap-1">
-                        Manage <ChevronRight className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-accent/5 rounded-xl p-3 text-center"><span className="text-lg font-bold text-accent">{available}</span><p className="text-xs text-muted-foreground">Available</p></div>
-                      <div className="bg-primary/5 rounded-xl p-3 text-center"><span className="text-lg font-bold text-primary">{occupied}</span><p className="text-xs text-muted-foreground">Occupied</p></div>
-                    </div>
-                    {properties.length === 0 ? (
-                      <div className="text-center py-8">
-                        <Building2 className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
-                        <p className="text-muted-foreground text-sm font-medium">No properties yet</p>
-                        <Button size="sm" className="mt-3 gradient-primary text-primary-foreground text-xs" onClick={() => setPropDialogOpen(true)}>
-                          <Plus className="h-3 w-3 mr-1" /> Add First Property
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {properties.slice(0, 5).map(p => (
-                          <div key={p.id} className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
-                            <div className="h-9 w-9 rounded-lg bg-secondary flex items-center justify-center shrink-0">
-                              <Home className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-foreground truncate">{p.title}</p>
-                              <p className="text-xs text-muted-foreground">{p.state || p.city} · UGX {(p.rent_amount || 0).toLocaleString()}</p>
-                            </div>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize shrink-0 ${statusBadge(p.status)}`}>{p.status}</span>
-                            <button onClick={() => navigate(`/dashboard/manager/boost/${p.id}`)} className="text-xs text-primary hover:underline font-medium shrink-0 ml-1">
-                              Boost
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Overdue Tenants */}
-                  <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
-                    <div className="flex items-center justify-between mb-5">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5 text-destructive" />
-                        <h3 className="font-display font-semibold text-base">Overdue</h3>
-                      </div>
-                      {leases.filter(l => l.is_overdue).length > 0 && (
-                        <Badge className="bg-destructive/10 text-destructive border border-destructive/20 text-xs">{leases.filter(l => l.is_overdue).length} overdue</Badge>
-                      )}
-                    </div>
-                    {leases.filter(l => l.is_overdue).length === 0 ? (
-                      <div className="text-center py-8">
-                        <CheckCircle className="h-10 w-10 text-accent/40 mx-auto mb-2" />
-                        <p className="text-muted-foreground text-sm font-medium">All caught up!</p>
-                        <p className="text-muted-foreground text-xs mt-1">No overdue balances</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {leases.filter(l => l.is_overdue).slice(0, 5).map(t => (
-                          <div key={t.id} className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
-                            <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
-                              <DollarSign className="h-4 w-4 text-destructive" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-foreground truncate">{t.tenant_name || 'Unknown'}</p>
-                              <p className="text-xs text-muted-foreground">{t.property_title || ''}</p>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <p className="text-sm font-bold text-destructive">UGX {(t.balance_due || 0).toLocaleString()}</p>
-                              {t.end_date && (
-                                <p className={`text-xs font-semibold ${differenceInDays(new Date(t.end_date), new Date()) < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                                  {differenceInDays(new Date(t.end_date), new Date()) < 0 ? `${Math.abs(differenceInDays(new Date(t.end_date), new Date()))}d past` : `${differenceInDays(new Date(t.end_date), new Date())}d left`}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PROPERTIES */}
-            {tab === 'properties' && (
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-display font-bold text-xl">My Properties</h2>
-                    <p className="text-sm text-muted-foreground">{properties.length} listings · {available} available · {occupied} occupied</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8" onClick={() => setUnitDialogOpen(true)}>
-                      <Layers className="h-3.5 w-3.5" /> Add Unit
-                    </Button>
-                    <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => setPropDialogOpen(true)}>
-                      <Plus className="h-3.5 w-3.5" /> Add Property
-                    </Button>
-                  </div>
-                </div>
-                {properties.length === 0 ? (
-                  <div className="text-center py-24 bg-card border border-border rounded-2xl">
-                    <Building2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground/20" />
-                    <p className="text-xl font-display font-bold text-foreground">No properties listed yet</p>
-                    <p className="text-sm mt-2 text-muted-foreground">Click "Add Property" to publish your first listing</p>
-                    <Button className="mt-4 gradient-primary text-primary-foreground" onClick={() => setPropDialogOpen(true)}>
-                      <Plus className="h-4 w-4 mr-2" /> Add Property
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-card">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-secondary border-b border-border">
-                            <th className="text-left py-3 px-4 font-semibold text-foreground">Property</th>
-                            <th className="text-left py-3 px-4 font-semibold text-foreground">Location</th>
-                            <th className="text-left py-3 px-4 font-semibold text-foreground">Rent / Period</th>
-                            <th className="text-left py-3 px-4 font-semibold text-foreground">Status</th>
-                            <th className="text-left py-3 px-4 font-semibold text-foreground">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {properties.map(p => (
-                            <tr key={p.id} className="border-b border-border hover:bg-muted/30 transition-colors last:border-0">
-                              <td className="py-3.5 px-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                                    <Home className="h-4 w-4" />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="font-semibold text-foreground truncate max-w-[200px]">{p.title}</p>
-                                    <p className="text-xs text-muted-foreground capitalize">{p.property_type.replace('_', ' ')}</p>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-3.5 px-4 text-muted-foreground">{p.state || p.city}{p.area ? ` · ${p.area}` : ''}</td>
-                              <td className="py-3.5 px-4">
-                                  <span className="font-bold text-foreground">UGX {(p.rent_amount || 0).toLocaleString()}</span>
-                                <span className="text-xs text-muted-foreground ml-1 capitalize">/{p.rent_period.slice(0, 2)}</span>
-                              </td>
-                              <td className="py-3.5 px-4">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${statusBadge(p.status)}`}>{p.status}</span>
-                              </td>
-                              <td className="py-3.5 px-4">
-                                 <div className="flex gap-1.5 flex-wrap">
-                                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate(`/properties/${p.id}`)}>
-                                     <Eye className="h-3 w-3" />View
-                                   </Button>
-                                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleEditProperty(p)}>
-                                     <Pencil className="h-3 w-3" />Edit
-                                   </Button>
-                                   <Button
-                                     size="sm"
-                                     variant={p.status !== 'inactive' ? 'secondary' : 'default'}
-                                     className={`h-7 text-xs ${p.status === 'inactive' ? 'gradient-primary text-primary-foreground' : ''}`}
-                                     disabled={!!sendingAction}
-                                     onClick={async () => {
-                                       setSendingAction(p.id);
-                                       await supabase.from('properties').update({ status: p.status !== 'inactive' ? 'inactive' : 'available' }).eq('id', p.id);
-                                       toast({ title: p.status !== 'inactive' ? 'Property deactivated' : 'Property activated' });
-                                       setSendingAction(''); fetchData();
-                                     }}
-                                   >
-                                     {sendingAction === p.id ? '...' : p.status !== 'inactive' ? 'Deactivate' : 'Activate'}
-                                   </Button>
-                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate(`/dashboard/manager/boost/${p.id}`)}>
-                                    <TrendingUp className="h-3 w-3" />Boost
-                                  </Button>
-                                  <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={() => setDeleteConfirmProperty(p)}>
-                                    <Trash2 className="h-3 w-3" />Delete
-                                  </Button>
-                                 </div>
-                               </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TENANCIES */}
-            {tab === 'tenants' && (
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-display font-bold text-xl">Tenants</h2>
-                    <p className="text-sm text-muted-foreground">{leases.filter(t => t.status === 'active').length} active · {leases.filter(t => t.status !== 'active').length} historical</p>
-                  </div>
-                  <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => setShowTenantForm(true)}>
-                    <UserPlus className="h-3.5 w-3.5" /> Add Tenant
-                  </Button>
-                </div>
-                <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-card">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-secondary border-b border-border">
-                          <th className="text-left py-3 px-4 font-semibold">Tenant</th>
-                          <th className="text-left py-3 px-4 font-semibold">Property</th>
-                          <th className="text-left py-3 px-4 font-semibold">Rent</th>
-                          <th className="text-left py-3 px-4 font-semibold">Expires</th>
-                          <th className="text-left py-3 px-4 font-semibold">Status</th>
-                          <th className="text-left py-3 px-4 font-semibold">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {leases.length === 0 ? (
-                          <tr><td colSpan={6} className="py-16 text-center text-muted-foreground">
-                            <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                            <p className="font-display font-semibold text-foreground">No tenants linked yet</p>
-                            <p className="text-xs mt-1">Click "Add Tenant" to register a new tenant</p>
-                          </td></tr>
-                        ) : leases.map(t => {
-                          const days = differenceInDays(new Date(t.end_date), new Date());
-                          return (
-                            <tr key={t.id} className="hover:bg-muted/20 transition-colors border-b border-border/30">
-                              <td className="py-3.5 px-4">
-                                <div className="text-sm font-semibold text-foreground">{t.tenant_name || 'Unknown'}</div>
-                                <div className="text-xs text-muted-foreground">{t.tenant_phone || ''}</div>
-                              </td>
-                              <td className="py-3.5 px-4">
-                                <span className="text-sm text-foreground">{t.property_title || '-'}</span>
-                              </td>
-                              <td className="py-3.5 px-4">
-                                <span className="font-bold text-foreground">UGX {(t.monthly_rent || 0).toLocaleString()}</span>
-                              </td>
-                              <td className="py-3.5 px-4">
-                                <div className="text-sm text-foreground">{format(new Date(t.end_date), 'MMM dd, yyyy')}</div>
-                                <div className={`text-xs font-semibold ${days < 0 ? 'text-destructive' : days <= 7 ? 'text-destructive' : days <= 14 ? 'text-accent' : 'text-muted-foreground'}`}>
-                                  {days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`}
-                                </div>
-                              </td>
-                              <td className="py-3.5 px-4">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${statusBadge(t.status)}`}>{t.status}</span>
-                              </td>
-                              <td className="py-3.5 px-4">
-                                <div className="flex gap-1.5">
-                                  {t.tenant_phone && (
-                                    <a href={`https://wa.me/${t.tenant_phone.replace(/[^0-9]/g, '')}`}
-                                      target="_blank" rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 transition-colors">
-                                      WhatsApp
-                                    </a>
-                                  )}
-                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" disabled={sendingAction === `remind-${t.id}`} onClick={() => sendRentReminder(t)}>
-                                    <Bell className="h-3 w-3" />{sendingAction === `remind-${t.id}` ? '...' : 'Remind'}
-                                  </Button>
-                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
-                                    onClick={() => { setAgreementLease(t); setAgreementFile(null); setAgreementDialogOpen(true); }}>
-                                    <Upload className="h-3 w-3" /> Agreement
-                                  </Button>
-                                  {t.tenant_user_id && (
-                                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
-                                      disabled={sendingAction === `otp-${t.id}`}
-                                      onClick={async () => {
-                                        setSendingAction(`otp-${t.id}`);
-                                        try {
-                                          const h = await getHeaders();
-                                          const r = await fetch(`${apiBase}/admin/reset-tenant-password`, {
-                                            method: 'POST', headers: h,
-                                            body: JSON.stringify({ user_id: t.tenant_user_id }),
-                                          });
-                                          if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).detail || r.statusText));
-                                          const d = await r.json();
-                                          setOtpPassword(d.temporary_password);
-                                          toast({ title: 'New OTP generated' });
-                                        } catch (err: any) { toast({ title: 'OTP Error', description: err.message, variant: 'destructive' }); }
-                                        setSendingAction('');
-                                      }}>
-                                      <KeyRound className="h-3 w-3" />{sendingAction === `otp-${t.id}` ? '...' : 'OTP'}
-                                    </Button>
-                                  )}
-                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
-                                    disabled={sendingAction === `deact-${t.id}`}
-                              onClick={async () => {
-                                setSendingAction(`deact-${t.id}`);
-                                const { error } = await supabase.from('leases').update({ status: 'inactive' }).eq('id', t.id);
-                                if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-                                else { toast({ title: 'Tenancy deactivated' }); fetchData(); }
-                                setSendingAction('');
-                              }}>
-                                    <Ban className="h-3 w-3" />{sendingAction === `deact-${t.id}` ? '...' : 'Deactivate'}
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PAYMENTS */}
-            {tab === 'payments' && (
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-display font-bold text-xl">Payments</h2>
-                    <p className="text-sm text-muted-foreground">{payments.length} records · {pendingPayments.length} awaiting review</p>
-                  </div>
-                  <div className="flex gap-2 text-xs">
-                    {[
-                      { label: 'Confirmed', val: payments.filter(p => p.status === 'confirmed').length, color: 'text-accent' },
-                      { label: 'Pending', val: pendingPayments.length, color: 'text-primary' },
-                      { label: 'Rejected', val: payments.filter(p => p.status === 'rejected').length, color: 'text-destructive' },
-                    ].map(s => (
-                      <div key={s.label} className="bg-card border border-border rounded-xl px-3 py-1.5 text-center">
-                        <div className={`font-bold ${s.color}`}>{s.val}</div>
-                        <div className="text-muted-foreground text-xs">{s.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-card">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-secondary border-b border-border">
-                          <th className="text-left py-3 px-4 font-semibold">Tenant</th>
-                          <th className="text-left py-3 px-4 font-semibold">Amount</th>
-                          <th className="text-left py-3 px-4 font-semibold">Period</th>
-                          <th className="text-left py-3 px-4 font-semibold">Date</th>
-                          <th className="text-left py-3 px-4 font-semibold">Notes</th>
-                          <th className="text-left py-3 px-4 font-semibold">Status</th>
-                          <th className="text-left py-3 px-4 font-semibold">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {payments.length === 0 ? (
-                          <tr><td colSpan={7} className="py-16 text-center text-muted-foreground">
-                            <DollarSign className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                            <p className="font-display font-semibold text-foreground">No payments yet</p>
-                          </td></tr>
-                        ) : payments.map(p => (
-                          <tr key={p.id} className={`border-b border-border hover:bg-muted/30 transition-colors last:border-0 ${p.status === 'uploaded' ? 'bg-primary/3' : ''}`}>
-                            <td className="py-3.5 px-4">
-                              <div className="flex items-center gap-2">
-                                <div className="h-7 w-7 rounded-lg bg-secondary text-muted-foreground font-bold text-xs flex items-center justify-center shrink-0">
-                                  {(p.tenant_name || 'T').charAt(0)}
-                                </div>
-                                <span className="font-semibold text-foreground">{p.tenant_name || 'Unknown'}</span>
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-4 font-bold text-foreground">UGX {(p.amount || 0).toLocaleString()}</td>
-                            <td className="py-3.5 px-4 text-muted-foreground text-xs">{p.period_start} – {p.period_end}</td>
-                            <td className="py-3.5 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
-                            <td className="py-3.5 px-4 text-muted-foreground text-xs max-w-[160px] truncate">{p.notes || '—'}</td>
-                            <td className="py-3.5 px-4">
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${statusBadge(p.status)}`}>{p.status}</span>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              {p.status === 'uploaded' ? (
-                                <div className="flex gap-1.5">
-                                  <Button size="sm" className="gradient-primary text-primary-foreground h-7 text-xs gap-1" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
-                                    <CheckCircle className="h-3 w-3" />Confirm
-                                  </Button>
-                                  <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" disabled={!!sendingAction} onClick={() => handleRejectPayment(p)}>
-                                    <XCircle className="h-3 w-3" />Reject
-                                  </Button>
-                                </div>
-                              ) : p.proof_url ? (
-                                <a href={p.proof_url} target="_blank" rel="noopener noreferrer">
-                                  <Button size="sm" variant="outline" className="gap-1 h-7 text-xs"><Eye className="h-3 w-3" />Proof</Button>
-                                </a>
-                              ) : <span className="text-xs text-muted-foreground">—</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* REQUESTS */}
-            {tab === 'requests' && (
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-display font-bold text-xl">Maintenance Requests</h2>
-                    <p className="text-sm text-muted-foreground">{maintenanceReqs.filter(r => r.status === 'open' || r.status === 'in_progress').length} open · {maintenanceReqs.filter(r => r.status === 'resolved' || r.status === 'completed').length} resolved</p>
-                  </div>
-                </div>
-                {maintenanceReqs.length === 0 ? (
-                  <div className="text-center py-24 bg-card border border-border rounded-2xl">
-                    <Wrench className="h-16 w-16 mx-auto mb-4 text-muted-foreground/20" />
-                    <p className="text-xl font-display font-bold text-foreground">No maintenance requests</p>
-                    <p className="text-sm mt-2 text-muted-foreground">Tenants haven't submitted any requests yet.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {maintenanceReqs.map(r => {
-                      const days = differenceInDays(new Date(r.created_at), new Date());
-                      return (
-                        <div key={r.id} className="bg-card border border-border rounded-2xl p-5">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                                  r.priority === 'high' ? 'bg-destructive' :
-                                  r.priority === 'medium' ? 'bg-gold' : 'bg-success'
-                                }`} />
-                                <p className="font-semibold text-foreground">{r.title}</p>
-                              </div>
-                              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{r.description}</p>
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
-                                <span>{r.property_title || 'Unknown property'}</span>
-                                {r.tenant_name && <span>· {r.tenant_name}</span>}
-                                <span>· {r.created_at ? format(new Date(r.created_at), 'MMM dd, yyyy') : ''}</span>
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-end gap-2 shrink-0">
-                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusBadge(r.status === 'completed' ? 'confirmed' : r.status)}`}>
-                                {r.status === 'completed' ? 'Resolved' : r.status === 'in_progress' ? 'In progress' : r.status}
-                              </span>
-                              <div className="flex gap-1.5">
-                                {r.status === 'open' && (
-                                  <Button size="sm" className="gradient-primary text-primary-foreground h-7 text-xs gap-1"
-                                    disabled={sendingAction === `start-${r.id}`}
-                                    onClick={async () => {
-                                      setSendingAction(`start-${r.id}`);
-                                      await supabase.from('maintenance_requests').update({ status: 'in_progress' }).eq('id', r.id);
-                                      toast({ title: 'Request marked in progress' });
-                                      setSendingAction(''); fetchData();
-                                    }}>
-                                    <Clock className="h-3 w-3" /> Start
-                                  </Button>
-                                )}
-                                {(r.status === 'open' || r.status === 'in_progress') && (
-                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
-                                    disabled={sendingAction === `done-${r.id}`}
-                                    onClick={async () => {
-                                      setSendingAction(`done-${r.id}`);
-                                      await supabase.from('maintenance_requests').update({ status: 'completed', completed_date: new Date().toISOString().split('T')[0] }).eq('id', r.id);
-                                      toast({ title: 'Request resolved' });
-                                      setSendingAction(''); fetchData();
-                                    }}>
-                                    <CheckCircle className="h-3 w-3" /> Resolve
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* PROFILE */}
-            {tab === 'account' && (
-              <div className="max-w-lg">
-                <h2 className="font-display font-bold text-xl mb-6">Profile</h2>
-                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
-                  <AvatarUpload
-                    userId={user?.id || ''}
-                    photoUrl={profile?.photo_url || null}
-                    fullName={profile?.full_name || ''}
-                    email={profile?.email || user?.email || ''}
-                    size="xl"
-                    onUpdate={(url) => setProfile(p => p ? { ...p, photo_url: url } : p)}
+              <>
+                {tab === 'overview' && (
+                  <OverviewTab
+                    loading={loading}
+                    properties={properties}
+                    leases={leases}
+                    payments={payments}
+                    onSetTab={setTab}
+                    onSendReminder={sendRentReminder}
+                    onConfirmPayment={handleConfirmPayment}
+                    onRejectPayment={handleRejectPayment}
+                    onAddProperty={() => { setEditingProperty(null); setPropDialogOpen(true); }}
+                    sendingAction={sendingAction}
+                    onNavigate={navigate}
                   />
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs font-medium text-muted-foreground">Full Name</label>
-                      <p className="text-sm font-semibold text-foreground">{profile?.full_name || '—'}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-muted-foreground">Email</label>
-                      <p className="text-sm font-semibold text-foreground">{profile?.email || user?.email || '—'}</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => setPasswordDialogOpen(true)}>
-                    Change Password
-                  </Button>
-                </div>
-              </div>
+                )}
+                {tab === 'properties' && (
+                  <PropertiesTab
+                    properties={properties}
+                    loading={loading}
+                    onAddProperty={() => { setEditingProperty(null); setForm({ title: '', description: '', property_type: 'Residential', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] }); setImageFiles([]); setPropDialogOpen(true); }}
+                    onEditProperty={handleEditProperty}
+                    onDeleteProperty={(p) => setDeleteConfirmProperty(p)}
+                    onToggleStatus={handleToggleStatus}
+                    onViewProperty={(id) => navigate(`/properties/${id}`)}
+                    onBoostProperty={(id) => navigate(`/dashboard/manager/boost/${id}`)}
+                    sendingAction={sendingAction}
+                  />
+                )}
+                {tab === 'tenants' && (
+                  <TenantsTab
+                    leases={leases}
+                    loading={loading}
+                    onAddTenant={() => setShowTenantForm(true)}
+                    onSendReminder={sendRentReminder}
+                    onUploadAgreement={(lease) => { setAgreementLease(lease); setAgreementFile(null); setAgreementDialogOpen(true); }}
+                    onGenerateOTP={handleGenerateOTP}
+                    onDeactivate={handleDeactivateTenant}
+                    sendingAction={sendingAction}
+                  />
+                )}
+                {tab === 'payments' && (
+                  <PaymentsTab
+                    payments={payments}
+                    loading={loading}
+                    onConfirmPayment={handleConfirmPayment}
+                    onRejectPayment={handleRejectPayment}
+                    sendingAction={sendingAction}
+                  />
+                )}
+                {tab === 'requests' && (
+                  <MaintenanceTab
+                    requests={maintenanceReqs}
+                    loading={loading}
+                    onStart={handleMaintenanceStart}
+                    onResolve={handleMaintenanceResolve}
+                    sendingAction={sendingAction}
+                  />
+                )}
+                {tab === 'account' && (
+                  <AccountTab
+                    user={user}
+                    profile={profile}
+                    onUpdatePhoto={(url) => setProfile(p => p ? { ...p, photo_url: url } : p)}
+                    onChangePassword={() => setPasswordDialogOpen(true)}
+                  />
+                )}
+              </>
             )}
-            </>)}
           </div>
         </main>
       </div>
 
-      {/* Add / Edit Property Dialog */}
       <Dialog open={propDialogOpen} onOpenChange={o => { setPropDialogOpen(o); if (!o) setEditingProperty(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1335,7 +793,6 @@ export default function ManagerDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Unit Dialog */}
       <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1369,7 +826,6 @@ export default function ManagerDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Change Password Dialog */}
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -1392,7 +848,6 @@ export default function ManagerDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Upload Agreement Dialog */}
       <Dialog open={agreementDialogOpen} onOpenChange={o => { if (!o) { setAgreementDialogOpen(false); setAgreementFile(null); } }}>
         <DialogContent>
           <DialogHeader>
@@ -1416,7 +871,6 @@ export default function ManagerDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Property Confirmation */}
       <AlertDialog open={!!deleteConfirmProperty} onOpenChange={o => { if (!o) setDeleteConfirmProperty(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>

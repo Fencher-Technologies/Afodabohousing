@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "next-themes";
 import { Component, ErrorInfo, ReactNode } from "react";
+import { usePageViewTracking } from "@/services/tracking";
 import Index from "./pages/Index";
 import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
@@ -66,6 +67,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
+function PageViewTracker() { usePageViewTracking(); return null; }
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -76,6 +79,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <PageViewTracker />
           <ErrorBoundary>
             <Routes>
               <Route path="/" element={<Index />} />

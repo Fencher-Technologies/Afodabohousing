@@ -11,29 +11,50 @@ import type { RootStackParamList } from '../navigation/types';
 import { markOnboardingSeen } from '../services/onboarding-storage';
 import { colors, radii, spacing, typography } from '../theme/tokens';
 
-const slides = [
+const roleSlides = [
   {
-    description:
-      'Browse verified homes, compare districts, and open complete property details without getting lost in extra marketing pages.',
-    eyebrow: 'Explore Faster',
-    kicker: 'Property search made practical',
-    title: 'Start with the homes that matter',
+    role: 'Tenants',
+    icon: 'person',
+    benefits: [
+      'Browse and bookmark verified properties',
+      'Pay rent via MTN/Airtel or card',
+      'Track payments and tenancy progress',
+      'Request maintenance and get updates',
+      'Sign agreements digitally',
+    ],
+    accent: colors.accent,
+    accentBg: '#F9E2D6' as const,
+    borderAccent: 'rgba(218, 105, 49, 0.2)' as const,
   },
   {
-    description:
-      'Track tenancy progress, upload payment proof, launch online payment when available, and keep every message with your house manager in one place.',
-    eyebrow: 'Stay Organised',
-    kicker: 'Rent and messages together',
-    title: 'Manage your housing journey from your phone',
+    role: 'House Managers',
+    icon: 'business',
+    benefits: [
+      'List properties with GPS and photos',
+      'Manage tenants, leases, and units',
+      'Review and confirm payments instantly',
+      'Send SMS rent reminders automatically',
+      'Export CSV/XLSX/PDF reports',
+    ],
+    accent: colors.primary,
+    accentBg: '#DDEAE3' as const,
+    borderAccent: 'rgba(35, 96, 72, 0.2)' as const,
   },
   {
-    description:
-      'House managers can publish listings, create tenancies, review payments, and follow up with tenants through focused mobile workspaces.',
-    eyebrow: 'Keep Work Moving',
-    kicker: 'Built for the whole platform',
-    title: 'Run listings and tenant follow-up with less friction',
+    role: 'Free Users',
+    icon: 'search',
+    benefits: [
+      'Browse all properties with full details',
+      'Save bookmarks and compare listings',
+      'Contact managers directly via phone/email',
+      'Get GPS directions to any property',
+      'Free to join — no commitment needed',
+    ],
+    accent: colors.gold,
+    accentBg: '#FBF0D0' as const,
+    borderAccent: 'rgba(243, 184, 24, 0.2)' as const,
   },
-] as const;
+];
 
 const AUTO_INTERVAL = 4000;
 
@@ -45,16 +66,15 @@ export function OnboardingScreen({
   const [index, setIndex] = useState(0);
   const flatRef = useRef<FlatList>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const slide = slides[index];
-  const isLast = index === slides.length - 1;
+  const slide = roleSlides[index];
+  const isLast = index === roleSlides.length - 1;
 
   const startTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setIndex((prev) => {
         const next = prev + 1;
-        const clamped = next >= slides.length ? 0 : next;
-        return clamped;
+        return next >= roleSlides.length ? 0 : next;
       });
     }, AUTO_INTERVAL);
   }, []);
@@ -90,17 +110,9 @@ export function OnboardingScreen({
     stopTimer();
     await markOnboardingSeen();
 
-    if (target === 'Main') {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main' }],
-      });
-      return;
-    }
-
     navigation.reset({
       index: 0,
-      routes: [{ name: 'Main' }, { name: target }],
+      routes: [{ name: 'Main' }, ...(target !== 'Main' ? [{ name: target } as const] : [])],
     });
   };
 
@@ -114,9 +126,7 @@ export function OnboardingScreen({
           </View>
           <Pressable
             hitSlop={10}
-            onPress={() => {
-              void complete('Main');
-            }}
+            onPress={() => { void complete('Main'); }}
             style={({ pressed }) => [styles.closeButton, pressed ? styles.closePressed : null]}
           >
             <Ionicons color={colors.textPrimary} name="close" size={20} />
@@ -124,7 +134,7 @@ export function OnboardingScreen({
         </View>
 
         <FlatList
-          data={slides}
+          data={roleSlides}
           decelerationRate="fast"
           horizontal
           keyExtractor={(_item, i) => String(i)}
@@ -141,22 +151,26 @@ export function OnboardingScreen({
               >
                 <View style={styles.visualOverlay} />
                 <View style={styles.visualInner}>
-                  <View style={styles.visualBadge}>
-                    <Text style={styles.visualBadgeText}>{item.kicker}</Text>
-                  </View>
                   <View style={styles.visualOrb}>
                     <Image source={logoImage} style={styles.visualLogo} />
                   </View>
-                  <Text style={styles.visualCaption}>
-                    Trusted rentals, clearer next steps, real workflow depth.
-                  </Text>
                 </View>
               </ImageBackground>
 
               <View style={styles.copyBlock}>
-                <Text style={styles.eyebrow}>{item.eyebrow}</Text>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.description}>{item.description}</Text>
+                <View style={[styles.roleBadge, { backgroundColor: item.accentBg, borderColor: item.borderAccent }]}>
+                  <Ionicons color={item.accent} name={item.icon as keyof typeof Ionicons.glyphMap} size={16} />
+                  <Text style={[styles.roleLabel, { color: item.accent }]}>{item.role}</Text>
+                </View>
+
+                <View style={styles.benefitsList}>
+                  {item.benefits.map((b, i) => (
+                    <View key={i} style={styles.benefitRow}>
+                      <Ionicons color={item.accent} name="checkmark-circle" size={18} style={styles.checkIcon} />
+                      <Text style={styles.benefitText}>{b}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             </View>
           )}
@@ -168,13 +182,17 @@ export function OnboardingScreen({
         <View style={styles.footer}>
           <View style={styles.progressRow}>
             <Text style={styles.stepText}>
-              {index + 1} / {slides.length}
+              {index + 1} / {roleSlides.length}
             </Text>
             <View style={styles.dots}>
-              {slides.map((_item, itemIndex) => (
+              {roleSlides.map((_item, itemIndex) => (
                 <View
                   key={itemIndex}
-                  style={[styles.dot, itemIndex === index ? styles.dotActive : null]}
+                  style={[
+                    styles.dot,
+                    itemIndex === index ? styles.dotActive : null,
+                    itemIndex === index ? { backgroundColor: roleSlides[index].accent } : null,
+                  ]}
                 />
               ))}
             </View>
@@ -182,13 +200,7 @@ export function OnboardingScreen({
 
           <View style={styles.actionsRow}>
             <View style={styles.actionSide}>
-              <Button
-                onPress={() => {
-                  stopTimer();
-                  void complete('Main');
-                }}
-                variant="outline"
-              >
+              <Button onPress={() => { stopTimer(); void complete('Main'); }} variant="outline">
                 Skip
               </Button>
             </View>
@@ -212,22 +224,16 @@ export function OnboardingScreen({
             <View style={styles.authRow}>
               <Pressable
                 hitSlop={8}
-                onPress={() => {
-                  stopTimer();
-                  void complete('Login');
-                }}
+                onPress={() => { stopTimer(); void complete('Login'); }}
               >
-                <Text style={styles.authLink}>Sign In</Text>
+                <Text style={[styles.authLink, { color: colors.primary }]}>Sign In</Text>
               </Pressable>
               <View style={styles.authDivider} />
               <Pressable
                 hitSlop={8}
-                onPress={() => {
-                  stopTimer();
-                  void complete('Register');
-                }}
+                onPress={() => { stopTimer(); void complete('Register'); }}
               >
-                <Text style={styles.authLink}>Create Account</Text>
+                <Text style={[styles.authLink, { color: colors.primary }]}>Create Account</Text>
               </Pressable>
             </View>
           ) : null}
@@ -252,7 +258,6 @@ const styles = StyleSheet.create({
     width: 4,
   },
   authLink: {
-    color: colors.primary,
     fontFamily: typography.bodyStrong,
     fontSize: 14,
   },
@@ -261,6 +266,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     justifyContent: 'center',
+  },
+  benefitRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  benefitText: {
+    color: colors.textSecondary,
+    flex: 1,
+    fontFamily: typography.body,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  benefitsList: {
+    gap: spacing.md,
   },
   brand: {
     color: colors.textPrimary,
@@ -271,6 +291,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  checkIcon: {
+    marginTop: 1,
   },
   closeButton: {
     alignItems: 'center',
@@ -286,15 +309,9 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   copyBlock: {
-    gap: spacing.sm,
+    gap: spacing.lg,
     paddingHorizontal: spacing.xl,
-  },
-  description: {
-    color: colors.textSecondary,
-    fontFamily: typography.body,
-    fontSize: 15,
-    lineHeight: 24,
-    maxWidth: 340,
+    paddingTop: spacing.lg,
   },
   dot: {
     backgroundColor: colors.border,
@@ -303,18 +320,7 @@ const styles = StyleSheet.create({
     width: 8,
   },
   dotActive: {
-    backgroundColor: colors.accent,
     width: 26,
-  },
-  dots: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  eyebrow: {
-    color: colors.accent,
-    fontFamily: typography.bodyStrong,
-    fontSize: 12,
-    textTransform: 'uppercase',
   },
   footer: {
     gap: spacing.md,
@@ -335,6 +341,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  roleBadge: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  roleLabel: {
+    fontFamily: typography.bodyStrong,
+    fontSize: 13,
+    textTransform: 'uppercase',
+  },
   safeArea: {
     backgroundColor: colors.background,
     flex: 1,
@@ -351,13 +372,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.bodyStrong,
     fontSize: 12,
   },
-  title: {
-    color: colors.textPrimary,
-    fontFamily: typography.display,
-    fontSize: 32,
-    lineHeight: 38,
-    maxWidth: 360,
-  },
   topBar: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -370,36 +384,15 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     justifyContent: 'center',
     marginHorizontal: spacing.lg,
-    minHeight: 300,
+    minHeight: 220,
     overflow: 'hidden',
     padding: spacing.xl,
-  },
-  visualBadge: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radii.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  visualBadgeText: {
-    color: colors.primary,
-    fontFamily: typography.bodyStrong,
-    fontSize: 12,
-    textTransform: 'uppercase',
-  },
-  visualCaption: {
-    color: colors.heroText,
-    fontFamily: typography.body,
-    fontSize: 14,
-    lineHeight: 22,
-    maxWidth: 250,
-    textAlign: 'center',
   },
   visualImage: {
     borderRadius: radii.modal,
   },
   visualInner: {
     alignItems: 'center',
-    gap: spacing.md,
     zIndex: 1,
   },
   visualLogo: {
