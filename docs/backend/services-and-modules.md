@@ -29,6 +29,11 @@ flowchart TD
 | `maintenance_requests.py` | `/maintenance` | `MaintenanceRequestCreate`, `MaintenanceRequestUpdate`, `MaintenanceRequestResponse` | `MaintenanceRequestService` | Property maintenance workflow. |
 | `messages.py` | `/messages` | `MessageCreate`, `MessageUpdate`, `MessageResponse` | Direct Supabase queries | Conversations, unread count, message send/read state. |
 | `uploads.py` | `/uploads` | `UploadResponse` | Supabase Storage | Payment proof and property image uploads. |
+| `terms.py` | `/terms` | `TermsVersion`, `TermsConsentRequest/Response`, `TermsStatusResponse` | Direct Supabase queries | Terms & conditions version management, user consent recording and status check. |
+| `tracking.py` | `/tracking` | `PageViewCreate`, `PageViewResponse`, `PageViewStats` | Direct Supabase queries | Page-view and click tracking with session metadata. |
+| `phone_auth.py` | `/auth/phone` | `PhoneSignInRequest`, `PhoneVerifyRequest`, `PhoneSignInResponse` | Supabase Auth | Phone-based OTP sign-in and verification flow. |
+| `forex.py` | `/forex` | — | httpx + `services/forex.py` | Currency conversion and rate listing (UGX base, 6h cache). |
+| `agreement_generator.py` | `/agreements/generate` | `AgreementGenerateRequest` | ReportLab `services/agreement_generator.py` | Server-side PDF tenancy agreement generation with signatures and terms. |
 | `webhooks.py` | root | Webhook/SMS models | Supabase service client, HTTP providers | Pesapal webhook, SMS dispatch. |
 
 ## Service Classes
@@ -45,6 +50,9 @@ flowchart TD
 | `PaymentService` | `services/crud.py` | Payment CRUD, owner/tenant payment filtering, receipt data assembly. |
 | `MaintenanceRequestService` | `services/crud.py` | Maintenance request CRUD by property. |
 | Receipt renderer | `services/receipts.py` | `ReceiptData`, printable HTML, ReportLab PDF generation. |
+| Agreement generator | `services/agreement_generator.py` | `generate_agreement_pdf()` — ReportLab PDF generation for tenancy agreements with tenant/manager signatures and standard terms. |
+| Forex service | `services/forex.py` | `convert()`, `get_all_rates()` — currency exchange via open.er-api.com with 6-hour in-memory cache and fallback rates. |
+| Tracking service | `services/tracking.py` | Page-view aggregation, popular property counts. |
 | Scheduler | `services/scheduler.py` | Rent reminder checks, tenancy expiry reminders, notification dispatch. |
 | Observability | `services/observability.py` | Sentry initialization and request/user context. |
 

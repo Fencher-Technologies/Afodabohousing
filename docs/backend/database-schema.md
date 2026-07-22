@@ -19,6 +19,10 @@ erDiagram
     TENANTS ||--o{ PAYMENTS : pays
     PROPERTIES ||--o{ MAINTENANCE_REQUESTS : receives
     TENANTS ||--o{ MAINTENANCE_REQUESTS : submits
+    TERMS_VERSIONS ||--o{ TERMS_CONSENTS : records
+    AUTH_USERS ||--o{ TERMS_CONSENTS : consents
+    AUTH_USERS ||--o{ PAGE_VIEWS : visits
+    INVITATIONS ||--o| TERMS_VERSIONS : references
     AUTH_USERS ||--o{ MESSAGES : sends
     AUTH_USERS ||--o{ MESSAGES : receives
     AUTH_USERS ||--o{ NOTIFICATIONS : receives
@@ -152,6 +156,34 @@ erDiagram
         numeric rent_amount
         text status
     }
+    TERMS_VERSIONS {
+        uuid id PK
+        int version
+        text title
+        text content
+        boolean is_active
+        date effective_from
+        timestamptz created_at
+    }
+    TERMS_CONSENTS {
+        uuid id PK
+        uuid user_id FK
+        uuid terms_version_id FK
+        timestamptz consented_at
+        text ip_address
+        text user_agent
+    }
+    PAGE_VIEWS {
+        uuid id PK
+        text path
+        uuid user_id FK
+        text ip_address
+        text user_agent
+        text referrer
+        text session_id
+        jsonb metadata
+        timestamptz created_at
+    }
 ```
 
 ## Core Tables
@@ -172,6 +204,9 @@ erDiagram
 | `notifications` | In-app notification inbox. | Scheduler notification dispatcher. |
 | `notification_deliveries` | Idempotency and delivery audit for in-app, email, and push channels. | Scheduler notification dispatcher. |
 | `tenancies` | Additional tenancy-period table used by newer tenancy workflows. | Migration-defined; currently background work primarily reads `leases`. |
+| `terms_versions` | Published terms & conditions versions with effective dates. | Terms router. |
+| `terms_consents` | Immutable per-user consent records linked to a terms version. | Terms router. |
+| `page_views` | Anonymous and authenticated page-view/click tracking with session and metadata. | Tracking router. |
 
 ## Important Constraints And Indexes
 
@@ -189,6 +224,9 @@ erDiagram
 
 | Module | Tables Read | Tables Written |
 | --- | --- | --- |
+| Terms | `terms_versions`, `terms_consents`, `invitations` | `terms_consents` |
+| Tracking | `page_views` | `page_views` |
+| Forex | None (external API) | None |
 | Auth | `profiles`, Supabase `auth.users` | `profiles`, Supabase Auth |
 | Properties | `properties` | `properties` |
 | Rental Units | `rental_units`, `properties` | `rental_units` |
