@@ -748,11 +748,15 @@ export default function ManagerDashboard() {
                     <div className="flex items-center justify-between mb-5">
                       <div className="flex items-center gap-2">
                         <Building2 className="h-5 w-5 text-accent" />
-                        <h3 className="font-display font-semibold text-base">Property Status</h3>
+                        <h3 className="font-display font-semibold text-base">Properties</h3>
                       </div>
                       <button onClick={() => setTab('properties')} className="text-xs text-primary hover:underline flex items-center gap-1">
                         Manage <ChevronRight className="h-3 w-3" />
                       </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-accent/5 rounded-xl p-3 text-center"><span className="text-lg font-bold text-accent">{available}</span><p className="text-xs text-muted-foreground">Available</p></div>
+                      <div className="bg-primary/5 rounded-xl p-3 text-center"><span className="text-lg font-bold text-primary">{occupied}</span><p className="text-xs text-muted-foreground">Occupied</p></div>
                     </div>
                     {properties.length === 0 ? (
                       <div className="text-center py-8">
@@ -777,6 +781,48 @@ export default function ManagerDashboard() {
                             <button onClick={() => navigate(`/dashboard/manager/boost/${p.id}`)} className="text-xs text-primary hover:underline font-medium shrink-0 ml-1">
                               Boost
                             </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Overdue Tenants */}
+                  <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
+                    <div className="flex items-center justify-between mb-5">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-destructive" />
+                        <h3 className="font-display font-semibold text-base">Overdue</h3>
+                      </div>
+                      {leases.filter(l => l.is_overdue).length > 0 && (
+                        <Badge className="bg-destructive/10 text-destructive border border-destructive/20 text-xs">{leases.filter(l => l.is_overdue).length} overdue</Badge>
+                      )}
+                    </div>
+                    {leases.filter(l => l.is_overdue).length === 0 ? (
+                      <div className="text-center py-8">
+                        <CheckCircle className="h-10 w-10 text-accent/40 mx-auto mb-2" />
+                        <p className="text-muted-foreground text-sm font-medium">All caught up!</p>
+                        <p className="text-muted-foreground text-xs mt-1">No overdue balances</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {leases.filter(l => l.is_overdue).slice(0, 5).map(t => (
+                          <div key={t.id} className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
+                            <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                              <DollarSign className="h-4 w-4 text-destructive" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-foreground truncate">{t.tenant_name || 'Unknown'}</p>
+                              <p className="text-xs text-muted-foreground">{t.property_title || ''}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-bold text-destructive">UGX {(t.balance_due || 0).toLocaleString()}</p>
+                              {t.end_date && (
+                                <p className={`text-xs font-semibold ${differenceInDays(new Date(t.end_date), new Date()) < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                  {differenceInDays(new Date(t.end_date), new Date()) < 0 ? `${Math.abs(differenceInDays(new Date(t.end_date), new Date()))}d past` : `${differenceInDays(new Date(t.end_date), new Date())}d left`}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>

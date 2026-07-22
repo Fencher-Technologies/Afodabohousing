@@ -222,6 +222,33 @@
     background: hsl(38 85% 50%);
   }
 
+  /* Tenancy progress colors */
+  .tenancy-early {
+    color: hsl(var(--accent));
+    background: hsl(var(--accent) / 0.1);
+    border: 1px solid hsl(var(--accent) / 0.2);
+  }
+  .tenancy-mid {
+    color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.1);
+    border: 1px solid hsl(var(--primary) / 0.2);
+  }
+  .tenancy-late {
+    color: hsl(38 85% 50%);
+    background: hsl(38 85% 50% / 0.1);
+    border: 1px solid hsl(38 85% 50% / 0.2);
+  }
+  .tenancy-expiring {
+    color: hsl(var(--destructive));
+    background: hsl(var(--destructive) / 0.1);
+    border: 1px solid hsl(var(--destructive) / 0.2);
+  }
+  .tenancy-expired {
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--muted));
+    border: 1px solid hsl(var(--border));
+  }
+
   /* Sidebar background */
   .bg-sidebar {
     background: hsl(var(--sidebar-background));

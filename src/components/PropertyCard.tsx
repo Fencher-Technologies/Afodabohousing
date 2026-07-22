@@ -1,8 +1,11 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Bed, Bath, Sofa, Sparkles } from 'lucide-react';
+import { MapPin, Bed, Bath, Sofa, Sparkles, Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Database } from '@/integrations/supabase/types';
 import { isPropertyBoosted } from '@/services/property-boosts';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
@@ -42,9 +45,32 @@ interface PropertyCardProps {
 function PropertyCard({ property, index = 0 }: PropertyCardProps) {
   const imageUrl = property.images?.[0] || fallbackImages[index % 3];
   const isBoosted = isPropertyBoosted(property);
+  const { user } = useAuth();
+  const [bookmarked, setBookmarked] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('property_bookmarks').select('id').eq('user_id', user.id).eq('property_id', property.id).maybeSingle().then(({ data }) => setBookmarked(!!data));
+  }, [user, property.id]);
+
+  const toggleBookmark = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user || toggling) return;
+    setToggling(true);
+    if (bookmarked) {
+      await supabase.from('property_bookmarks').delete().eq('user_id', user.id).eq('property_id', property.id);
+    } else {
+      await supabase.from('property_bookmarks').insert({ user_id: user.id, property_id: property.id });
+    }
+    setBookmarked(!bookmarked);
+    setToggling(false);
+  };
 
   return (
-    <Link to={`/properties/${property.id}`} className="group block">
+    <div className="relative group block">
+      <Link to={`/properties/${property.id}`} className="block">
       <div className="bg-card rounded-2xl overflow-hidden border border-border shadow-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
         {/* Image */}
         <div className="relative h-52 overflow-hidden">
@@ -67,7 +93,12 @@ function PropertyCard({ property, index = 0 }: PropertyCardProps) {
               </Badge>
             </div>
           </div>
-          <div className="absolute top-3 right-3">
+          <div className="absolute top-3 right-3 flex flex-col gap-2 items-end">
+            {user && (
+              <button onClick={toggleBookmark} className="h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center transition-colors">
+                <Heart className={`h-4 w-4 ${bookmarked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+              </button>
+            )}
             <Badge
               className={`font-semibold text-xs shadow-sm ${property.status === 'available' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
             >
@@ -124,6 +155,7 @@ function PropertyCard({ property, index = 0 }: PropertyCardProps) {
         </div>
       </div>
     </Link>
+    </div>
   );
 }
 
