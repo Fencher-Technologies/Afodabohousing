@@ -53,8 +53,8 @@ class PropertyCreate(BaseModel):
     images: list[str] | None = None
     manager_email: str | None = None
     manager_phone: str | None = None
-    latitude: float | None = None
-    longitude: float | None = None
+    latitude: float
+    longitude: float
     is_active: bool = True
 
 

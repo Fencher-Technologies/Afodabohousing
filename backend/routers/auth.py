@@ -27,7 +27,7 @@ class SignUpRequest(BaseModel):
     password: str
     full_name: str | None = None
     phone: str | None = None
-    role: str = "tenant"
+    role: str = "free"
 
 
 class InviteRequest(BaseModel):
@@ -130,10 +130,10 @@ def signup(
     service: AuthService = Depends(get_auth_svc),
     service_supabase: Client = Depends(get_service_client),
 ) -> TokenResponse:
-    if data.role != "tenant":
+    if data.role not in ("tenant", "free"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Public signup is only available for the tenant role",
+            detail="Public signup is only available for tenant or free roles",
         )
 
     try:
@@ -193,7 +193,7 @@ def invite_user(
     current_user: CurrentUser = Depends(require_super_admin_or_manager),
     supabase: Client = Depends(get_service_client),
 ) -> InviteResponse:
-    valid_roles = {"house_manager", "tenant"}
+    valid_roles = {"house_manager", "tenant", "free"}
     if data.role not in valid_roles:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
