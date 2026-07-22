@@ -263,6 +263,26 @@ def _enrich_leases(
 
         l["is_overdue"] = l["balance_due"] > 0
 
+        today = date.today()
+        start = l.get("start_date")
+        end = l.get("end_date")
+        total_days = 0
+        elapsed_days = 0
+        remaining_days = 0
+        if start and end:
+            try:
+                s = date.fromisoformat(str(start)[:10]) if not isinstance(start, date) else start
+                e = date.fromisoformat(str(end)[:10]) if not isinstance(end, date) else end
+                total_days = (e - s).days
+                elapsed_days = (today - s).days
+                remaining_days = max(0, (e - today).days)
+            except (TypeError, ValueError):
+                pass
+        l["tenancy_total_days"] = max(1, total_days)
+        l["tenancy_elapsed_days"] = max(0, elapsed_days)
+        l["tenancy_remaining_days"] = remaining_days
+        l["tenancy_progress_pct"] = round(min(100, max(0, elapsed_days / max(1, total_days) * 100)), 1)
+
         last_payment = None
         for p in lease_payments:
             if p.get("paid_date"):
@@ -878,7 +898,16 @@ class PaymentService(BaseService):
         return response.data or [], total
 
     @with_retry
-    def get_all_for_owner(
+    def get_overdue(
+        self, owner_id: UUID, skip: int = 0, limit: int = 100
+    ) -> tuple[list[dict[str, Any]], int]:
+        all_leases, total = self.get_all(owner_id, skip=0, limit=10000)
+        overdue = [l for l in all_leases if l.get("is_overdue")]
+        paginated = overdue[skip:skip + limit]
+        return paginated, len(overdue)
+
+    @with_retry
+    def get_all(
         self, owner_id: UUID, skip: int = 0, limit: int = 100
     ) -> tuple[list[dict[str, Any]], int]:
         leases = (

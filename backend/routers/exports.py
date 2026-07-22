@@ -225,6 +225,63 @@ def export_boosts(
     )
 
 
+@router.get("/report-pdf")
+def export_report_pdf(
+    current_user: CurrentUser = Depends(require_super_admin_or_manager),
+    supabase: Client = Depends(get_service_client),
+):
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+    props = supabase.table("properties").select("title, property_type, bedrooms, monthly_rent, status, city, state").eq("owner_id", current_user.id).execute()
+    tenants_data = supabase.table("tenants").select("first_name, last_name, email, phone, status").eq("owner_id", current_user.id).execute()
+    leases_data = supabase.table("leases").select("monthly_rent, status, start_date, end_date").eq("owner_id", current_user.id).execute()
+    payments_data = supabase.table("payments").select("amount, status, paid_date").eq("owner_id", current_user.id).execute()
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=18*mm, leftMargin=18*mm, topMargin=18*mm, bottomMargin=18*mm, title="Portfolio Report")
+    styles = getSampleStyleSheet()
+    title_s = ParagraphStyle("Title", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=20, textColor=colors.HexColor("#0F766E"), spaceAfter=12)
+    h2 = ParagraphStyle("H2", parent=styles["Heading2"], fontSize=13, spaceAfter=6, spaceBefore=14)
+    body = styles["Normal"]
+
+    story = [Paragraph("Afodabo Housing", styles["Normal"]), Paragraph("Portfolio Report", title_s), Spacer(1, 6*mm)]
+
+    p_rows = [[r.get("title",""), r.get("property_type",""), str(r.get("bedrooms","")), f"UGX {r['monthly_rent']:,.0f}" if r.get("monthly_rent") else "", r.get("status",""), f"{r.get('city','')}, {r.get('state','')}"] for r in (props.data or [])]
+    if p_rows:
+        story.append(Paragraph(f"Properties ({len(p_rows)})", h2))
+        story.append(Table([["Title","Type","Beds","Rent","Status","Location"]] + p_rows, colWidths=[60*mm,30*mm,16*mm,30*mm,22*mm,40*mm], repeatRows=1, hAlign="LEFT"))
+
+    t_rows = [[f"{r.get('first_name','')} {r.get('last_name','')}".strip(), r.get("email",""), r.get("phone",""), r.get("status","")] for r in (tenants_data.data or [])]
+    if t_rows:
+        story.append(Spacer(1, 6*mm))
+        story.append(Paragraph(f"Tenants ({len(t_rows)})", h2))
+        story.append(Table([["Name","Email","Phone","Status"]] + t_rows, colWidths=[40*mm,60*mm,50*mm,28*mm], repeatRows=1, hAlign="LEFT"))
+
+    total_rent = sum(float(r.get("monthly_rent", 0)) for r in (leases_data.data or []))
+    total_paid = sum(float(r.get("amount", 0)) for r in (payments_data.data or []) if r.get("status") in ("confirmed","completed"))
+    story.append(Spacer(1, 6*mm))
+    story.append(Paragraph("Summary", h2))
+    story.append(Table([["Metric","Value"],[
+        "Total Monthly Rent", f"UGX {total_rent:,.0f}"],
+        ["Total Collected", f"UGX {total_paid:,.0f}"],
+        ["Active Leases", str(sum(1 for l in (leases_data.data or []) if l.get("status")=="active"))],
+        ["Tenants", str(len(t_rows))],
+    ], colWidths=[60*mm, 60*mm], hAlign="LEFT"))
+    story.append(Spacer(1, 6*mm))
+    story.append(Paragraph(f"Generated on {date.today().isoformat()}", body))
+    doc.build(story)
+    buf.seek(0)
+    return StreamingResponse(
+        buf, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="portfolio_report_{date.today()}.pdf"'},
+    )
+
+
 @router.get("/managers")
 def export_managers(
     format: str = Query("csv", pattern="^(csv|xlsx)$"),

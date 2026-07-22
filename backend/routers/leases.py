@@ -25,8 +25,29 @@ class PaginatedResponse(BaseModel):
     limit: int
 
 
+class OverdueListResponse(BaseModel):
+    total_overdue: int
+    total_balance_due: float
+    items: list
+
+
 def get_lease_svc(supabase: Client = Depends(get_supabase_client)) -> LeaseService:
     return get_lease_service(supabase)
+
+
+@router.get("/overdue", response_model=OverdueListResponse)
+def list_overdue_leases(
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+    service: LeaseService = Depends(get_lease_svc),
+) -> OverdueListResponse:
+    leases, total = service.get_overdue(current_user.id, 0, 10000)
+    total_balance = sum(float(l.get("balance_due", 0)) for l in leases)
+    return OverdueListResponse(
+        total_overdue=len(leases),
+        total_balance_due=round(total_balance, 2),
+        items=[LeaseResponse(**l) for l in leases],
+    )
 
 
 @router.get("", response_model=PaginatedResponse)

@@ -19,6 +19,8 @@ from .message import Message, MessageCreate, MessageResponse, MessageUpdate
 from .payment import Payment, PaymentCreate, PaymentResponse, PaymentUpdate
 from .profile import Profile, ProfileCreate, ProfileResponse, ProfileUpdate
 from .property import Property, PropertyCreate, PropertyResponse, PropertyUpdate
+from .terms import TermsConsentRequest, TermsConsentResponse, TermsStatusResponse, TermsVersion
+from .tracking import PageViewCreate, PageViewResponse, PageViewStats
 from .renewal_request import RenewalRequest, RenewalRequestCreate, RenewalRequestResponse
 from .rental_unit import RentalUnit, RentalUnitCreate, RentalUnitResponse, RentalUnitUpdate
 from .subscription import (
@@ -73,6 +75,13 @@ __all__ = [
     "AgreementVersionsResponse",
     "Bookmark",
     "BookmarkResponse",
+    "TermsVersion",
+    "TermsConsentRequest",
+    "TermsConsentResponse",
+    "TermsStatusResponse",
+    "PageViewCreate",
+    "PageViewResponse",
+    "PageViewStats",
     "RenewalRequest",
     "RenewalRequestCreate",
     "RenewalRequestResponse",
