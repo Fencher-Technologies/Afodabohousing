@@ -121,6 +121,7 @@ export type Database = {
           id: string
           manager_id: string | null
           phone: string | null
+          photo_url: string | null
           role: string | null
           status: string
           updated_at: string
@@ -135,6 +136,7 @@ export type Database = {
           id?: string
           manager_id?: string | null
           phone?: string | null
+          photo_url?: string | null
           role?: string | null
           status?: string
           updated_at?: string
@@ -149,6 +151,7 @@ export type Database = {
           id?: string
           manager_id?: string | null
           phone?: string | null
+          photo_url?: string | null
           role?: string | null
           status?: string
           updated_at?: string

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
@@ -10,23 +10,22 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { listPayments, updatePayment, createPayment, PaymentData } from '@/services/payments';
-import { BOOST_PLANS, formatBoostPrice, getBoostedUntil, isPropertyBoosted, purchasePropertyBoost } from '@/services/property-boosts';
-import VoiceRecorder from '@/components/VoiceRecorder';
+import { listPayments, updatePayment, PaymentData } from '@/services/payments';
+import AvatarUpload from '@/components/AvatarUpload';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
-  Eye, RefreshCcw, UserPlus, Bell, Home, Upload, MessageSquare,
-  TrendingUp, Send, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
-  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2, ArrowLeft, Sparkles
+  Eye, RefreshCcw, UserPlus, Bell, Home, Upload,
+  TrendingUp, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
+  Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2, Settings,
+  Wrench, MessageCircle, ArrowLeft, KeyRound, Ban, Copy
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 type TenancyRow = Database['public']['Tables']['tenancies']['Row'];
-type Message = Database['public']['Tables']['messages']['Row'];
 
 const AMENITIES_LIST = ['Water', 'Electricity', 'WiFi', 'Parking', 'Security', 'Garden', 'Generator', 'DSTV', 'Borehole', 'Tiled Floors'];
 const DISTRICTS_LIST = ['Kampala', 'Wakiso', 'Mukono', 'Mbarara', 'Gulu', 'Jinja', 'Entebbe', 'Mbale', 'Lira', 'Arua', 'Fort Portal', 'Masaka', 'Kabale', 'Hoima', 'Kasese', 'Soroti', 'Tororo'];
@@ -44,14 +43,15 @@ const statusBadge = (s: string) => ({
   terminated: 'status-rejected',
 }[s] ?? 'status-pending');
 
-type Tab = 'overview' | 'properties' | 'tenants' | 'payments' | 'messages';
+type Tab = 'overview' | 'properties' | 'tenants' | 'payments' | 'requests' | 'account';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: 'properties', label: 'Properties', icon: <Building2 className="h-4 w-4" /> },
   { id: 'tenants', label: 'Tenants', icon: <Users className="h-4 w-4" /> },
   { id: 'payments', label: 'Payments', icon: <DollarSign className="h-4 w-4" /> },
-  { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-4 w-4" /> },
+  { id: 'requests', label: 'Maintenance', icon: <Wrench className="h-4 w-4" /> },
+  { id: 'account', label: 'Account', icon: <Settings className="h-4 w-4" /> },
 ];
 
 export default function ManagerDashboard() {
@@ -63,38 +63,30 @@ export default function ManagerDashboard() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [leases, setLeases] = useState<(TenancyRow & { tenant_name?: string; tenant_phone?: string; tenant_user_id?: string; property_title?: string })[]>([]);
   const [payments, setPayments] = useState<(PaymentData & { tenant_name?: string; property_title?: string })[]>([]);
-  const [messages, setMessages] = useState<(Message & { sender_name?: string; receiver_name?: string; property_title?: string })[]>([]);
+  const [maintenanceReqs, setMaintenanceReqs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [propDialogOpen, setPropDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [deleteConfirmProperty, setDeleteConfirmProperty] = useState<Property | null>(null);
-  const [tenancyDialogOpen, setTenancyDialogOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('overview');
   const [sendingAction, setSendingAction] = useState('');
-  const [replyDialog, setReplyDialog] = useState<{ open: boolean; receiverId: string; name: string; propertyId?: string }>({ open: false, receiverId: '', name: '' });
-  const [replyText, setReplyText] = useState('');
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
   const [selectedPropertyForUnit, setSelectedPropertyForUnit] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [composeDialog, setComposeDialog] = useState<{ open: boolean; tenantId: string; tenantName: string; propertyId?: string }>({ open: false, tenantId: '', tenantName: '' });
-  const [composeText, setComposeText] = useState('');
-  const [composePropId, setComposePropId] = useState('');
-const [composeVoiceUrl, setComposeVoiceUrl] = useState<string | null>(null);
-const [replyVoiceUrl, setReplyVoiceUrl] = useState<string | null>(null);
-const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-const [selectedConv, setSelectedConv] = useState<string | null>(null);
-const [selectedConvName, setSelectedConvName] = useState('');
-const [selectedConvProperty, setSelectedConvProperty] = useState('');
-const [selectedConvReceiverId, setSelectedConvReceiverId] = useState('');
-const [threadText, setThreadText] = useState('');
-const [threadVoiceUrl, setThreadVoiceUrl] = useState<string | null>(null);
-const [threadSending, setThreadSending] = useState(false);
-const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
-const [boostDialog, setBoostDialog] = useState<{ open: boolean; property: Property | null }>({ open: false, property: null });
-const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
+  const [profile, setProfile] = useState<{ photo_url: string | null; full_name: string | null; email: string; phone: string } | null>(null);
+  const [showTenantForm, setShowTenantForm] = useState(false);
+  const [tenantFormData, setTenantFormData] = useState({
+    full_name: '', phone: '', email: '', property_id: '',
+    start_date: '', end_date: '', monthly_rent: 0,
+  });
+  const [createdPassword, setCreatedPassword] = useState<string | null>(null);
+  const [otpPassword, setOtpPassword] = useState<string | null>(null);
+  const [copiedPwd, setCopiedPwd] = useState(false);
 
   const [form, setForm] = useState({
-    title: '', description: '', property_type: 'house', state: '', city: '',
+    title: '', description: '', property_type: 'Residential', state: '', city: '',
     area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1,
     rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '',
     amenities: [] as string[],
@@ -105,13 +97,13 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
     kitchens: 1, rent_amount: 0, description: '',
   });
 
-  const [tenancyForm, setTenancyForm] = useState({
-    property_id: '', tenant_email: '', start_date: '', end_date: '',
-    monthly_rent: 0,
-  });
-
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
+  const [agreementLease, setAgreementLease] = useState<any>(null);
+  const [agreementFile, setAgreementFile] = useState<File | null>(null);
+  const [uploadingAgreement, setUploadingAgreement] = useState(false);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -121,12 +113,13 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
-    const [propsRes, tenancyRes, leaseRes, tenantRes, payRes] = await Promise.all([
+    const [propsRes, tenancyRes, leaseRes, tenantRes, payRes, profileRes] = await Promise.all([
       supabase.from('properties').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
       supabase.from('tenancies').select('*').eq('manager_id', user.id).order('created_at', { ascending: false }),
       supabase.from('leases').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
       supabase.from('tenants').select('id, first_name, last_name, phone, user_id').eq('owner_id', user.id),
       listPayments().catch(() => ({ items: [], total: 0 })),
+      supabase.from('profiles').select('photo_url, full_name, email, phone').eq('user_id', user.id).single(),
     ]);
 
     const allPayments = payRes.items || [];
@@ -166,22 +159,25 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
         property_title: propMap[t.property_id] || '',
       };
     }));
+    if (profileRes.data) {
+      setProfile({ photo_url: profileRes.data.photo_url, full_name: profileRes.data.full_name, email: profileRes.data.email, phone: profileRes.data.phone || '' });
+    }
     setPayments(allPayments.map(p => ({
       ...p,
       tenant_name: tenantMap[p.tenant_id]?.name || '',
       property_title: propMap[tenancyMap[p.tenancy_id]?.property_id || ''] || '',
     })));
-    if (user) {
-      const msgRes = await supabase.from('messages').select('*, profiles!sender_id(full_name)').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false });
-      const profileMap: Record<string, string> = {};
-      msgRes.data?.forEach(m => { profileMap[m.sender_id] = m.profiles?.full_name || 'Unknown'; });
-      setMessages((msgRes.data || []).map(m => ({
-        ...m,
-        sender_name: m.sender_id === user.id ? 'You' : profileMap[m.sender_id],
-        receiver_name: m.receiver_id === user.id ? 'You' : profileMap[m.receiver_id],
-        property_title: propMap[m.property_id] || '',
+
+    // Fetch maintenance requests for manager's properties
+    const propIds = propsRes.data?.map(p => p.id) || [];
+    if (propIds.length > 0) {
+      const { data: reqs } = await supabase.from('maintenance_requests').select('*').in('property_id', propIds).order('created_at', { ascending: false });
+      setMaintenanceReqs((reqs || []).map(r => ({
+        ...r,
+        tenant_name: tenantMap[r.tenant_id]?.name || '',
+        property_title: propMap[r.property_id] || '',
       })));
-    } else { setMessages([]); }
+    }
     setLoading(false);
   };
 
@@ -246,7 +242,7 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
     }
     setPropDialogOpen(false);
     setEditingProperty(null);
-    setForm({ title: '', description: '', property_type: 'house', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] });
+    setForm({ title: '', description: '', property_type: 'Residential', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] });
     setImageFiles([]);
     fetchData();
   };
@@ -274,29 +270,6 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
     setDeleteConfirmProperty(null);
   };
 
-  const handleBoostProperty = async () => {
-    if (!boostDialog.property) return;
-
-    setSendingAction(`boost-${boostDialog.property.id}`);
-    try {
-      await purchasePropertyBoost(boostDialog.property.id, selectedBoostDays);
-      toast({
-        title: 'Property boost purchased',
-        description: `${boostDialog.property.title} will be promoted for ${selectedBoostDays} days.`,
-      });
-      setBoostDialog({ open: false, property: null });
-      fetchData();
-    } catch (err: any) {
-      toast({
-        title: 'Could not boost property',
-        description: err.message || 'Please try again when checkout is available.',
-        variant: 'destructive',
-      });
-    } finally {
-      setSendingAction('');
-    }
-  };
-
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !selectedPropertyForUnit) return;
@@ -321,51 +294,47 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
     setSelectedPropertyForUnit('');
   };
 
+  const apiBase = import.meta.env.VITE_API_URL || '';
+  const getHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return {
+      'Content-Type': 'application/json',
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+    };
+  };
+
   const handleCreateTenancy = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setSendingAction('creating');
-    const { data: userId } = await supabase.rpc('get_user_id_by_email', { _email: tenancyForm.tenant_email });
-    if (!userId) {
-      toast({ title: 'Tenant not found', description: 'No registered account for that email.', variant: 'destructive' });
-      setSendingAction(''); return;
+    setCreatedPassword(null);
+    try {
+      const headers = await getHeaders();
+      const res = await fetch(`${apiBase}/admin/create-tenant`, {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          email: tenantFormData.email,
+          full_name: tenantFormData.full_name,
+          phone: tenantFormData.phone || null,
+          property_id: tenantFormData.property_id || null,
+          rent_start_date: tenantFormData.start_date || null,
+          rent_end_date: tenantFormData.end_date || null,
+          rent_amount: tenantFormData.monthly_rent || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to create tenant');
+      }
+      const data = await res.json();
+      setCreatedPassword(data.temporary_password);
+      toast({ title: 'Tenant created!', description: `Account created for ${tenantFormData.email}` });
+      setTenantFormData({ full_name: '', phone: '', email: '', property_id: '', start_date: '', end_date: '', monthly_rent: 0 });
+      try { await fetchData(); } catch (e) { console.error('fetchData after create failed', e); }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
-    const prop = properties.find(p => p.id === tenancyForm.property_id);
-    const monthlyRent = Number(tenancyForm.monthly_rent) || prop?.monthly_rent || prop?.rent_amount || 0;
-    const profile = await supabase.from('profiles').select('full_name, phone').eq('user_id', userId).single();
-    const name = profile.data?.full_name || 'Tenant';
-    const nameParts = name.split(' ');
-    const firstName = nameParts[0] || name;
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    const { data: existingTenant } = await supabase.from('tenants').select('id').eq('user_id', userId).eq('owner_id', user.id).maybeSingle();
-    let tenantId = existingTenant?.id;
-    if (!tenantId) {
-      const { data: newTenant } = await supabase.from('tenants').insert({
-        owner_id: user.id, user_id: userId, first_name: firstName, last_name: lastName,
-        email: tenancyForm.tenant_email, status: 'active',
-      }).select('id').single();
-      tenantId = newTenant?.id;
-    }
-    if (!tenantId) { toast({ title: 'Error', description: 'Could not create tenant record', variant: 'destructive' }); setSendingAction(''); return; }
-
-    const { error } = await supabase.from('tenancies').insert({
-      manager_id: user.id, property_id: tenancyForm.property_id, tenant_id: tenantId,
-      rent_start_date: tenancyForm.start_date, rent_end_date: tenancyForm.end_date,
-      rent_amount: monthlyRent, status: 'active',
-    });
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); setSendingAction(''); return; }
-    await supabase.from('properties').update({ status: 'occupied' }).eq('id', tenancyForm.property_id);
-    if (profile.data?.phone) {
-      await sendSMS(profile.data.phone, `Welcome to ${prop?.title || 'your new home'}! Your lease with Afodabo Housing has been activated. Rent: UGX ${(monthlyRent || 0).toLocaleString()}.`);
-
-
-    }
-    toast({ title: 'Lease created!', description: 'Tenant linked and notified via SMS.' });
-    setTenancyDialogOpen(false);
-    setTenancyForm({ property_id: '', tenant_email: '', start_date: '', end_date: '', monthly_rent: 0 });
     setSendingAction('');
-    fetchData();
   };
 
   const handleConfirmPayment = async (payment: PaymentData) => {
@@ -394,6 +363,34 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
     setSendingAction(''); fetchData();
   };
 
+  const handleUploadAgreement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!agreementLease || !agreementFile) return;
+    setUploadingAgreement(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) { toast({ title: 'Not authenticated', variant: 'destructive' }); return; }
+      const formData = new FormData();
+      formData.append('file', agreementFile);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/agreements/${agreementLease.id}/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: formData,
+      });
+      if (res.ok) {
+        toast({ title: 'Agreement uploaded' });
+        setAgreementDialogOpen(false);
+        setAgreementFile(null);
+      } else {
+        const err = await res.json();
+        toast({ title: 'Upload failed', description: err.detail || 'Unknown error', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Upload failed', description: 'Network error', variant: 'destructive' });
+    }
+    setUploadingAgreement(false);
+  };
+
   const sendRentReminder = async (lease: typeof leases[0]) => {
     if (!lease.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
     setSendingAction(`remind-${lease.id}`);
@@ -403,122 +400,12 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
     setSendingAction('');
   };
 
-  const handleReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !replyDialog.receiverId || (!replyText.trim() && !replyVoiceUrl)) return;
-    setSendingAction('reply');
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: replyDialog.receiverId,
-      property_id: replyDialog.propertyId || null,
-      content: replyText.trim() || null,
-      voice_note_url: replyVoiceUrl,
-    });
-    setSendingAction('');
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Reply sent!' });
-    const newReply = {
-      id: 'temp-' + Date.now(),
-      sender_id: user.id,
-      receiver_id: replyDialog.receiverId,
-      property_id: replyDialog.propertyId || null,
-      content: replyText.trim() || null,
-      voice_note_url: replyVoiceUrl,
-      created_at: new Date().toISOString(),
-      is_read: false,
-      profiles: { full_name: user.email?.split('@')[0] || 'You' },
-      sender_name: 'You',
-      receiver_name: replyDialog.name,
-      property_title: '',
-    };
-    setMessages(prev => [...prev, newReply]);
-    setReplyText('');
-    setReplyVoiceUrl(null);
-    setReplyDialog({ open: false, receiverId: '', name: '' });
-  };
-
-  const handleCompose = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !composeDialog.tenantId || (!composeText.trim() && !composeVoiceUrl)) return;
-    setSendingAction('compose');
-    const tenant = leases.find(t => t.tenant_id === composeDialog.tenantId);
-    const receiverId = tenant?.tenant_user_id;
-    if (!receiverId) { toast({ title: 'Error', description: 'Tenant user not found. They may not have registered yet.', variant: 'destructive' }); setSendingAction(''); return; }
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: receiverId,
-      property_id: composeDialog.propertyId || null,
-      content: composeText.trim() || null,
-      voice_note_url: composeVoiceUrl,
-    });
-    setSendingAction('');
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Message sent!' });
-    const newMsg = {
-      id: 'temp-' + Date.now(),
-      sender_id: user.id,
-      receiver_id: receiverId,
-      property_id: composeDialog.propertyId || null,
-      content: composeText.trim() || null,
-      voice_note_url: composeVoiceUrl,
-      created_at: new Date().toISOString(),
-      is_read: false,
-      profiles: { full_name: user.email?.split('@')[0] || 'You' },
-      sender_name: 'You',
-      receiver_name: composeDialog.tenantName,
-      property_title: '',
-    };
-    setMessages(prev => [...prev, newMsg]);
-    setComposeText('');
-    setComposeVoiceUrl(null);
-    setComposePropId('');
-    setComposeDialog({ open: false, tenantId: '', tenantName: '' });
-  };
-
-  const handleThreadSend = async () => {
-    if (!user || !selectedConvReceiverId || (!threadText.trim() && !threadVoiceUrl)) return;
-    setThreadSending(true);
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: selectedConvReceiverId,
-      property_id: null,
-      content: threadText.trim() || null,
-      voice_note_url: threadVoiceUrl,
-    });
-    setThreadSending(false);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Sent!' });
-    const newMsg = {
-      id: 'temp-' + Date.now(),
-      sender_id: user.id,
-      receiver_id: selectedConvReceiverId,
-      property_id: null,
-      content: threadText.trim() || null,
-      voice_note_url: threadVoiceUrl,
-      created_at: new Date().toISOString(),
-      is_read: false,
-      profiles: { full_name: user.email?.split('@')[0] || 'You' },
-      sender_name: 'You',
-      receiver_name: selectedConvName,
-      property_title: selectedConvProperty,
-    };
-    setMessages(prev => [...prev, newMsg]);
-    setThreadText('');
-    setThreadVoiceUrl(null);
-  };
-
-  const markMessageRead = async (msgId: string) => {
-    const { error } = await supabase.from('messages').update({ is_read: true }).eq('id', msgId);
-    if (!error) setMessages(prev => prev.map(m => m.id === msgId ? { ...m, is_read: true } : m));
-  };
-
   const toggleAmenity = (a: string) =>
     setForm(f => ({ ...f, amenities: f.amenities.includes(a) ? f.amenities.filter(x => x !== a) : [...f.amenities, a] }));
 
   const occupied = properties.filter(p => p.status === 'occupied').length;
   const available = properties.filter(p => p.status === 'available').length;
   const pendingPayments = payments.filter(p => p.status === 'uploaded');
-  const unreadMessages = messages.filter(m => !m.is_read && m.receiver_id === user?.id).length;
   const confirmedRevenue = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0);
   const dueSoonTenancies = leases.filter(l => {
     if (l.status !== 'active') return false;
@@ -530,7 +417,6 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
     { label: 'Total Listings', val: properties.length, sub: `${available} available · ${occupied} occupied`, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
     { label: 'Active Tenants', val: leases.filter(t => t.status === 'active').length, sub: `${dueSoonTenancies.length} rent due soon`, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10', trend: null },
     { label: 'Revenue Confirmed', val: `UGX ${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
-    { label: 'Unread Messages', val: unreadMessages, sub: `${messages.length} total conversations`, icon: <MessageSquare className="h-5 w-5" />, color: unreadMessages > 0 ? 'text-accent' : 'text-muted-foreground', bg: unreadMessages > 0 ? 'bg-accent/10' : 'bg-muted', trend: null },
   ];
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
@@ -550,7 +436,7 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {NAV_ITEMS.map(item => {
-          const badge = item.id === 'payments' ? pendingPayments.length : item.id === 'messages' ? unreadMessages : 0;
+          const badge = item.id === 'payments' ? pendingPayments.length : 0;
           return (
             <button
               key={item.id}
@@ -570,35 +456,27 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
           );
         })}
       </nav>
-      {/* Actions */}
+      {/* Quick actions */}
       <div className="px-3 py-4 border-t border-sidebar-border space-y-2">
         <button
-          onClick={() => { setTenancyDialogOpen(true); setSidebarOpen(false); }}
+          onClick={() => { setShowTenantForm(true); setSidebarOpen(false); }}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all"
         >
           <UserPlus className="h-4 w-4" /><span>Add Tenant</span>
         </button>
         <button
-          onClick={() => { setUnitDialogOpen(true); setSidebarOpen(false); }}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all"
-        >
-          <Layers className="h-4 w-4" /><span>Add Unit</span>
-        </button>
-        <button
-          onClick={() => { setPropDialogOpen(true); setSidebarOpen(false); }}
+          onClick={() => {
+            setForm({ title: '', description: '', property_type: 'Residential', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: profile?.phone || '', manager_email: profile?.email || '', amenities: [] });
+            setEditingProperty(null);
+            setPropDialogOpen(true); setSidebarOpen(false);
+          }}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-sidebar-primary hover:bg-sidebar-accent transition-all"
         >
           <Plus className="h-4 w-4" /><span>Add Property</span>
         </button>
-        <button
-          onClick={() => { setPasswordDialogOpen(true); setSidebarOpen(false); }}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <span>Change Password</span>
-        </button>
-        <button
-          onClick={signOut}
+      </div>
+      <div className="px-3 pb-3">
+        <button onClick={signOut}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-all"
         >
           <LogOut className="h-4 w-4" /><span>Sign Out</span>
@@ -653,6 +531,89 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
           </div>
 
           <div className="p-6 space-y-6">
+            {showTenantForm ? (
+              <div className="max-w-2xl mx-auto">
+                <button onClick={() => setShowTenantForm(false)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+                  <ArrowLeft className="h-4 w-4" /> Back to Tenants
+                </button>
+                <h2 className="font-display font-bold text-2xl mb-1">Add Tenant</h2>
+                <p className="text-sm text-muted-foreground mb-8">Create a tenant account with a temporary password.</p>
+                {createdPassword ? (
+                  <div className="space-y-4">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                      <CheckCircle2 className="h-10 w-10 text-emerald-600 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-emerald-800">Tenant Account Created</p>
+                      <p className="text-xs text-emerald-600 mt-1">Share this temporary password with the tenant</p>
+                    </div>
+                    <div className="bg-muted rounded-xl p-4">
+                      <label className="text-xs font-medium text-muted-foreground">Temporary Password</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono select-all">{createdPassword}</code>
+                        <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(createdPassword); setCopiedPwd(true); }} className="shrink-0 gap-1.5">
+                          {copiedPwd ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copiedPwd ? 'Copied' : 'Copy'}
+                        </Button>
+                      </div>
+                    </div>
+                    <Button className="w-full" variant="outline" onClick={() => { setShowTenantForm(false); setTab('tenants'); setCreatedPassword(null); setCopiedPwd(false); fetchData(); }}>
+                      Done
+                    </Button>
+                  </div>
+                ) : (
+                <form onSubmit={handleCreateTenancy} className="space-y-6">
+                  <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                    <h3 className="font-display font-semibold text-base">Personal Details</h3>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2">
+                        <Label>Full Name</Label>
+                        <Input value={tenantFormData.full_name} onChange={e => setTenantFormData(f => ({ ...f, full_name: e.target.value }))} placeholder="e.g. John Mugisha" required className="mt-1" />
+                      </div>
+                      <div>
+                        <Label>WhatsApp Phone</Label>
+                        <div className="relative mt-1">
+                          <Input value={tenantFormData.phone} onChange={e => setTenantFormData(f => ({ ...f, phone: e.target.value }))} placeholder="+256 788 100145" required className="pl-9" />
+                          <MessageCircle className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Email Address</Label>
+                        <Input type="email" value={tenantFormData.email} onChange={e => setTenantFormData(f => ({ ...f, email: e.target.value }))} placeholder="tenant@example.com" required className="mt-1" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                    <h3 className="font-display font-semibold text-base">Property & Lease Details</h3>
+                    <div>
+                      <Label>Assigned Property</Label>
+                      <Select value={tenantFormData.property_id} onValueChange={v => {
+                        const p = properties.find(pr => pr.id === v);
+                        setTenantFormData(f => ({ ...f, property_id: v, monthly_rent: p?.monthly_rent || p?.rent_amount || 0 }));
+                      }}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select property..." /></SelectTrigger>
+                        <SelectContent>
+                          {properties.filter(p => p.status !== 'inactive').map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.title} — {p.status}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div><Label>Start Date</Label><Input type="date" value={tenantFormData.start_date} onChange={e => setTenantFormData(f => ({ ...f, start_date: e.target.value }))} required className="mt-1" /></div>
+                      <div><Label>End Date</Label><Input type="date" value={tenantFormData.end_date} onChange={e => setTenantFormData(f => ({ ...f, end_date: e.target.value }))} required className="mt-1" /></div>
+                      <div><Label>Monthly Rent (UGX)</Label><Input type="number" value={tenantFormData.monthly_rent || ''} onChange={e => setTenantFormData(f => ({ ...f, monthly_rent: Number(e.target.value) }))} className="mt-1" /></div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button type="submit" disabled={sendingAction === 'creating'} className="gradient-primary text-primary-foreground">
+                      {sendingAction === 'creating' ? 'Creating...' : 'Create Tenant'}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setShowTenantForm(false)}>Cancel</Button>
+                  </div>
+                </form>
+                )}
+              </div>
+            ) : (
+            <>
             {/* Alerts */}
             {pendingPayments.length > 0 && (
               <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
@@ -782,47 +743,6 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
                     )}
                   </div>
 
-                  {/* Recent Messages */}
-                  <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
-                    <div className="flex items-center justify-between mb-5">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5 text-primary" />
-                        <h3 className="font-display font-semibold text-base">Recent Messages</h3>
-                      </div>
-                      <button onClick={() => setTab('messages')} className="text-xs text-primary hover:underline flex items-center gap-1">
-                        View all <ChevronRight className="h-3 w-3" />
-                      </button>
-                    </div>
-                    {messages.filter(m => m.sender_id !== user?.id).length === 0 ? (
-                      <div className="text-center py-8">
-                        <MessageSquare className="h-10 w-10 text-muted-foreground/20 mx-auto mb-2" />
-                        <p className="text-muted-foreground text-sm">No messages yet</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {messages.filter(m => m.sender_id !== user?.id).slice(0, 4).map(m => (
-                          <div key={m.id} className={`flex gap-3 p-3 rounded-xl border transition-all cursor-pointer ${!m.is_read ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-transparent hover:border-border'}`}
-                            onClick={() => { if (!m.is_read) markMessageRead(m.id); }}>
-                            <div className="h-8 w-8 rounded-lg bg-accent/10 text-accent font-bold text-xs flex items-center justify-center shrink-0">
-                              {(m.sender_name || 'T').charAt(0)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 mb-0.5">
-                                <span className="text-sm font-semibold text-foreground">{m.sender_name}</span>
-                                {!m.is_read && <span className="h-1.5 w-1.5 bg-primary rounded-full" />}
-                              </div>
-                              <p className="text-xs text-muted-foreground truncate">{m.content}</p>
-                            </div>
-                            <button className="shrink-0 text-xs text-primary hover:underline font-medium"
-                              onClick={e => { e.stopPropagation(); setReplyDialog({ open: true, receiverId: m.sender_id, name: m.sender_name || 'Tenant', propertyId: m.property_id || undefined }); if (!m.is_read) markMessageRead(m.id); }}>
-                              Reply
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
                   {/* Property Status */}
                   <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
                     <div className="flex items-center justify-between mb-5">
@@ -906,11 +826,7 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
                           </tr>
                         </thead>
                         <tbody>
-                          {properties.map(p => {
-                            const boosted = isPropertyBoosted(p);
-                            const boostedUntil = getBoostedUntil(p);
-
-                            return (
+                          {properties.map(p => (
                             <tr key={p.id} className="border-b border-border hover:bg-muted/30 transition-colors last:border-0">
                               <td className="py-3.5 px-4">
                                 <div className="flex items-center gap-3">
@@ -918,18 +834,8 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
                                     <Home className="h-4 w-4" />
                                   </div>
                                   <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <p className="font-semibold text-foreground truncate max-w-[200px]">{p.title}</p>
-                                      {boosted && (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">
-                                          <Sparkles className="h-3 w-3" /> Boosted
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-xs text-muted-foreground capitalize">
-                                      {p.property_type.replace('_', ' ')}
-                                      {boostedUntil ? ` · Boost ends ${format(new Date(boostedUntil), 'MMM dd')}` : ''}
-                                    </p>
+                                    <p className="font-semibold text-foreground truncate max-w-[200px]">{p.title}</p>
+                                    <p className="text-xs text-muted-foreground capitalize">{p.property_type.replace('_', ' ')}</p>
                                   </div>
                                 </div>
                               </td>
@@ -948,17 +854,6 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
                                    </Button>
                                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleEditProperty(p)}>
                                      <Pencil className="h-3 w-3" />Edit
-                                   </Button>
-                                   <Button
-                                     size="sm"
-                                     variant="outline"
-                                     className="h-7 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-50"
-                                     onClick={() => {
-                                       setSelectedBoostDays(BOOST_PLANS[0].days);
-                                       setBoostDialog({ open: true, property: p });
-                                     }}
-                                   >
-                                     <Sparkles className="h-3 w-3" />{boosted ? 'Extend Boost' : 'Boost Property'}
                                    </Button>
                                    <Button
                                      size="sm"
@@ -983,7 +878,7 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
                                  </div>
                                </td>
                             </tr>
-                          )})}
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -1000,7 +895,7 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
                     <h2 className="font-display font-bold text-xl">Tenants</h2>
                     <p className="text-sm text-muted-foreground">{leases.filter(t => t.status === 'active').length} active · {leases.filter(t => t.status !== 'active').length} historical</p>
                   </div>
-                  <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => setTenancyDialogOpen(true)}>
+                  <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => setShowTenantForm(true)}>
                     <UserPlus className="h-3.5 w-3.5" /> Add Tenant
                   </Button>
                 </div>
@@ -1022,7 +917,7 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
                           <tr><td colSpan={6} className="py-16 text-center text-muted-foreground">
                             <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
                             <p className="font-display font-semibold text-foreground">No tenants linked yet</p>
-                            <p className="text-xs mt-1">Use "Add Tenant" to link a registered user to a property</p>
+                            <p className="text-xs mt-1">Click "Add Tenant" to register a new tenant</p>
                           </td></tr>
                         ) : leases.map(t => {
                           const days = differenceInDays(new Date(t.end_date), new Date());
@@ -1049,14 +944,51 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
                               </td>
                               <td className="py-3.5 px-4">
                                 <div className="flex gap-1.5">
+                                  {t.tenant_phone && (
+                                    <a href={`https://wa.me/${t.tenant_phone.replace(/[^0-9]/g, '')}`}
+                                      target="_blank" rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 transition-colors">
+                                      WhatsApp
+                                    </a>
+                                  )}
                                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1" disabled={sendingAction === `remind-${t.id}`} onClick={() => sendRentReminder(t)}>
                                     <Bell className="h-3 w-3" />{sendingAction === `remind-${t.id}` ? '...' : 'Remind'}
                                   </Button>
-                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => {
-                                    setComposeDialog({ open: true, tenantId: t.tenant_id, tenantName: t.tenant_name || 'Tenant', propertyId: t.property_id });
-                                    setComposePropId(t.property_id);
-                                  }}>
-                                    <Send className="h-3 w-3" />Message
+                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                                    onClick={() => { setAgreementLease(t); setAgreementFile(null); setAgreementDialogOpen(true); }}>
+                                    <Upload className="h-3 w-3" /> Agreement
+                                  </Button>
+                                  {t.tenant_user_id && (
+                                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                                      disabled={sendingAction === `otp-${t.id}`}
+                                      onClick={async () => {
+                                        setSendingAction(`otp-${t.id}`);
+                                        try {
+                                          const h = await getHeaders();
+                                          const r = await fetch(`${apiBase}/admin/reset-tenant-password`, {
+                                            method: 'POST', headers: h,
+                                            body: JSON.stringify({ user_id: t.tenant_user_id }),
+                                          });
+                                          if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).detail || r.statusText));
+                                          const d = await r.json();
+                                          setOtpPassword(d.temporary_password);
+                                          toast({ title: 'New OTP generated' });
+                                        } catch (err: any) { toast({ title: 'OTP Error', description: err.message, variant: 'destructive' }); }
+                                        setSendingAction('');
+                                      }}>
+                                      <KeyRound className="h-3 w-3" />{sendingAction === `otp-${t.id}` ? '...' : 'OTP'}
+                                    </Button>
+                                  )}
+                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                                    disabled={sendingAction === `deact-${t.id}`}
+                              onClick={async () => {
+                                setSendingAction(`deact-${t.id}`);
+                                const { error } = await supabase.from('leases').update({ status: 'inactive' }).eq('id', t.id);
+                                if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+                                else { toast({ title: 'Tenancy deactivated' }); fetchData(); }
+                                setSendingAction('');
+                              }}>
+                                    <Ban className="h-3 w-3" />{sendingAction === `deact-${t.id}` ? '...' : 'Deactivate'}
                                   </Button>
                                 </div>
                               </td>
@@ -1153,281 +1085,116 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
               </div>
             )}
 
-            {/* MESSAGES */}
-            {tab === 'messages' && (
-              <>
-                {selectedConv ? (
-                  <div className="flex flex-col h-[calc(100vh-12rem)]">
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card sticky top-0 z-10">
-                      <button onClick={() => { setSelectedConv(null); setSelectedConvReceiverId(''); }} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-                        <ArrowLeft className="h-5 w-5" />
-                      </button>
-                      <div className="h-9 w-9 rounded-xl bg-accent/10 text-accent font-bold flex items-center justify-center text-sm">
-                        {(selectedConvName || 'T').charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm truncate">{selectedConvName}</p>
-                        {selectedConvProperty && <p className="text-xs text-muted-foreground truncate">{selectedConvProperty}</p>}
-                      </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                      {messages.filter(m => (m.sender_id === user?.id && m.receiver_id === selectedConv) || (m.sender_id === selectedConv && m.receiver_id === user?.id)).map(m => {
-                        const isMe = m.sender_id === user?.id;
-                        return (
-                          <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${isMe ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted text-foreground rounded-bl-md'}`}>
-                              {m.content && <p className="text-sm">{m.content}</p>}
-                              {m.voice_note_url && <audio src={m.voice_note_url} controls className="h-8 mt-1" />}
-                              <p className={`text-xs mt-1 opacity-60 ${isMe ? 'text-right' : 'text-left'}`}>
-                                {format(new Date(m.created_at), 'h:mm a')}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="sticky bottom-0 bg-card border-t border-border p-3">
-                      <div className="flex gap-2 max-w-lg mx-auto w-full">
-                        <Input value={threadText} onChange={e => setThreadText(e.target.value)}
-                          placeholder="Type a message..." className="rounded-xl h-11"
-                          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleThreadSend())} />
-                        <VoiceRecorder onRecordingComplete={setThreadVoiceUrl} onClear={() => setThreadVoiceUrl(null)} audioUrl={threadVoiceUrl} />
-                        <Button onClick={handleThreadSend} disabled={threadSending || (!threadText.trim() && !threadVoiceUrl)}
-                          className="rounded-xl h-11 w-11 p-0"><Send className="h-4 w-4" /></Button>
-                      </div>
-                    </div>
+            {/* REQUESTS */}
+            {tab === 'requests' && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-display font-bold text-xl">Maintenance Requests</h2>
+                    <p className="text-sm text-muted-foreground">{maintenanceReqs.filter(r => r.status === 'open' || r.status === 'in_progress').length} open · {maintenanceReqs.filter(r => r.status === 'resolved' || r.status === 'completed').length} resolved</p>
+                  </div>
+                </div>
+                {maintenanceReqs.length === 0 ? (
+                  <div className="text-center py-24 bg-card border border-border rounded-2xl">
+                    <Wrench className="h-16 w-16 mx-auto mb-4 text-muted-foreground/20" />
+                    <p className="text-xl font-display font-bold text-foreground">No maintenance requests</p>
+                    <p className="text-sm mt-2 text-muted-foreground">Tenants haven't submitted any requests yet.</p>
                   </div>
                 ) : (
-                  <div className="space-y-5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="font-display font-bold text-xl">Messages</h2>
-                        <p className="text-sm text-muted-foreground">{unreadMessages} unread · {(() => {
-                          const seen = new Set<string>();
-                          messages.forEach(m => {
-                            const id = m.sender_id === user?.id ? m.receiver_id : m.sender_id;
-                            seen.add(id);
-                          });
-                          return seen.size;
-                        })()} conversations</p>
-                      </div>
-                      {leases.filter(t => t.status === 'active').length > 0 && (
-                        <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 text-xs h-8" onClick={() => {
-                          const active = leases.find(t => t.status === 'active');
-                          if (active) { setComposeDialog({ open: true, tenantId: active.tenant_id, tenantName: active.tenant_name || 'Tenant', propertyId: active.property_id }); setComposePropId(active.property_id); }
-                        }}>
-                          <Pencil className="h-3.5 w-3.5" /> New Message
-                        </Button>
-                      )}
-                    </div>
-
-                    {messages.length === 0 ? (
-                      <div className="text-center py-24 bg-card border border-border rounded-2xl">
-                        <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground/20" />
-                        <p className="text-xl font-display font-bold text-foreground">No messages yet</p>
-                        <p className="text-sm mt-2 text-muted-foreground">Messages from tenants will appear here</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {(() => {
-                          const groups: Record<string, { name: string; property: string; messages: typeof messages; unread: number }> = {};
-                          messages.forEach(m => {
-                            const isFromTenant = m.sender_id !== user?.id;
-                            const cId = isFromTenant ? m.sender_id : m.receiver_id;
-                            const cName = isFromTenant ? m.sender_name : m.receiver_name;
-                            if (!groups[cId]) groups[cId] = { name: cName || 'Unknown', property: m.property_title || '', messages: [], unread: 0 };
-                            groups[cId].messages.push(m);
-                            if (!groups[cId].property && m.property_title) groups[cId].property = m.property_title;
-                            if (!m.is_read && isFromTenant) groups[cId].unread++;
-                          });
-                          return Object.entries(groups).sort((a, b) => {
-                            const aLast = a[1].messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, a[1].messages[0]);
-                            const bLast = b[1].messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, b[1].messages[0]);
-                            return new Date(bLast.created_at).getTime() - new Date(aLast.created_at).getTime();
-                          }).map(([cId, group]) => {
-                            const lastMsg = group.messages.reduce((latest, m) => new Date(m.created_at) > new Date(latest.created_at) ? m : latest, group.messages[0]);
-                            return (
-                              <button key={cId} onClick={() => {
-                                setSelectedConv(cId);
-                                setSelectedConvName(group.name);
-                                setSelectedConvProperty(group.property);
-                                setSelectedConvReceiverId(cId);
-                                // Mark all unread from this conversation as read
-                                group.messages.filter(m => !m.is_read && m.sender_id !== user?.id).forEach(m => markMessageRead(m.id));
-                              }}
-                                className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-2xl hover:shadow-sm transition-all text-left">
-                                <div className={`h-11 w-11 rounded-xl font-bold text-sm flex items-center justify-center shrink-0 ${group.unread > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                  {(group.name || 'T').charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className={`text-sm ${group.unread > 0 ? 'font-bold text-foreground' : 'font-semibold text-foreground'}`}>{group.name}</span>
-                                    {group.unread > 0 && <span className="h-2 w-2 rounded-full bg-primary" />}
-                                  </div>
-                                  <p className="text-xs text-muted-foreground truncate">{group.property}</p>
-                                  <p className="text-xs text-muted-foreground truncate mt-0.5">{lastMsg.content || (lastMsg.voice_note_url ? '🎤 Voice note' : '')}</p>
-                                </div>
-                                <div className="flex flex-col items-end gap-1 shrink-0">
-                                  <span className="text-xs text-muted-foreground">{format(new Date(lastMsg.created_at), 'MMM dd')}</span>
-                                  {group.unread > 0 && <span className="text-xs font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full min-w-[20px] text-center">{group.unread}</span>}
-                                </div>
-                              </button>
-                            );
-                          });
-                        })()}
-                      </div>
-                    )}
+                  <div className="space-y-3">
+                    {maintenanceReqs.map(r => {
+                      const days = differenceInDays(new Date(r.created_at), new Date());
+                      return (
+                        <div key={r.id} className="bg-card border border-border rounded-2xl p-5">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+                                  r.priority === 'high' ? 'bg-destructive' :
+                                  r.priority === 'medium' ? 'bg-gold' : 'bg-success'
+                                }`} />
+                                <p className="font-semibold text-foreground">{r.title}</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{r.description}</p>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
+                                <span>{r.property_title || 'Unknown property'}</span>
+                                {r.tenant_name && <span>· {r.tenant_name}</span>}
+                                <span>· {r.created_at ? format(new Date(r.created_at), 'MMM dd, yyyy') : ''}</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2 shrink-0">
+                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusBadge(r.status === 'completed' ? 'confirmed' : r.status)}`}>
+                                {r.status === 'completed' ? 'Resolved' : r.status === 'in_progress' ? 'In progress' : r.status}
+                              </span>
+                              <div className="flex gap-1.5">
+                                {r.status === 'open' && (
+                                  <Button size="sm" className="gradient-primary text-primary-foreground h-7 text-xs gap-1"
+                                    disabled={sendingAction === `start-${r.id}`}
+                                    onClick={async () => {
+                                      setSendingAction(`start-${r.id}`);
+                                      await supabase.from('maintenance_requests').update({ status: 'in_progress' }).eq('id', r.id);
+                                      toast({ title: 'Request marked in progress' });
+                                      setSendingAction(''); fetchData();
+                                    }}>
+                                    <Clock className="h-3 w-3" /> Start
+                                  </Button>
+                                )}
+                                {(r.status === 'open' || r.status === 'in_progress') && (
+                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                                    disabled={sendingAction === `done-${r.id}`}
+                                    onClick={async () => {
+                                      setSendingAction(`done-${r.id}`);
+                                      await supabase.from('maintenance_requests').update({ status: 'completed', completed_date: new Date().toISOString().split('T')[0] }).eq('id', r.id);
+                                      toast({ title: 'Request resolved' });
+                                      setSendingAction(''); fetchData();
+                                    }}>
+                                    <CheckCircle className="h-3 w-3" /> Resolve
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
-              </>
+              </div>
             )}
+
+            {/* PROFILE */}
+            {tab === 'account' && (
+              <div className="max-w-lg">
+                <h2 className="font-display font-bold text-xl mb-6">Profile</h2>
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
+                  <AvatarUpload
+                    userId={user?.id || ''}
+                    photoUrl={profile?.photo_url || null}
+                    fullName={profile?.full_name || ''}
+                    email={profile?.email || user?.email || ''}
+                    size="xl"
+                    onUpdate={(url) => setProfile(p => p ? { ...p, photo_url: url } : p)}
+                  />
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Full Name</label>
+                      <p className="text-sm font-semibold text-foreground">{profile?.full_name || '—'}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Email</label>
+                      <p className="text-sm font-semibold text-foreground">{profile?.email || user?.email || '—'}</p>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => setPasswordDialogOpen(true)}>
+                    Change Password
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>)}
           </div>
         </main>
       </div>
-
-      {/* ── DIALOGS ── */}
-
-      {/* Boost Checkout Dialog */}
-      <Dialog open={boostDialog.open} onOpenChange={open => setBoostDialog(current => ({ ...current, open }))}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">Boost Property</DialogTitle>
-            <DialogDescription>
-              Promote {boostDialog.property?.title || 'this listing'} higher in search results for the selected duration.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid gap-2">
-              {BOOST_PLANS.map(plan => (
-                <button
-                  key={plan.days}
-                  type="button"
-                  onClick={() => setSelectedBoostDays(plan.days)}
-                  className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors ${
-                    selectedBoostDays === plan.days
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border bg-background hover:border-primary/40'
-                  }`}
-                >
-                  <span>
-                    <span className="block text-sm font-semibold text-foreground">{plan.label}</span>
-                    <span className="text-xs text-muted-foreground">Featured placement on public listings</span>
-                  </span>
-                  <span className="font-display text-base font-bold text-primary">{formatBoostPrice(plan.price)}</span>
-                </button>
-              ))}
-            </div>
-            <div className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">
-              Checkout will charge the selected boost package and activate the boosted badge once payment succeeds.
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBoostDialog({ open: false, property: null })}>Cancel</Button>
-            <Button
-              className="gradient-primary text-primary-foreground gap-2"
-              disabled={sendingAction.startsWith('boost-')}
-              onClick={handleBoostProperty}
-            >
-              <Sparkles className="h-4 w-4" />
-              {sendingAction.startsWith('boost-') ? 'Processing...' : 'Checkout'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reply Dialog */}
-      <Dialog open={replyDialog.open} onOpenChange={o => setReplyDialog(d => ({ ...d, open: o }))}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">Reply to {replyDialog.name}</DialogTitle>
-            <DialogDescription>Send an in-app message to this tenant.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleReply} className="space-y-4 mt-4">
-            <Textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={4} placeholder="Type your reply (or record voice)..." />
-            <VoiceRecorder onRecordingComplete={setReplyVoiceUrl} onClear={() => setReplyVoiceUrl(null)} audioUrl={replyVoiceUrl} />
-            <Button type="submit" disabled={sendingAction === 'reply' || (!replyText.trim() && !replyVoiceUrl)} className="w-full gradient-primary text-primary-foreground">
-              {sendingAction === 'reply' ? 'Sending...' : 'Send Message'}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Compose New Message Dialog */}
-      <Dialog open={composeDialog.open} onOpenChange={o => setComposeDialog(d => ({ ...d, open: o }))}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">Message {composeDialog.tenantName}</DialogTitle>
-            <DialogDescription>Send a message to your tenant. They will see it in their dashboard.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCompose} className="space-y-4 mt-4">
-            {leases.filter(t => t.status === 'active').length > 1 && (
-              <div>
-                <Label>Select Tenant</Label>
-                <Select value={composeDialog.tenantId} onValueChange={v => {
-                  const t = leases.find(ten => ten.tenant_id === v);
-                  setComposeDialog(d => ({ ...d, tenantId: v, tenantName: t?.tenant_name || 'Tenant', propertyId: t?.property_id }));
-                  setComposePropId(t?.property_id || '');
-                }}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {leases.filter(t => t.status === 'active').map(t => (
-                      <SelectItem key={t.tenant_id} value={t.tenant_id}>{t.tenant_name} — {t.property_title}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div>
-              <Label>Message</Label>
-              <Textarea value={composeText} onChange={e => setComposeText(e.target.value)} rows={4} placeholder="Type your message to the tenant (or record voice)..." className="mt-1" maxLength={500} />
-              <p className="text-xs text-muted-foreground mt-1">{composeText.length}/500</p>
-            </div>
-            <VoiceRecorder onRecordingComplete={setComposeVoiceUrl} onClear={() => setComposeVoiceUrl(null)} audioUrl={composeVoiceUrl} />
-            <Button type="submit" disabled={sendingAction === 'compose' || !composeDialog.tenantId || (!composeText.trim() && !composeVoiceUrl)} className="w-full gradient-primary text-primary-foreground">
-              {sendingAction === 'compose' ? 'Sending...' : 'Send Message'}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Tenant Dialog */}
-      <Dialog open={tenancyDialogOpen} onOpenChange={setTenancyDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">Create Tenancy Agreement</DialogTitle>
-            <DialogDescription>Link a registered tenant to one of your properties. They will be notified via SMS.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreateTenancy} className="space-y-4 mt-4">
-            <div>
-              <Label>Property</Label>
-              <Select value={tenancyForm.property_id} onValueChange={v => {
-                const p = properties.find(pr => pr.id === v);
-                setTenancyForm(f => ({ ...f, property_id: v, monthly_rent: p?.monthly_rent || p?.rent_amount || 0 }));
-              }}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select property..." /></SelectTrigger>
-                <SelectContent>
-                  {properties.filter(p => p.status !== 'inactive').map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.title} — {p.status}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Tenant Email</Label>
-              <Input type="email" value={tenancyForm.tenant_email} onChange={e => setTenancyForm(f => ({ ...f, tenant_email: e.target.value }))} placeholder="tenant@example.com" required className="mt-1" />
-              <p className="text-xs text-muted-foreground mt-1">Tenant must already have an Afodabohousing account</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Start Date</Label><Input type="date" value={tenancyForm.start_date} onChange={e => setTenancyForm(f => ({ ...f, start_date: e.target.value }))} required className="mt-1" /></div>
-              <div><Label>End Date</Label><Input type="date" value={tenancyForm.end_date} onChange={e => setTenancyForm(f => ({ ...f, end_date: e.target.value }))} required className="mt-1" /></div>
-              <div><Label>Monthly Rent (UGX)</Label><Input type="number" value={tenancyForm.monthly_rent || ''} onChange={e => setTenancyForm(f => ({ ...f, monthly_rent: Number(e.target.value) }))} className="mt-1" /></div>
-            </div>
-            <Button type="submit" disabled={sendingAction === 'creating'} className="w-full gradient-primary text-primary-foreground">
-              {sendingAction === 'creating' ? 'Creating...' : 'Create Tenancy & Notify Tenant'}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Add / Edit Property Dialog */}
       <Dialog open={propDialogOpen} onOpenChange={o => { setPropDialogOpen(o); if (!o) setEditingProperty(null); }}>
@@ -1447,12 +1214,8 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
                 <Select value={form.property_type} onValueChange={v => setForm({ ...form, property_type: v })}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="house">House</SelectItem>
-                    <SelectItem value="apartment">Apartment</SelectItem>
-                    <SelectItem value="self_contained">Self-Contained</SelectItem>
-                    <SelectItem value="room">Single Room</SelectItem>
-                    <SelectItem value="studio">Studio</SelectItem>
-                    <SelectItem value="bungalow">Bungalow</SelectItem>
+                    <SelectItem value="Residential">Residential</SelectItem>
+                    <SelectItem value="Office Space">Office Space</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1463,7 +1226,6 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
                   <SelectContent>{DISTRICTS_LIST.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>City</Label><Input value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="e.g. Kampala City" className="mt-1" /></div>
               <div><Label>Area / Neighbourhood</Label><Input value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} placeholder="e.g. Ntinda, Bukoto" className="mt-1" /></div>
               <div className="col-span-2"><Label>Full Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Plot 45, Road name..." className="mt-1" /></div>
             </div>
@@ -1584,6 +1346,30 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
         </DialogContent>
       </Dialog>
 
+      {/* Upload Agreement Dialog */}
+      <Dialog open={agreementDialogOpen} onOpenChange={o => { if (!o) { setAgreementDialogOpen(false); setAgreementFile(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Tenancy Agreement</DialogTitle>
+            <DialogDescription>
+              Upload a signed agreement PDF or image for {agreementLease?.tenant_name || 'this tenant'}.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUploadAgreement} className="space-y-4 mt-4">
+            <div>
+              <Label>Agreement Document</Label>
+              <Input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                onChange={e => setAgreementFile(e.target.files?.[0] || null)}
+                required className="mt-1" />
+              <p className="text-xs text-muted-foreground mt-1">PDF or image files accepted</p>
+            </div>
+            <Button type="submit" disabled={!agreementFile || uploadingAgreement} className="w-full">
+              {uploadingAgreement ? 'Uploading...' : 'Upload Agreement'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Property Confirmation */}
       <AlertDialog open={!!deleteConfirmProperty} onOpenChange={o => { if (!o) setDeleteConfirmProperty(null); }}>
         <AlertDialogContent>
@@ -1606,6 +1392,25 @@ const [selectedBoostDays, setSelectedBoostDays] = useState(BOOST_PLANS[0].days);
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!otpPassword} onOpenChange={o => { if (!o) setOtpPassword(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>New One-Time Password</DialogTitle>
+            <DialogDescription>Share this temporary password with the tenant. They can change it after logging in.</DialogDescription>
+          </DialogHeader>
+          <div className="bg-muted rounded-xl p-4 mt-2">
+            <label className="text-xs font-medium text-muted-foreground">Temporary Password</label>
+            <div className="flex items-center gap-2 mt-1">
+              <code className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono select-all">{otpPassword}</code>
+              <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(otpPassword || ''); toast({ title: 'Copied!' }); }} className="shrink-0 gap-1.5">
+                <Copy className="h-3.5 w-3.5" /> Copy
+              </Button>
+            </div>
+          </div>
+          <Button className="w-full" variant="outline" onClick={() => setOtpPassword(null)}>Done</Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

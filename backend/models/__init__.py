@@ -38,11 +38,6 @@ from .subscription import (
 from .tenant import Tenant, TenantCreate, TenantResponse, TenantUpdate
 
 __all__ = [
-    "Boost",
-    "BoostCreate",
-    "BoostResponse",
-    "BoostStats",
-    "BoostPriceResponse",
     "Profile",
     "ProfileCreate",
     "ProfileUpdate",

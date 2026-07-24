@@ -1,29 +1,137 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerTrigger, DrawerClose } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer';
 import { useToast } from '@/hooks/use-toast';
-import VoiceRecorder from '@/components/VoiceRecorder';
-import { listPayments, createPayment, initiateNylonPay, PaymentData } from '@/services/payments';
+import { Badge } from '@/components/ui/badge';
 import {
-  Home, MessageSquare, Send, Upload, CheckCircle, X,
-  Calendar, MapPin, Phone, Mail, ChevronRight, Building2, Clock, Image, Settings, LogOut, Smartphone
+  Home, MapPin, Phone, ChevronRight, Building2, Clock, Image, Settings, LogOut,
+  DollarSign, ShieldCheck, Bell, Wrench, FileText, CheckCircle, XCircle,
+  AlertTriangle, Menu, MessageSquare, Plus, User, KeyRound, CalendarDays,
+  X, Download, Upload, ThumbsUp, ThumbsDown, FileUp, Sidebar, Camera
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from 'date-fns';
 
-type Tab = 'home' | 'payments' | 'messages' | 'settings';
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
+type Tab = 'home' | 'payments' | 'requests' | 'agreements' | 'account';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'home', label: 'Home', icon: <Home className="h-5 w-5" /> },
-  { id: 'payments', label: 'Payments', icon: <span className="text-[10px] font-extrabold h-5 w-5 flex items-center justify-center">UGX</span> },
-  { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
-  { id: 'settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> },
+  { id: 'home', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
+  { id: 'payments', label: 'Payments', icon: <DollarSign className="h-5 w-5" /> },
+  { id: 'requests', label: 'Maintenance', icon: <Wrench className="h-5 w-5" /> },
+  { id: 'agreements', label: 'Agreements', icon: <FileText className="h-5 w-5" /> },
+  { id: 'account', label: 'Account', icon: <Settings className="h-5 w-5" /> },
 ];
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function CalendarWidget({ dueDate }: { dueDate: string | null }) {
+  const now = new Date();
+  const start = startOfMonth(now);
+  const end = endOfMonth(now);
+  const days = eachDayOfInterval({ start, end });
+  const startIdx = getDay(start);
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="font-bold text-sm">{format(now, 'MMMM yyyy')}</span>
+        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <div className="grid grid-cols-7 gap-0 text-center">
+        {DAYS.map(d => (
+          <span key={d} className="text-xs text-muted-foreground font-medium py-1">{d.slice(0, 2)}</span>
+        ))}
+        {Array.from({ length: startIdx }).map((_, i) => (
+          <div key={`empty-${i}`} />
+        ))}
+        {days.map(day => {
+          const isDue = dueDate && isSameDay(day, new Date(dueDate));
+          const today = isToday(day);
+          return (
+            <div key={day.toISOString()} className={`py-1 text-sm rounded-lg ${
+              isDue ? 'bg-primary text-primary-foreground font-bold' :
+              today ? 'bg-primary/10 text-primary font-bold' :
+              'text-foreground'
+            }`}>
+              {format(day, 'd')}
+            </div>
+          );
+        })}
+      </div>
+      {dueDate && (
+        <p className="text-xs text-center text-muted-foreground mt-2">
+          Rent due: <span className="text-primary font-semibold">{format(new Date(dueDate), 'MMM dd')}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PercentRing({ pct, label, sub }: { pct: number; label: string; sub: string }) {
+  const r = 40;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+  return (
+    <div className="flex flex-col items-center">
+      <svg width="110" height="110" viewBox="0 0 110 110" className="transform -rotate-90">
+        <circle cx="55" cy="55" r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
+        <circle cx="55" cy="55" r={r} fill="none" stroke="hsl(var(--primary))" strokeWidth="8"
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" />
+      </svg>
+      <span className="text-2xl font-bold text-foreground absolute mt-7">{pct}%</span>
+      <div className="text-center mt-2">
+        <p className="text-sm font-bold">{label}</p>
+        <p className="text-xs text-muted-foreground">{sub}</p>
+      </div>
+    </div>
+  );
+}
+
+function SkeletonCard() {
+  return <div className="bg-card border border-border rounded-xl p-5 animate-pulse space-y-3">
+    <div className="h-4 bg-muted rounded w-1/3" />
+    <div className="h-8 bg-muted rounded w-2/3" />
+    <div className="h-4 bg-muted rounded w-1/2" />
+  </div>;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    confirmed: 'bg-success/10 text-success border-success/20',
+    pending: 'text-muted-foreground bg-muted border-border',
+    uploaded: 'text-primary bg-primary/10 border-primary/20',
+    rejected: 'text-destructive bg-destructive/10 border-destructive/20',
+    open: 'text-accent bg-accent/10 border-accent/20',
+    in_progress: 'text-accent bg-accent/10 border-accent/20',
+    resolved: 'text-success bg-success/10 border-success/20',
+    completed: 'text-success bg-success/10 border-success/20',
+  };
+  return (
+    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${colors[status] || 'text-muted-foreground bg-muted border-border'}`}>
+      {status === 'completed' ? 'Done' : status === 'in_progress' ? 'In progress' : status}
+    </span>
+  );
+}
+
+function initBg(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = id.charCodeAt(i) + ((h << 5) - h);
+  const hues = [14, 182, 200, 340, 48, 260, 30];
+  return `hsl(${hues[Math.abs(h) % hues.length]}, 50%, 45%)`;
+}
+
+function initials(name: string, email: string) {
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
+  }
+  return email.charAt(0).toUpperCase();
+}
 
 export default function TenantDashboard() {
   const { user, loading: authLoading } = useAuth();
@@ -31,28 +139,37 @@ export default function TenantDashboard() {
   const { toast } = useToast();
 
   const [tab, setTab] = useState<Tab>('home');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeLease, setActiveLease] = useState<any>(null);
   const [tenantRecord, setTenantRecord] = useState<any>(null);
   const [managerProfile, setManagerProfile] = useState<any>(null);
-  const [payments, setPayments] = useState<PaymentData[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [maintenanceReqs, setMaintenanceReqs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [paymentNote, setPaymentNote] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [memoOpen, setMemoOpen] = useState(false);
-  const [messageText, setMessageText] = useState('');
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [voiceUrl, setVoiceUrl] = useState<string | null>(null);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ new: '', confirm: '' });
   const [sendingPassword, setSendingPassword] = useState(false);
-  const [npayPhone, setNpayPhone] = useState('');
-  const [npaySending, setNpaySending] = useState(false);
-  const [npayMessage, setNpayMessage] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
+const [maintenanceForm, setMaintenanceForm] = useState({ title: '', description: '', priority: 'medium' });
+const [maintenancePhoto, setMaintenancePhoto] = useState<File | null>(null);
+const [sendingMaintenance, setSendingMaintenance] = useState(false);
+
+  const [paymentSearch, setPaymentSearch] = useState('');
+  const [paymentPage, setPaymentPage] = useState(0);
+  const PAGE_SIZE = 5;
+
+  const [requestFilter, setRequestFilter] = useState<'all' | 'open' | 'resolved'>('all');
+
+  // Agreement state
+  const [agreementState, setAgreementState] = useState<any>(null);
+  const [agreementLoading, setAgreementLoading] = useState(false);
+  const [consenting, setConsenting] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadingAgreement, setUploadingAgreement] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -60,135 +177,113 @@ export default function TenantDashboard() {
     fetchData();
   }, [user, authLoading]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const fetchAgreementState = async (leaseId: string) => {
+    setAgreementLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch(`${API_BASE}/agreements/${leaseId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) setAgreementState(await res.json());
+    } catch { /* ignore */ }
+    setAgreementLoading(false);
+  };
+
+  const handleConsent = async (agree: boolean) => {
+    if (!activeLease) return;
+    setConsenting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch(`${API_BASE}/agreements/${activeLease.id}/consent`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (res.ok) {
+        toast({ title: agree ? 'Agreement accepted' : 'Response recorded' });
+        fetchAgreementState(activeLease.id);
+      } else {
+        const err = await res.json();
+        toast({ title: 'Error', description: err.detail || 'Failed to record consent', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Network error', variant: 'destructive' });
+    }
+    setConsenting(false);
+  };
 
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
 
-    const [tenantResult, payResult] = await Promise.all([
-      supabase.from('tenants').select('*, leases!inner(*, properties(*))').eq('user_id', user.id).maybeSingle(),
-      listPayments().catch(() => ({ items: [], total: 0 })),
-    ]);
-
+    const tenantResult = await supabase.from('tenants').select('*, leases!inner(*, properties(*))').eq('user_id', user.id).maybeSingle();
     const tenant = tenantResult.data;
     setTenantRecord(tenant);
+
     const lease = tenant?.leases?.[0] || null;
     setActiveLease(lease);
 
+    const tenantId = tenant?.id;
+
     if (lease?.owner_id) {
-      const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', lease.owner_id).maybeSingle();
-      setManagerProfile(profile);
+      const { data: mp } = await supabase.from('profiles').select('*').eq('user_id', lease.owner_id).maybeSingle();
+      setManagerProfile(mp);
     }
 
-    setPayments(payResult.items || []);
+    const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+    setProfile(p);
 
-    if (user) {
-      const msgRes = await supabase.from('messages').select('*, profiles!sender_id(full_name)').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false });
-      setMessages((msgRes.data || []).map(m => ({
-        ...m,
-        sender_name: m.sender_id === user.id ? 'You' : m.profiles?.full_name || 'Manager',
-      })).reverse());
-    } else {
-      setMessages([]);
+    if (tenantId) {
+      const { data: pays } = await supabase.from('payments').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
+      setPayments(pays || []);
+      const { data: reqs } = await supabase.from('maintenance_requests').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
+      setMaintenanceReqs(reqs || []);
     }
+
+    if (lease) fetchAgreementState(lease.id);
+
     setLoading(false);
   };
 
   const daysLeft = activeLease ? differenceInDays(new Date(activeLease.end_date), new Date()) : null;
   const isOverdue = daysLeft !== null && daysLeft < 0;
   const isDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
-  const unreadMessages = messages.filter(m => !m.is_read && m.receiver_id === user?.id).length;
-  const confirmedPayments = payments.filter(p => p.status === 'confirmed');
-  const totalPaid = confirmedPayments.reduce((s, p) => s + (p.amount || 0), 0);
-  const lastPayment = payments[0];
-  const nextDue = activeLease ? new Date(activeLease.end_date) : null;
-
   const property = activeLease?.properties;
 
-  const activityFeed = [
-    ...payments.map(p => ({
-      id: `pay-${p.id}`,
-      type: 'payment' as const,
-      title: p.status === 'confirmed' ? 'Payment confirmed' : p.status === 'uploaded' ? 'Payment submitted' : 'Payment recorded',
-      detail: `UGX ${p.amount?.toLocaleString()} — ${p.status}`,
-      date: p.paid_date || p.created_at,
-      status: p.status,
-    })),
-    ...messages.filter(m => m.sender_id !== user?.id).map(m => ({
-      id: `msg-${m.id}`,
-      type: 'message' as const,
-      title: `Message from ${m.sender_name || 'Manager'}`,
-      detail: m.content || 'Voice note',
-      date: m.created_at,
-      isUnread: !m.is_read,
-    })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
+  const monthRent = activeLease?.monthly_rent || property?.monthly_rent || property?.rent_amount || 0;
+  const totalPaid = payments.filter(p => p.status === 'confirmed').reduce((s: number, p: any) => s + p.amount, 0);
+  const remainingBalance = Math.max(0, monthRent - totalPaid);
 
-  const handleUploadPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeLease || !tenantRecord || !user) return;
-    setUploading(true);
+  const leaseMonths = activeLease
+    ? Math.max(1, Math.ceil(differenceInDays(new Date(activeLease.end_date), new Date(activeLease.start_date)) / 30))
+    : 1;
+  const paidMonths = payments.filter(p => p.status === 'confirmed').length;
+  const payPct = Math.min(100, Math.round((paidMonths / leaseMonths) * 100));
 
-    let proofUrl = '';
-    if (proofFile) {
-      const ext = proofFile.name.split('.').pop();
-      const filePath = `${user.id}/${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from('payment-proofs').upload(filePath, proofFile);
-      if (uploadErr) {
-        toast({ title: 'Upload failed', description: uploadErr.message, variant: 'destructive' });
-        setUploading(false); return;
-      }
-      proofUrl = filePath;
-    }
+  const onTimeCount = payments.filter((p: any) => p.status === 'confirmed' && p.paid_date && p.due_date && new Date(p.paid_date) <= new Date(p.due_date)).length;
+  const onTimePct = payments.length > 0 ? Math.round((onTimeCount / payments.length) * 100) : 0;
 
-    try {
-      await createPayment({
-        lease_id: activeLease.id,
-        tenant_id: tenantRecord.id,
-        amount: activeLease.monthly_rent,
-        payment_type: 'rent',
-        payment_method: proofFile ? 'mobile_money' : undefined,
-        due_date: activeLease.end_date,
-        status: proofFile ? 'uploaded' : 'pending',
-        notes: paymentNote || null,
-      });
-      toast({ title: 'Payment submitted!' });
-      setMemoOpen(false);
-      setProofFile(null);
-      setPaymentNote('');
-      fetchData();
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    }
-    setUploading(false);
-  };
+  const renewalNeeded = daysLeft !== null && daysLeft <= 30 && daysLeft > 0;
+  const openRequests = maintenanceReqs.filter(r => r.status === 'open' || r.status === 'in_progress');
+  const hasAction = renewalNeeded || openRequests.length > 0;
 
-  const handleNylonPayPayment = async () => {
-    if (!activeLease || !tenantRecord || !user) return;
-    if (!npayPhone.trim()) { toast({ title: 'Enter your phone number', variant: 'destructive' }); return; }
-    setNpaySending(true);
-    setNpayMessage(null);
-    try {
-      const res = await initiateNylonPay({
-        amount: activeLease.monthly_rent,
-        phone_number: npayPhone.trim(),
-        description: `Rent payment for ${activeLease.properties?.title || 'property'}`,
-        payment_id: activeLease.id,
-        first_name: user.email?.split('@')[0] || 'Tenant',
-        last_name: '',
-        email: user.email || undefined,
-      });
-      setNpayMessage(res.message);
-      if (res.success) toast({ title: 'Payment initiated!', description: res.message });
-      else toast({ title: 'Payment failed', description: res.message, variant: 'destructive' });
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    }
-    setNpaySending(false);
-  };
+  const filteredPayments = payments.filter((p: any) => {
+    if (!paymentSearch) return true;
+    const s = paymentSearch.toLowerCase();
+    return (p.notes || '').toLowerCase().includes(s) ||
+      (p.payment_type || '').toLowerCase().includes(s) ||
+      (p.status || '').toLowerCase().includes(s);
+  });
+  const totalPaymentPages = Math.max(1, Math.ceil(filteredPayments.length / PAGE_SIZE));
+  const pagePayments = filteredPayments.slice(paymentPage * PAGE_SIZE, (paymentPage + 1) * PAGE_SIZE);
+
+  const filteredReqs = maintenanceReqs.filter(r => requestFilter === 'all' || r.status === requestFilter);
+
+  const dueDate = activeLease?.end_date || null;
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,40 +297,97 @@ export default function TenantDashboard() {
     const { error } = await supabase.auth.updateUser({ password: passwordForm.new });
     setSendingPassword(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Password updated', description: 'Use your new password next time you sign in.' });
+    toast({ title: 'Password updated' });
     setPasswordDialogOpen(false);
     setPasswordForm({ new: '', confirm: '' });
   };
 
-  const handleSendMessage = async () => {
-    if (!user || !activeLease?.owner_id || (!messageText.trim() && !voiceUrl)) return;
-    setSendingMessage(true);
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: activeLease.owner_id,
+  const handleSubmitMaintenance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tenantRecord?.id || !activeLease?.property_id) return;
+    setSendingMaintenance(true);
+
+    let photoURL: string | null = null;
+    if (maintenancePhoto) {
+      const ext = maintenancePhoto.name.split('.').pop();
+      const path = `maintenance/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('photos').upload(path, maintenancePhoto);
+      if (!uploadErr) {
+        const { data: { publicUrl } } = supabase.storage.from('photos').getPublicUrl(path);
+        photoURL = publicUrl;
+      }
+    }
+
+    const { error } = await supabase.from('maintenance_requests').insert({
       property_id: activeLease.property_id,
-      content: messageText.trim() || null,
-      voice_note_url: voiceUrl,
+      tenant_id: tenantRecord.id,
+      title: maintenanceForm.title,
+      description: maintenanceForm.description,
+      priority: maintenanceForm.priority,
+      status: 'open',
+      photo_url: photoURL,
     });
-    setSendingMessage(false);
+    setSendingMaintenance(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Message sent!' });
-    const newMsg = {
-      id: 'temp-' + Date.now(),
-      sender_id: user.id,
-      receiver_id: activeLease.owner_id,
-      property_id: activeLease.property_id,
-      content: messageText.trim() || null,
-      voice_note_url: voiceUrl,
-      created_at: new Date().toISOString(),
-      is_read: false,
-      profiles: { full_name: user.email?.split('@')[0] || 'You' },
-      sender_name: 'You',
-    };
-    setMessages(prev => [...prev, newMsg]);
-    setMessageText('');
-    setVoiceUrl(null);
+    toast({ title: 'Request sent!' });
+    setMaintenanceDialogOpen(false);
+    setMaintenanceForm({ title: '', description: '', priority: 'medium' });
+    setMaintenancePhoto(null);
+    fetchData();
   };
+
+  const SidebarNav = () => (
+    <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-auto ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className="flex flex-col h-full">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <div className="flex items-center gap-3">
+            <Building2 className="h-6 w-6 text-primary" />
+            <span className="font-bold text-base">Tenant Portal</span>
+          </div>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <nav className="flex-1 p-3 space-y-1">
+          {NAV_ITEMS.map(item => (
+            <button key={item.id} onClick={() => { setTab(item.id); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                tab === item.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}>
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-border">
+          <div className="flex items-center gap-3 mb-3">
+            {profile?.photo_url ? (
+              <img src={profile.photo_url} alt="" className="h-9 w-9 rounded-lg object-cover ring-2 ring-border" />
+            ) : (
+              <div className="h-9 w-9 rounded-lg flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: initBg(user?.id || '') }}>
+                {initials(profile?.full_name || '', user?.email || '')}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold truncate">{profile?.full_name?.split(' ')[0] || 'Tenant'}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" className="w-full h-9 text-xs gap-2"
+            onClick={() => { supabase.auth.signOut().then(() => navigate('/')); }}>
+            <LogOut className="h-3.5 w-3.5" /> Sign Out
+          </Button>
+        </div>
+      </div>
+    </aside>
+  );
+
+  // Overlay for mobile sidebar
+  const SidebarOverlay = () => sidebarOpen ? (
+    <div className="fixed inset-0 z-20 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+  ) : null;
 
   if (loading) {
     return (
@@ -249,474 +401,632 @@ export default function TenantDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-16">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <Building2 className="h-5 w-5 text-primary shrink-0" />
-          <div className="min-w-0">
-            <h1 className="text-sm font-bold text-foreground truncate">
-              {property?.title || 'My Dashboard'}
-            </h1>
-            <p className="text-xs text-muted-foreground truncate">
-              {property?.state ? `${property.state} · UGX ${(property.monthly_rent || property.rent_amount || 0).toLocaleString()}/mo` : 'No active lease'}
-            </p>
+    <div className="min-h-screen bg-background flex">
+      <SidebarOverlay />
+      <SidebarNav />
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top header */}
+        <header className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 lg:px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-muted-foreground hover:text-foreground">
+              <Menu className="h-5 w-5" />
+            </button>
+            <div>
+              <h1 className="text-sm font-bold text-foreground">
+                {NAV_ITEMS.find(n => n.id === tab)?.label || 'Dashboard'}
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                {property?.title || 'Tenant Portal'} {property?.state ? `· ${property.state}` : ''}
+              </p>
+            </div>
           </div>
-        </div>
-        {unreadMessages > 0 && (
-          <span className="h-2 w-2 rounded-full bg-primary" />
-        )}
-      </header>
-
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto">
-        {/* HOME TAB */}
-        {tab === 'home' && (
-          <div className="p-4 space-y-4 max-w-lg mx-auto w-full">
-            {/* Lease Status Card */}
-            {activeLease ? (
-              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Current Lease</p>
-                    <h2 className="text-lg font-bold mt-0.5">{property?.title || 'Property'}</h2>
-                    {property && (
-                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <MapPin className="h-3.5 w-3.5" /> {property.state}{property.area ? ` · ${property.area}` : ''}
-                      </p>
-                    )}
-                  </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                    isOverdue ? 'bg-destructive/10 text-destructive' :
-                    isDueSoon ? 'bg-accent/10 text-accent' :
-                    'bg-primary/10 text-primary'
-                  }`}>
-                    {isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : 'Active'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 bg-muted/50 rounded-xl p-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Monthly Rent</p>
-                    <p className="text-base font-bold mt-0.5">UGX {activeLease.monthly_rent?.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Days Left</p>
-                    <p className={`text-base font-bold mt-0.5 ${isOverdue ? 'text-destructive' : ''}`}>
-                      {daysLeft !== null ? (isOverdue ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d`) : '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">End Date</p>
-                    <p className="text-sm font-semibold mt-0.5">{activeLease.end_date ? format(new Date(activeLease.end_date), 'MMM dd') : '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Total Paid</p>
-                    <p className="text-sm font-semibold mt-0.5 text-primary">UGX {totalPaid.toLocaleString()}</p>
-                  </div>
-                </div>
-
-                {daysLeft !== null && daysLeft <= 30 && (
-                  <button className="w-full mt-3 text-sm font-semibold text-primary bg-primary/5 border border-primary/20 rounded-xl py-2.5 hover:bg-primary/10 transition-colors">
-                    Request Renewal
-                  </button>
-                )}
-                <button onClick={() => setTab('payments')} className="w-full mt-2 text-sm font-semibold text-primary bg-primary/5 border border-primary/20 rounded-xl py-2.5 hover:bg-primary/10 transition-colors flex items-center justify-center gap-1">
-                  Pay Rent <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
+          <div className="flex items-center gap-3">
+            {profile?.photo_url ? (
+              <img src={profile.photo_url} alt="" className="h-8 w-8 rounded-lg object-cover ring-2 ring-border" />
             ) : (
-              <div className="bg-card border border-border rounded-2xl p-8 text-center shadow-sm">
-                <Building2 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                <h3 className="text-lg font-bold">No active lease</h3>
-                <p className="text-sm text-muted-foreground mt-1">Contact your house manager to set up your lease.</p>
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: initBg(user?.id || '') }}>
+                {initials(profile?.full_name || '', user?.email || '')}
               </div>
             )}
+          </div>
+        </header>
 
-            {/* Rent Summary */}
-            {activeLease && (
-              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
-                <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                  <span className="text-xs font-extrabold text-primary h-4 w-4 flex items-center justify-center">UGX</span> Rent Overview
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <span className="text-sm text-muted-foreground">Current month</span>
-                    <span className={`text-sm font-bold ${lastPayment?.status === 'confirmed' ? 'text-primary' : lastPayment?.status === 'uploaded' ? 'text-accent' : 'text-muted-foreground'}`}>
-                      {lastPayment?.status === 'confirmed' ? 'Paid ✓' : lastPayment?.status === 'uploaded' ? 'Pending review' : 'Due'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <span className="text-sm text-muted-foreground">Next due</span>
-                    <span className="text-sm font-bold">{nextDue ? format(nextDue, 'MMM dd') : '—'}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <span className="text-sm text-muted-foreground">Lifetime paid</span>
-                    <span className="text-sm font-bold text-primary">UGX {totalPaid.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Activity Feed */}
-            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
-              <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                <Clock className="h-4 w-4 text-primary" /> Recent Activity
-              </h3>
-              {activityFeed.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">No activity yet</p>
-              ) : (
-                <div className="space-y-0">
-                  {activityFeed.map(item => (
-                    <div key={item.id} className="flex items-start gap-3 py-3 border-b border-border last:border-0">
-                      <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${
-                        item.type === 'payment'
-                          ? item.status === 'confirmed' ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent'
-                          : item.isUnread ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-                      }`}>
-                        {item.type === 'payment' ? <span className="text-[9px] font-extrabold">UGX</span> : <MessageSquare className="h-4 w-4" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold">{item.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{item.detail}</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground shrink-0">{format(new Date(item.date), 'MMM dd')}</span>
-                    </div>
-                  ))}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+          {/* ==================== HOME TAB ==================== */}
+          {tab === 'home' && (
+            <div className="max-w-5xl mx-auto space-y-6">
+              {/* Welcome banner */}
+              {!bannerDismissed && (
+                <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-xl p-6 shadow-md relative">
+                  <button onClick={() => setBannerDismissed(true)}
+                    className="absolute top-4 right-4 text-primary-foreground/70 hover:text-primary-foreground">
+                    <XCircle className="h-5 w-5" />
+                  </button>
+                  <p className="text-xl font-bold">
+                    Welcome, {tenantRecord?.first_name || profile?.full_name?.split(' ')[0] || 'Tenant'}!
+                  </p>
+                  <p className="text-sm text-primary-foreground/80 mt-1">Manage your home and payments here.</p>
+                  {activeLease && (
+                    <Button size="sm" variant="secondary" className="mt-3 rounded-lg text-xs font-semibold"
+                      onClick={() => setTab('more')}>
+                      View Lease <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                    </Button>
+                  )}
                 </div>
               )}
-            </div>
 
-            {/* Property Snapshot */}
-            {property && (
-              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
-                <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                  <Image className="h-4 w-4 text-primary" /> Your Home
-                </h3>
-                {property.images && property.images.length > 0 && (
-                  <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 mb-3">
-                    {property.images.slice(0, 5).map((url: string, i: number) => (
-                      <img key={i} src={url} alt={`${property.title} ${i + 1}`}
-                        className="h-24 w-36 object-cover rounded-xl shrink-0" />
-                    ))}
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="bg-muted/50 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground">Bedrooms</p>
-                    <p className="font-bold">{property.bedrooms}</p>
-                  </div>
-                  <div className="bg-muted/50 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground">Bathrooms</p>
-                    <p className="font-bold">{property.bathrooms}</p>
-                  </div>
-                  <div className="bg-muted/50 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground">Type</p>
-                    <p className="font-bold capitalize">{property.property_type?.replace('_', ' ')}</p>
-                  </div>
-                  <div className="bg-muted/50 rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground">District</p>
-                    <p className="font-bold">{property.state}</p>
-                  </div>
+              {!activeLease ? (
+                <div className="bg-card border border-border rounded-xl p-12 text-center shadow-sm">
+                  <Building2 className="h-20 w-20 text-muted-foreground/20 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold">No active lease</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">Contact your house manager to set up your lease.</p>
                 </div>
-                {property.amenities && property.amenities.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {property.amenities.map((a: string) => (
-                      <span key={a} className="text-xs bg-primary/5 text-primary px-2.5 py-1 rounded-full font-medium">{a}</span>
-                    ))}
-                  </div>
-                )}
-                {property.manager_phone && (
-                  <a href={`tel:${property.manager_phone}`}
-                    className="flex items-center gap-2 text-sm text-primary font-semibold mt-3 pt-3 border-t border-border">
-                    <Phone className="h-4 w-4" /> {property.manager_phone}
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* PAYMENTS TAB */}
-        {tab === 'payments' && (
-          <div className="p-4 space-y-4 max-w-lg mx-auto w-full">
-            {activeLease && (
-              <>
-                {/* Pay via Mobile Money (USSD) */}
-                <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Smartphone className="h-5 w-5 text-primary" />
-                    <h3 className="font-bold text-sm">Pay via Mobile Money</h3>
-                  </div>
-                  <div className="bg-muted/50 rounded-xl p-4 mb-3">
-                    <p className="text-xs text-muted-foreground">Amount Due</p>
-                    <p className="text-2xl font-bold mt-1">UGX {activeLease.monthly_rent?.toLocaleString()}</p>
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-semibold mb-1.5">Phone Number (MTN / Airtel)</p>
-                      <Input value={npayPhone} onChange={e => setNpayPhone(e.target.value)}
-                        placeholder="e.g. 2567XXXXXXXX" className="rounded-xl h-11" />
-                    </div>
-                    <Button onClick={handleNylonPayPayment} disabled={npaySending || !npayPhone.trim()}
-                      className="w-full rounded-xl h-11 font-bold gap-2">
-                      <Smartphone className="h-4 w-4" />
-                      {npaySending ? 'Initiating...' : 'Pay Now'}
-                    </Button>
-                    {npayMessage && (
-                      <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 text-sm text-primary font-medium">
-                        {npayMessage}
+              ) : (
+                <>
+                  {/* Top row: My Home + Rent Summary */}
+                  <div className="grid lg:grid-cols-3 gap-6">
+                    {/* My Home */}
+                    {property && (
+                      <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6 shadow-sm">
+                        <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                          <Image className="h-4 w-4 text-primary" /> My Home
+                        </h3>
+                        {property.images && property.images.length > 0 && (
+                          <img src={property.images[0]} alt={property.title}
+                            className="w-full h-44 object-cover rounded-lg mb-4" />
+                        )}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-muted/50 rounded-lg p-3 text-center">
+                            <p className="text-xs text-muted-foreground">Bedrooms</p>
+                            <p className="font-bold text-xl">{property.bedrooms}</p>
+                          </div>
+                          <div className="bg-muted/50 rounded-lg p-3 text-center">
+                            <p className="text-xs text-muted-foreground">Bathrooms</p>
+                            <p className="font-bold text-xl">{property.bathrooms}</p>
+                          </div>
+                        </div>
+                        {property.amenities && property.amenities.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-3">
+                            {property.amenities.slice(0, 6).map((a: string) => (
+                              <span key={a} className="text-xs bg-primary/5 text-primary px-2.5 py-1 rounded-full font-medium">{a}</span>
+                            ))}
+                          </div>
+                        )}
+                        {property.manager_phone && (
+                          <a href={`https://wa.me/${property.manager_phone.replace(/[^0-9]/g, '')}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-primary font-semibold mt-4 pt-4 border-t border-border">
+                            <Phone className="h-4 w-4" /> Chat on WhatsApp
+                          </a>
+                        )}
                       </div>
                     )}
-                  </div>
-                </div>
 
-                {/* Upload Proof */}
-                <Drawer open={memoOpen} onOpenChange={setMemoOpen}>
-                  <DrawerTrigger asChild>
-                    <Button variant="outline" className="w-full h-11 rounded-xl gap-2 text-sm font-bold">
-                      <Upload className="h-4 w-4" /> Upload Payment Proof
-                    </Button>
-                  </DrawerTrigger>
-                  <DrawerContent>
-                    <DrawerHeader className="text-left">
-                      <DrawerTitle>Upload Payment Proof</DrawerTitle>
-                      <DrawerDescription>Already paid? Submit your receipt for manager review.</DrawerDescription>
-                    </DrawerHeader>
-                    <form onSubmit={handleUploadPayment} className="px-4 pb-6 space-y-4">
-                      <div className="bg-muted/50 rounded-xl p-4">
-                        <p className="text-xs text-muted-foreground">Amount</p>
-                        <p className="text-2xl font-bold mt-1">UGX {activeLease.monthly_rent?.toLocaleString()}</p>
+                    {/* Rent Summary */}
+                    <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                      <div className="flex items-center gap-2 mb-4">
+                        <DollarSign className="h-5 w-5 text-primary" />
+                        <h3 className="font-bold">Rent Summary</h3>
                       </div>
-
-                      <div>
-                        <p className="text-sm font-semibold mb-2">Payment Screenshot / Receipt</p>
-                        <div onClick={() => fileRef.current?.click()}
-                          className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-primary transition-colors">
-                          {proofFile ? (
-                            <p className="text-sm font-medium text-primary flex items-center justify-center gap-2">
-                              <CheckCircle className="h-4 w-4" /> {proofFile.name}
+                      <div className="space-y-3">
+                        <div className="bg-muted/50 rounded-lg p-4 text-center">
+                          <p className="text-xs text-muted-foreground">Monthly Rent</p>
+                          <p className="text-2xl font-bold text-foreground">UGX {monthRent.toLocaleString()}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-muted/50 rounded-lg p-3 text-center">
+                            <p className="text-xs text-muted-foreground">Paid</p>
+                            <p className="text-lg font-bold text-success">UGX {totalPaid.toLocaleString()}</p>
+                          </div>
+                          <div className="bg-muted/50 rounded-lg p-3 text-center">
+                            <p className="text-xs text-muted-foreground">Balance</p>
+                            <p className={`text-lg font-bold ${remainingBalance > 0 ? 'text-gold' : 'text-success'}`}>
+                              UGX {remainingBalance.toLocaleString()}
                             </p>
-                          ) : (
-                            <>
-                              <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                              <p className="text-sm text-muted-foreground">Tap to upload screenshot or receipt</p>
-                            </>
+                          </div>
+                        </div>
+                        {dueDate && (
+                          <div className="flex items-center justify-center gap-2 text-sm bg-primary/5 rounded-lg py-2">
+                            <CalendarDays className="h-4 w-4 text-primary" />
+                            <span>Due: <span className="font-bold">{format(new Date(dueDate), 'MMMM dd, yyyy')}</span></span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action needed */}
+                  {hasAction && (
+                    <div className={`rounded-xl p-5 ${renewalNeeded ? 'bg-accent/5 border border-accent/20' : 'bg-primary/5 border border-primary/20'}`}>
+                      <div className="flex items-start gap-3">
+                        {renewalNeeded ? (
+                          <AlertTriangle className="h-6 w-6 text-accent shrink-0 mt-0.5" />
+                        ) : (
+                          <Bell className="h-6 w-6 text-primary shrink-0 mt-0.5" />
+                        )}
+                        <div className="flex-1">
+                          <p className="font-bold text-foreground text-sm">
+                            {renewalNeeded ? 'Lease ending soon' : 'Maintenance update'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {renewalNeeded
+                              ? `Your lease ends in ${daysLeft} days. Talk to your manager about renewal.`
+                              : `${openRequests.length} request${openRequests.length > 1 ? 's' : ''} need${openRequests.length > 1 ? '' : 's'} attention`}
+                          </p>
+                          {renewalNeeded && (
+                            <Button size="sm" variant="outline" className="mt-2 text-xs rounded-lg h-8">
+                              Contact Manager
+                            </Button>
                           )}
-                          <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={e => setProofFile(e.target.files?.[0] || null)} />
                         </div>
                       </div>
-
-                      <div>
-                        <p className="text-sm font-semibold mb-2">Note (optional)</p>
-                        <Textarea value={paymentNote} onChange={e => setPaymentNote(e.target.value)}
-                          placeholder="MTN Mobile Money, ref number..."
-                          className="rounded-xl" rows={2} />
-                      </div>
-
-                      <div className="flex gap-3">
-                        <DrawerClose asChild>
-                          <Button type="button" variant="outline" className="flex-1 rounded-xl h-11">Cancel</Button>
-                        </DrawerClose>
-                        <Button type="submit" disabled={uploading}
-                          className="flex-1 rounded-xl h-11 font-bold">
-                          {uploading ? 'Submitting...' : 'Submit'}
-                        </Button>
-                      </div>
-                    </form>
-                  </DrawerContent>
-                </Drawer>
-              </>
-            )}
-
-            {/* Payment History */}
-            <div className="bg-card border border-border rounded-2xl shadow-sm">
-              <div className="px-5 py-4 border-b border-border">
-                <h3 className="font-bold text-sm">Payment History</h3>
-              </div>
-              {payments.length === 0 ? (
-                <div className="text-center py-10 px-5">
-                  <span className="text-lg font-extrabold text-muted-foreground/30 h-10 w-10 flex items-center justify-center mx-auto mb-3">UGX</span>
-                  <p className="text-sm font-medium">No payments yet</p>
-                  {activeLease && (
-                    <p className="text-xs text-muted-foreground mt-1">Tap "Pay Rent" to make your first payment.</p>
+                    </div>
                   )}
+
+                  {/* Middle row: My Agreement + Lease Health + Calendar */}
+                  <div className="grid lg:grid-cols-3 gap-6">
+                    {/* Tenancy Agreement Card */}
+                    <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">My Agreement</p>
+                          <h2 className="text-xl font-bold mt-1">{property?.title || 'Property'}</h2>
+                          {property && (
+                            <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                              <MapPin className="h-3.5 w-3.5" /> {property.state}{property.area ? ` · ${property.area}` : ''}
+                            </p>
+                          )}
+                        </div>
+                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                          isOverdue ? 'bg-destructive/10 text-destructive' :
+                          isDueSoon ? 'bg-accent/10 text-accent' :
+                          'bg-success/10 text-success'
+                        }`}>
+                          {isOverdue ? 'EXPIRED' : isDueSoon ? 'Ending Soon' : 'Active'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-4">
+                        <div className="bg-muted/50 rounded-lg p-4 flex-1 min-w-[200px] space-y-3">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Start</span>
+                            <span className="font-semibold">{activeLease.start_date ? format(new Date(activeLease.start_date), 'MMM dd, yyyy') : '—'}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">End</span>
+                            <span className="font-semibold">{activeLease.end_date ? format(new Date(activeLease.end_date), 'MMM dd, yyyy') : '—'}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Rent</span>
+                            <span className="font-bold text-foreground">UGX {monthRent.toLocaleString()}/mo</span>
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-[200px]">
+                          <p className="text-sm text-muted-foreground mb-2">Payment progress</p>
+                          <div className="h-3 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${payPct}%` }} />
+                          </div>
+                          <div className="flex justify-between text-sm mt-1">
+                            <span className="font-semibold text-foreground">{paidMonths} of {leaseMonths} months</span>
+                            {payPct >= 100 ? (
+                              <span className="text-success font-semibold">All paid!</span>
+                            ) : (
+                              <span className="text-muted-foreground">{leaseMonths - paidMonths} left</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Lease Health */}
+                    <div className="bg-card border border-border rounded-xl p-6 shadow-sm flex flex-col items-center">
+                      <h3 className="font-bold text-sm mb-4 flex items-center gap-2 self-start">
+                        <ShieldCheck className="h-4 w-4 text-primary" /> My Record
+                      </h3>
+                      <PercentRing pct={onTimePct} label="On-time payments" sub={`${onTimeCount} of ${payments.length} months paid on time`} />
+                    </div>
+
+                    {/* Calendar */}
+                    <CalendarWidget dueDate={dueDate} />
+                  </div>
+
+                  {/* Recent Activity */}
+                  <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-primary" /> Recent Activity
+                    </h3>
+                    {payments.length === 0 && maintenanceReqs.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Bell className="h-10 w-10 text-muted-foreground/20 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">No activity yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-0">
+                        {payments.slice(0, 3).map((p: any) => (
+                          <div key={p.id} className="flex items-start gap-3 py-3 border-b border-border last:border-0">
+                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              p.status === 'confirmed' ? 'bg-success/10 text-success' :
+                              p.status === 'rejected' ? 'bg-destructive/10 text-destructive' :
+                              'bg-primary/10 text-primary'
+                            }`}>
+                              <DollarSign className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold">
+                                {p.payment_type === 'rent' ? 'Rent payment' : 'Payment'} — UGX {(p.amount || 0).toLocaleString()}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">{p.notes || `${p.payment_type || 'Rent'} payment`}</p>
+                            </div>
+                            <StatusBadge status={p.status} />
+                          </div>
+                        ))}
+                        {maintenanceReqs.slice(0, 2).map((r: any) => (
+                          <div key={r.id} className="flex items-start gap-3 py-3 border-b border-border last:border-0">
+                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              r.status === 'resolved' || r.status === 'completed' ? 'bg-success/10 text-success' :
+                              'bg-accent/10 text-accent'
+                            }`}>
+                              <Wrench className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold">{r.title}</p>
+                              <p className="text-xs text-muted-foreground truncate">{r.description}</p>
+                            </div>
+                            <StatusBadge status={r.status} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ==================== PAYMENTS TAB ==================== */}
+          {tab === 'payments' && (
+            <div className="max-w-4xl mx-auto space-y-6">
+              <h2 className="font-bold text-xl">Payment History</h2>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-card border border-border rounded-xl p-5 text-center">
+                  <p className="text-xs text-muted-foreground">This month</p>
+                  <p className="text-2xl font-bold text-foreground">{payments.filter(p => {
+                    const d = new Date(p.created_at);
+                    const now = new Date();
+                    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                  }).length}</p>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-5 text-center">
+                  <p className="text-xs text-muted-foreground">Total paid</p>
+                  <p className="text-2xl font-bold text-success">UGX {totalPaid.toLocaleString()}</p>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-5 text-center">
+                  <p className="text-xs text-muted-foreground">On time</p>
+                  <p className="text-2xl font-bold text-accent">{onTimePct}%</p>
+                </div>
+              </div>
+              <Input placeholder="Search payments..."
+                value={paymentSearch} onChange={e => { setPaymentSearch(e.target.value); setPaymentPage(0); }}
+                className="rounded-lg h-11 max-w-sm" />
+              {pagePayments.length === 0 ? (
+                <div className="text-center py-12 bg-card border border-border rounded-xl">
+                  <DollarSign className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
+                  <p className="font-bold text-foreground">No payments yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">Your manager will record payments here.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-border">
-                  {payments.map(p => (
-                    <div key={p.id} className="px-5 py-4 flex items-center gap-4">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        p.status === 'confirmed' ? 'bg-primary/10 text-primary' :
-                        p.status === 'rejected' ? 'bg-destructive/10 text-destructive' :
-                        'bg-accent/10 text-accent'
-                      }`}>
-                        {p.status === 'confirmed' ? <CheckCircle className="h-4 w-4" /> :
-                         p.status === 'rejected' ? <X className="h-4 w-4" /> :
-                         <Clock className="h-4 w-4" />}
+                <div className="bg-card border border-border rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/50 border-b border-border">
+                        <th className="text-left py-3 px-4 font-semibold">Type</th>
+                        <th className="text-left py-3 px-4 font-semibold">Amount</th>
+                        <th className="text-left py-3 px-4 font-semibold">Date</th>
+                        <th className="text-left py-3 px-4 font-semibold">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pagePayments.map((p: any) => (
+                        <tr key={p.id} className="border-b border-border/50 hover:bg-muted/20">
+                          <td className="py-3 px-4">
+                            <span className="font-medium">{p.payment_type ? `${p.payment_type.charAt(0).toUpperCase() + p.payment_type.slice(1)}` : 'Payment'}</span>
+                            {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
+                          </td>
+                          <td className="py-3 px-4 font-bold">UGX {(p.amount || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-muted-foreground">{p.created_at ? format(new Date(p.created_at), 'MMM dd, yyyy') : '—'}</td>
+                          <td className="py-3 px-4"><StatusBadge status={p.status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {totalPaymentPages > 1 && (
+                <div className="flex items-center justify-center gap-2">
+                  <Button variant="outline" size="sm" className="rounded-lg h-9"
+                    disabled={paymentPage === 0} onClick={() => setPaymentPage(p => p - 1)}>Prev</Button>
+                  <span className="text-xs text-muted-foreground">{paymentPage + 1} / {totalPaymentPages}</span>
+                  <Button variant="outline" size="sm" className="rounded-lg h-9"
+                    disabled={paymentPage >= totalPaymentPages - 1} onClick={() => setPaymentPage(p => p + 1)}>Next</Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==================== REQUESTS TAB ==================== */}
+          {tab === 'requests' && (
+            <div className="max-w-4xl mx-auto space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="font-bold text-xl">Maintenance Requests</h2>
+                <Button size="sm" className="gradient-primary text-primary-foreground rounded-lg text-xs h-9 gap-1"
+                  onClick={() => setMaintenanceDialogOpen(true)}>
+                  <Plus className="h-4 w-4" /> New Request
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                {(['all', 'open', 'resolved'] as const).map(f => (
+                  <button key={f} onClick={() => setRequestFilter(f)}
+                    className={`text-xs font-semibold px-4 py-2 rounded-full border transition-colors ${
+                      requestFilter === f
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-card text-muted-foreground border-border hover:border-primary/50'
+                    }`}>
+                    {f === 'all' ? 'All' : f === 'open' ? 'Open' : 'Done'}
+                  </button>
+                ))}
+              </div>
+              {filteredReqs.length === 0 ? (
+                <div className="text-center py-12 bg-card border border-border rounded-xl">
+                  <Wrench className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
+                  <p className="font-bold text-foreground">No requests yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">Click "New Request" to report a maintenance issue.</p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {filteredReqs.map((r: any) => (
+                    <div key={r.id} className="bg-card border border-border rounded-xl p-5">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+                              r.priority === 'high' ? 'bg-destructive' :
+                              r.priority === 'medium' ? 'bg-gold' : 'bg-success'
+                            }`} />
+                            <p className="font-bold text-foreground">{r.title}</p>
+                          </div>
+                          <p className="text-sm text-muted-foreground line-clamp-2">{r.description}</p>
+                          <div className="flex items-center gap-3 mt-2">
+                            <StatusBadge status={r.status} />
+                            <span className="text-xs text-muted-foreground">
+                              {r.created_at ? format(new Date(r.created_at), 'MMM dd, yyyy') : ''}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold">UGX {p.amount?.toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {p.due_date ? format(new Date(p.due_date), 'MMM dd, yyyy') : ''}
-                          {p.paid_date ? ` · Paid ${format(new Date(p.paid_date), 'MMM dd')}` : ''}
-                        </p>
-                      </div>
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        p.status === 'confirmed' ? 'bg-primary/10 text-primary' :
-                        p.status === 'uploaded' ? 'bg-accent/10 text-accent' :
-                        p.status === 'rejected' ? 'bg-destructive/10 text-destructive' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
-                        {p.status}
-                      </span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* MESSAGES TAB */}
-        {tab === 'messages' && (
-          <div className="flex flex-col h-[calc(100vh-10rem)]">
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 max-w-lg mx-auto w-full">
-              {messages.length === 0 ? (
-                <div className="text-center py-16">
-                  <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-sm font-medium">No messages yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Say hello to {managerProfile?.full_name || 'your property manager'}!
-                  </p>
+          {/* ==================== AGREEMENTS TAB ==================== */}
+          {tab === 'agreements' && (
+            <div className="max-w-4xl mx-auto space-y-6">
+              <h2 className="font-bold text-xl">Tenancy Agreement</h2>
+              {!activeLease ? (
+                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                  <FileText className="h-16 w-16 text-muted-foreground/20 mx-auto mb-3" />
+                  <p className="text-lg font-bold">No active lease</p>
+                  <p className="text-sm text-muted-foreground mt-1">An agreement will appear once your lease is set up.</p>
                 </div>
-              ) : messages.map(m => {
-                const isMe = m.sender_id === user?.id;
-                return (
-                  <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] ${isMe ? 'order-1' : 'order-1'}`}>
-                      {!isMe && (
-                        <p className="text-xs text-muted-foreground mb-1 px-1">{m.sender_name || 'Manager'}</p>
-                      )}
-                      <div className={`rounded-2xl px-4 py-2.5 ${
-                        isMe
-                          ? 'bg-primary text-primary-foreground rounded-br-md'
-                          : 'bg-muted text-foreground rounded-bl-md'
-                      }`}>
-                        {m.content && <p className="text-sm">{m.content}</p>}
-                        {m.voice_note_url && <audio src={m.voice_note_url} controls className="h-8 mt-1" />}
+              ) : agreementLoading ? (
+                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">Loading agreement...</p>
+                </div>
+              ) : (
+                <div className="grid gap-6">
+                  {/* Current document card */}
+                  <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <FileText className="h-6 w-6 text-primary" />
+                      <h3 className="font-bold text-lg">Current Agreement</h3>
+                    </div>
+                    {agreementState?.current_document ? (
+                      <div className="space-y-4">
+                        <div className="bg-muted/50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-semibold">{agreementState.current_document.file_name}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Uploaded {agreementState.current_document.created_at ? format(new Date(agreementState.current_document.created_at), 'MMM dd, yyyy') : ''}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {(agreementState.current_document.file_size / 1024).toFixed(1)} KB · {agreementState.current_document.file_mime_type}
+                              </p>
+                            </div>
+                            <a href={agreementState.current_document.agreement_url} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90">
+                              <Download className="h-4 w-4" /> View Document
+                            </a>
+                          </div>
+                        </div>
+
+                        {/* Consent status */}
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className={`rounded-lg border p-4 ${agreementState.manager?.consented ? 'border-success/50 bg-success/5' : 'border-border bg-muted/30'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              {agreementState.manager?.consented ? (
+                                <CheckCircle className="h-5 w-5 text-success" />
+                              ) : (
+                                <Clock className="h-5 w-5 text-muted-foreground" />
+                              )}
+                              <span className="font-semibold text-sm">Manager</span>
+                            </div>
+                            {agreementState.manager?.consented ? (
+                              <p className="text-xs text-success">Signed {agreementState.manager.consented_at ? format(new Date(agreementState.manager.consented_at), 'MMM dd, yyyy') : ''}</p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Awaiting signature</p>
+                            )}
+                          </div>
+                          <div className={`rounded-lg border p-4 ${agreementState.tenant?.consented ? 'border-success/50 bg-success/5' : 'border-border bg-muted/30'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              {agreementState.tenant?.consented ? (
+                                <CheckCircle className="h-5 w-5 text-success" />
+                              ) : (
+                                <Clock className="h-5 w-5 text-muted-foreground" />
+                              )}
+                              <span className="font-semibold text-sm">You (Tenant)</span>
+                            </div>
+                            {agreementState.tenant?.consented ? (
+                              <p className="text-xs text-success">Signed {agreementState.tenant.consented_at ? format(new Date(agreementState.tenant.consented_at), 'MMM dd, yyyy') : ''}</p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Not yet signed</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Consent buttons */}
+                        {!agreementState.tenant?.consented && (
+                          <div className="flex gap-3 pt-2">
+                            <Button onClick={() => handleConsent(true)} disabled={consenting}
+                              className="flex-1 h-11 gap-2 rounded-lg font-semibold bg-success hover:bg-success/90 text-success-foreground">
+                              <ThumbsUp className="h-4 w-4" /> {consenting ? 'Processing...' : 'I Agree'}
+                            </Button>
+                            <Button onClick={() => handleConsent(false)} disabled={consenting}
+                              variant="outline" className="flex-1 h-11 gap-2 rounded-lg font-semibold border-destructive text-destructive hover:bg-destructive/10">
+                              <ThumbsDown className="h-4 w-4" /> Disagree
+                            </Button>
+                          </div>
+                        )}
+                        {agreementState.manager?.consented && agreementState.tenant?.consented && (
+                          <div className="bg-success/10 border border-success/20 rounded-lg p-4 text-center">
+                            <CheckCircle className="h-8 w-8 text-success mx-auto mb-2" />
+                            <p className="font-bold text-success">Agreement fully signed</p>
+                            <p className="text-xs text-muted-foreground mt-1">Both parties have consented to this agreement.</p>
+                          </div>
+                        )}
                       </div>
-                      <p className={`text-xs text-muted-foreground mt-1 ${isMe ? 'text-right' : 'text-left'}`}>
-                        {format(new Date(m.created_at), 'h:mm a')}
-                        {!m.is_read && !isMe && <span className="ml-2 text-primary font-bold">· New</span>}
+                    ) : (
+                      <div className="text-center py-8">
+                        <FileUp className="h-16 w-16 text-muted-foreground/20 mx-auto mb-4" />
+                        <h4 className="font-bold text-foreground">No agreement uploaded yet</h4>
+                        <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                          Your manager hasn't uploaded a tenancy agreement document yet. You'll be able to review and sign it here once available.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==================== SETTINGS TAB ==================== */}
+          {tab === 'account' && (
+            <div className="max-w-4xl mx-auto space-y-6">
+              <h2 className="font-bold text-xl">Settings</h2>
+              <div className="grid lg:grid-cols-2 gap-6">
+                {/* Profile */}
+                <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                  <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                    <User className="h-4 w-4 text-primary" /> Profile
+                  </h3>
+                  <div className="flex items-center gap-4 mb-4">
+                    {profile?.photo_url ? (
+                      <img src={profile.photo_url} alt="" className="h-16 w-16 rounded-xl object-cover ring-2 ring-border" />
+                    ) : (
+                      <div className="h-16 w-16 rounded-xl flex items-center justify-center text-xl font-bold text-white" style={{ backgroundColor: initBg(user?.id || '') }}>
+                        {initials(profile?.full_name || '', user?.email || '')}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-bold text-foreground text-base truncate">
+                        {profile?.full_name || tenantRecord?.first_name + ' ' + tenantRecord?.last_name || user?.email?.split('@')[0]}
                       </p>
+                      <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
+                      {tenantRecord?.phone && <p className="text-xs text-muted-foreground mt-0.5">{tenantRecord.phone}</p>}
                     </div>
                   </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Message Input */}
-            {activeLease && (
-              <div className="sticky bottom-0 bg-card border-t border-border p-3">
-                <div className="flex gap-2 max-w-lg mx-auto w-full">
-                  <Input
-                    value={messageText}
-                    onChange={e => setMessageText(e.target.value)}
-                    placeholder="Type a message..."
-                    className="rounded-xl h-11"
-                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                  />
-                  <VoiceRecorder
-                    onRecordingComplete={setVoiceUrl}
-                    onClear={() => setVoiceUrl(null)}
-                    audioUrl={voiceUrl}
-                  />
-                  <Button onClick={handleSendMessage}
-                    disabled={sendingMessage || (!messageText.trim() && !voiceUrl)}
-                    className="rounded-xl h-11 w-11 p-0">
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {/* SETTINGS TAB */}
-        {tab === 'settings' && (
-          <div className="p-4 space-y-4 max-w-lg mx-auto w-full">
-            {/* Profile Card */}
-            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="h-14 w-14 rounded-2xl gradient-primary flex items-center justify-center text-primary-foreground font-display font-bold text-xl shadow-sm">
-                  {user?.email?.charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-foreground text-base truncate">{user?.email?.split('@')[0]}</p>
-                  <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="bg-card border border-border rounded-2xl shadow-sm divide-y divide-border">
-              <button
-                onClick={() => setPasswordDialogOpen(true)}
-                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors"
-              >
-                <Settings className="h-5 w-5 text-primary" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold">Change Password</p>
-                  <p className="text-xs text-muted-foreground">Update your account password</p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <button
-                onClick={() => supabase.auth.signOut().then(() => navigate('/'))}
-                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-destructive/5 transition-colors"
-              >
-                <LogOut className="h-5 w-5 text-destructive" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-destructive">Sign Out</p>
-                  <p className="text-xs text-muted-foreground">Log out of your account</p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-10 bg-card border-t border-border">
-        <div className="max-w-lg mx-auto flex">
-          {NAV_ITEMS.map(item => {
-            const badge = item.id === 'messages' ? unreadMessages : 0;
-            return (
-              <button key={item.id}
-                onClick={() => setTab(item.id)}
-                className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-xs font-medium transition-colors ${
-                  tab === item.id
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}>
-                <span className="relative">
-                  {item.icon}
-                  {badge > 0 && (
-                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
-                      {badge > 9 ? '9+' : badge}
-                    </span>
+                  {managerProfile && (
+                    <div className="bg-primary/5 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Your Manager</p>
+                      <p className="font-bold text-foreground text-sm mt-0.5">{managerProfile.full_name}</p>
+                      {managerProfile.phone && (
+                        <a href={`https://wa.me/${managerProfile.phone.replace(/[^0-9]/g, '')}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-primary font-semibold mt-1">
+                          <Phone className="h-3 w-3" /> {managerProfile.phone}
+                        </a>
+                      )}
+                      {managerProfile.email && <p className="text-xs text-muted-foreground">{managerProfile.email}</p>}
+                    </div>
                   )}
-                </span>
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-      {/* Change Password Dialog */}
+                </div>
+
+                {/* Lease Info */}
+                {activeLease && (
+                  <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-primary" /> Lease Details
+                    </h3>
+                    <div className="bg-muted/50 rounded-lg p-4 space-y-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Property</span>
+                        <span className="font-semibold text-right">{property?.title}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Unit</span>
+                        <span className="font-semibold">{property?.property_type} · {property?.bedrooms} bed</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Address</span>
+                        <span className="font-semibold text-right">{property?.state}{property?.area ? `, ${property.area}` : ''}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Lease period</span>
+                        <span className="font-semibold text-right">{activeLease.start_date ? format(new Date(activeLease.start_date), 'MMM dd, yyyy') : '—'} - {activeLease.end_date ? format(new Date(activeLease.end_date), 'MMM dd, yyyy') : '—'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Monthly rent</span>
+                        <span className="font-bold">UGX {monthRent.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick actions */}
+              <div className="bg-card border border-border rounded-xl shadow-sm">
+                <div className="divide-y divide-border">
+                  <button onClick={() => setPasswordDialogOpen(true)}
+                    className="w-full flex items-center gap-3 px-6 py-4 text-left hover:bg-muted/30 transition-colors">
+                    <KeyRound className="h-5 w-5 text-primary" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold">Change Password</p>
+                      <p className="text-xs text-muted-foreground">Update your account password</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                  <button onClick={() => { supabase.auth.signOut().then(() => navigate('/')); }}
+                    className="w-full flex items-center gap-3 px-6 py-4 text-left hover:bg-destructive/5 transition-colors">
+                    <LogOut className="h-5 w-5 text-destructive" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-destructive">Sign Out</p>
+                      <p className="text-xs text-muted-foreground">Log out of your account</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Change Password Drawer */}
       <Drawer open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
         <DrawerContent>
           <DrawerHeader className="text-left">
@@ -728,21 +1038,82 @@ export default function TenantDashboard() {
               <p className="text-sm font-semibold mb-2">New Password</p>
               <Input type="password" minLength={6} value={passwordForm.new}
                 onChange={e => setPasswordForm(f => ({ ...f, new: e.target.value }))}
-                required placeholder="At least 6 characters" className="rounded-xl h-11" />
+                required placeholder="At least 6 characters" className="rounded-lg h-11" />
             </div>
             <div>
               <p className="text-sm font-semibold mb-2">Confirm New Password</p>
               <Input type="password" minLength={6} value={passwordForm.confirm}
                 onChange={e => setPasswordForm(f => ({ ...f, confirm: e.target.value }))}
-                required placeholder="Repeat the new password" className="rounded-xl h-11" />
+                required placeholder="Repeat the new password" className="rounded-lg h-11" />
             </div>
             <div className="flex gap-3">
               <DrawerClose asChild>
-                <Button type="button" variant="outline" className="flex-1 rounded-xl h-11">Cancel</Button>
+                <Button type="button" variant="outline" className="flex-1 rounded-lg h-11">Cancel</Button>
               </DrawerClose>
-              <Button type="submit" disabled={sendingPassword}
-                className="flex-1 rounded-xl h-11 font-bold">
+              <Button type="submit" disabled={sendingPassword} className="flex-1 rounded-lg h-11 font-bold">
                 {sendingPassword ? 'Updating...' : 'Update Password'}
+              </Button>
+            </div>
+          </form>
+        </DrawerContent>
+      </Drawer>
+
+      {/* New Maintenance Request Drawer */}
+      <Drawer open={maintenanceDialogOpen} onOpenChange={setMaintenanceDialogOpen}>
+        <DrawerContent>
+          <DrawerHeader className="text-left">
+            <DrawerTitle>New Maintenance Request</DrawerTitle>
+            <DrawerDescription>Tell us what needs fixing.</DrawerDescription>
+          </DrawerHeader>
+          <form onSubmit={handleSubmitMaintenance} className="px-4 pb-6 space-y-4">
+            <div>
+              <p className="text-sm font-semibold mb-2">What's the issue?</p>
+              <Input value={maintenanceForm.title}
+                onChange={e => setMaintenanceForm(f => ({ ...f, title: e.target.value }))}
+                required placeholder="e.g. Leaking tap" className="rounded-lg h-11" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold mb-2">Details (optional)</p>
+              <Input value={maintenanceForm.description}
+                onChange={e => setMaintenanceForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Brief description" className="rounded-lg h-11" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold mb-2">Photo (optional)</p>
+              <label className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border cursor-pointer hover:border-primary/50 transition-colors">
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => setMaintenancePhoto(e.target.files?.[0] ?? null)} />
+                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+                  <Camera className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {maintenancePhoto ? maintenancePhoto.name : 'Tap to add a photo'}
+                </span>
+              </label>
+            </div>
+            <div>
+              <p className="text-sm font-semibold mb-2">How urgent?</p>
+              <div className="flex gap-2">
+                {(['low', 'medium', 'high'] as const).map(p => (
+                  <button key={p} type="button" onClick={() => setMaintenanceForm(f => ({ ...f, priority: p }))}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
+                      maintenanceForm.priority === p
+                        ? p === 'high' ? 'bg-destructive text-destructive-foreground border-destructive'
+                          : p === 'medium' ? 'bg-gold text-gold-foreground border-gold'
+                          : 'bg-success text-success-foreground border-success'
+                        : 'bg-card text-muted-foreground border-border'
+                    }`}>
+                    {p === 'low' ? 'Low' : p === 'medium' ? 'Medium' : 'Urgent'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <DrawerClose asChild>
+                <Button type="button" variant="outline" className="flex-1 rounded-lg h-11">Cancel</Button>
+              </DrawerClose>
+              <Button type="submit" disabled={sendingMaintenance} className="flex-1 rounded-lg h-11 font-bold">
+                {sendingMaintenance ? 'Sending...' : 'Send Request'}
               </Button>
             </div>
           </form>

@@ -25,7 +25,6 @@ from .boost import BoostService
 logger = logging.getLogger(__name__)
 
 
-# Mobile PropertyType values -> backend enum values
 _MOBILE_TO_ENUM = {
     "apartment": "Residential",
     "house": "Residential",
@@ -36,12 +35,6 @@ _MOBILE_TO_ENUM = {
 
 
 def _normalize_property_type(value: str | None) -> str | None:
-    """Coerce a mobile/legacy property_type value into the backend enum.
-
-    Accepts already-valid enum values ('Residential' | 'Office Space') as-is,
-    and maps mobile values ('apartment', 'shop', ...) to the correct enum.
-    Returns None for unknown/empty values so the DB keeps its existing value.
-    """
     if not value:
         return None
     value = value.strip()
@@ -133,7 +126,6 @@ def _enrich_with_boost_info(
 def _enrich_with_manager_contact(
     props: list[dict[str, Any]], supabase: Client
 ) -> list[dict[str, Any]]:
-    """Populate manager_email/manager_phone from profiles if missing on property."""
     owner_ids = {str(p["owner_id"]) for p in props if p.get("owner_id")}
     if not owner_ids:
         return props
@@ -163,12 +155,6 @@ LEASE_OLD_TO_NEW: dict[str, str] = {
 
 
 def _normalize_lease_status(value: str | None) -> str:
-    """Collapse legacy / invalid lease statuses to a valid TenancyStatus.
-
-    Only `terminated` and `expired` are terminal states. Anything else
-    (including legacy values like `draft`, `pending`, `created`, or empty)
-    is treated as `active` so the UI never displays an unknown label.
-    """
     if value in ("terminated", "expired"):
         return value
     return "active"
@@ -182,11 +168,6 @@ def _normalize_lease(l: dict[str, Any]) -> dict[str, Any]:
 
 
 def _months_between(start, end) -> int:
-    """Calendar-month difference between two dates (minimum 1).
-
-    Jan 15 -> Mar 15 == 2 months. Computed purely from year/month, never
-    via days/30.44 or rounding.
-    """
     try:
         from datetime import date as _date
 
@@ -203,11 +184,6 @@ def _months_between(start, end) -> int:
 def _enrich_leases(
     leases: list[dict[str, Any]], supabase: Client
 ) -> list[dict[str, Any]]:
-    """Populate tenant, property and payment-summary fields on lease rows.
-
-    Mirrors _enrich_with_manager_contact but for leases. All enrichment is
-    read-only and performed in batch to avoid N+1 queries.
-    """
     if not leases:
         return leases
 
@@ -215,7 +191,6 @@ def _enrich_leases(
     property_ids = {str(l["property_id"]) for l in leases if l.get("property_id")}
     lease_ids = {str(l["id"]) for l in leases if l.get("id")}
 
-    # Tenant identity (name / phone / email)
     tenants_by_id: dict[str, dict[str, Any]] = {}
     if tenant_ids:
         resp = (
@@ -235,7 +210,6 @@ def _enrich_leases(
                 "tenant_email": t.get("email"),
             }
 
-    # Property title + first image + any manager contact stored on the property
     props_by_id: dict[str, dict[str, Any]] = {}
     if property_ids:
         resp = (
@@ -253,10 +227,6 @@ def _enrich_leases(
                 "manager_email": p.get("manager_email"),
             }
 
-    # Manager / owner contact (name / phone / email). Prefer values stored on
-    # the property, then fall back to the owner's profile. Centralised here so
-    # every tenancy response carries its manager contact without extra
-    # client-side lookups.
     owner_ids = {str(l["owner_id"]) for l in leases if l.get("owner_id")}
     managers_by_id: dict[str, dict[str, Any]] = {}
     if owner_ids:
@@ -274,7 +244,6 @@ def _enrich_leases(
                 "manager_email": m.get("email"),
             }
 
-    # Payment summary per lease (confirmed or completed payments count toward balance)
     payments_by_lease: dict[str, list[dict[str, Any]]] = {}
     if lease_ids:
         resp = (
@@ -303,7 +272,6 @@ def _enrich_leases(
         l["property_title"] = prop.get("title")
         l["property_image"] = prop.get("image")
 
-        # Manager contact: property-stored values win, profile is fallback.
         prop_phone = prop.get("manager_phone")
         prop_email = prop.get("manager_email")
         oid = str(l.get("owner_id", ""))
@@ -325,8 +293,6 @@ def _enrich_leases(
         except (TypeError, ValueError):
             monthly_rent = 0.0
 
-        # Full-period expected rent: monthly rent × number of calendar months
-        # in the tenancy period (minimum 1 month).
         months = _months_between(l.get("start_date"), l.get("end_date"))
         expected_rent = monthly_rent * months
         l["expected_rent"] = expected_rent
@@ -334,8 +300,6 @@ def _enrich_leases(
         l["balance_due"] = max(0.0, expected_rent - total_paid)
         l["tenant_credit"] = max(0.0, total_paid - expected_rent)
 
-        # Effective status is derived dynamically from the current date rather
-        # than relying on a scheduled job to flip stored status.
         stored_status = str(l.get("status") or "active")
         if stored_status == "terminated":
             effective_status = "terminated"
@@ -348,7 +312,6 @@ def _enrich_leases(
                 effective_status = stored_status if stored_status in ("active", "expired", "terminated") else "active"
         l["effective_status"] = effective_status
 
-        # Overdue (payment-based): there is an outstanding balance on a lease.
         l["is_overdue"] = l["balance_due"] > 0
 
         last_payment = None
@@ -441,7 +404,6 @@ class PropertyService(BaseService):
         min_price: float | None = None,
         max_price: float | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
-        # Fetch all matching properties (no range — we sort in Python)
         query = self.supabase.table(self._table).select("*", count="exact").eq("is_active", True)
         if state:
             query = query.ilike("state", f"%{state}%")
@@ -456,12 +418,10 @@ class PropertyService(BaseService):
         total = result.count if hasattr(result, "count") else len(result.data or [])
         all_properties = result.data or []
 
-        # ── Boost ranking: boosted properties first, by boost recency ──
         boost_svc = BoostService(self.supabase)
         boosted_ids = boost_svc.get_active_boosted_property_ids()
 
         if boosted_ids:
-            # Fetch boost created_at for sort stability
             boosted_result = (
                 self.supabase.table("property_boosts")
                 .select("property_id, created_at")
@@ -478,12 +438,10 @@ class PropertyService(BaseService):
             boosted = [p for p in all_properties if p["id"] in boosted_ids]
             not_boosted = [p for p in all_properties if p["id"] not in boosted_ids]
 
-            # Sort boosted by boost created_at desc (newer boosts first)
             boosted.sort(key=lambda p: boost_order.get(p["id"], ""), reverse=True)
 
             all_properties = boosted + not_boosted
 
-        # Apply pagination after ranking sort
         all_properties = [_normalize_property(r) for r in all_properties]
         all_properties = _enrich_with_manager_contact(all_properties, self.supabase)
         all_properties = _enrich_with_boost_info(all_properties, self.supabase)
@@ -525,7 +483,6 @@ class PropertyService(BaseService):
     def create(self, data: PropertyCreate, owner_id: UUID) -> dict[str, Any]:
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
-        # DB column is NOT NULL; supply a default when client omits it
         if not payload.get("zip_code"):
             payload["zip_code"] = ""
         normalized = _normalize_property_type(payload.get("property_type"))
@@ -639,11 +596,6 @@ class TenantService(BaseService):
     def get_by_id_for_manager(
         self, tenant_id: UUID, manager_id: UUID
     ) -> dict[str, Any] | None:
-        """Fetch a tenant the manager owns, or a tenant linked to a lease owned by the manager.
-
-        This guarantees navigation from a tenancy always resolves the tenant even when
-        ownership is recorded on the lease rather than the tenant row.
-        """
         owned = (
             self.table.select("*")
             .eq("id", str(tenant_id))
@@ -845,16 +797,6 @@ class LeaseService(BaseService):
         monthly_rent: Decimal | None = None,
         notes: str | None = None,
     ) -> dict[str, Any]:
-        """In-place renewal (Option B): a single lease row per tenant/property.
-
-        Authorization: only the manager who owns the lease (property owner /
-        manager assigned to the property) may renew. The new end date must be
-        strictly later than the current lease end date, otherwise the rent
-        calculation window would collapse.
-        """
-        # Ownership-scoped fetch: returns None for any lease the caller does
-        # not own, so a random authenticated user cannot renew someone else's
-        # lease.
         lease = self.get_by_id(lease_id, owner_id)
         if not lease:
             raise PermissionError("Lease not found or not authorized")
@@ -907,7 +849,6 @@ class LeaseService(BaseService):
         try:
             self.supabase.table("renewal_history").insert(renewal_record).execute()
         except Exception:
-            # Renewal of the lease itself succeeded; history is best-effort.
             pass
 
         return _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]

@@ -157,6 +157,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         }
 
     async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            logger.info("OPTIONS origin=%s path=%s", request.headers.get("origin", "(none)"), request.url.path)
+
         if not settings.rate_limit_enabled or request.url.path in ("/health", "/health/ready", "/metrics"):
             return await call_next(request)
 
@@ -267,10 +270,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+logger.info("CORS origins configured: %s", settings.cors_origins)
+
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_origin_regex=r"https?://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Client-Info", "X-Request-ID"],

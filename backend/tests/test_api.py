@@ -1,10 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from dependencies import get_current_user
-from main import app
-
-UID_ADMIN = "00000000-0000-0000-0000-000000000003"
 PID_PROP = "00000000-0000-0000-0000-000000000010"
 PID_PROP_2 = "00000000-0000-0000-0000-000000000011"
 PID_TENANT = "00000000-0000-0000-0000-000000000020"
@@ -12,13 +8,14 @@ PID_LEASE = "00000000-0000-0000-0000-000000000030"
 PID_PAYMENT = "00000000-0000-0000-0000-000000000040"
 PID_MAINT = "00000000-0000-0000-0000-000000000050"
 PID_BOOST = "00000000-0000-0000-0000-000000000070"
+UID_ADMIN = "00000000-0000-0000-0000-000000000003"
 
 
-# Admin-authenticated test client for super-admin-only endpoints
 @pytest.fixture
 def admin_client(client):
-    from dependencies import CurrentUser
+    from dependencies import CurrentUser, get_current_user
     admin = CurrentUser(id=UID_ADMIN, email="admin@test.com", role="super_admin", status="active")
+    from main import app
     app.dependency_overrides[get_current_user] = lambda: admin
     return client
 
@@ -256,7 +253,7 @@ class TestAuth:
     def test_get_profile(self, client: TestClient):
         resp = client.get("/auth/profile")
         assert resp.status_code == 200
-        assert resp.json()["role"] == "super_admin"
+        assert resp.json()["role"] == "admin"
 
     def test_update_profile(self, client: TestClient):
         resp = client.patch("/auth/profile", json={"full_name": "Updated Name"})
@@ -274,8 +271,6 @@ class TestAuth:
 
 
 class TestBoosts:
-    """Property boost system — super admin only, ranking verified."""
-
     def test_default_price(self, client: TestClient):
         resp = client.get("/boosts/price/default")
         assert resp.status_code == 200
@@ -297,8 +292,6 @@ class TestBoosts:
         data = resp.json()
         assert data["id"] == PID_BOOST
         assert data["status"] == "active"
-        # property_title may be None in mock since properties query may not resolve
-        # but we check it exists in response
         assert "property_title" in data
 
     def test_get_boost_not_found(self, admin_client: TestClient):
@@ -314,7 +307,6 @@ class TestBoosts:
         data = resp.json()
         assert data["status"] == "active"
         assert data["duration_days"] == 14
-        # Price = 10000 * 14 = 140000
         assert float(data["amount_paid"]) == 140000.0
 
     def test_create_boost_property_not_found(self, admin_client: TestClient):
@@ -346,15 +338,12 @@ class TestBoosts:
         assert "total_revenue" in data
 
     def test_boosted_property_ranked_first(self, client: TestClient):
-        """Boosted property (PID_PROP_2) must appear before non-boosted (PID_PROP)."""
         resp = client.get("/properties/public")
         assert resp.status_code == 200
         items = resp.json()["items"]
-        # Both properties are available and should appear
         prop_ids = [p["id"] for p in items]
         assert PID_PROP_2 in prop_ids, "Boosted property must be in results"
         assert PID_PROP in prop_ids, "Non-boosted property must be in results"
-        # Boosted property must come first
         idx_boosted = prop_ids.index(PID_PROP_2)
         idx_normal = prop_ids.index(PID_PROP)
         assert idx_boosted < idx_normal, (

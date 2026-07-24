@@ -48,7 +48,6 @@ def list_leases(
     else:
         leases, total = service.get_all(current_user.id, skip, limit)
 
-    # Re-enrich with service client to bypass RLS on profiles/properties
     admin = get_service_client()
     pids = {str(l["property_id"]) for l in leases if l.get("property_id")}
     oids = {str(l["owner_id"]) for l in leases if l.get("owner_id")}
@@ -219,9 +218,6 @@ def renew_lease(
     current_user: CurrentUser = Depends(get_current_user),
     service: LeaseService = Depends(get_lease_svc),
 ) -> LeaseResponse:
-    """In-place renewal (Option B). Only the property owner / manager assigned
-    to the property (the lease's owner_id) may renew. The new end date must be
-    later than the current end date."""
     try:
         lease = service.renew(
             lease_id,

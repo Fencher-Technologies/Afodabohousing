@@ -60,7 +60,8 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <div className="hidden lg:flex flex-1 relative bg-cover bg-center" style={{ backgroundImage: `url(${heroBg})` }}>
+      <div className="hidden lg:flex flex-1 relative">
+        <img src={heroBg} alt="" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 gradient-hero" />
         <div className="relative z-10 flex flex-col justify-end p-14 text-primary-foreground">
           <div className="max-w-sm">

@@ -175,7 +175,7 @@ def create_payment(
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["tenant_id"] = tenant.data[0]["id"]
         if not payload.get("due_date"):
-            payload["due_date"] = payload.get("paid_date") or date.today().isoformat()
+            payload["due_date"] = payload.get("paid_date")
         payment = service.create(PaymentCreate(**payload))
     else:
         lease = (
@@ -190,7 +190,7 @@ def create_payment(
         payload = data.model_dump(exclude_none=True, mode="json")
         payload.setdefault("tenant_id", lease.data[0]["tenant_id"])
         if not payload.get("due_date"):
-            payload["due_date"] = payload.get("paid_date") or date.today().isoformat()
+            payload["due_date"] = payload.get("paid_date")
         payment = service.create(PaymentCreate(**payload))
     return PaymentResponse(**payment)
 
@@ -227,7 +227,6 @@ def update_payment(
             raise HTTPException(status_code=403, detail="Access denied")
     result = service.update(payment_id, data)
 
-    # Notify tenant when payment is confirmed or rejected
     if data.status in ("confirmed", "rejected"):
         lease = (
             supabase.table("leases")

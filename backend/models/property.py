@@ -13,7 +13,7 @@ class Property(BaseModel):
     address: str
     city: str
     state: str
-    zip_code: str
+    zip_code: str = ''
     country: str | None = None
     property_type: str
     bedrooms: int
@@ -35,7 +35,7 @@ class Property(BaseModel):
 
 
 class PropertyCreate(BaseModel):
-    title: str
+    title: str | None = None
     address: str
     city: str
     state: str
@@ -90,7 +90,7 @@ class PropertyResponse(BaseModel):
     address: str
     city: str
     state: str
-    zip_code: str
+    zip_code: str = ''
     country: str | None = None
     property_type: str
     bedrooms: int
