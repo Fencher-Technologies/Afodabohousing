@@ -171,6 +171,9 @@ uvicorn main:app --reload --port 8000
 # Production (no reload)
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+cd backend
+source .venv/bin/activate  
+uvicorn main:app --reload
 
 ## Testing
 

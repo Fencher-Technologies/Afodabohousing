@@ -306,7 +306,8 @@ async def initiate_pesapal_payment(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> PesapalInitiateResponse:
     token = await _get_pesapal_token()
-    ipn_id = await _register_pesapal_ipn(token, f"{settings.supabase_url}/functions/v1/pesapal-ipn")
+    ipn_url = settings.pesapal_ipn_url or data.callback_url
+    ipn_id = await _register_pesapal_ipn(token, ipn_url)
     order_id = f"AFODABO-{data.payment_id}-{int(time.time() * 1000)}"
 
     async with httpx.AsyncClient(timeout=20) as client:

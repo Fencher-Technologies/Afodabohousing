@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     pesapal_consumer_key: str = ""
     pesapal_consumer_secret: str = ""
     pesapal_environment: str = "sandbox"
+    pesapal_ipn_url: str = ""
 
     # NylonPay
     nylonpay_api_key: str = ""
