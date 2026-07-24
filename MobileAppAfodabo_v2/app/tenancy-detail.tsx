@@ -213,10 +213,6 @@ export default function TenancyDetailScreen() {
         <AgreementFlow
           leaseId={id || ""}
           role={isManager ? "manager" : "tenant"}
-          managerName={tenancy.manager_name}
-          managerPhone={tenancy.manager_phone}
-          managerEmail={tenancy.manager_email}
-          canUpload={isManager}
         />
 
         <View style={styles.sectionHeader}>

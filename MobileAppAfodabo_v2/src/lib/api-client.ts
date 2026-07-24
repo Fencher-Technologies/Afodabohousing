@@ -120,6 +120,10 @@ async function request<T>(
     throw new ApiError(message, response.status, errorData);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   const contentType = response.headers.get("content-type");
   if (contentType?.includes("application/json")) {
     return response.json() as Promise<T>;

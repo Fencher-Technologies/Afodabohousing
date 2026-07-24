@@ -411,14 +411,29 @@ async def process_tenancy_expiry_reminders(
     return attempted
 
 
+async def check_boost_expiry():
+    """Expire boosts that have passed their expiry date."""
+    try:
+        supabase = _get_supabase_for_scheduler()
+        from services.boost import BoostService
+        svc = BoostService(supabase)
+        count = svc.expire_old()
+        if count > 0:
+            logger.info("Expired %d boost(s)", count)
+    except Exception as e:
+        logger.error("Boost expiry check failed: %s", str(e), exc_info=True)
+
+
 def start_scheduler():
     settings = get_settings()
     if settings.environment == "production":
         scheduler.add_job(check_rent_reminders, "cron", hour=8, minute=0)
         scheduler.add_job(check_tenancy_expiry, "cron", hour=6, minute=0)
+        scheduler.add_job(check_boost_expiry, "cron", hour=6, minute=30)
     else:
         scheduler.add_job(check_rent_reminders, "interval", hours=6)
         scheduler.add_job(check_tenancy_expiry, "interval", hours=12)
+        scheduler.add_job(check_boost_expiry, "interval", hours=12)
     scheduler.start()
     logger.info("Background scheduler started")
 

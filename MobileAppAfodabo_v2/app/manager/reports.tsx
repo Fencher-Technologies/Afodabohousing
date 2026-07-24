@@ -7,15 +7,15 @@
  *  - Report tabs are horizontal scrollable pills (WhatsApp-style) with an
  *    orange (accent) active state so labels never get clipped.
  *  - Status & Property filters use dropdowns (SelectField) instead of tap-to-cycle.
- *  - CSV export opens an action sheet with two explicit choices: Share and Download.
+ *  - Export action sheet offers PDF (preferred) and CSV (fallback) options.
+ *  - Files are auto-saved to device via share sheet, then a notification is shown.
  *  - Outstanding never falsely reports "All caught up": the empty state only
  *    appears when the server genuinely returns total === 0, and the outstanding
  *    total is always surfaced as a KPI.
  */
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
-import { StyleSheet, Text, View, Pressable, ScrollView, Alert, Share, Modal } from "react-native";
-import { Paths, File, Directory } from "expo-file-system";
+import { useMemo, useState, type ReactNode } from "react";
+import { StyleSheet, Text, View, Pressable, ScrollView, Alert, Modal } from "react-native";
 import { router } from "expo-router";
 import {
   FileText,
@@ -24,7 +24,7 @@ import {
   Receipt,
   PieChart,
   Download,
-  Share2,
+  FileDown,
   ChevronDown,
   RefreshCw,
   X,
@@ -48,7 +48,8 @@ import {
 } from "@/src/hooks/useReports";
 import { usePropertyList } from "@/src/hooks/useProperties";
 import { useRefresh } from "@/src/hooks/useRefresh";
-import { formatUGX, formatUGXShort, formatDate, formatMethod } from "@/src/utils/format";
+import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
+import { downloadPdf, downloadCsv, shareReport } from "@/src/utils/export";
 import type { ReportType, TenancyStatus } from "@/src/types";
 
 type ReportKey =
@@ -131,143 +132,177 @@ export default function ReportsScreen() {
     refetches: [tenants.refetch, outstanding.refetch, rent.refetch, summary.refetch, history.refetch, statement.refetch],
   });
 
-  const buildCsv = (): { rows: (string | number | null)[][]; filename: string } | null => {
-    let rows: (string | number | null)[][] = [];
-    let filename = "report";
+  const buildReportData = (): {
+    headers: string[];
+    rows: (string | number | null | undefined)[][];
+    prefix: string;
+    title: string;
+  } | null => {
     if (tab === "tenants" && tenants.data) {
-      filename = "all-tenants";
-      rows = [
-        ["Tenant", "Phone", "Email", "Property", "Unit", "Start", "End", "Status", "Expected", "Paid", "Balance", "Credit"],
-        ...tenants.data.items.map((t) => [
+      return {
+        title: "All Tenants Report",
+        prefix: "all-tenants",
+        headers: ["Tenant", "Phone", "Email", "Property", "Unit", "Start", "End", "Status", "Expected", "Paid", "Balance", "Credit"],
+        rows: tenants.data.items.map((t) => [
           t.tenant_name, t.tenant_phone, t.tenant_email, t.property_title, t.unit_label,
           t.start_date, t.end_date, t.status, t.expected_rent, t.total_paid, t.balance_due, t.tenant_credit,
         ]),
-      ];
-    } else if (tab === "outstanding" && outstanding.data) {
-      filename = "outstanding";
-      rows = [
-        ["Tenant", "Phone", "Property", "Unit", "Status", "Expected", "Paid", "Balance", "Last Paid", "Method"],
-        ...outstanding.data.items.map((t) => [
+      };
+    }
+    if (tab === "outstanding" && outstanding.data) {
+      return {
+        title: "Outstanding Report",
+        prefix: "outstanding",
+        headers: ["Tenant", "Phone", "Property", "Unit", "Status", "Expected", "Paid", "Balance", "Last Paid", "Method"],
+        rows: outstanding.data.items.map((t) => [
           t.tenant_name, t.tenant_phone, t.property_title, t.unit_label, t.status,
           t.expected_rent, t.total_paid, t.balance_due, t.last_payment_date, t.last_payment_method,
         ]),
-      ];
-    } else if (tab === "rent_collection" && rent.data) {
-      filename = "rent-collection";
-      rows = [
-        ["Metric", "Value"],
-        ["Total Expected", rent.data.total_expected],
-        ["Total Collected", rent.data.total_collected],
-        ["Total Outstanding", rent.data.total_outstanding],
-        ["Total Tenant Credit", rent.data.total_tenant_credit],
-        ["Collection %", rent.data.collection_percentage],
-        ["Paid In Full", rent.data.tenants_paid_in_full],
-        ["With Balances", rent.data.tenants_with_balance],
-        ["Total Tenants", rent.data.total_tenants],
-      ];
-    } else if (tab === "payment_history" && history.data) {
-      filename = "payment-history";
-      rows = [
-        ["Date", "Tenant", "Property", "Amount", "Method", "Status"],
-        ...history.data.items.map((p) => [
+      };
+    }
+    if (tab === "rent_collection" && rent.data) {
+      return {
+        title: "Rent Collection Report",
+        prefix: "rent-collection",
+        headers: ["Metric", "Value"],
+        rows: [
+          ["Total Expected", rent.data.total_expected],
+          ["Total Collected", rent.data.total_collected],
+          ["Total Outstanding", rent.data.total_outstanding],
+          ["Total Tenant Credit", rent.data.total_tenant_credit],
+          ["Collection %", rent.data.collection_percentage],
+          ["Paid In Full", rent.data.tenants_paid_in_full],
+          ["With Balances", rent.data.tenants_with_balance],
+          ["Total Tenants", rent.data.total_tenants],
+        ],
+      };
+    }
+    if (tab === "payment_history" && history.data) {
+      return {
+        title: "Payment History Report",
+        prefix: "payment-history",
+        headers: ["Date", "Tenant", "Property", "Amount", "Method", "Status"],
+        rows: history.data.items.map((p) => [
           p.date, p.tenant_name, p.property_title, p.amount, p.method, p.status,
         ]),
-      ];
-    } else if (tab === "summary" && summary.data) {
-      filename = "financial-summary";
-      rows = [
-        ["Metric", "Value"],
-        ["Total Expected", summary.data.total_expected],
-        ["Total Collected", summary.data.total_collected],
-        ["Total Outstanding", summary.data.total_outstanding],
-        ["Total Tenant Credit", summary.data.total_tenant_credit],
-        ["Active Tenancies", summary.data.active_tenancies],
-        ["Expired Tenancies", summary.data.expired_tenancies],
-        ["Terminated Tenancies", summary.data.terminated_tenancies],
-        ["Occupancy Rate %", summary.data.occupancy_rate],
-      ];
-    } else if (statementExport && statementExportData) {
+      };
+    }
+    if (tab === "summary" && summary.data) {
+      return {
+        title: "Financial Summary Report",
+        prefix: "financial-summary",
+        headers: ["Metric", "Value"],
+        rows: [
+          ["Total Expected", summary.data.total_expected],
+          ["Total Collected", summary.data.total_collected],
+          ["Total Outstanding", summary.data.total_outstanding],
+          ["Total Tenant Credit", summary.data.total_tenant_credit],
+          ["Active Tenancies", summary.data.active_tenancies],
+          ["Expired Tenancies", summary.data.expired_tenancies],
+          ["Terminated Tenancies", summary.data.terminated_tenancies],
+          ["Occupancy Rate %", summary.data.occupancy_rate],
+        ],
+      };
+    }
+    if (statementExport && statementExportData) {
       const s = statementExportData;
-      filename = `statement-${(s.tenant_name ?? "tenant").toString().replace(/\s+/g, "-").toLowerCase()}`;
-      rows = [
-        ["Field", "Value"],
-        ["Tenant", s.tenant_name],
-        ["Phone", s.tenant_phone],
-        ["Email", s.tenant_email],
-        ["Property", s.property_title],
-        ["Unit", s.unit_label],
-        ["Status", s.status],
-        ["Start Date", s.start_date],
-        ["End Date", s.end_date],
-        ["Monthly Rent", s.monthly_rent],
-        ["Expected Rent", s.expected_rent],
-        ["Total Paid", s.total_paid],
-        ["Balance Due", s.balance_due],
-        ["Tenant Credit", s.tenant_credit],
-        ["Is Overdue", s.is_overdue ? "Yes" : "No"],
-        [],
-        ["Payment History"],
-        ["Date", "Amount", "Method", "Status", "Type"],
-        ...s.payment_history.map((p) => [p.date, p.amount, p.method, p.status, p.type]),
-        [],
-        ["Renewal History"],
-        ["Previous End", "New End", "Monthly Rent", "Notes", "Renewed At"],
-        ...s.renewal_history.map((r) => [
-          r.previous_end_date, r.new_end_date, r.monthly_rent, r.notes, r.renewed_at,
-        ]),
-      ];
+      const slug = (s.tenant_name ?? "tenant").toString().replace(/\s+/g, "-").toLowerCase();
+      return {
+        title: `Statement — ${s.tenant_name ?? "Unknown"}`,
+        prefix: `statement-${slug}`,
+        headers: ["Field", "Value"],
+        rows: [
+          ["Tenant", s.tenant_name],
+          ["Phone", s.tenant_phone],
+          ["Email", s.tenant_email],
+          ["Property", s.property_title],
+          ["Unit", s.unit_label],
+          ["Status", s.status],
+          ["Start Date", s.start_date],
+          ["End Date", s.end_date],
+          ["Monthly Rent", s.monthly_rent],
+          ["Expected Rent", s.expected_rent],
+          ["Total Paid", s.total_paid],
+          ["Balance Due", s.balance_due],
+          ["Tenant Credit", s.tenant_credit],
+          ["Is Overdue", s.is_overdue ? "Yes" : "No"],
+          [],
+          ["Payment History"],
+          ["Date", "Amount", "Method", "Status", "Type"],
+          ...s.payment_history.map((p) => [p.date, p.amount, p.method, p.status, p.type]),
+          [],
+          ["Renewal History"],
+          ["Previous End", "New End", "Monthly Rent", "Notes", "Renewed At"],
+          ...s.renewal_history.map((r) => [
+            r.previous_end_date, r.new_end_date, r.monthly_rent, r.notes, r.renewed_at,
+          ]),
+        ],
+      };
+    }
+    return null;
+  };
+
+  const handleDownloadPdf = async () => {
+    const data = buildReportData();
+    if (!data) {
+      Alert.alert("Export", "No data available to export.");
+      return;
+    }
+    const subtitle = REPORT_TABS.find((t) => t.value === tab)?.label ?? "Report";
+    const result = await downloadPdf(data.title, subtitle, data.headers, data.rows, data.prefix);
+    if (result.savedTo === "failed") {
+      Alert.alert("Download Failed", "Could not save the PDF. Please try again.");
+      return;
+    }
+    if (result.savedTo === "downloads") {
+      Alert.alert("PDF Downloaded", `Report saved to "${result.path}".\n\nYou can find it in your device's Downloads folder.`);
     } else {
-      return null;
-    }
-    return { rows, filename };
-  };
-
-  const csvToString = (rows: (string | number | null)[][]) =>
-    rows
-      .map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-
-  const shareCsv = async () => {
-    const built = buildCsv();
-    if (!built) {
-      Alert.alert("Export", "This report cannot be exported to CSV yet.");
-      return;
-    }
-    const csv = csvToString(built.rows);
-    try {
-      await Share.share({ message: `${built.filename}.csv\n\n${csv}`, title: `${built.filename}.csv` });
-    } catch {
-      Alert.alert("Export failed", "Could not share the CSV.");
-    }
-  };
-
-  const downloadCsv = async () => {
-    const built = buildCsv();
-    if (!built) {
-      Alert.alert("Export", "This report cannot be exported to CSV yet.");
-      return;
-    }
-    const csv = csvToString(built.rows);
-    const name = `${built.filename}.csv`;
-    try {
-      // Prompt the user to choose where to save the file via the OS directory
-      // picker (Android SAF / iOS). This writes into a location the user can
-      // actually access afterwards (e.g. Downloads), instead of a private
-      // app cache path that other apps can't open.
-      const dir = await Directory.pickDirectoryAsync();
-      const file = dir.createFile(name, "text/csv");
-      file.write(csv);
       Alert.alert(
-        "Saved",
-        `CSV saved as “${name}” in the folder you selected.`,
-        [{ text: "OK", style: "default" }]
+        "PDF Saved",
+        `The report has been saved.\n\nTo access it, tap Share below and choose "Save to Files" to save it to your Downloads folder.`,
+        [
+          { text: "OK", style: "default" },
+          { text: "Share", onPress: () => handleShareReport("pdf") },
+        ]
       );
-    } catch (e: unknown) {
-      // User cancelled the picker (no directory chosen) — not an error.
-      const cancelled = e instanceof Error && /cancel|user/i.test(e.message);
-      if (!cancelled) {
-        Alert.alert("Download failed", "Could not save the CSV file to the selected location.");
-      }
+    }
+  };
+
+  const handleDownloadCsv = async () => {
+    const data = buildReportData();
+    if (!data) {
+      Alert.alert("Export", "No data available to export.");
+      return;
+    }
+    const result = await downloadCsv(data.headers, data.rows, data.prefix);
+    if (result.savedTo === "failed") {
+      Alert.alert("Download Failed", "Could not save the CSV. Please try again.");
+      return;
+    }
+    if (result.savedTo === "downloads") {
+      Alert.alert("CSV Downloaded", `Report saved to "${result.path}".\n\nYou can find it in your device's Downloads folder.`);
+    } else {
+      Alert.alert(
+        "CSV Saved",
+        `The report has been saved.\n\nTo access it, tap Share below and choose "Save to Files" to save it to your Downloads folder.`,
+        [
+          { text: "OK", style: "default" },
+          { text: "Share", onPress: () => handleShareReport("csv") },
+        ]
+      );
+    }
+  };
+
+  const handleShareReport = async (format: "pdf" | "csv") => {
+    const data = buildReportData();
+    if (!data) {
+      Alert.alert("Export", "No data available to share.");
+      return;
+    }
+    const subtitle = REPORT_TABS.find((t) => t.value === tab)?.label ?? "Report";
+    const ok = await shareReport(data.title, subtitle, data.headers, data.rows, data.prefix, format);
+    if (!ok) {
+      Alert.alert("Share Failed", "Could not share the report. Please try again.");
     }
   };
 
@@ -327,10 +362,10 @@ export default function ReportsScreen() {
           <View style={styles.exportRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.exportTitle}>Export report</Text>
-              <Text style={styles.exportSubtitle}>Save or share the displayed report as CSV</Text>
+              <Text style={styles.exportSubtitle}>Download as PDF or CSV — auto-saves to your device</Text>
             </View>
             <Button
-              label="Export CSV"
+              label="Export"
               variant="outline"
               tone="accent"
               size="sm"
@@ -380,7 +415,7 @@ export default function ReportsScreen() {
         />
       )}
 
-      {/* Export action sheet (Share / Download) */}
+      {/* Export action sheet (Download PDF / Download CSV / Share) */}
       <Modal visible={exportSheet} transparent animationType="slide" onRequestClose={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); }}>
         <Pressable style={styles.sheetOverlay} onPress={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); }}>
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
@@ -388,26 +423,52 @@ export default function ReportsScreen() {
             <Text style={styles.sheetTitle}>
               Export {statementExport ? "tenant statement" : `“${REPORT_TABS.find((t) => t.value === tab)?.label}” report`}
             </Text>
-            <Text style={styles.sheetSubtitle}>Choose how you want to use the CSV file.</Text>
+            <Text style={styles.sheetSubtitle}>Choose an option below.</Text>
 
-            <Pressable style={styles.sheetOption} onPress={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); shareCsv(); }}>
-              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.accentSoft }]}>
-                <Share2 size={20} color={Colors.accent} />
+            <Text style={styles.sheetSectionLabel}>Download</Text>
+            <Pressable style={styles.sheetOption} onPress={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); handleDownloadPdf(); }}>
+              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.dangerSoft }]}>
+                <FileDown size={20} color={Colors.danger} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.sheetOptionTitle}>Share</Text>
+                <Text style={styles.sheetOptionTitle}>Download PDF</Text>
+                <Text style={styles.sheetOptionSub}>Professional format — auto-saves to Downloads</Text>
+              </View>
+              <ChevronDown size={18} color={Colors.textMuted} style={{ transform: [{ rotate: "270deg" }] }} />
+            </Pressable>
+
+            <Pressable style={styles.sheetOption} onPress={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); handleDownloadCsv(); }}>
+              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.primarySoft }]}>
+                <FileText size={20} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetOptionTitle}>Download CSV</Text>
+                <Text style={styles.sheetOptionSub}>Spreadsheet format — auto-saves to Downloads</Text>
+              </View>
+              <ChevronDown size={18} color={Colors.textMuted} style={{ transform: [{ rotate: "270deg" }] }} />
+            </Pressable>
+
+            <View style={styles.sheetDivider} />
+
+            <Text style={styles.sheetSectionLabel}>Share</Text>
+            <Pressable style={styles.sheetOption} onPress={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); handleShareReport("pdf"); }}>
+              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.accentSoft }]}>
+                <FileDown size={20} color={Colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetOptionTitle}>Share as PDF</Text>
                 <Text style={styles.sheetOptionSub}>Send via WhatsApp, email, or any app</Text>
               </View>
               <ChevronDown size={18} color={Colors.textMuted} style={{ transform: [{ rotate: "270deg" }] }} />
             </Pressable>
 
-            <Pressable style={styles.sheetOption} onPress={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); downloadCsv(); }}>
-              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.primarySoft }]}>
-                <Download size={20} color={Colors.primary} />
+            <Pressable style={styles.sheetOption} onPress={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); handleShareReport("csv"); }}>
+              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.accentSoft }]}>
+                <FileText size={20} color={Colors.accent} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.sheetOptionTitle}>Save to device</Text>
-                <Text style={styles.sheetOptionSub}>Store the CSV file, then open/share it</Text>
+                <Text style={styles.sheetOptionTitle}>Share as CSV</Text>
+                <Text style={styles.sheetOptionSub}>Send as spreadsheet data</Text>
               </View>
               <ChevronDown size={18} color={Colors.textMuted} style={{ transform: [{ rotate: "270deg" }] }} />
             </Pressable>
@@ -449,7 +510,7 @@ function TenantsReport({
       <Card padding="none">
         {data.items.map((t, i) => (
           <View key={t.lease_id}>
-            <Pressable style={styles.row} onPress={() => onOpenStatement(t.tenant_id)}>
+            <Pressable style={styles.row} onPress={() => t.tenant_id && onOpenStatement(t.tenant_id)}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cellName}>{t.tenant_name ?? "Unknown"}</Text>
                 <Text style={styles.cellSub}>
@@ -460,7 +521,7 @@ function TenantsReport({
               </View>
               <View style={{ alignItems: "flex-end" }}>
                 <Text style={[styles.cellText, t.balance_due > 0 && styles.danger]}>
-                  {formatUGXShort(t.balance_due)}
+                  {formatUGX(t.balance_due)}
                 </Text>
                 <Text style={styles.cellSub}>{t.status}</Text>
               </View>
@@ -517,8 +578,8 @@ function OutstandingReport({ data }: { data: import("@/src/types").OutstandingRe
                 </Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={[styles.cellText, styles.danger]}>{formatUGXShort(t.balance_due)}</Text>
-                <Text style={styles.cellSub}>of {formatUGXShort(t.expected_rent)}</Text>
+                <Text style={[styles.cellText, styles.danger]}>{formatUGX(t.balance_due)}</Text>
+                <Text style={styles.cellSub}>of {formatUGX(t.expected_rent)}</Text>
               </View>
             </View>
             {i < data.items.length - 1 && <View style={styles.divider} />}
@@ -537,10 +598,10 @@ function RentCollectionReport({ data }: { data: import("@/src/types").RentCollec
   return (
     <View style={styles.gap}>
       <View style={styles.kpiGrid}>
-        <KpiCard label="Expected" value={formatUGXShort(data.total_expected)} />
-        <KpiCard label="Collected" value={formatUGXShort(data.total_collected)} tone="success" />
-        <KpiCard label="Outstanding" value={formatUGXShort(data.total_outstanding)} tone="danger" />
-        <KpiCard label="Tenant Credit" value={formatUGXShort(data.total_tenant_credit)} />
+        <KpiCard label="Expected" value={formatUGX(data.total_expected)} />
+        <KpiCard label="Collected" value={formatUGX(data.total_collected)} tone="success" />
+        <KpiCard label="Outstanding" value={formatUGX(data.total_outstanding)} tone="danger" />
+        <KpiCard label="Tenant Credit" value={formatUGX(data.total_tenant_credit)} />
         <KpiCard label="Paid in Full" value={String(data.tenants_paid_in_full)} />
         <KpiCard label="With Balances" value={String(data.tenants_with_balance)} />
       </View>
@@ -557,10 +618,10 @@ function SummaryReport({ data }: { data: import("@/src/types").FinancialSummary 
   return (
     <View style={styles.gap}>
       <View style={styles.kpiGrid}>
-        <KpiCard label="Expected Rent" value={formatUGXShort(data.total_expected)} />
-        <KpiCard label="Collected" value={formatUGXShort(data.total_collected)} tone="success" />
-        <KpiCard label="Outstanding" value={formatUGXShort(data.total_outstanding)} tone="danger" />
-        <KpiCard label="Tenant Credits" value={formatUGXShort(data.total_tenant_credit)} />
+        <KpiCard label="Expected Rent" value={formatUGX(data.total_expected)} />
+        <KpiCard label="Collected" value={formatUGX(data.total_collected)} tone="success" />
+        <KpiCard label="Outstanding" value={formatUGX(data.total_outstanding)} tone="danger" />
+        <KpiCard label="Tenant Credits" value={formatUGX(data.total_tenant_credit)} />
         <KpiCard label="Active" value={String(data.active_tenancies)} />
         <KpiCard label="Expired" value={String(data.expired_tenancies)} />
         <KpiCard label="Terminated" value={String(data.terminated_tenancies)} />
@@ -596,7 +657,7 @@ function PaymentHistoryReport({ data }: { data: import("@/src/types").PaymentHis
                 <Text style={styles.cellSub}>{p.tenant_name ?? "—"}</Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.cellText}>{formatUGXShort(p.amount)}</Text>
+                <Text style={styles.cellText}>{formatUGX(p.amount)}</Text>
                 <Text style={styles.cellSub}>{p.method ? formatMethod(p.method) : "—"}</Text>
               </View>
             </View>
@@ -657,10 +718,10 @@ function StatementSheet({
               {data.unit_label ? ` · Unit ${data.unit_label}` : ""}
             </Text>
             <View style={styles.kpiGrid}>
-              <KpiCard label="Expected" value={formatUGXShort(data.expected_rent)} />
-              <KpiCard label="Paid" value={formatUGXShort(data.total_paid)} tone="success" />
-              <KpiCard label="Balance" value={formatUGXShort(data.balance_due)} tone="danger" />
-              <KpiCard label="Credit" value={formatUGXShort(data.tenant_credit)} />
+              <KpiCard label="Expected" value={formatUGX(data.expected_rent)} />
+              <KpiCard label="Paid" value={formatUGX(data.total_paid)} tone="success" />
+              <KpiCard label="Balance" value={formatUGX(data.balance_due)} tone="danger" />
+              <KpiCard label="Credit" value={formatUGX(data.tenant_credit)} />
             </View>
             <Text style={styles.sheetSection}>Tenancy</Text>
             <Text style={styles.cellSub}>
@@ -674,7 +735,7 @@ function StatementSheet({
               data.payment_history.map((p) => (
                 <View key={p.id} style={styles.subRow}>
                   <Text style={styles.cellText}>{formatDate(p.date)}</Text>
-                  <Text style={styles.cellText}>{formatUGXShort(p.amount)}</Text>
+                  <Text style={styles.cellText}>{formatUGX(p.amount)}</Text>
                   <Text style={styles.cellSub}>{p.method ? formatMethod(p.method) : "—"}</Text>
                 </View>
               ))
@@ -811,5 +872,7 @@ const styles = StyleSheet.create({
   },
   sheetOptionIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   sheetOptionTitle: { fontSize: FontSize.body, fontWeight: FontWeight.bold, color: Colors.textPrimary },
+  sheetSectionLabel: { fontSize: FontSize.micro, color: Colors.textMuted, fontWeight: FontWeight.bold, textTransform: "uppercase", letterSpacing: 1, marginBottom: Spacing.xs, marginTop: Spacing.xs },
+  sheetDivider: { height: 1, backgroundColor: Colors.border, marginVertical: Spacing.sm },
   sheetOptionSub: { fontSize: FontSize.caption, color: Colors.textMuted, marginTop: 2 },
 });

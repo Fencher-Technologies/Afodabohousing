@@ -4,7 +4,7 @@
 
 import { X } from "lucide-react-native";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Button } from "./Button";
 import { InputField } from "./InputField";
@@ -61,6 +61,10 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
       setAmount("");
       setNotes("");
       onClose();
+      Alert.alert(
+        "Payment Recorded",
+        `Payment for ${tenancy.tenant_name} of ${formatUGX(numericAmount)} has been recorded successfully.`
+      );
     } catch (e) {
       setError("Failed to record payment. Please try again.");
     }

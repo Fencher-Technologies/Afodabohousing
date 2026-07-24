@@ -9,6 +9,7 @@ from .maintenance_requests import router as maintenance_requests_router
 from .managers import router as managers_router
 from .messages import router as messages_router
 from .notifications import router as notifications_router
+from .payment_verifications import router as payment_verifications_router
 from .payments import router as payments_router
 from .properties import router as properties_router
 from .rental_units import router as rental_units_router
@@ -30,6 +31,7 @@ __all__ = [
     "managers_router",
     "messages_router",
     "notifications_router",
+    "payment_verifications_router",
     "payments_router",
     "properties_router",
     "rental_units_router",

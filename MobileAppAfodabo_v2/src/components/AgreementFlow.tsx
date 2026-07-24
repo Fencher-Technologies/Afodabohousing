@@ -1,26 +1,16 @@
-/**
- * AgreementFlow — shared 3-stage tenancy-agreement workflow used by the
- * tenant (My Tenancy) and manager (Tenancy Detail / Dashboard) screens.
- *
- * Stages: Uploaded → Tenant Consented → Manager Consented.
- * Each stage is ticked independently and updates immediately after the
- * matching action. Consent is always tied to the active agreement version;
- * uploading a new version archives the previous one and resets consent.
- */
-
 import { useState } from "react";
-import { StyleSheet, Text, View, Pressable, Alert, Linking, ActivityIndicator } from "react-native";
-import * as DocumentPicker from "expo-document-picker";
+import { Alert, StyleSheet, Text, View, Pressable, ActivityIndicator, Modal } from "react-native";
+import { useRouter } from "expo-router";
 import {
-  FileText,
-  FileCheck,
+  FileSignature,
   CheckCircle,
-  Circle,
-  CircleDot,
-  Upload,
+  Eye,
+  Square,
+  CheckSquare,
+  FileText,
+  Plus,
+  XCircle,
   History,
-  ChevronDown,
-  ChevronRight,
 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -28,133 +18,96 @@ import { Card } from "@/src/components/Card";
 import { Button } from "@/src/components/Button";
 import { Badge } from "@/src/components/Badge";
 import {
-  useAgreementState,
-  useAgreementVersions,
-  useUploadAgreement,
   useConsentAgreement,
+  useConsentState,
+  useCancelAgreement,
 } from "@/src/hooks/useAgreements";
+import { useAuth } from "@/src/context/auth-context";
 
 type Role = "tenant" | "manager";
 
 interface AgreementFlowProps {
   leaseId: string;
   role: Role;
-  managerName?: string | null;
-  managerPhone?: string | null;
-  managerEmail?: string | null;
-  canUpload?: boolean;
-  compact?: boolean;
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  active: "Active",
-  archived: "Archived",
-  fully_executed: "Fully Executed",
-  none: "No Agreement",
+const STATUS_LABEL: Record<string, { label: string; tone: "info" | "warning" | "success" | "muted" | "danger" }> = {
+  draft: { label: "Draft", tone: "muted" },
+  awaiting_tenant_consent: { label: "Awaiting Tenant Consent", tone: "warning" },
+  awaiting_manager_consent: { label: "Awaiting Manager Consent", tone: "warning" },
+  executed: { label: "Executed", tone: "success" },
+  superseded: { label: "Superseded", tone: "muted" },
+  cancelled: { label: "Cancelled", tone: "danger" },
 };
+
+const SMALL_CAPS = { letterSpacing: 1.2, textTransform: "lowercase" as const };
 
 export function AgreementFlow({
   leaseId,
   role,
-  managerName,
-  managerPhone,
-  managerEmail,
-  canUpload = true,
-  compact = false,
 }: AgreementFlowProps) {
-  const { data: state, isLoading } = useAgreementState(leaseId);
-  const { data: versionsData } = useAgreementVersions(leaseId);
-  const uploadAgreement = useUploadAgreement();
+  const router = useRouter();
+  const { user } = useAuth();
+
+  const consentState = useConsentState(leaseId);
   const consentAgreement = useConsentAgreement();
-  const [showHistory, setShowHistory] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const cancelAgreement = useCancelAgreement();
 
-  const document = state?.document ?? null;
-  const managerConsented = state?.manager_consented ?? false;
-  const tenantConsented = state?.tenant_consented ?? false;
-  const version = state?.version ?? 1;
-  const status = state?.status ?? (document ? "active" : "none");
+  const [agreed, setAgreed] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  // Lifecycle driven purely by concrete evidence.
-  const uploaded = !!document;
-  const tenantStage = uploaded && tenantConsented;
-  const managerStage = uploaded && managerConsented;
-  const lifecycle = !uploaded
-    ? "pending"
-    : !tenantConsented
-    ? "uploaded"
-    : !managerConsented
-    ? "tenant_consented"
-    : "fully_executed";
+  const consentDoc = consentState.data?.current_document ?? null;
+  const consentContent = consentState.data?.content ?? null;
+  const hasContent = !!consentContent;
+  const hasDoc = !!consentDoc;
 
-  const myConsent = role === "manager" ? managerConsented : tenantConsented;
-  const otherConsented = role === "manager" ? tenantConsented : managerConsented;
+  const myConsentState = role === "manager"
+    ? consentState.data?.manager ?? null
+    : consentState.data?.tenant ?? null;
+  const otherConsentState = role === "manager"
+    ? consentState.data?.tenant ?? null
+    : consentState.data?.manager ?? null;
 
-  const handleViewAgreement = () => {
-    const url = document?.agreement_url;
-    if (!url) {
-      Alert.alert("Agreement", "No agreement document is available yet.");
+  const hasConsented = myConsentState?.consent_status === "approved";
+  const otherHasConsented = otherConsentState?.consent_status === "approved";
+
+  const handleGeneratedConsent = async () => {
+    if (!agreed) {
+      Alert.alert("Review Required", "Please read and agree to the terms before signing.");
       return;
     }
-    Linking.openURL(url).catch(() => {
-      Alert.alert("Could not open", "Unable to open the agreement file.");
-    });
+    setShowConfirmDialog(true);
   };
 
-  const handleUpload = async () => {
-    setUploadError(null);
+  const confirmSign = async () => {
+    setShowConfirmDialog(false);
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "image/*"],
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled || !result.assets || result.assets.length === 0) return;
-      const asset = result.assets[0];
-      const mimeType = asset.mimeType || "application/pdf";
-      if (mimeType !== "application/pdf" && !mimeType.startsWith("image/")) {
-        setUploadError("Only PDF or image files are supported.");
-        return;
-      }
-      await uploadAgreement.mutateAsync({
+      await consentAgreement.mutateAsync({
         leaseId,
-        fileUri: asset.uri,
-        fileName: asset.name || `agreement_${leaseId}.pdf`,
-        mimeType,
+        signedName: user?.full_name ?? "Tenant",
       });
-      Alert.alert(
-        "Uploaded",
-        "A new agreement version was created. Both parties must review and consent again.",
-      );
-    } catch (e) {
-      setUploadError(e instanceof Error ? e.message : "Failed to upload agreement.");
+      Alert.alert("Signed", "Your signature has been recorded.");
+    } catch {
+      Alert.alert("Error", "Could not record your signature.");
     }
   };
 
-  const handleConsent = () => {
-    if (!uploaded) {
-      Alert.alert("No agreement yet", "The agreement document has not been uploaded yet.");
-      return;
-    }
-    if (myConsent) return;
+  const handleCancel = () => {
     Alert.alert(
-      "Consent to Agreement",
-      "By consenting, you confirm you have read and agree to this tenancy agreement.",
+      "Cancel Agreement",
+      "This will cancel the current agreement and reset all consent statuses. This action cannot be undone.",
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "No", style: "cancel" },
         {
-          text: "I Consent",
-          onPress: async () => {
-            try {
-              await consentAgreement.mutateAsync(leaseId);
-              Alert.alert("Consent Recorded", "Your consent has been recorded.");
-            } catch {
-              Alert.alert("Error", "Could not record your consent.");
-            }
-          },
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: () => cancelAgreement.mutate(leaseId),
         },
       ],
     );
   };
+
+  const isLoading = consentState.isLoading;
 
   if (isLoading) {
     return (
@@ -167,206 +120,242 @@ export function AgreementFlow({
     );
   }
 
-  const versions = versionsData?.versions ?? [];
+  // ── No agreement yet ──────────────────────────────────────────────
+  if (!hasDoc || !hasContent) {
+    return (
+      <Card padding="md">
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.iconWrap}>
+              <FileText size={18} color={Colors.info} />
+            </View>
+            <Text style={styles.title}>Tenancy Agreement</Text>
+          </View>
+        </View>
+        <View style={styles.emptyState}>
+          <FileText size={32} color={Colors.textMuted} />
+          <Text style={styles.emptyTitle}>
+            {hasDoc && !hasContent ? "Incomplete Agreement" : "No Agreement Yet"}
+          </Text>
+          <Text style={styles.emptyBody}>
+            {hasDoc && !hasContent
+              ? "This agreement was created but the content is missing. Please cancel it and create a new one."
+              : role === "manager"
+                ? "Create a digital agreement for this tenancy using the in-app builder."
+                : "The manager has not yet created an agreement for this tenancy."}
+          </Text>
+          {role === "manager" && (
+            <Button
+              label={hasDoc && !hasContent ? "Cancel & Create New" : "Create Agreement"}
+              onPress={() => {
+                if (hasDoc && !hasContent) {
+                  cancelAgreement.mutate(leaseId, {
+                    onSuccess: () => router.push(`/create-agreement?leaseId=${leaseId}`),
+                  });
+                } else {
+                  router.push(`/create-agreement?leaseId=${leaseId}`);
+                }
+              }}
+              leftIcon={<Plus size={16} color={Colors.textOnPrimary} />}
+              loading={cancelAgreement.isPending}
+            />
+          )}
+        </View>
+      </Card>
+    );
+  }
+
+  // ── Agreement exists with content ────────────────────────────────
+  const statusInfo = consentDoc?.status
+    ? STATUS_LABEL[consentDoc.status] ?? { label: consentDoc.status, tone: "info" as const }
+    : null;
+
+  const content = consentContent;
+  const agreementNumber = consentDoc?.agreement_number ?? content?.agreement_number ?? null;
+  const genVersion = consentDoc?.version ?? content?.version ?? 1;
 
   return (
     <Card padding="md">
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.iconWrap}>
-            <FileCheck size={18} color={Colors.info} />
+            <FileSignature size={18} color={Colors.info} />
           </View>
           <Text style={styles.title}>Tenancy Agreement</Text>
         </View>
-        {uploaded && (
+        {statusInfo && (
           <Badge
-            label={STATUS_LABEL[status] ?? status}
-            tone={status === "fully_executed" ? "success" : "info"}
+            label={statusInfo.label}
+            tone={statusInfo.tone}
             size="sm"
-            dot={status !== "fully_executed"}
+            dot={statusInfo.tone !== "success"}
           />
         )}
       </View>
 
-      {/* 3-stage stepper */}
-      <View style={styles.stepper}>
-        <Step
-          icon={<Circle size={14} color={uploaded ? Colors.success : Colors.textMuted} />}
-          label="Uploaded"
-          done={uploaded}
-          current={lifecycle === "pending"}
-        />
-        <StepConnector active={uploaded} />
-        <Step
-          icon={<CircleDot size={14} color={tenantStage ? Colors.success : Colors.textMuted} />}
-          label="Tenant Consented"
-          done={tenantStage}
-          current={lifecycle === "uploaded"}
-        />
-        <StepConnector active={tenantStage} />
-        <Step
-          icon={<CheckCircle size={14} color={managerStage ? Colors.success : Colors.textMuted} />}
-          label="Manager Consented"
-          done={managerStage}
-          current={lifecycle === "tenant_consented"}
-        />
-      </View>
-
-      {uploaded && (
-        <Text style={styles.versionText}>Version {version}</Text>
-      )}
-
-      {document && (
-        <Pressable
-          onPress={handleViewAgreement}
-          style={styles.agreementLink}
-          accessibilityRole="button"
-          accessibilityLabel="View agreement"
-        >
-          <FileText size={18} color={Colors.info} />
-          <Text style={styles.agreementLinkText} numberOfLines={1}>
-            {document.file_name}
-          </Text>
-          <ChevronRight size={16} color={Colors.textMuted} />
-        </Pressable>
-      )}
-
-      {/* Consent status — always visible when a document exists */}
-      {uploaded && (
-        <View style={styles.consentStatusWrap}>
-          <View style={styles.consentStatusCol}>
-            <Text style={styles.consentStatusLabel}>Tenant</Text>
-            <Text style={[styles.consentStatusValue, tenantConsented && styles.consentDone]}>
-              {tenantConsented ? "✓ Consented" : "— Awaiting"}
-            </Text>
-          </View>
-          <View style={styles.consentStatusCol}>
-            <Text style={styles.consentStatusLabel}>Manager</Text>
-            <Text style={[styles.consentStatusValue, managerConsented && styles.consentDone]}>
-              {managerConsented ? "✓ Consented" : "— Awaiting"}
-            </Text>
-          </View>
+      {/* Agreement number + version */}
+      {(agreementNumber || genVersion) && (
+        <View style={styles.metaRow}>
+          {agreementNumber && (
+            <Text style={styles.metaText}>No. {agreementNumber}</Text>
+          )}
+          <Text style={styles.metaText}>Version {genVersion}</Text>
         </View>
       )}
 
-      {/* Actions */}
-      {canUpload && (
-        <Button
-          label={uploadAgreement.isPending ? "Uploading…" : uploaded ? "Upload New Version" : "Upload Agreement"}
-          onPress={handleUpload}
-          variant="outline"
-          size="sm"
-          disabled={uploadAgreement.isPending}
-          leftIcon={
-            uploadAgreement.isPending ? (
-              <ActivityIndicator size={16} color={Colors.primary} />
-            ) : (
-              <Upload size={16} color={Colors.primary} />
-            )
-          }
-        />
-      )}
+      {/* View Agreement */}
+      <Button
+        label="View Full Agreement"
+        onPress={() => router.push(`/agreement-view?leaseId=${leaseId}`)}
+        variant="outline"
+        size="sm"
+        leftIcon={<Eye size={16} color={Colors.primary} />}
+      />
 
-      {uploaded && !myConsent && (
-        <Button
-          label={consentAgreement.isPending ? "Consenting…" : role === "manager" ? "Consent as Manager" : "Consent as Tenant"}
-          onPress={handleConsent}
-          size="sm"
-          disabled={consentAgreement.isPending}
-          leftIcon={
-            consentAgreement.isPending ? (
-              <ActivityIndicator size={16} color={Colors.textOnPrimary} />
-            ) : (
-              <CheckCircle size={16} color={Colors.textOnPrimary} />
-            )
-          }
-        />
-      )}
-
-      {uploaded && myConsent && !otherConsented && (
-        <View style={styles.awaitingRow}>
-          <Text style={styles.awaitingText}>
-            {role === "manager" ? "Awaiting tenant consent" : "Awaiting manager consent"}
+      {/* Consent section */}
+      <View style={styles.consentSection}>
+        <View style={styles.consentBlock}>
+          <Text style={styles.consentRoleLabel}>
+            {role === "manager" ? "Your Consent (Manager)" : "Your Consent (Tenant)"}
           </Text>
-        </View>
-      )}
-
-      {uploadError && <Text style={styles.uploadError}>{uploadError}</Text>}
-
-      {/* Version history */}
-      {versions.length > 0 && (
-        <View style={styles.historyWrap}>
-          <Pressable
-            onPress={() => setShowHistory((v) => !v)}
-            style={styles.historyToggle}
-            accessibilityRole="button"
-            accessibilityLabel="Toggle version history"
-          >
-            <History size={16} color={Colors.textMuted} />
-            <Text style={styles.historyToggleText}>Version History ({versions.length})</Text>
-            {showHistory ? (
-              <ChevronDown size={16} color={Colors.textMuted} />
-            ) : (
-              <ChevronRight size={16} color={Colors.textMuted} />
-            )}
-          </Pressable>
-          {showHistory && (
-            <View style={styles.historyList}>
-              {versions.map((v) => (
-                <Pressable
-                  key={v.id}
-                  onPress={() => {
-                    if (v.agreement_url) Linking.openURL(v.agreement_url).catch(() => {});
-                  }}
-                  style={styles.historyItem}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Version ${v.version}`}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.historyVersion}>Version {v.version}</Text>
-                    <Text style={styles.historyMeta}>
-                      {v.tenant_consented ? "Tenant ✓" : "Tenant —"} ·{" "}
-                      {v.manager_consented ? "Manager ✓" : "Manager —"}
-                    </Text>
-                  </View>
-                  <Badge
-                    label={STATUS_LABEL[v.status] ?? v.status}
-                    tone={v.status === "fully_executed" ? "success" : v.status === "archived" ? "muted" : "info"}
-                    size="sm"
-                  />
-                </Pressable>
-              ))}
+          {hasConsented ? (
+            <View style={styles.signedInfo}>
+              <CheckCircle size={16} color={Colors.success} />
+              <View style={styles.signedDetails}>
+                <Text style={[styles.signedName, SMALL_CAPS]}>
+                  {myConsentState?.signed_name}
+                </Text>
+                {myConsentState?.signed_at && (
+                  <Text style={styles.signedMeta}>
+                    Signed {new Date(myConsentState.signed_at).toLocaleString()}
+                  </Text>
+                )}
+                <Text style={styles.signedMeta}>
+                  Consent v{myConsentState?.consent_version ?? "—"}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.consentActions}>
+              <Text style={styles.consentPending}>Not yet signed</Text>
+              <Pressable
+                onPress={() => setAgreed((v) => !v)}
+                style={styles.checkboxRow}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: agreed }}
+              >
+                {agreed ? (
+                  <CheckSquare size={18} color={Colors.primary} />
+                ) : (
+                  <Square size={18} color={Colors.textMuted} />
+                )}
+                <Text style={styles.checkboxLabel}>
+                  I have read and agree to the terms of this tenancy agreement
+                </Text>
+              </Pressable>
+              <Button
+                label="Agree & Sign"
+                onPress={handleGeneratedConsent}
+                size="sm"
+                disabled={!agreed || consentAgreement.isPending}
+                loading={consentAgreement.isPending}
+                leftIcon={<FileSignature size={16} color={Colors.textOnPrimary} />}
+              />
             </View>
           )}
         </View>
-      )}
+
+        <View style={styles.consentBlock}>
+          <Text style={styles.consentRoleLabel}>
+            {role === "manager" ? "Tenant" : "Manager"}
+          </Text>
+          {otherHasConsented ? (
+            <View style={styles.signedInfo}>
+              <CheckCircle size={16} color={Colors.success} />
+              <View style={styles.signedDetails}>
+                <Text style={[styles.signedName, SMALL_CAPS]}>
+                  {otherConsentState?.signed_name}
+                </Text>
+                {otherConsentState?.signed_at && (
+                  <Text style={styles.signedMeta}>
+                    Signed {new Date(otherConsentState.signed_at).toLocaleString()}
+                  </Text>
+                )}
+                <Text style={styles.signedMeta}>
+                  Consent v{otherConsentState?.consent_version ?? "—"}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.consentPending}>Awaiting signature</Text>
+          )}
+        </View>
+      </View>
+
+      {/* History + Cancel */}
+      <View style={styles.agreementActions}>
+        <Button
+          label="History"
+          variant="outline"
+          size="sm"
+          onPress={() => router.push(`/agreement-history?leaseId=${leaseId}`)}
+          leftIcon={<History size={16} color={Colors.primary} />}
+        />
+        {role === "manager" && (
+          <Button
+            label="Cancel Agreement"
+            onPress={handleCancel}
+            variant="outline"
+            tone="danger"
+            size="sm"
+            loading={cancelAgreement.isPending}
+            leftIcon={<XCircle size={16} color={Colors.danger} />}
+          />
+        )}
+      </View>
+
+      {/* Confirmation dialog */}
+      <Modal
+        visible={showConfirmDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowConfirmDialog(false)}
+      >
+        <View style={styles.dialogOverlay}>
+          <View style={styles.dialog}>
+            <FileSignature size={28} color={Colors.primary} />
+            <Text style={styles.dialogTitle}>Confirm Signature</Text>
+            <Text style={styles.dialogBody}>
+              Your name will be recorded as:
+            </Text>
+            <Text style={[styles.dialogName, SMALL_CAPS]}>
+              {user?.full_name ?? "Unknown"}
+            </Text>
+            <Text style={styles.dialogHint}>
+              This constitutes your electronic signature and is legally binding.
+            </Text>
+            <View style={styles.dialogActions}>
+              <Button
+                label="Cancel"
+                onPress={() => setShowConfirmDialog(false)}
+                variant="outline"
+                size="sm"
+                flex
+              />
+              <Button
+                label="Confirm"
+                onPress={confirmSign}
+                size="sm"
+                flex
+                loading={consentAgreement.isPending}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Card>
   );
-}
-
-function Step({
-  icon,
-  label,
-  done,
-  current,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  done: boolean;
-  current: boolean;
-}) {
-  return (
-    <View style={styles.step}>
-      {icon}
-      <Text style={[styles.stepLabel, current && styles.stepLabelActive, done && styles.stepLabelDone]}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-function StepConnector({ active }: { active: boolean }) {
-  return <View style={[styles.stepConnector, active && styles.stepConnectorActive]} />;
 }
 
 const styles = StyleSheet.create({
@@ -383,56 +372,137 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: { fontSize: FontSize.body, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
-  stepper: { flexDirection: "row", alignItems: "center", marginTop: Spacing.md },
-  step: { alignItems: "center", gap: 3, maxWidth: 92 },
-  stepLabel: {
-    fontSize: FontSize.micro,
-    color: Colors.textMuted,
-    fontWeight: FontWeight.medium,
-    textAlign: "center",
-  },
-  stepLabelActive: { color: Colors.primary },
-  stepLabelDone: { color: Colors.success },
-  stepConnector: { flex: 1, height: 2, backgroundColor: Colors.border, marginHorizontal: 4 },
-  stepConnectorActive: { backgroundColor: Colors.success },
-  versionText: { fontSize: FontSize.caption, color: Colors.textMuted, marginTop: Spacing.xs },
-  agreementLink: {
-    flexDirection: "row",
+  emptyState: {
     alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xl,
+  },
+  emptyTitle: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.bold,
+    color: Colors.textPrimary,
+  },
+  emptyBody: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: Spacing.sm,
+  },
+  metaRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  metaText: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    fontWeight: FontWeight.semibold,
+  },
+  consentSection: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    gap: Spacing.md,
+  },
+  consentBlock: {
+    gap: Spacing.sm,
+  },
+  consentRoleLabel: {
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.bold,
+    color: Colors.textSecondary,
+  },
+  consentPending: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    fontStyle: "italic",
+  },
+  consentActions: {
+    gap: Spacing.sm,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
-    marginTop: Spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
   },
-  agreementLinkText: { flex: 1, fontSize: FontSize.body, color: Colors.info, fontWeight: FontWeight.semibold },
-  awaitingRow: { marginTop: Spacing.sm },
-  awaitingText: { fontSize: FontSize.caption, color: Colors.warning, fontWeight: FontWeight.semibold },
-  uploadError: { fontSize: FontSize.caption, color: Colors.danger, marginTop: Spacing.xs },
-  consentStatusWrap: {
-    flexDirection: "row",
-    gap: Spacing.xl,
-    marginTop: Spacing.md,
-    paddingTop: Spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
+  checkboxLabel: {
+    flex: 1,
+    fontSize: FontSize.caption,
+    color: Colors.textPrimary,
+    lineHeight: 18,
   },
-  consentStatusCol: { gap: 2 },
-  consentStatusLabel: { fontSize: FontSize.micro, color: Colors.textMuted, fontWeight: FontWeight.medium },
-  consentStatusValue: { fontSize: FontSize.caption, color: Colors.textMuted, fontWeight: FontWeight.semibold },
-  consentDone: { color: Colors.success },
-  historyWrap: { marginTop: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing.sm },
-  historyToggle: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
-  historyToggleText: { flex: 1, fontSize: FontSize.caption, color: Colors.textSecondary, fontWeight: FontWeight.semibold },
-  historyList: { gap: Spacing.sm, marginTop: Spacing.sm },
-  historyItem: {
+  signedInfo: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: Spacing.sm,
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: Radii.card,
-    padding: Spacing.sm,
   },
-  historyVersion: { fontSize: FontSize.caption, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
-  historyMeta: { fontSize: FontSize.micro, color: Colors.textMuted, marginTop: 2 },
+  signedDetails: {
+    gap: 2,
+    flex: 1,
+  },
+  signedName: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.bold,
+    color: Colors.textPrimary,
+  },
+  signedMeta: {
+    fontSize: FontSize.micro,
+    color: Colors.textMuted,
+  },
+  agreementActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  // ── Dialog ───────────────────────────────────────────────────────
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  dialog: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.modal,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 360,
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  dialogTitle: {
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.bold,
+    color: Colors.textPrimary,
+  },
+  dialogBody: {
+    fontSize: FontSize.caption,
+    color: Colors.textSecondary,
+    textAlign: "center",
+  },
+  dialogName: {
+    fontSize: FontSize.h2,
+    fontWeight: FontWeight.bold,
+    color: Colors.textPrimary,
+    textAlign: "center",
+  },
+  dialogHint: {
+    fontSize: FontSize.micro,
+    color: Colors.textMuted,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  dialogActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
 });

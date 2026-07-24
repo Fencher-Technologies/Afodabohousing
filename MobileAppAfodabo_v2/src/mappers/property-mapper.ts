@@ -58,6 +58,10 @@ export function fromBackendProperty(b: BackendProperty): Property {
     units: [],
     created_at: b.created_at ?? "",
     occupancy_status: b.status,
+    is_boosted: b.is_boosted ?? false,
+    boosted_until: b.boosted_until ?? null,
+    boost_days_remaining: b.boost_days_remaining ?? 0,
+    boost_package_label: b.boost_package_label ?? null,
   };
 }
 
@@ -81,5 +85,9 @@ export function fromBackendToListItem(b: BackendProperty): PropertyListItem {
     occupied_units: 0,
     total_units: 0,
     occupancy_status: b.status,
+    is_boosted: b.is_boosted ?? false,
+    boosted_until: b.boosted_until ?? null,
+    boost_days_remaining: b.boost_days_remaining ?? 0,
+    boost_package_label: b.boost_package_label ?? null,
   };
 }

@@ -15,6 +15,10 @@ from .crud import (
     get_property_service,
     get_tenant_service,
 )
+from .payment_verifications import (
+    PaymentVerificationService,
+    get_payment_verification_svc,
+)
 from .subscriptions import SubscriptionService, get_subscription_service
 from .nylonpay import (
     get_nylonpay_sdk,
@@ -26,6 +30,8 @@ from .nylonpay import (
 __all__ = [
     "SubscriptionService",
     "get_subscription_service",
+    "PaymentVerificationService",
+    "get_payment_verification_svc",
     "BookmarkService",
     "get_bookmark_service",
     "BoostService",

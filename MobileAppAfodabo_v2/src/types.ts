@@ -58,6 +58,10 @@ export interface BackendProperty {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  is_boosted?: boolean;
+  boosted_until?: string | null;
+  boost_days_remaining?: number;
+  boost_package_label?: string | null;
 }
 
 export interface RentalUnit {
@@ -99,6 +103,10 @@ export interface Property {
   units: RentalUnit[];
   created_at: string;
   occupancy_status?: string;
+  is_boosted?: boolean;
+  boosted_until?: string | null;
+  boost_days_remaining?: number;
+  boost_package_label?: string | null;
 }
 
 export type TenancyStatus = "active" | "expired" | "terminated";
@@ -139,6 +147,159 @@ export interface Tenancy {
   days_remaining: number;
 }
 
+// ─── Agreement Types ────────────────────────────────────────────────────
+
+export interface AgreementTenantInfo {
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+}
+
+export interface AgreementManagerInfo {
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+}
+
+export interface AgreementPropertyInfo {
+  title: string;
+  address?: string | null;
+  city?: string | null;
+  description?: string | null;
+  amenities: string[];
+}
+
+export interface AgreementTenancyInfo {
+  monthly_rent: string;
+  security_deposit: string;
+  start_date: string;
+  end_date: string;
+  payment_frequency: string;
+}
+
+export interface AgreementStandardClause {
+  key: string;
+  title: string;
+  content: string;
+  enabled: boolean;
+}
+
+export interface AgreementCustomClause {
+  title: string;
+  content: string;
+}
+
+export interface AgreementSignatureInfo {
+  signed_name: string | null;
+  signed_at: string | null;
+  consent_status: "pending" | "approved" | "declined";
+  consent_version: number;
+}
+
+export interface AgreementContent {
+  agreement_number: string;
+  version: number;
+  generated_at: string | null;
+  tenant: AgreementTenantInfo;
+  manager: AgreementManagerInfo;
+  property: AgreementPropertyInfo;
+  tenancy: AgreementTenancyInfo;
+  standard_clauses: AgreementStandardClause[];
+  custom_clauses: AgreementCustomClause[];
+  signatures: Record<string, AgreementSignatureInfo>;
+}
+
+export type AgreementStatus =
+  | "draft"
+  | "awaiting_tenant_consent"
+  | "awaiting_manager_consent"
+  | "executed"
+  | "superseded"
+  | "cancelled";
+
+export type AgreementType = "uploaded" | "generated";
+
+export interface AgreementDocument {
+  id: string;
+  lease_id: string;
+  agreement_type: AgreementType;
+  agreement_number?: string | null;
+  version: number;
+  status: AgreementStatus;
+  content?: AgreementContent | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface AgreementTemplateClause {
+  key: string;
+  title: string;
+  content: string;
+  optional: boolean;
+  enabled_by_default: boolean;
+}
+
+export interface AgreementTemplate {
+  id: string;
+  name: string;
+  description?: string | null;
+  is_default: boolean;
+  standard_clauses: AgreementTemplateClause[];
+}
+
+export interface AgreementConsentState {
+  signed_name: string | null;
+  signed_at: string | null;
+  consent_status: "pending" | "approved" | "declined";
+  consent_version: number;
+  user_id?: string | null;
+}
+
+export interface ConsentStateResponse {
+  current_document: AgreementDocument | null;
+  manager: AgreementConsentState;
+  tenant: AgreementConsentState;
+  content: AgreementContent | null;
+}
+
+export interface AgreementVersionMinimal {
+  id: string;
+  version: number;
+  agreement_number?: string | null;
+  status: AgreementStatus;
+  tenant_signed: boolean;
+  manager_signed: boolean;
+  tenant_signed_name?: string | null;
+  manager_signed_name?: string | null;
+  created_at: string;
+}
+
+export interface AgreementVersionHistory {
+  versions: AgreementVersionMinimal[];
+  active_version: number | null;
+}
+
+export interface BuildAgreementRequest {
+  standard_clauses: AgreementStandardClause[];
+  custom_clauses: AgreementCustomClause[];
+}
+
+export interface BuildAgreementResponse {
+  id: string;
+  lease_id: string;
+  version: number;
+  agreement_number: string;
+  status: AgreementStatus;
+  content: AgreementContent;
+  created_at: string;
+}
+
+export interface ConsentRequest {
+  signed_name: string;
+}
+
+// ─── ─────────────────────────────────────────────────────────────────────
+
 export type PaymentMethod = "cash" | "bank" | "mobile_money";
 export type PaymentStatus = "confirmed" | "pending" | "rejected";
 export type PaymentType = "rent" | "deposit" | "late_fee" | "maintenance" | "other";
@@ -162,6 +323,20 @@ export interface Payment {
   recorded_by: string;
   balance_after: number;
   created_at: string;
+}
+
+export interface BoostPackage {
+  days: number;
+  price: number;
+  label: string;
+  currency: string;
+}
+
+export interface BoostInitiateResponse {
+  boost_id: string;
+  reference: string;
+  status: string;
+  message: string;
 }
 
 export type SubscriptionPlanId = "3mo" | "6mo" | "12mo";
@@ -376,6 +551,37 @@ export interface PaymentHistoryResponse {
   total: number;
 }
 
+export type PaymentVerificationStatus = "pending" | "approved" | "rejected";
+
+export interface PaymentVerification {
+  id: string;
+  lease_id: string;
+  tenant_id: string;
+  owner_id: string;
+  property_id: string;
+  amount: number;
+  payment_method: string;
+  transaction_reference: string | null;
+  payment_date: string;
+  screenshot_url: string | null;
+  notes: string | null;
+  status: PaymentVerificationStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentVerificationCreate {
+  amount: number;
+  payment_method: string;
+  transaction_reference?: string;
+  payment_date: string;
+  screenshot_url?: string;
+  notes?: string;
+}
+
 export interface SearchResult {
   id: string;
   tenant_name: string;
@@ -401,4 +607,8 @@ export interface PropertyListItem {
   occupied_units: number;
   total_units: number;
   occupancy_status?: string;
+  is_boosted?: boolean;
+  boosted_until?: string | null;
+  boost_days_remaining?: number;
+  boost_package_label?: string | null;
 }

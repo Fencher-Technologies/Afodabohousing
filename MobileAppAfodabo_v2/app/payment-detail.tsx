@@ -76,6 +76,10 @@ export default function PaymentDetailScreen() {
       });
       setEditing(false);
       setError(null);
+      Alert.alert(
+        "Payment Updated",
+        `The payment of ${formatUGX(numericAmount)} has been updated successfully.`
+      );
     } catch {
       setError("Failed to update payment. Please try again.");
     }
@@ -93,7 +97,11 @@ export default function PaymentDetailScreen() {
           onPress: async () => {
             try {
               await deletePayment.mutateAsync(payment.id);
-              router.back();
+              Alert.alert(
+                "Payment Deleted",
+                "The payment record has been deleted successfully.",
+                [{ text: "OK", onPress: () => router.back() }]
+              );
             } catch {
               Alert.alert("Error", "Failed to delete payment. Please try again.");
             }

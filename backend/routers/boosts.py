@@ -13,13 +13,14 @@ from dependencies import (
 )
 from models.boost import (
     BoostCreate,
+    BoostPackage,
     BoostPriceResponse,
     BoostResponse,
     BoostStats,
     InitiateBoostRequest,
     InitiateBoostResponse,
 )
-from services.boost import BoostService, calculate_boost_price, get_boost_service
+from services.boost import BoostService, calculate_boost_price, get_boost_packages, get_boost_service
 from services.nylonpay import initiate_boost_payment
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,15 @@ class BoostCancelResponse(BaseModel):
     message: str
     boost_id: str
     status: str
+
+
+# ── Public: Boost Packages ──
+
+
+@router.get("/packages", response_model=list[BoostPackage])
+def list_boost_packages() -> list[BoostPackage]:
+    """Get available boost packages. Public endpoint."""
+    return [BoostPackage(**pkg) for pkg in get_boost_packages()]
 
 
 # ── Super Admin: Boost Management ──

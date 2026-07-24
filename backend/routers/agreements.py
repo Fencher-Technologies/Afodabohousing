@@ -1,19 +1,27 @@
-# mypy: ignore-errors
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from supabase import Client
 
-from dependencies import CurrentUser, get_current_user, get_service_client
-from models import (
+from dependencies.auth import CurrentUser, get_current_user
+from dependencies.database import get_service_client
+from models.agreements import (
     AgreementConsentRecordResponse,
-    AgreementConsentResponse,
     AgreementConsentStateResponse,
-    AgreementVersionResponse,
+    AgreementConsentResponse,
+    AgreementDocumentResponse,
+    AgreementTemplateResponse,
+    AgreementVersionHistoryResponse,
     AgreementVersionsResponse,
+    BuildAgreementRequest,
+    BuildAgreementResponse,
+    ConsentRequest,
+    ConsentStateResponse,
+    EditAgreementRequest,
+    PartyConsentState,
 )
-from services import AgreementService, get_agreement_service
+from services.agreements import AgreementService, get_agreement_service
 from services.notifications import notify
 
 logger = logging.getLogger(__name__)
@@ -21,175 +29,353 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/agreements", tags=["agreements"])
 
 
-def get_agreement_svc(supabase: Client = Depends(get_service_client)) -> AgreementService:
-    return get_agreement_service(supabase)
-
-
-def _get_other_party_id(supabase: Client, lease: dict) -> str | None:
-    """Get the user_id of the other party on a lease (manager or tenant)."""
-    manager_id = str(lease["owner_id"])
-    tenant_result = supabase.table("tenants").select("user_id").eq("id", str(lease["tenant_id"])).execute()
-    tenant_user_id = str(tenant_result.data[0]["user_id"]) if tenant_result.data else None
-    return tenant_user_id
-
-
-def _notify_party(
-    supabase: Client,
-    *,
-    lease: dict,
-    current_user_id: str,
-    event: str,
-    actor_role: str,
-) -> None:
-    """Send an in-app notification to the party who did NOT trigger the event."""
-    manager_id = str(lease["owner_id"])
-    tenant_user_id = _get_other_party_id(supabase, lease)
-    other_party_id = manager_id if current_user_id != manager_id else tenant_user_id
-    if not other_party_id:
-        return
-
-    if event == "upload":
-        title = "Revised Agreement Uploaded"
-        body = "A revised tenancy agreement was uploaded. Please review and consent to the new version."
-    elif event == "consent":
-        who = "manager" if actor_role == "manager" else "tenant"
-        title = "Agreement Consented"
-        body = f"The {who} has consented to the tenancy agreement."
-    else:
-        return
-
-    notify(supabase, recipient_id=other_party_id, type=f"agreement_{event}", title=title, body=body)
-
-
-def _notify_both(
-    supabase: Client,
-    *,
-    lease: dict,
-    event: str,
-) -> None:
-    """Notify BOTH manager and tenant about a new agreement version."""
-    manager_id = str(lease["owner_id"])
-    tenant_user_id = _get_other_party_id(supabase, lease)
-    if event == "upload":
-        title = "Revised Agreement Requires Consent"
-        body = "A revised tenancy agreement was uploaded. Both parties must review and consent to the new version."
-    else:
-        return
-    for recipient in {manager_id, tenant_user_id}:
-        if recipient:
-            notify(supabase, recipient_id=recipient, type="agreement_upload", title=title, body=body)
-
-
 def _authorized_lease(
     lease_id: UUID,
     current_user: CurrentUser,
     service: AgreementService,
-) -> tuple[dict, str]:
+):
+    """Fetch lease and determine the caller's party role. Raises 403 / 404."""
     lease = service.get_lease(lease_id)
     if not lease:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lease not found")
-    party_role = service.get_party_role(lease, current_user.id)
-    return lease, party_role
+        raise HTTPException(status_code=404, detail="Lease not found")
+    role = service.get_party_role(lease, current_user.id)
+    return lease, role
 
+
+def _notify_other_party(
+    supabase: Client,
+    svc: AgreementService,
+    lease: dict,
+    current_user: CurrentUser,
+    event_type: str,
+    title: str,
+    body: str,
+    metadata: dict | None = None,
+):
+    caller_role = "tenant" if str(lease.get("owner_id")) == current_user.id else "manager"
+    other_user_id = (
+        svc.get_tenant_user_id(lease) if caller_role == "manager"
+        else lease.get("owner_id")
+    )
+    if other_user_id:
+        try:
+            notify(
+                supabase,
+                recipient_id=str(other_user_id),
+                type=event_type,
+                title=title,
+                body=body,
+                metadata=metadata or {},
+            )
+        except Exception as e:
+            logger.warning("Failed to notify %s: %s", caller_role, str(e))
+
+
+# ─── Template ────────────────────────────────────────────────────────────
+
+@router.get("/template", response_model=AgreementTemplateResponse)
+def get_agreement_template(
+    svc: AgreementService = Depends(get_agreement_service),
+):
+    """Get the default agreement template with standard clauses."""
+    template = svc.get_default_template()
+    if not template:
+        raise HTTPException(status_code=404, detail="No default template found")
+    return template
+
+
+# ─── Content ─────────────────────────────────────────────────────────────
+
+@router.get("/{lease_id}/content")
+def get_agreement_content(
+    lease_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    svc: AgreementService = Depends(get_agreement_service),
+):
+    """Get the full agreement content JSON."""
+    _authorized_lease(lease_id, current_user, svc)
+    content = svc.get_content(lease_id)
+    if not content:
+        raise HTTPException(status_code=404, detail="No agreement content found")
+    return content
+
+
+# ─── Build ────────────────────────────────────────────────────────────────
+
+@router.post("/{lease_id}/build", response_model=BuildAgreementResponse, status_code=201)
+def build_agreement(
+    lease_id: UUID,
+    data: BuildAgreementRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    svc: AgreementService = Depends(get_agreement_service),
+    supabase: Client = Depends(get_service_client),
+):
+    """Create a new generated agreement from template + custom clauses."""
+    lease, role = _authorized_lease(lease_id, current_user, svc)
+    if role != "manager":
+        raise HTTPException(status_code=403, detail="Only the manager can create agreements")
+
+    document = svc.build_agreement(
+        lease_id=lease_id,
+        standard_clauses=[c.model_dump() for c in data.standard_clauses],
+        custom_clauses=[c.model_dump() for c in data.custom_clauses],
+        actor_user_id=current_user.id,
+    )
+    content = document.get("content") or {}
+
+    # Notify tenant
+    _notify_other_party(
+        supabase, svc, lease, current_user,
+        event_type="agreement_generated",
+        title="New Tenancy Agreement",
+        body=f"A new tenancy agreement has been created for your review.",
+        metadata={
+            "lease_id": str(lease_id),
+            "agreement_number": content.get("agreement_number"),
+            "version": content.get("version"),
+        },
+    )
+    return {
+        "id": document["id"],
+        "lease_id": lease_id,
+        "version": document.get("version", 1),
+        "agreement_number": content.get("agreement_number", ""),
+        "status": document.get("status", "draft"),
+        "content": content,
+        "created_at": document.get("created_at"),
+    }
+
+
+# ─── Edit ────────────────────────────────────────────────────────────────
+
+@router.post("/{lease_id}/edit", response_model=BuildAgreementResponse)
+def edit_agreement(
+    lease_id: UUID,
+    data: EditAgreementRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    svc: AgreementService = Depends(get_agreement_service),
+    supabase: Client = Depends(get_service_client),
+):
+    """Edit an existing agreement. Creates new version if significant changes."""
+    lease, role = _authorized_lease(lease_id, current_user, svc)
+    if role != "manager":
+        raise HTTPException(status_code=403, detail="Only the manager can edit agreements")
+
+    document = svc.edit_agreement(
+        lease_id=lease_id,
+        standard_clauses=[c.model_dump() for c in data.standard_clauses],
+        custom_clauses=[c.model_dump() for c in data.custom_clauses],
+        actor_user_id=current_user.id,
+    )
+    content = document.get("content") or {}
+    return {
+        "id": document["id"],
+        "lease_id": lease_id,
+        "version": document.get("version", 1),
+        "agreement_number": content.get("agreement_number", ""),
+        "status": document.get("status", "draft"),
+        "content": content,
+        "created_at": document.get("created_at"),
+    }
+
+
+# ─── Consent State (new) ─────────────────────────────────────────────────
+
+@router.get("/{lease_id}/consent-state", response_model=ConsentStateResponse)
+def get_consent_state(
+    lease_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    svc: AgreementService = Depends(get_agreement_service),
+):
+    """Get consent state with signature details for the current active document."""
+    _authorized_lease(lease_id, current_user, svc)
+    document = svc.get_current_document(lease_id)
+    state = svc.build_consent_state(document)
+    return state
+
+
+# ─── Consent (record) ────────────────────────────────────────────────────
+
+@router.post("/{lease_id}/consent", response_model=AgreementConsentRecordResponse, status_code=201)
+def record_consent(
+    lease_id: UUID,
+    data: ConsentRequest,
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+    svc: AgreementService = Depends(get_agreement_service),
+    supabase: Client = Depends(get_service_client),
+):
+    """Record consent for the active agreement with electronic signature."""
+    lease, party_role = _authorized_lease(lease_id, current_user, svc)
+    document = svc.get_current_document(lease_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="No active agreement document found")
+
+    if document.get("agreement_type") != "generated":
+        raise HTTPException(status_code=400, detail="Only generated agreements support named consent")
+
+    content = document.get("content") or {}
+    sigs = content.get("signatures", {})
+
+    # Check if already consented
+    if sigs.get(party_role, {}).get("consent_status") == "approved":
+        raise HTTPException(status_code=409, detail="You have already consented to this agreement")
+
+    consent = svc.record_consent(
+        lease=lease,
+        document=document,
+        party_role=party_role,
+        user_id=current_user.id,
+        signed_name=data.signed_name,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    # Reload document to get updated state
+    updated_doc = svc.get_current_document(lease_id)
+    state = svc.build_state(updated_doc)
+    consent_resp = AgreementConsentResponse(
+        id=consent["id"],
+        lease_id=consent["lease_id"],
+        agreement_document_id=consent["agreement_document_id"],
+        agreement_hash=consent.get("agreement_hash"),
+        party_role=consent["party_role"],
+        user_id=consent["user_id"],
+        consent_status=consent["consent_status"],
+        signed_name=consent.get("signed_name"),
+        consent_version=consent.get("consent_version", 1),
+        consented_at=consent["consented_at"],
+        ip_address=consent.get("ip_address"),
+        user_agent=consent.get("user_agent"),
+        created_at=consent["created_at"],
+    )
+
+    # Notify other party
+    other_role = "manager" if party_role == "tenant" else "tenant"
+    other_label = "Tenant" if other_role == "tenant" else "Landlord/Manager"
+    _notify_other_party(
+        supabase, svc, lease, current_user,
+        event_type="agreement_consent",
+        title=f"{other_label} Has Consented",
+        body=f"The {other_label} has signed the tenancy agreement.",
+        metadata={
+            "lease_id": str(lease_id),
+            "agreement_number": content.get("agreement_number"),
+            "party_role": party_role,
+            "signed_name": data.signed_name,
+        },
+    )
+
+    return AgreementConsentRecordResponse(
+        consent=consent_resp,
+        state=AgreementConsentStateResponse(
+            current_document=AgreementDocumentResponse(
+                id=updated_doc["id"],
+                lease_id=updated_doc["lease_id"],
+                agreement_type=updated_doc.get("agreement_type", "generated"),
+                version=updated_doc.get("version", 1),
+                status=updated_doc.get("status", "draft"),
+                content=updated_doc.get("content"),
+                created_at=updated_doc.get("created_at"),
+            ) if updated_doc else None,
+            manager=PartyConsentState(
+                consented=state.get("manager", {}).get("consented", False),
+                consented_at=state.get("manager", {}).get("consented_at"),
+                user_id=state.get("manager", {}).get("user_id"),
+            ),
+            tenant=PartyConsentState(
+                consented=state.get("tenant", {}).get("consented", False),
+                consented_at=state.get("tenant", {}).get("consented_at"),
+                user_id=state.get("tenant", {}).get("user_id"),
+            ),
+        ),
+    )
+
+
+# ─── Cancel ──────────────────────────────────────────────────────────────
+
+@router.post("/{lease_id}/cancel", status_code=200)
+def cancel_agreement(
+    lease_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    svc: AgreementService = Depends(get_agreement_service),
+    supabase: Client = Depends(get_service_client),
+):
+    """Cancel the current agreement and reset all consent statuses. Manager only."""
+    lease, role = _authorized_lease(lease_id, current_user, svc)
+    if role != "manager":
+        raise HTTPException(status_code=403, detail="Only the manager can cancel agreements")
+
+    result = svc.cancel_agreement(
+        lease_id=lease_id,
+        actor_user_id=current_user.id,
+    )
+
+    _notify_other_party(
+        supabase, svc, lease, current_user,
+        event_type="agreement_cancelled",
+        title="Agreement Cancelled",
+        body="The tenancy agreement has been cancelled by the manager.",
+        metadata={"lease_id": str(lease_id)},
+    )
+
+    return result
+
+
+# ─── Versions (enhanced) ─────────────────────────────────────────────────
+
+@router.get("/{lease_id}/versions", response_model=AgreementVersionHistoryResponse)
+def list_agreement_versions(
+    lease_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    svc: AgreementService = Depends(get_agreement_service),
+):
+    """List all agreement versions with consent and signature status."""
+    _authorized_lease(lease_id, current_user, svc)
+    versions = svc.list_versions(lease_id)
+    active_doc = svc.get_current_document(lease_id)
+    active_version = active_doc.get("version") if active_doc else None
+    return AgreementVersionHistoryResponse(versions=versions, active_version=active_version)
+
+
+# ─── Legacy endpoints (keep for existing upload flow) ────────────────────
 
 @router.get("/{lease_id}", response_model=AgreementConsentStateResponse)
 def get_agreement_state(
     lease_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
-    service: AgreementService = Depends(get_agreement_svc),
-) -> AgreementConsentStateResponse:
-    _authorized_lease(lease_id, current_user, service)
-    document = service.get_current_document(lease_id)
-    return AgreementConsentStateResponse(**service.build_state(document))
-
-
-@router.post(
-    "/{lease_id}/upload",
-    response_model=AgreementConsentStateResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def upload_agreement(
-    lease_id: UUID,
-    file: UploadFile = File(...),
-    current_user: CurrentUser = Depends(get_current_user),
-    service: AgreementService = Depends(get_agreement_svc),
-    supabase: Client = Depends(get_service_client),
-) -> AgreementConsentStateResponse:
-    lease, party_role = _authorized_lease(lease_id, current_user, service)
-    document = service.upload_document(
-        lease=lease,
-        user_id=current_user.id,
-        file_name=file.filename,
-        mime_type=file.content_type,
-        file_bytes=await file.read(),
-    )
-
-    _notify_both(
-        supabase,
-        lease=lease,
-        event="upload",
-    )
-
-    return AgreementConsentStateResponse(**service.build_state(document))
-
-
-@router.get(
-    "/{lease_id}/versions",
-    response_model=AgreementVersionsResponse,
-)
-def list_agreement_versions(
-    lease_id: UUID,
-    current_user: CurrentUser = Depends(get_current_user),
-    service: AgreementService = Depends(get_agreement_svc),
-) -> AgreementVersionsResponse:
-    _authorized_lease(lease_id, current_user, service)
-    versions = [
-        AgreementVersionResponse(**v)
-        for v in service.list_versions(lease_id)
-    ]
-    active = next((v.version for v in versions if v.status in {"active", "fully_executed"}), None)
-    return AgreementVersionsResponse(versions=versions, active_version=active)
-
-
-@router.post(
-    "/{lease_id}/consent",
-    response_model=AgreementConsentRecordResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def consent_to_agreement(
-    lease_id: UUID,
-    request: Request,
-    current_user: CurrentUser = Depends(get_current_user),
-    service: AgreementService = Depends(get_agreement_svc),
-    supabase: Client = Depends(get_service_client),
-) -> AgreementConsentRecordResponse:
-    lease, party_role = _authorized_lease(lease_id, current_user, service)
-    document = service.get_current_document(lease_id)
-    if not document:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Upload an agreement before recording consent.",
+    svc: AgreementService = Depends(get_agreement_service),
+):
+    """Get current agreement consent state (legacy — supports both flows)."""
+    _authorized_lease(lease_id, current_user, svc)
+    document = svc.get_current_document(lease_id)
+    state = svc.build_state(document)
+    doc_resp = None
+    if document:
+        doc_resp = AgreementDocumentResponse(
+            id=document["id"],
+            lease_id=document["lease_id"],
+            uploaded_by=document.get("uploaded_by"),
+            file_name=document.get("file_name"),
+            agreement_type=document.get("agreement_type", "uploaded"),
+            agreement_number=document.get("agreement_number"),
+            version=document.get("version", 1),
+            status=document.get("status", "active"),
+            content=document.get("content"),
+            created_at=document.get("created_at"),
+            updated_at=document.get("updated_at"),
         )
-
-    consent = service.record_consent(
-        lease=lease,
-        document=document,
-        party_role=party_role,
-        user_id=current_user.id,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
+    return AgreementConsentStateResponse(
+        current_document=doc_resp,
+        manager=PartyConsentState(**state.get("manager", {})),
+        tenant=PartyConsentState(**state.get("tenant", {})),
     )
 
-    _notify_party(
-        supabase,
-        lease=lease,
-        current_user_id=current_user.id,
-        event="consent",
-        actor_role=party_role,
-    )
 
-    state = service.build_state(document)
-    return AgreementConsentRecordResponse(
-        consent=AgreementConsentResponse(**consent),
-        state=AgreementConsentStateResponse(**state),
+@router.post("/{lease_id}/upload", status_code=501)
+def upload_agreement_document():
+    """Upload is deprecated. Use POST /{lease_id}/build instead."""
+    raise HTTPException(
+        status_code=501,
+        detail="Direct document upload is deprecated. Use the /build endpoint to create agreements.",
     )

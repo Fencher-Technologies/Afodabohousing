@@ -66,7 +66,7 @@ export default function ManagerPropertiesScreen() {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.title}>Properties</Text>
-            <Text style={styles.subtitle}>{properties.length} properties</Text>
+            <Text style={styles.subtitle}>{properties.length} properties{properties.filter(p => p.is_boosted).length > 0 ? ` · ${properties.filter(p => p.is_boosted).length} boosted` : ""}</Text>
           </View>
           <Button
             label="List New"

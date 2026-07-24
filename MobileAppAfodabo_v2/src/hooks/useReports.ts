@@ -20,7 +20,7 @@ export function useTenantStatement(tenantId: string | null) {
   return useQuery({
     queryKey: ["reports", "statement", tenantId],
     queryFn: () => reportsService.getTenantStatement(tenantId as string),
-    enabled: !!tenantId,
+    enabled: !!tenantId && tenantId !== "null",
   });
 }
 
