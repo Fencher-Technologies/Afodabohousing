@@ -10,6 +10,7 @@ interface DashboardStats {
   active_tenants: number;
   overdue_count: number;
   collected_this_month: number;
+  collected_total: number;
   pending_review_count: number;
 }
 
@@ -32,9 +33,11 @@ export function useDashboardStats() {
 
       const now = new Date();
       const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const collected = paymentsRes.items
-        .filter((p) => p.status === "confirmed" && new Date(p.created_at) >= thisMonth)
-        .reduce((sum, p) => sum + p.amount, 0);
+      const confirmedPayments = paymentsRes.items.filter((p) => p.status === "confirmed");
+      const collected = confirmedPayments
+        .filter((p) => new Date(p.created_at) >= thisMonth)
+        .reduce((sum, p) => sum + Number(p.amount), 0);
+      const totalCollected = confirmedPayments.reduce((sum, p) => sum + Number(p.amount), 0);
 
       return {
         total_properties: propertiesRes.total,
@@ -42,6 +45,7 @@ export function useDashboardStats() {
         active_tenants: tenanciesRes.total,
         overdue_count: overdue,
         collected_this_month: collected,
+        collected_total: totalCollected,
         pending_review_count: 0,
       };
     },

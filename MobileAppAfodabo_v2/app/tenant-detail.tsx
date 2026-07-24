@@ -92,7 +92,7 @@ export default function TenantDetailScreen() {
   const displayPhone = tenant.phone ?? "—";
   const displayEmail = tenant.email ?? "—";
 
-  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
 
   return (
     <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>

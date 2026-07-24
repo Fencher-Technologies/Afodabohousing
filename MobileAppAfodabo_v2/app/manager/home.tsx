@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Bell,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react-native";
 import type { ReactNode } from "react";
 
@@ -25,9 +26,10 @@ import { LoadingState } from "@/src/components/LoadingState";
 import { useAuth } from "@/src/context/auth-context";
 import { useDashboardStats } from "@/src/hooks/useDashboard";
 import { useTenancyList } from "@/src/hooks/useTenancies";
+import { useOwnerSubmissions } from "@/src/hooks/usePaymentVerifications";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
-import { formatUGXShort } from "@/src/utils/format";
+import { formatUGX } from "@/src/utils/format";
 import type { AlertItem } from "@/src/types";
 
 function greetingForHour(hour: number): string {
@@ -43,12 +45,14 @@ export default function ManagerDashboardScreen() {
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats();
   const { data: tenanciesData, isLoading: tenanciesLoading, refetch: refetchTenancies } = useTenancyList();
+  const { data: pendingVerifications, refetch: refetchVerifications } = useOwnerSubmissions("pending");
 
   const tenancies = tenanciesData?.items || [];
+  const pendingVerificationCount = pendingVerifications?.length ?? 0;
   const isLoading = statsLoading || tenanciesLoading;
 
   const { refreshing, onRefresh } = useRefresh({
-    refetches: [refetchStats, refetchTenancies],
+    refetches: [refetchStats, refetchTenancies, refetchVerifications],
   });
 
   const firstName = (user?.full_name || "").toString().trim().split(" ")[0];
@@ -98,8 +102,8 @@ export default function ManagerDashboardScreen() {
   const statsCards = useMemo(() => [
     { label: "Active\nTenants", value: stats?.active_tenants ?? 0, icon: <Users size={18} color={Colors.primary} />, tone: "primary" as const },
     { label: "Outstanding", value: needsAttentionCount, icon: <AlertTriangle size={18} color={Colors.danger} />, tone: "danger" as const },
-    { label: "Pending\nReview", value: stats?.pending_review_count ?? 0, icon: <Clock size={18} color={Colors.warning} />, tone: "warning" as const },
-    { label: "Collected\nThis Month", value: formatUGXShort(stats?.collected_this_month ?? 0), icon: <TrendingUp size={18} color={Colors.accent} />, tone: "accent" as const },
+    { label: "Collected\nTotal", value: formatUGX(stats?.collected_total ?? 0), icon: <TrendingUp size={18} color={Colors.accent} />, tone: "accent" as const },
+    { label: "Collected\nThis Month", value: formatUGX(stats?.collected_this_month ?? 0), icon: <Clock size={18} color={Colors.warning} />, tone: "warning" as const },
   ], [stats, needsAttentionCount]);
 
   const searchResults = useMemo(
@@ -215,7 +219,7 @@ export default function ManagerDashboardScreen() {
                 </View>
                 <View style={styles.searchResultRight}>
                   {(item.balance_due ?? 0) > 0 && (
-                    <Text style={styles.searchBalance}>{formatUGXShort(item.balance_due)}</Text>
+                    <Text style={styles.searchBalance}>{formatUGX(item.balance_due)}</Text>
                   )}
                   <Badge
                     label={item.health === "good" ? "Current" : item.health === "warn" ? "Expiring" : "Expired"}
@@ -269,6 +273,7 @@ export default function ManagerDashboardScreen() {
           <QuickAction icon={<Users size={22} color={Colors.primary} />} label="Create Tenancy" onPress={() => router.push("/create-tenancy")} />
           <QuickAction icon={<FileText size={22} color={Colors.primary} />} label="Generate Report" onPress={() => router.push("/manager/reports")} />
           <QuickAction icon={<Crown size={22} color={Colors.gold} />} label="Subscription" onPress={() => router.push("/subscription")} />
+          <QuickAction icon={<ShieldCheck size={22} color={Colors.accent} />} label="Verify Payments" badge={pendingVerificationCount} onPress={() => router.push("/payment-verification")} />
         </View>
       </View>
 
@@ -324,7 +329,7 @@ export default function ManagerDashboardScreen() {
   );
 }
 
-function QuickAction({ icon, label, onPress }: { icon: ReactNode; label: string; onPress: () => void }) {
+function QuickAction({ icon, label, onPress, badge }: { icon: ReactNode; label: string; onPress: () => void; badge?: number }) {
   return (
     <Pressable
       onPress={onPress}
@@ -332,7 +337,14 @@ function QuickAction({ icon, label, onPress }: { icon: ReactNode; label: string;
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <View style={styles.quickActionIcon}>{icon}</View>
+      <View style={styles.quickActionIcon}>
+        {icon}
+        {badge != null && badge > 0 && (
+          <View style={styles.quickActionBadge}>
+            <Text style={styles.quickActionBadgeText}>{badge > 99 ? "99+" : badge}</Text>
+          </View>
+        )}
+      </View>
       <Text style={styles.quickActionLabel}>{label}</Text>
     </Pressable>
   );
@@ -640,5 +652,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+  },
+  quickActionBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  quickActionBadgeText: {
+    fontSize: 11,
+    fontWeight: FontWeight.bold,
+    color: Colors.textOnPrimary,
   },
 });

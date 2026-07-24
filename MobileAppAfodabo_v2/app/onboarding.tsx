@@ -1,148 +1,228 @@
-/**
- * OnboardingScreen — 3-slide auto-carousel intro.
- */
-
-import { useRef, useState, useEffect } from "react";
-import { StyleSheet, Text, View, Dimensions, Pressable, ScrollView } from "react-native";
+import { useRef, useState, useEffect, useCallback } from "react";
+import {
+  Dimensions,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { router } from "expo-router";
-import { ImageBackground } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { Home, Receipt, MessageCircle } from "lucide-react-native";
-import type { ReactNode } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { useAuth } from "@/src/context/auth-context";
 
 const { width } = Dimensions.get("window");
+const AUTO_SLIDE_MS = 4000;
 
 interface Slide {
-  icon: ReactNode;
+  image: any;
   title: string;
   description: string;
-  gradient: [string, string];
 }
 
 const slides: Slide[] = [
   {
-    icon: <Home size={52} color="#FFFFFF" />,
-    title: "Manage rentals\nfrom your phone",
-    description: "Collect rent, track tenants, and stay on top of your properties — all from one app.",
-    gradient: ["#1B4A38", "#2E7D52"],
+    image: require("@/assets/images/visitor.png"),
+    title: "Find Your Perfect Rental Home",
+    description:
+      "Browse rental properties without creating an account.\nExplore prices, photos, amenities and locations.\nDiscover verified listings before signing in.\nStart your property search with confidence.",
   },
   {
-    icon: <Receipt size={52} color="#FFFFFF" />,
-    title: "Record payments,\ngenerate reports",
-    description: "Log cash, bank, and mobile money payments. Export professional reports in one tap.",
-    gradient: ["#236048", "#388E5A"],
+    image: require("@/assets/images/tenant.png"),
+    title: "Manage Your Tenancy with Confidence",
+    description:
+      "View your tenancy details anytime.\nTrack rent payments and balances.\nAccess and consent to tenancy agreements.\nReceive reminders and important notifications.\nSubmit payment confirmations for manager verification.",
   },
   {
-    icon: <MessageCircle size={52} color="#FFFFFF" />,
-    title: "Tenants message\nyou on WhatsApp",
-    description: "No in-app messaging clutter. Send reminders and receipts straight to WhatsApp.",
-    gradient: ["#1B4A38", "#2E7D52"],
+    image: require("@/assets/images/manager.png"),
+    title: "Manage Your Properties Professionally",
+    description:
+      "List and manage rental properties.\nManage tenants and tenancy agreements.\nRecord and verify rent payments.\nGenerate reports and monitor occupancy.\nBoost property visibility to reach more renters.",
   },
 ];
 
 export default function OnboardingScreen() {
-  const [index, setIndex] = useState(0);
+  const insets = useSafeAreaInsets();
   const { markOnboardingSeen } = useAuth();
-  const scrollRef = useRef<import("react-native").ScrollView>(null);
+  const [index, setIndex] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const autoTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const userInteracted = useRef(false);
 
   const isLast = index === slides.length - 1;
 
-  const goNext = () => {
+  const stopAutoSlide = useCallback(() => {
+    if (autoTimer.current) {
+      clearInterval(autoTimer.current);
+      autoTimer.current = null;
+    }
+  }, []);
+
+  const startAutoSlide = useCallback(() => {
     if (isLast) return;
+    stopAutoSlide();
+    autoTimer.current = setInterval(() => {
+      if (userInteracted.current) return;
+      const next = index + 1;
+      if (next >= slides.length) return;
+      setIndex(next);
+      scrollRef.current?.scrollTo({ x: next * width, animated: true });
+    }, AUTO_SLIDE_MS);
+  }, [isLast, index, stopAutoSlide]);
+
+  useEffect(() => {
+    startAutoSlide();
+    return stopAutoSlide;
+  }, [startAutoSlide, stopAutoSlide]);
+
+  const goNext = useCallback(() => {
+    if (isLast) return;
+    userInteracted.current = true;
     const next = index + 1;
     setIndex(next);
     scrollRef.current?.scrollTo({ x: next * width, animated: true });
-  };
+    setTimeout(() => {
+      userInteracted.current = false;
+    }, AUTO_SLIDE_MS);
+  }, [isLast, index]);
 
-  const goToSlide = (i: number) => {
-    setIndex(i);
-    scrollRef.current?.scrollTo({ x: i * width, animated: true });
-  };
+  const goTo = useCallback(
+    (i: number) => {
+      if (i === index) return;
+      userInteracted.current = true;
+      setIndex(i);
+      scrollRef.current?.scrollTo({ x: i * width, animated: true });
+      setTimeout(() => {
+        userInteracted.current = false;
+      }, AUTO_SLIDE_MS);
+    },
+    [index]
+  );
 
-  const handleFinish = async () => {
+  const handleFinish = useCallback(async () => {
     await markOnboardingSeen();
     router.replace("/guest/explore");
-  };
+  }, [markOnboardingSeen]);
 
-  const handleSkip = handleFinish;
-
-  // Auto-slide every 4 seconds
-  useEffect(() => {
-    if (isLast) return;
-    const timer = setInterval(() => {
-      setIndex((prev) => {
-        const next = prev + 1;
-        if (next >= slides.length) return prev;
-        scrollRef.current?.scrollTo({ x: next * width, animated: true });
-        return next;
-      });
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [isLast]);
-
-  const handleScroll = (e: { nativeEvent: { contentOffset: { x: number } } }) => {
-    const i = Math.round(e.nativeEvent.contentOffset.x / width);
-    setIndex(i);
-  };
+  const handleMomentumEnd = useCallback(
+    (e: { nativeEvent: { contentOffset: { x: number } } }) => {
+      const i = Math.round(e.nativeEvent.contentOffset.x / width);
+      if (i !== index) {
+        userInteracted.current = true;
+        setIndex(i);
+        setTimeout(() => {
+          userInteracted.current = false;
+        }, AUTO_SLIDE_MS);
+      }
+    },
+    [index]
+  );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Skip */}
       <View style={styles.skipRow}>
-        <Pressable onPress={handleSkip} style={styles.skipBtn} accessibilityLabel="Skip onboarding">
-          <Text style={styles.skipText}>{isLast ? "Browse as Guest" : "Skip"}</Text>
+        <Pressable
+          onPress={handleFinish}
+          style={({ pressed }) => [
+            styles.skipBtn,
+            pressed && { opacity: 0.7 },
+          ]}
+          accessibilityLabel="Skip onboarding"
+        >
+          <Text style={styles.skipText}>Skip</Text>
         </Pressable>
       </View>
 
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        style={styles.scroll}
-      >
-        {slides.map((slide, i) => (
-          <View key={i} style={styles.slide}>
-            <ImageBackground
-              source={undefined}
-              style={styles.bgImage}
-            >
-              <LinearGradient
-                colors={slide.gradient}
-                style={styles.gradient}
-              >
-                <View style={styles.slideContent}>
-                  <View style={styles.iconWrap}>{slide.icon}</View>
-                  <Text style={styles.title}>{slide.title}</Text>
-                  <Text style={styles.description}>{slide.description}</Text>
-                </View>
-              </LinearGradient>
-            </ImageBackground>
-          </View>
-        ))}
-      </ScrollView>
+      {/* Slides */}
+      <View style={styles.slidesContainer}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={handleMomentumEnd}
+          bounces={false}
+          style={styles.scrollView}
+          onTouchStart={() => {
+            userInteracted.current = true;
+          }}
+          onTouchEnd={() => {
+            setTimeout(() => {
+              userInteracted.current = false;
+            }, AUTO_SLIDE_MS);
+          }}
+        >
+          {slides.map((slide, i) => (
+            <View key={i} style={styles.slide}>
+              <View style={styles.imageWrap}>
+                <Image
+                  source={slide.image}
+                  style={styles.image}
+                  resizeMode="contain"
+                />
+              </View>
 
-      <View style={styles.footer}>
+              <View style={styles.textWrap}>
+                <Text style={styles.title}>{slide.title}</Text>
+                <Text style={styles.description}>{slide.description}</Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Footer */}
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: Math.max(insets.bottom, 24) },
+        ]}
+      >
+        {/* Page indicators */}
         <View style={styles.dots}>
           {slides.map((_, i) => (
-            <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
+            <Pressable
+              key={i}
+              onPress={() => goTo(i)}
+              style={[styles.dot, i === index && styles.dotActive]}
+            >
+              <View
+                style={[
+                  styles.dotFill,
+                  i === index && styles.dotFillActive,
+                ]}
+              />
+            </Pressable>
           ))}
         </View>
-        {isLast ? (
-          <View style={styles.actions}>
-            <Button label="Create Account" onPress={() => { markOnboardingSeen(); router.replace("/register"); }} variant="gold" fullWidth size="lg" />
-            <Pressable onPress={() => { markOnboardingSeen(); router.replace("/login"); }} style={styles.signInBtn}>
-              <Text style={styles.signInText}>Already have an account? <Text style={styles.signInBold}>Sign In</Text></Text>
-            </Pressable>
-          </View>
-        ) : (
-          <Button label="Next" onPress={goNext} fullWidth size="lg" tone="accent" />
-        )}
+
+        {/* Next / Get Started */}
+        <View style={styles.buttonWrap}>
+          {isLast ? (
+            <Button
+              label="Get Started"
+              onPress={handleFinish}
+              variant="solid"
+              tone="primary"
+              fullWidth
+              size="lg"
+            />
+          ) : (
+            <Button
+              label="Next"
+              onPress={goNext}
+              variant="solid"
+              tone="primary"
+              fullWidth
+              size="lg"
+            />
+          )}
+        </View>
       </View>
     </View>
   );
@@ -151,18 +231,17 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bg,
+    backgroundColor: "#FFFFFF",
   },
   skipRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    paddingHorizontal: Spacing.lg,
-    paddingTop: 56,
+    paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.sm,
   },
   skipBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
     borderRadius: Radii.pill,
     backgroundColor: Colors.surfaceAlt,
   },
@@ -171,85 +250,73 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontWeight: FontWeight.semibold,
   },
-  scroll: {
+  slidesContainer: {
+    flex: 1,
+  },
+  scrollView: {
     flex: 1,
   },
   slide: {
     width,
     flex: 1,
   },
-  bgImage: {
-    flex: 1,
-  },
-  gradient: {
-    flex: 1,
+  imageWrap: {
+    flex: 0.65,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+  },
+  textWrap: {
+    flex: 0.35,
     paddingHorizontal: Spacing.xl,
-  },
-  slideContent: {
-    alignItems: "center",
-    gap: Spacing.xl,
-  },
-  iconWrap: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.2)",
-    marginBottom: Spacing.sm,
   },
   title: {
-    fontSize: 28,
+    fontSize: FontSize.display,
     fontWeight: FontWeight.bold,
-    color: "#FFFFFF",
-    textAlign: "center",
-    lineHeight: 36,
+    color: Colors.textPrimary,
+    lineHeight: 34,
+    marginBottom: Spacing.sm,
   },
   description: {
     fontSize: FontSize.body,
-    color: "rgba(255,255,255,0.8)",
-    textAlign: "center",
-    lineHeight: 24,
-    maxWidth: 300,
+    color: Colors.textSecondary,
+    lineHeight: 22,
   },
   footer: {
     paddingHorizontal: Spacing.xl,
-    paddingBottom: 48,
-    paddingTop: Spacing.lg,
-    gap: Spacing.lg,
+    paddingTop: Spacing.md,
+    gap: Spacing.xl,
   },
   dots: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 6,
+    gap: 10,
   },
   dot: {
-    width: 8,
+    width: 32,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.35)",
+    backgroundColor: Colors.border,
+    overflow: "hidden",
   },
   dotActive: {
-    width: 28,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.primary,
   },
-  actions: {
-    gap: Spacing.md,
+  dotFill: {
+    flex: 1,
+    borderRadius: 4,
+    backgroundColor: Colors.border,
   },
-  signInBtn: {
-    alignItems: "center",
-    paddingVertical: Spacing.sm,
+  dotFillActive: {
+    backgroundColor: Colors.primary,
   },
-  signInText: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
-  },
-  signInBold: {
-    color: Colors.primary,
-    fontWeight: FontWeight.bold,
+  buttonWrap: {
+    paddingHorizontal: Spacing.xs,
   },
 });

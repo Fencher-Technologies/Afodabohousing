@@ -98,11 +98,22 @@ function useAuthInner() {
     }
 
     const role = (result.role === "house_manager" ? "manager" : result.role) as UserRole;
+
+    let fullName = "";
+    let phone = "";
+    try {
+      const profile = await authService.getProfile();
+      fullName = profile.full_name || "";
+      phone = profile.phone || "";
+    } catch {
+      // profile is best-effort; stay empty if unavailable
+    }
+
     const userData: User = {
       id: result.user_id || result.user?.id as string || "",
       email,
-      full_name: (result.user?.full_name as string) || "",
-      phone: (result.user?.phone as string) || "",
+      full_name: fullName,
+      phone,
       role,
       email_verified: true,
       created_at: "",

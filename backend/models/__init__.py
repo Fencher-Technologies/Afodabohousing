@@ -17,6 +17,12 @@ from .maintenance_request import (
 )
 from .message import Message, MessageCreate, MessageResponse, MessageUpdate
 from .payment import Payment, PaymentCreate, PaymentResponse, PaymentUpdate
+from .payment_verification import (
+    PaymentVerification,
+    PaymentVerificationCreate,
+    PaymentVerificationReject,
+    PaymentVerificationResponse,
+)
 from .profile import Profile, ProfileCreate, ProfileResponse, ProfileUpdate
 from .property import Property, PropertyCreate, PropertyResponse, PropertyUpdate
 from .terms import TermsConsentRequest, TermsConsentResponse, TermsStatusResponse, TermsVersion
@@ -55,6 +61,10 @@ __all__ = [
     "PaymentCreate",
     "PaymentUpdate",
     "PaymentResponse",
+    "PaymentVerification",
+    "PaymentVerificationCreate",
+    "PaymentVerificationReject",
+    "PaymentVerificationResponse",
     "MaintenanceRequest",
     "MaintenanceRequestCreate",
     "MaintenanceRequestUpdate",

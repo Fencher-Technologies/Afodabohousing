@@ -71,3 +71,10 @@ class InitiateBoostResponse(BaseModel):
     reference: str
     status: str
     message: str
+
+
+class BoostPackage(BaseModel):
+    days: int
+    price: int
+    label: str
+    currency: str = "UGX"

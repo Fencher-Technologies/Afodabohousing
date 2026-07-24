@@ -19,6 +19,8 @@ import {
   Maximize2,
   Calendar,
   Car,
+  Star,
+  Sparkles,
 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -95,11 +97,22 @@ export default function PropertyDetailScreen() {
     }
   };
 
-  const handleDirections = () => {
-    const destination = property.lat && property.lng
-      ? `${property.lat},${property.lng}`
-      : encodeURIComponent([property.address, property.city, property.district].filter(Boolean).join(", "));
-    Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${destination}`);
+  const handleViewLocation = () => {
+    if (property.lat && property.lng) {
+      Linking.openURL(`https://www.google.com/maps?q=${property.lat},${property.lng}`);
+    } else {
+      const address = [property.address, property.city, property.district].filter(Boolean).join(", ");
+      Linking.openURL(`https://www.google.com/maps?q=${encodeURIComponent(address)}`);
+    }
+  };
+
+  const handleGetDirections = () => {
+    if (property.lat && property.lng) {
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${property.lat},${property.lng}`);
+    } else {
+      const address = [property.address, property.city, property.district].filter(Boolean).join(", ");
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`);
+    }
   };
 
   const handleMessage = () => {
@@ -114,7 +127,7 @@ export default function PropertyDetailScreen() {
     const details = [
       `Property: ${property.title}`,
       `Location: ${[property.address, property.city, property.district].filter(Boolean).join(", ")}`,
-      `Rent: ${formatUGX(property.rent_amount)}/mo`,
+      `Rent: ${formatUGX(property.rent_amount)}/month`,
       `Type: ${formatPropertyType(property.type)}`,
       property.beds > 0 ? `Bedrooms: ${property.beds}` : null,
       property.baths > 0 ? `Bathrooms: ${property.baths}` : null,
@@ -232,6 +245,9 @@ export default function PropertyDetailScreen() {
           {property.status !== "active" && (
             <Badge label="Inactive" tone="muted" size="md" />
           )}
+          {property.is_boosted && (
+            <Badge label="★ Boosted" tone="gold" size="md" />
+          )}
         </View>
         <Pressable
           onPress={() => {
@@ -254,7 +270,7 @@ export default function PropertyDetailScreen() {
             <MapPin size={16} color={Colors.textMuted} />
             <Text style={styles.locationText}>{[property.address, property.city, property.district].filter(Boolean).join(", ")}</Text>
           </View>
-          <Text style={styles.price}>{formatUGX(property.rent_amount)}<Text style={styles.pricePeriod}>/mo</Text></Text>
+          <Text style={styles.price}>{formatUGX(property.rent_amount)}<Text style={styles.pricePeriod}>/month</Text></Text>
         </View>
 
         {/* Quick Details */}
@@ -337,16 +353,41 @@ export default function PropertyDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Location</Text>
           <Card padding="md">
-            <Pressable onPress={handleDirections} accessibilityRole="button">
-              {({ pressed }) => (
-                <View style={[styles.directionsBtn, pressed && styles.directionsBtnPressed]}>
-                  <Navigation size={20} color={pressed ? Colors.textOnPrimary : Colors.primary} />
-                  <Text style={[styles.directionsBtnText, pressed && styles.directionsBtnTextPressed]}>
-                    View on Map
-                  </Text>
-                </View>
-              )}
-            </Pressable>
+            {property.lat && property.lng ? (
+              <View style={styles.locationBtns}>
+                <Pressable onPress={handleViewLocation} style={({ pressed }) => [
+                  styles.locationBtn,
+                  pressed && styles.locationBtnPressed,
+                ]} accessibilityRole="button" accessibilityLabel="View location on map">
+                  {({ pressed }) => (
+                    <>
+                      <MapPin size={18} color={pressed ? Colors.textOnPrimary : Colors.primary} />
+                      <Text style={[styles.locationBtnText, pressed && styles.locationBtnTextPressed]}>
+                        View Location
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+                <Pressable onPress={handleGetDirections} style={({ pressed }) => [
+                  styles.locationBtn,
+                  styles.locationBtnSecondary,
+                  pressed && styles.locationBtnSecondaryPressed,
+                ]} accessibilityRole="button" accessibilityLabel="Get directions to this property">
+                  {({ pressed }) => (
+                    <>
+                      <Navigation size={18} color={pressed ? Colors.textOnPrimary : Colors.accent} />
+                      <Text style={[styles.locationBtnText, pressed && styles.locationBtnTextPressed]}>
+                        Get Directions
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            ) : (
+              <Text style={styles.locationUnavailable}>
+                {[property.address, property.city, property.district].filter(Boolean).join(", ") || "Location not specified"}
+              </Text>
+            )}
           </Card>
         </View>
 
@@ -398,6 +439,29 @@ export default function PropertyDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Management</Text>
             <View style={styles.managerActions}>
+              {/* Boost Status */}
+              <Card padding="md">
+                {property.is_boosted ? (
+                  <View style={styles.boostStatusRow}>
+                    <Star size={20} color={Colors.gold} fill={Colors.gold} />
+                    <View style={styles.boostStatusText}>
+                      <Text style={styles.boostStatusTitle}>Boosted</Text>
+                      <Text style={styles.boostStatusSub}>
+                        {property.boost_package_label ?? "Boosted"} — {property.boost_days_remaining ?? 0} day{(property.boost_days_remaining ?? 0) !== 1 ? "s" : ""} remaining
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <Button
+                    label="Boost Property"
+                    onPress={() => router.push(`/boost-property?propertyId=${property.id}`)}
+                    variant="outline"
+                    leftIcon={<Sparkles size={18} color={Colors.gold} />}
+                    fullWidth
+                  />
+                )}
+              </Card>
+
               <Button label="Edit Property" onPress={() => router.push(`/edit-property?id=${property.id}`)} variant="outline" leftIcon={<Pencil size={18} color={Colors.primary} />} fullWidth />
               <Button
                 label={property.occupancy_status === "occupied" ? "Mark Available" : "Mark Occupied"}
@@ -648,7 +712,12 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontStyle: "italic",
   },
-  directionsBtn: {
+  locationBtns: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  locationBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -657,19 +726,48 @@ const styles = StyleSheet.create({
     borderRadius: Radii.input,
     paddingVertical: Spacing.md,
   },
-  directionsBtnPressed: {
+  locationBtnPressed: {
     backgroundColor: Colors.primary,
   },
-  directionsBtnText: {
+  locationBtnSecondary: {
+    backgroundColor: Colors.accentSoft,
+  },
+  locationBtnSecondaryPressed: {
+    backgroundColor: Colors.accent,
+  },
+  locationBtnText: {
     fontSize: FontSize.body,
     fontWeight: FontWeight.semibold,
     color: Colors.primary,
   },
-  directionsBtnTextPressed: {
+  locationBtnTextPressed: {
     color: Colors.textOnPrimary,
+  },
+  locationUnavailable: {
+    fontSize: FontSize.body,
+    color: Colors.textMuted,
+    textAlign: "center",
   },
   managerActions: {
     gap: Spacing.sm,
+  },
+  boostStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  boostStatusText: {
+    flex: 1,
+  },
+  boostStatusTitle: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
+  },
+  boostStatusSub: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
   guestActions: {
     gap: Spacing.md,

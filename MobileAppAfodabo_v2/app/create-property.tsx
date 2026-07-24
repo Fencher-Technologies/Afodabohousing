@@ -3,14 +3,25 @@ import { StyleSheet, Text, View, Alert } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import {
+  Building2,
+  MapPin,
+  AlignLeft,
+  Grid3X3,
+  ImagePlus,
+  Home,
+  DollarSign,
+} from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { SelectField } from "@/src/components/SelectField";
+import { Card } from "@/src/components/Card";
 import { PageHeader } from "@/src/components/PageHeader";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
+import { LocationPicker } from "@/src/components/LocationPicker";
 import { useAuth } from "@/src/context/auth-context";
 import { useCreateProperty } from "@/src/hooks/useProperties";
 import { ensureImagesUploaded } from "@/src/services/properties";
@@ -40,8 +51,8 @@ export default function CreatePropertyScreen() {
   const [district, setDistrict] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
+  const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState("");
   const [type, setType] = useState("");
   const [rent, setRent] = useState("");
   const [beds, setBeds] = useState("");
@@ -80,6 +91,11 @@ export default function CreatePropertyScreen() {
       Alert.alert("Missing fields", "Please fill in title, district, and rent amount.");
       return;
     }
+    if (!locationCoords) {
+      setLocationError("Please add the property location on the map.");
+      return;
+    }
+    setLocationError("");
 
     try {
       const uploadedImages = images.length > 0 ? await ensureImagesUploaded(images) : null;
@@ -95,8 +111,8 @@ export default function CreatePropertyScreen() {
         bathrooms: Number(baths) || 0,
         square_feet: squareFeet ? Number(squareFeet) : null,
         security_deposit: deposit ? Number(deposit) : null,
-        latitude: latitude ? Number(latitude) : null,
-        longitude: longitude ? Number(longitude) : null,
+        latitude: locationCoords?.lat ?? null,
+        longitude: locationCoords?.lng ?? null,
         description: description.trim() || null,
         amenities: amenities.length > 0 ? amenities : null,
         images: uploadedImages,
@@ -116,107 +132,162 @@ export default function CreatePropertyScreen() {
       <PageHeader title="List New Property" onBack={() => router.back()} />
 
       <View style={styles.content}>
-        <Text style={styles.sectionLabel}>Property Details</Text>
+        {/* Basic Info */}
+        <Card padding="md">
+          <View style={styles.sectionHeader}>
+            <Home size={18} color={Colors.primary} />
+            <Text style={styles.sectionTitle}>Property Details</Text>
+          </View>
+          <View style={{ height: Spacing.md }} />
+          <InputField label="Title" value={title} onChangeText={setTitle} placeholder="e.g. Sunrise Apartments" />
+          <View style={{ height: Spacing.md }} />
+          <SelectField
+            label="District"
+            value={district}
+            options={DISTRICTS.map((d) => ({ label: d, value: d }))}
+            onSelect={setDistrict}
+            placeholder="Select district"
+          />
+          <View style={{ height: Spacing.md }} />
+          <InputField label="City/Area" value={city} onChangeText={setCity} placeholder="e.g. Kololo" />
+          <View style={{ height: Spacing.md }} />
+          <InputField label="Address" value={address} onChangeText={setAddress} placeholder="Plot number, street" />
+        </Card>
 
-        <InputField label="Title" value={title} onChangeText={setTitle} placeholder="e.g. Sunrise Apartments" />
         <View style={{ height: Spacing.md }} />
-        <SelectField
-          label="District"
-          value={district}
-          options={DISTRICTS.map((d) => ({ label: d, value: d }))}
-          onSelect={setDistrict}
-          placeholder="Select district"
-        />
-        <View style={{ height: Spacing.md }} />
-        <InputField label="City/Area" value={city} onChangeText={setCity} placeholder="e.g. Kololo" />
-        <View style={{ height: Spacing.md }} />
-        <InputField label="Address" value={address} onChangeText={setAddress} placeholder="Plot number, street" />
-        <View style={{ height: Spacing.md }} />
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <InputField label="Latitude" value={latitude} onChangeText={setLatitude} placeholder="e.g. 0.3136" keyboardType="numeric" />
-          </View>
-          <View style={{ width: Spacing.md }} />
-          <View style={{ flex: 1 }}>
-            <InputField label="Longitude" value={longitude} onChangeText={setLongitude} placeholder="e.g. 32.5811" keyboardType="numeric" />
-          </View>
-        </View>
-        <Text style={styles.locationHint}>Coordinates so tenants can find the property on a map.</Text>
-        <View style={{ height: Spacing.md }} />
-        <SelectField
-          label="Property Type"
-          value={type}
-          options={PROPERTY_TYPES}
-          onSelect={setType}
-          placeholder="Select type"
-        />
-        <View style={{ height: Spacing.md }} />
-        <InputField label="Rent (UGX)" value={rent} onChangeText={setRent} placeholder="0" keyboardType="numeric" />
 
-        <View style={{ height: Spacing.lg }} />
-        <Text style={styles.sectionLabel}>Unit Details</Text>
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <InputField label="Bedrooms" value={beds} onChangeText={setBeds} placeholder="0" keyboardType="numeric" />
+        {/* Location */}
+        <Card padding="md">
+          <View style={styles.sectionHeader}>
+            <MapPin size={18} color={Colors.primary} />
+            <Text style={styles.sectionTitle}>Exact Property Location</Text>
           </View>
-          <View style={{ width: Spacing.md }} />
-          <View style={{ flex: 1 }}>
-            <InputField label="Bathrooms" value={baths} onChangeText={setBaths} placeholder="0" keyboardType="numeric" />
-          </View>
-        </View>
+          <View style={{ height: Spacing.md }} />
+          <LocationPicker
+            onLocationChange={(lat, lng) => {
+              setLocationCoords(lat && lng ? { lat, lng } : null);
+              setLocationError("");
+            }}
+            error={locationError}
+          />
+        </Card>
+
         <View style={{ height: Spacing.md }} />
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <InputField label="Sq Ft" value={squareFeet} onChangeText={setSquareFeet} placeholder="0" keyboardType="numeric" />
-          </View>
-          <View style={{ width: Spacing.md }} />
-          <View style={{ flex: 1 }}>
-            <InputField label="Deposit (UGX)" value={deposit} onChangeText={setDeposit} placeholder="0" keyboardType="numeric" />
-          </View>
-        </View>
 
-        <View style={{ height: Spacing.lg }} />
-        <Text style={styles.sectionLabel}>Description</Text>
-        <InputField
-          label="Description"
-          value={description}
-          onChangeText={setDescription}
-          placeholder="Describe the property, location benefits, etc."
-          multiline
-          numberOfLines={4}
-        />
-
-        <View style={{ height: Spacing.lg }} />
-        <Text style={styles.sectionLabel}>Amenities</Text>
-        <View style={styles.amenitiesGrid}>
-          {ALL_AMENITIES.map((a) => {
-            const selected = amenities.includes(a);
-            return (
-              <View key={a}>
-                <Button
-                  label={formatAmenity(a)}
-                  onPress={() => toggleAmenity(a)}
-                  variant={selected ? "primary" : "outline"}
-                  tone={selected ? "accent" : "primary"}
-                  size="sm"
-                />
-              </View>
-            );
-          })}
-        </View>
-
-        <View style={{ height: Spacing.lg }} />
-        <Text style={styles.sectionLabel}>Images</Text>
-        {images.length > 0 && (
-          <View style={styles.imageList}>
-            {images.map((uri, i) => (
-              <View key={`${uri}-${i}`} style={styles.imageItem}>
-                <Image source={{ uri }} style={styles.imagePreview} contentFit="cover" />
-              </View>
-            ))}
+        {/* Type & Rent */}
+        <Card padding="md">
+          <View style={styles.sectionHeader}>
+            <DollarSign size={18} color={Colors.primary} />
+            <Text style={styles.sectionTitle}>Pricing & Type</Text>
           </View>
-        )}
-        <Button label={images.length > 0 ? "Add More Images" : "Pick Images"} onPress={pickImages} variant="outline" fullWidth />
+          <View style={{ height: Spacing.md }} />
+          <SelectField
+            label="Property Type"
+            value={type}
+            options={PROPERTY_TYPES}
+            onSelect={setType}
+            placeholder="Select type"
+          />
+          <View style={{ height: Spacing.md }} />
+          <InputField label="Rent per Month (UGX)" value={rent} onChangeText={setRent} placeholder="0" keyboardType="numeric" />
+          <View style={{ height: Spacing.md }} />
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <InputField label="Deposit (UGX)" value={deposit} onChangeText={setDeposit} placeholder="0" keyboardType="numeric" />
+            </View>
+            <View style={{ width: Spacing.md }} />
+            <View style={{ flex: 1 }}>
+              <InputField label="Sq Ft" value={squareFeet} onChangeText={setSquareFeet} placeholder="0" keyboardType="numeric" />
+            </View>
+          </View>
+        </Card>
+
+        <View style={{ height: Spacing.md }} />
+
+        {/* Unit Details */}
+        <Card padding="md">
+          <View style={styles.sectionHeader}>
+            <Building2 size={18} color={Colors.primary} />
+            <Text style={styles.sectionTitle}>Unit Details</Text>
+          </View>
+          <View style={{ height: Spacing.md }} />
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <InputField label="Bedrooms" value={beds} onChangeText={setBeds} placeholder="0" keyboardType="numeric" />
+            </View>
+            <View style={{ width: Spacing.md }} />
+            <View style={{ flex: 1 }}>
+              <InputField label="Bathrooms" value={baths} onChangeText={setBaths} placeholder="0" keyboardType="numeric" />
+            </View>
+          </View>
+        </Card>
+
+        <View style={{ height: Spacing.md }} />
+
+        {/* Description */}
+        <Card padding="md">
+          <View style={styles.sectionHeader}>
+            <AlignLeft size={18} color={Colors.primary} />
+            <Text style={styles.sectionTitle}>Description</Text>
+          </View>
+          <View style={{ height: Spacing.md }} />
+          <InputField
+            label="Description"
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Describe the property, location benefits, nearby landmarks…"
+            multiline
+            numberOfLines={4}
+          />
+        </Card>
+
+        <View style={{ height: Spacing.md }} />
+
+        {/* Amenities */}
+        <Card padding="md">
+          <View style={styles.sectionHeader}>
+            <Grid3X3 size={18} color={Colors.primary} />
+            <Text style={styles.sectionTitle}>Amenities</Text>
+          </View>
+          <View style={{ height: Spacing.md }} />
+          <View style={styles.amenitiesGrid}>
+            {ALL_AMENITIES.map((a) => {
+              const selected = amenities.includes(a);
+              return (
+                <View key={a}>
+                  <Button
+                    label={formatAmenity(a)}
+                    onPress={() => toggleAmenity(a)}
+                    variant={selected ? "primary" : "outline"}
+                    tone={selected ? "accent" : "primary"}
+                    size="sm"
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </Card>
+
+        <View style={{ height: Spacing.md }} />
+
+        {/* Images */}
+        <Card padding="md">
+          <View style={styles.sectionHeader}>
+            <ImagePlus size={18} color={Colors.primary} />
+            <Text style={styles.sectionTitle}>Images</Text>
+          </View>
+          <View style={{ height: Spacing.md }} />
+          {images.length > 0 && (
+            <View style={styles.imageList}>
+              {images.map((uri, i) => (
+                <View key={`${uri}-${i}`} style={styles.imageItem}>
+                  <Image source={{ uri }} style={styles.imagePreview} contentFit="cover" />
+                </View>
+              ))}
+            </View>
+          )}
+          <Button label={images.length > 0 ? "Add More Images" : "Pick Images"} onPress={pickImages} variant="outline" fullWidth />
+        </Card>
 
         <View style={{ height: Spacing.xl }} />
         <Button label="List Property" onPress={handleSubmit} fullWidth size="lg" loading={createMutation.isPending} />
@@ -241,22 +312,20 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
+    gap: Spacing.sm,
   },
-  sectionLabel: {
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  sectionTitle: {
     fontSize: FontSize.h3,
     fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.sm,
   },
   row: {
     flexDirection: "row",
-  },
-  locationHint: {
-    fontSize: FontSize.caption,
-    color: Colors.textMuted,
-    fontStyle: "italic",
-    marginTop: -Spacing.sm,
   },
   amenitiesGrid: {
     flexDirection: "row",

@@ -12,16 +12,16 @@ import { router } from "expo-router";
 import {
   Wallet,
   Receipt,
-  CheckCircle,
-  Clock,
   ChevronRight,
   AlertTriangle,
+  ShieldCheck,
 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
 import { Badge } from "@/src/components/Badge";
+import { Button } from "@/src/components/Button";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -29,13 +29,20 @@ import { PageHeader } from "@/src/components/PageHeader";
 import { usePaymentList } from "@/src/hooks/usePayments";
 import { useTenancyList } from "@/src/hooks/useTenancies";
 import { useRefresh } from "@/src/hooks/useRefresh";
+import { useMySubmissions } from "@/src/hooks/usePaymentVerifications";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
 import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
 
 export default function TenantPaymentsScreen() {
   const { data: paymentsData, isLoading, error, refetch } = usePaymentList();
   const { data: tenanciesData, refetch: refetchTenancies } = useTenancyList();
-  const { refreshing, onRefresh } = useRefresh({ refetches: [refetch, refetchTenancies] });
+  const {
+    data: submissions,
+    refetch: refetchSubmissions,
+  } = useMySubmissions();
+  const { refreshing, onRefresh } = useRefresh({
+    refetches: [refetch, refetchTenancies, refetchSubmissions],
+  });
 
   const lease = useMemo(() => {
     if (!tenanciesData?.items?.length) return undefined;
@@ -57,7 +64,7 @@ export default function TenantPaymentsScreen() {
 
   const totalPaid = payments
     .filter((p) => p.status === "confirmed")
-    .reduce((sum, p) => sum + p.amount, 0);
+    .reduce((sum, p) => sum + Number(p.amount), 0);
 
   if (isLoading) return <LoadingState message="Loading payments…" />;
 
@@ -154,7 +161,69 @@ export default function TenantPaymentsScreen() {
         )}
       </View>
 
+      {/* Submit Payment — full-width button */}
+      <Button
+        label="Submit Payment for Verification"
+        variant="primary"
+        tone="accent"
+        size="lg"
+        leftIcon={<ShieldCheck size={20} color={Colors.textOnPrimary} />}
+        onPress={() => router.push("/submit-payment")}
+        style={styles.submitBtn}
+      />
+
+      {/* Payment Submissions */}
+      {submissions && submissions.length > 0 && (
+        <View>
+          <Text style={styles.sectionLabel}>Payment Submissions</Text>
+          {submissions.map((s) => {
+            const statusTone =
+              s.status === "approved"
+                ? "success"
+                : s.status === "rejected"
+                ? "danger"
+                : "warning";
+            const statusLabel =
+              s.status === "pending"
+                ? "Pending Verification"
+                : s.status === "approved"
+                ? "Approved"
+                : "Rejected";
+            return (
+              <Card key={s.id} padding="md" style={styles.submissionCard}>
+                <View style={styles.submissionHeader}>
+                  <Text style={styles.submissionAmount}>
+                    {formatUGX(s.amount)}
+                  </Text>
+                  <Badge
+                    label={statusLabel}
+                    tone={statusTone}
+                    size="sm"
+                    dot={s.status === "pending"}
+                  />
+                </View>
+                <Text style={styles.submissionMeta}>
+                  {formatMethod(s.payment_method)}
+                  {s.transaction_reference
+                    ? ` · Ref: ${s.transaction_reference}`
+                    : ""}
+                </Text>
+                <Text style={styles.submissionMeta}>
+                  Submitted {formatDate(s.created_at)}
+                  {s.status === "rejected" && s.rejection_reason ? (
+                    <Text style={{ color: Colors.danger }}>
+                      {"\n"}Reason: {s.rejection_reason}
+                    </Text>
+                  ) : null}
+                </Text>
+              </Card>
+            );
+          })}
+        </View>
+      )}
+
       <View style={{ height: 100 }} />
+
     </Screen>
   );
 }
@@ -233,5 +302,28 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.border,
     marginHorizontal: Spacing.md,
+  },
+  submissionCard: {
+    gap: 4,
+    marginBottom: Spacing.sm,
+  },
+  submissionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  submissionAmount: {
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.bold,
+    color: Colors.textPrimary,
+  },
+  submissionMeta: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  submitBtn: {
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
   },
 });

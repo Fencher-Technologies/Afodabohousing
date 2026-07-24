@@ -68,6 +68,14 @@ function RootLayoutNav() {
       <Stack.Screen name="edit-profile" />
       <Stack.Screen name="change-password" />
       <Stack.Screen name="legal" />
+      <Stack.Screen name="submit-payment" />
+      <Stack.Screen name="payment-verification" />
+      <Stack.Screen name="create-agreement" />
+      <Stack.Screen name="edit-agreement" />
+      <Stack.Screen name="agreement-summary" />
+      <Stack.Screen name="agreement-preview" />
+      <Stack.Screen name="agreement-view" />
+      <Stack.Screen name="agreement-history" />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

@@ -28,6 +28,7 @@ from routers import (
     managers_router,
     messages_router,
     notifications_router,
+    payment_verifications_router,
     payments_router,
     phone_auth_router,
     properties_router,
@@ -138,7 +139,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         }
         if path in auth_paths:
             return "auth", self.auth_requests, self.auth_window
-        if path.startswith("/payments"):
+        if path.startswith("/payments") or path.startswith("/payment-verifications"):
             return "payments", self.payment_requests, self.payment_window
         return "global", self.requests, self.window
 
@@ -357,6 +358,7 @@ app.include_router(tenants_router)
 app.include_router(leases_router)
 app.include_router(managers_router)
 app.include_router(messages_router)
+app.include_router(payment_verifications_router)
 app.include_router(payments_router)
 app.include_router(phone_auth_router)
 app.include_router(rental_units_router)

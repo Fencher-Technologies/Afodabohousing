@@ -109,3 +109,7 @@ class PropertyResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    is_boosted: bool = False
+    boosted_until: str | None = None
+    boost_days_remaining: int = 0
+    boost_package_label: str | None = None

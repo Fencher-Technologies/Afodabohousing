@@ -2,13 +2,13 @@
  * Formatting utilities — currency, dates, phone, labels.
  */
 
-export function formatUGX(amount: number | null | undefined): string {
-  const n = amount ?? 0;
+export function formatUGX(amount: number | string | null | undefined): string {
+  const n = typeof amount === "string" ? Number(amount) : (amount ?? 0);
   return `UGX ${n.toLocaleString("en-UG")}`;
 }
 
-export function formatUGXShort(amount: number | null | undefined): string {
-  const n = amount ?? 0;
+export function formatUGXShort(amount: number | string | null | undefined): string {
+  const n = typeof amount === "string" ? Number(amount) : (amount ?? 0);
   if (n >= 1_000_000) {
     const m = n / 1_000_000;
     return `UGX ${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}M`;
@@ -34,7 +34,7 @@ export function formatDateShort(dateStr: string | null): string {
 
 export function formatPeriod(period: string): string {
   switch (period) {
-    case "monthly": return "/mo";
+    case "monthly": return "/month";
     case "quarterly": return "/qtr";
     case "annually": return "/yr";
     default: return "";
@@ -44,9 +44,13 @@ export function formatPeriod(period: string): string {
 export function formatMethod(method: string | null): string {
   switch (method) {
     case "cash": return "Cash";
-    case "bank": return "Bank";
+    case "bank": return "Bank Deposit";
+    case "bank_transfer": return "Bank Transfer";
     case "mobile_money": return "Mobile Money";
-    default: return "—";
+    case "credit_card": return "Credit Card";
+    case "check": return "Cheque";
+    case "other": return "Other";
+    default: return method ?? "—";
   }
 }
 

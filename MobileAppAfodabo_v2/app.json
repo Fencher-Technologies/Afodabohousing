@@ -35,7 +35,14 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Afodabo Housing to use your location to pinpoint the property on the map.",
+          "locationWhenInUsePermission": "Allow Afodabo Housing to use your location to pinpoint the property on the map."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

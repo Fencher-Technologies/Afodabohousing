@@ -72,6 +72,57 @@ def _normalize_property(p: dict[str, Any]) -> dict[str, Any]:
     return p
 
 
+def _enrich_with_boost_info(
+    props: list[dict[str, Any]], supabase: Client
+) -> list[dict[str, Any]]:
+    from datetime import UTC, datetime
+
+    if not props:
+        return props
+
+    property_ids = [str(p["id"]) for p in props if p.get("id")]
+    if not property_ids:
+        return props
+
+    now = datetime.now(UTC).isoformat()
+    result = (
+        supabase.table("property_boosts")
+        .select("*")
+        .in_("property_id", property_ids)
+        .eq("status", "active")
+        .gt("expires_at", now)
+        .execute()
+    )
+    boosts_by_property: dict[str, dict] = {}
+    for b in (result.data or []):
+        pid = b.get("property_id")
+        if pid and pid not in boosts_by_property:
+            boosts_by_property[pid] = b
+
+    for p in props:
+        pid = str(p.get("id", ""))
+        boost = boosts_by_property.get(pid)
+        if boost:
+            expires_at = boost.get("expires_at", "")
+            dur = boost.get("duration_days", 0)
+            try:
+                expires_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+                remaining = (expires_dt - datetime.now(UTC)).days
+            except (ValueError, TypeError):
+                remaining = 0
+            p["is_boosted"] = True
+            p["boosted_until"] = expires_at
+            p["boost_days_remaining"] = max(0, remaining)
+            p["boost_package_label"] = f"{dur} Days"
+        else:
+            p["is_boosted"] = False
+            p["boosted_until"] = None
+            p["boost_days_remaining"] = 0
+            p["boost_package_label"] = None
+
+    return props
+
+
 def _enrich_with_manager_contact(
     props: list[dict[str, Any]], supabase: Client
 ) -> list[dict[str, Any]]:
@@ -338,6 +389,7 @@ class PropertyService(BaseService):
         )
         items = [_normalize_property(r) for r in (response.data or [])]
         items = _enrich_with_manager_contact(items, self.supabase)
+        items = _enrich_with_boost_info(items, self.supabase)
         return items, total
 
     @with_retry
@@ -412,6 +464,7 @@ class PropertyService(BaseService):
 
         all_properties = [_normalize_property(r) for r in all_properties]
         all_properties = _enrich_with_manager_contact(all_properties, self.supabase)
+        all_properties = _enrich_with_boost_info(all_properties, self.supabase)
         paginated = all_properties[skip:skip + limit]
         return paginated, total
 
@@ -428,6 +481,7 @@ class PropertyService(BaseService):
             return None
         prop = _normalize_property(row)
         enriched = _enrich_with_manager_contact([prop], self.supabase)
+        enriched = _enrich_with_boost_info(enriched, self.supabase)
         return enriched[0]
 
     @with_retry
@@ -442,6 +496,7 @@ class PropertyService(BaseService):
             return None
         prop = _normalize_property(row)
         enriched = _enrich_with_manager_contact([prop], self.supabase)
+        enriched = _enrich_with_boost_info(enriched, self.supabase)
         return enriched[0]
 
     @with_retry

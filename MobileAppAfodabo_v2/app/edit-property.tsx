@@ -12,6 +12,7 @@ import { SelectField } from "@/src/components/SelectField";
 import { PageHeader } from "@/src/components/PageHeader";
 import { ErrorState } from "@/src/components/ErrorState";
 import { LoadingState } from "@/src/components/LoadingState";
+import { LocationPicker } from "@/src/components/LocationPicker";
 import { useProperty, useUpdateProperty } from "@/src/hooks/useProperties";
 import { ensureImagesUploaded } from "@/src/services/properties";
 import type { Amenity } from "@/src/types";
@@ -43,8 +44,7 @@ export default function EditPropertyScreen() {
   const [district, setDistrict] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
+  const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [type, setType] = useState("");
   const [rent, setRent] = useState("");
   const [beds, setBeds] = useState("");
@@ -61,8 +61,7 @@ export default function EditPropertyScreen() {
     setDistrict(property.district);
     setCity(property.city);
     setAddress(property.address);
-    setLatitude(property.lat ? String(property.lat) : "");
-    setLongitude(property.lng ? String(property.lng) : "");
+    setLocationCoords(property.lat && property.lng ? { lat: property.lat, lng: property.lng } : null);
     setType(property.type);
     setRent(String(property.rent_amount || ""));
     setBeds(String(property.beds || ""));
@@ -115,6 +114,10 @@ export default function EditPropertyScreen() {
       Alert.alert("Missing fields", "Title, district, and rent are required.");
       return;
     }
+    if (!locationCoords) {
+      Alert.alert("Missing location", "Please add the property location on the map.");
+      return;
+    }
 
     try {
       const uploadedImages = images.length > 0 ? await ensureImagesUploaded(images) : null;
@@ -130,8 +133,8 @@ export default function EditPropertyScreen() {
         bathrooms: Number(baths) || 0,
         square_feet: squareFeet ? Number(squareFeet) : null,
         security_deposit: deposit ? Number(deposit) : null,
-        latitude: latitude ? Number(latitude) : null,
-        longitude: longitude ? Number(longitude) : null,
+        latitude: locationCoords?.lat ?? null,
+        longitude: locationCoords?.lng ?? null,
         description: description.trim() || null,
         amenities: amenities.length > 0 ? amenities : null,
         images: uploadedImages,
@@ -177,16 +180,14 @@ export default function EditPropertyScreen() {
         <View style={{ height: Spacing.md }} />
         <InputField label="Address" value={address} onChangeText={setAddress} placeholder="Plot number, street" />
         <View style={{ height: Spacing.md }} />
-        <View style={{ flexDirection: "row" }}>
-          <View style={{ flex: 1 }}>
-            <InputField label="Latitude" value={latitude} onChangeText={setLatitude} placeholder="e.g. 0.3136" keyboardType="numeric" />
-          </View>
-          <View style={{ width: Spacing.md }} />
-          <View style={{ flex: 1 }}>
-            <InputField label="Longitude" value={longitude} onChangeText={setLongitude} placeholder="e.g. 32.5811" keyboardType="numeric" />
-          </View>
-        </View>
-        <Text style={{ fontSize: 12, color: Colors.textMuted, fontStyle: "italic", marginTop: -8 }}>Coordinates so tenants can find the property on a map.</Text>
+
+        <LocationPicker
+          onLocationChange={(lat, lng) => {
+            setLocationCoords(lat && lng ? { lat, lng } : null);
+          }}
+          initialLat={locationCoords?.lat}
+          initialLng={locationCoords?.lng}
+        />
         <View style={{ height: Spacing.md }} />
         <SelectField
           label="Property Type"

@@ -17,6 +17,10 @@ from .crud import (
     get_tenant_service,
 )
 from .forex import convert, get_all_rates
+from .payment_verifications import (
+    PaymentVerificationService,
+    get_payment_verification_svc,
+)
 from .subscriptions import SubscriptionService, get_subscription_service
 from .nylonpay import (
     get_nylonpay_sdk,
@@ -29,6 +33,8 @@ __all__ = [
     "generate_agreement_pdf",
     "SubscriptionService",
     "get_subscription_service",
+    "PaymentVerificationService",
+    "get_payment_verification_svc",
     "BookmarkService",
     "get_bookmark_service",
     "BoostService",

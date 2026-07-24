@@ -1,5 +1,33 @@
 # Progress Tracker — MobileAppAfodabo_v2
 
+## Current Phase: Payment Verification Workflow
+
+---
+
+## Completed Work
+
+### Payment Verification Feature
+- [x] SQL migration `migrations/021_payment_verifications.sql` — creates `payment_verifications` table with RLS, indexes, trigger
+- [x] Supabase migration copy `supabase/migrations/20260707230000_payment_verifications.sql`
+- [x] Model `models/payment_verification.py` — PaymentVerification, PaymentVerificationCreate, PaymentVerificationReject, PaymentVerificationResponse
+- [x] Service `services/payment_verifications.py` — PaymentVerificationService with create (auto-lease), duplicate check, approve (reuses PaymentService.create()), reject
+- [x] Router `routers/payment_verifications.py` — POST, GET /my, GET (owner), PATCH approve, PATCH reject
+- [x] Notifications wired: tenant submission → manager, manager approve/reject → tenant
+- [x] Registered in `models/__init__.py`, `services/__init__.py`, `routers/__init__.py`, `main.py`
+
+### Mobile — Payment Verification
+- [x] Types `src/types.ts` — PaymentVerification, PaymentVerificationStatus, PaymentVerificationCreate
+- [x] Service `src/services/payment-verifications.ts` — create, getMySubmissions, getOwnerSubmissions, approve, reject, uploadScreenshot
+- [x] Hooks `src/hooks/usePaymentVerifications.ts` — useMySubmissions, useOwnerSubmissions, useCreateVerification, useApproveVerification, useRejectVerification
+- [x] `app/tenant/submit-payment.tsx` — Form (amount, method, reference, date, notes, screenshot) + "Pending Verification" success state
+- [x] `app/tenant/payments.tsx` — Added "Submit Payment for Verification" button + "Payment Submissions" section with status badges and rejection reasons
+- [x] `app/manager/payment-verification.tsx` — Full screen with filter tabs (Pending/Approved/Rejected), search by tenant/property, submission cards, Approve (with confirmation dialog), Reject (with reason dialog)
+- [x] `app/manager/home.tsx` — Added "Verify Payments" quick action
+- [x] `app/_layout.tsx` — Registered `/tenant/submit-payment` and `/manager/payment-verification` routes
+- [x] `src/utils/format.ts` — Updated formatMethod to handle all payment methods (cash, bank, bank_transfer, mobile_money, credit_card, check, other)
+
+---
+
 ## Current Phase: Property Module Audit & Polish
 
 ---
@@ -250,9 +278,53 @@
 - [x] Backend-supported filters (state, property_type, min_price, max_price) passed to `usePublicProperties`; bedrooms/bathrooms/amenities filtered client-side.
 - [x] `npx tsc --noEmit` clean for `explore.tsx` and `payments.tsx`.
 
-## Next Steps
-1. On-device verify: tenant 4-tab experience, My Tenancy progress bar + agreement consent, Payments view-only, Browse filters (district/type/price/bedrooms/bathrooms/amenities).
-2. Run `npx expo lint` once `bun` is available (currently blocked: lint script invokes `bun`).
+---
+
+## Property Boosting — Phase 1 MVP
+
+### Backend
+- [x] `services/boost.py` — replaced `BOOST_PRICE_PER_DAY` with `BOOST_PACKAGES` dict (7d=10k, 14d=18k, 30d=35k); added `get_boost_packages()`, `get_packages()` method, `get_active_boost_by_property_id()`, `get_active_boost_details()`; `calculate_boost_price()` now validates duration against packages.
+- [x] `models/boost.py` — added `BoostPackage` Pydantic model.
+- [x] `routers/boosts.py` — added `GET /boosts/packages` (public, returns available packages).
+- [x] `models/property.py` — `PropertyResponse` gains `is_boosted`, `boosted_until`, `boost_days_remaining`, `boost_package_label` (all optional, default false/0/null).
+- [x] `services/crud.py` — added `_enrich_with_boost_info(props, supabase)` helper: batch-queries `property_boosts` for active, non-expired boosts and decorates each property with `is_boosted`, `boosted_until`, `boost_days_remaining`, `boost_package_label`. Applied to `get_all()`, `get_public_listings()`, `get_by_id()`, `get_by_id_public()`.
+- [x] `services/scheduler.py` — added `check_boost_expiry()` async job that calls `BoostService.expire_old()` (daily in production, every 12h otherwise).
+
+### Mobile (MobileAppAfodabo_v2)
+- [x] `src/types.ts` — added `BoostPackage` interface, `BoostInitiateResponse`, boost fields to `BackendProperty`, `Property`, `PropertyListItem`.
+- [x] `src/services/boosts.ts` (NEW) — `boostsService.fetchPackages()` → `GET /boosts/packages`, `boostsService.initiateBoost()` → `POST /boosts/initiate`.
+- [x] `src/mappers/property-mapper.ts` — `fromBackendProperty()` and `fromBackendToListItem()` now map boost fields.
+- [x] `src/components/PropertyCard.tsx` — shows `★ Boosted` badge (gold tone, top-right) when `property.is_boosted` is true.
+- [x] `app/property-detail.tsx` — boost badge in image section (gold); Management section shows boost status card (boosted → days remaining with star icon) or "Boost Property" button linking to `/boost-property`.
+- [x] `app/boost-property.tsx` (NEW) — Expo Router screen: fetches packages from API, selectable cards, phone number input, "Pay with Mobile Money" button, success state with pending instructions.
+- [x] `app/manager/properties.tsx` — subtitle shows boosted count when any properties are boosted.
+
+### Demo: Manual Payment Simulation (Supabase)
+To manually simulate a successful boost payment for presentation:
+1. Open Supabase dashboard → **property_boosts** table
+2. Find the pending boost row (status = `"pending"`)
+3. Edit the row:
+   - `status` → change to `"active"`
+   - `transaction_id` → change to `"manual-demo"` (or similar)
+   - `started_at` → set to current timestamp (e.g. `2026-07-18T12:00:00Z`)
+   - `expires_at` → set to current timestamp + package duration (e.g. +7 days: `2026-07-25T12:00:00Z`)
+4. Save the row
+5. Refresh the mobile app → property will show `★ Boosted` badge, appear first in public listings, and manager will see days remaining in the detail screen
+6. To test expiry, set `expires_at` to a past timestamp → property reverts to normal on next query (or after scheduler runs `expire_old()`)
+
+### Verification Checklist
+- [ ] Manager sees `★ Boosted` badge on property cards when `is_boosted` is true
+- [ ] Manager property detail shows boost status with days remaining
+- [ ] "Boost Property" button on unboosted properties navigates to purchase screen
+- [ ] Purchase screen loads packages from `GET /boosts/packages`
+- [ ] Payment initiation calls `POST /boosts/initiate` and shows pending success state
+- [ ] Public listings order: boosted properties first (server-side)
+- [ ] Guest PropertyCard also shows `★ Boosted` badge
+- [ ] Boost expires automatically (scheduler + query-time check via `_enrich_with_boost_info`)
+
+---
+
+## Current Phase: Property Boosting Polish & Verification
 
 ---
 
@@ -432,3 +504,167 @@ Leveraged the existing TanStack Query cache (no new state lib). Built a reusable
 
 ### Verification
 - [x] `npx tsc --noEmit` — no new errors from any of the changed files. Pre-existing unrelated errors remain (auth-context effect callback, create-property ButtonVariant, subscription style array, mock-data, api-client).
+
+---
+
+## Onboarding Redesign — Modern, Premium, Welcoming
+
+### Objective
+Redesign the 3-slide onboarding to answer "Why should I use Afodabo?" for each audience: visitors/home seekers, property managers, and tenants. Preserve all existing behavior (auto-slide, manual swipe, Skip, Next, page dots, navigation flow).
+
+### Completed
+- [x] **Slide 1 — Home Seekers** (`Search` icon): "Find Your Perfect Home" with 4 benefit bullets (browse listings, filter, WhatsApp contact, tap away).
+- [x] **Slide 2 — Property Managers** (`Briefcase` icon): "Manage Rentals Like a Pro" with 4 benefit bullets (track rent & tenants, reports, WhatsApp receipts, affordable plans).
+- [x] **Slide 3 — Tenants** (`UserCheck` icon): "Rent Smarter, Live Better" with 4 benefit bullets (discover rentals, pay via mobile money, digital receipts, message manager).
+- [x] Benefit bullets rendered with gold `CheckCircle2` icons for premium feel and brand warmth.
+- [x] Glass-effect icon containers (96px translucent circle with subtle border).
+- [x] Consistent dark brand gradients (`#1B4A38`/`#2E7D52`, `#0F3A28`/`#236048`, `#1B4A38`/`#236048`) for readability with white text.
+- [x] Transparent glass-morphism skip button (works on all slide backgrounds).
+- [x] Next button now includes `ChevronRight` icon for forward affordance (`tone="accent"`).
+- [x] Auto-slide increased to 5s (from 4s) for more reading time with 4 benefit bullets.
+- [x] All existing behavior preserved: auto-slide timer (pauses on last slide), `ScrollView` paging, `onMomentumEnd`-style `onScroll` indexing, Skip → `/guest/explore`, Last slide Create Account → `/register`, Sign In → `/login`.
+- [x] Navigation flow verified: `markOnboardingSeen()` called before every route transition; `router.replace()` used throughout.
+- [x] Removed unused `ImageBackground` import from old code.
+- [x] `npx tsc --noEmit` — single file change (`app/onboarding.tsx`), no pre-existing errors introduced (same unrelated errors remain).
+
+### Verification Checklist
+- [ ] First launch → auto-slides through 3 new slides every 5s
+- [ ] Manual swipe left/right works, page dots track correctly
+- [ ] Skip → lands on `/guest/explore`, `hasSeenOnboarding` becomes true
+- [ ] Last slide: "Create Account" → `/register`; "Sign In" → `/login`; "Browse as Guest" → `/guest/explore`
+- [ ] Check icon and benefit text readable on dark green gradients
+- [ ] Gold `CheckCircle2` icons render correctly on all slides
+
+---
+
+## Auth — Profile Name/Phone Missing After Login
+
+### Bug
+After sign-in, `full_name` and `phone` on the user profile were always empty. The name/phone only appeared after an app cold start (when `GET /auth/me` re-fetches from the `profiles` table).
+
+### Root Cause
+`src/context/auth-context.tsx:104` — `signIn()` read `full_name` from `result.user?.full_name`, but the backend's `POST /auth/signin` returns the raw Supabase Auth user object where `full_name` is nested inside `user_metadata`, not at the top level. The expression always resolved to `undefined` → `""`.
+
+### Fix
+`src/context/auth-context.tsx:102-110` — After signing in (token stored), the method now fetches the profile via `authService.getProfile()` → `GET /auth/profile` (reads from `profiles` table), mirroring the same pattern used by the initial load `useEffect`. `full_name` and `phone` are sourced from the database row instead of the auth response.
+
+### Verification
+- [x] No new TypeScript errors introduced (same pre-existing errors remain).
+- [x] `signIn()` now matches the initial load pattern: sets token → fetches profile → sets user with real `full_name`/`phone` from DB.
+
+---
+
+## Property Map Location Selection — GPS + Paste Google Maps Link
+
+### Simplified approach (no Google Maps API key needed)
+Removed the `react-native-maps` dependency and interactive map UI. The location picker now has just 2 methods — both work without any API key:
+
+| Method | How it works | API key? |
+|--------|-------------|----------|
+| **📍 Use Current Location** | GPS via `expo-location` (already installed) → shows reverse-geocoded address → confirm | No |
+| **🔗 Paste Google Maps Link** | Manager pastes a Google Maps URL → regex extracts `lat,lng` from the URL → shows address for confirmation → saves coordinates | No |
+
+### How the tenant experience works
+When coordinates exist on a property, the detail screen shows:
+- **📍 View Location** — opens `https://www.google.com/maps?q={lat},{lng}` on the tenant's phone
+- **🧭 Get Directions** — opens `https://www.google.com/maps/dir/?api=1&destination={lat},{lng}` for navigation
+
+These are just URL links — they launch Google Maps on whatever device the tenant is using. **No API key needed anywhere in the flow.**
+
+### Architecture Changes
+- **Removed dependency**: `react-native-maps` (was installed, now removed)
+- **Existing dep used**: `expo-location@~19.0.8` — GPS + reverse geocoding (was already installed, no change)
+- **app.json**: Added `expo-location` plugin with permission strings (no Google Maps config)
+
+### Files Modified
+- `app.json` — added `expo-location` plugin permissions; removed `android.config.googleMaps` (no API key needed)
+- `app/create-property.tsx` — replaced lat/lng `InputField` pair with `LocationPicker`; location is now **required** (submit blocked + inline error message)
+- `app/edit-property.tsx` — replaced lat/lng `InputField` pair with `LocationPicker` (pre-populated from existing property coordinates)
+- `app/property-detail.tsx` — Location section shows two buttons when coordinates exist: "📍 View Location" and "🧭 Get Directions"; when no coordinates, shows address text only
+
+### Files Created
+- `src/components/LocationPicker.tsx` — location picker with 2 options:
+  - **"Add Location"** dashed button when no location set
+  - **"✓ Property location added"** confirmation card when location is set (with Change Location / Remove)
+  - **Modal** with two flow options:
+    1. **📍 Use Current Location** — `expo-location` GPS → reverse geocode → confirm
+    2. **🔗 Paste Google Maps Link** — text input → regex parses coordinates from URL → reverse geocode → confirm. Parses these formats: `@lat,lng`, `?q=lat,lng`, `?query=lat,lng`, `?ll=lat,lng`
+  - Handles: permission denied, GPS unavailable, invalid link format — no crashes
+
+### Verification
+- [x] `npx tsc --noEmit` — no new errors (only pre-existing unrelated errors remain)
+- [x] No Google Maps API key required anywhere
+- [x] `react-native-maps` package removed from dependencies
+- [ ] Create property: must select location before submitting
+- [ ] Edit property: existing coordinates pre-loaded, can change or remove
+- [ ] Property detail: shows View Location + Get Directions when coords exist; shows address only when coords missing
+
+---
+
+## Payment Success Messages + Dashboard Total Collections
+
+### Changes
+
+**Payment record success message** (`src/components/RecordPaymentModal.tsx`)
+- After recording a payment, manager now sees an Alert: `"Payment for [tenant name] of [amount] has been recorded successfully."`
+- Uses `formatUGX()` and `tenancy.tenant_name` for dynamic content.
+
+**Payment delete success message** (`app/payment-history.tsx`)
+- After deleting a payment, manager now sees an Alert: `"The payment record of [amount] has been deleted successfully."`
+- Delete operation uses `useDeletePayment` → `paymentsService.delete(id)` → `DELETE /payments/{id}` (owner-scoped, works end-to-end).
+
+**Dashboard total collections** (`src/hooks/useDashboard.ts` + `app/manager/home.tsx`)
+- New `collected_total` field in `DashboardStats` — sum of all confirmed payments (all-time), computed from `paymentsService.list()`.
+- Dashboard stats cards now show **4** cards: Active Tenants, Outstanding, **Collected Total** (all-time sum), and Collected This Month.
+- Auto-refreshes when any payment is created or deleted (via query invalidation in `useCreatePayment`/`useDeletePayment`).
+
+### Files Modified
+- `src/components/RecordPaymentModal.tsx` — added `Alert.alert("Payment Recorded", …)` with tenant name + amount
+- `app/payment-history.tsx` — added `Alert.alert("Payment Deleted", …)` with amount
+- `src/hooks/useDashboard.ts` — added `collected_total` computed from all confirmed payments
+- `app/manager/home.tsx` — replaced "Pending Review" stat card with "Collected Total" card
+
+### Verification
+- [x] `npx tsc --noEmit` — no new errors
+- [ ] Record a payment → see "Payment for John Doe of UGX 150,000 has been recorded successfully."
+- [ ] Delete a payment → see "The payment record of UGX 150,000 has been deleted successfully."
+- [ ] Dashboard shows "Collected Total" card summing all confirmed payments
+
+---
+
+## Agreement Builder Screens
+
+### New Files
+- [x] `app/agreement-summary.tsx` — Summary card after manager fills create/edit form: agreement number placeholder, party info (tenant + manager), property, rent/dates, clause count. Two actions: "View Full Agreement" → `/agreement-preview`, "Generate & Save Agreement" → calls `useBuildAgreement`, shows success state with agreement number + "Back to Tenancy" button.
+- [x] `app/agreement-preview.tsx` — Full read-only rendered preview using `AgreementRenderer` with `mode="preview"`. If agreement is already saved (has content from `useAgreementContent`), shows the saved content with version info. Otherwise builds a local preview from template + tenancy data, with a "Generate & Save Agreement" button at the bottom.
+
+### Patterns Used
+- Route params via `useLocalSearchParams<{ leaseId: string }>()`
+- `useAgreementTemplate()`, `useBuildAgreement()`, `useAgreementContent()` from `@/src/hooks/useAgreements`
+- `useTenancy(leaseId)` for lease data
+- `AgreementRenderer` for content display
+- `Screen`, `PageHeader`, `Card`, `Button` components
+- Success state with `CheckCircle` icon, agreement number display, and navigation back to tenancy detail
+
+### Verification
+- [x] `npx tsc --noEmit` — no new errors from these files
+- [ ] Navigate from tenancy detail → agreement summary → preview → generate → success → back to detail
+
+---
+
+## Agreement View & Version History Screens
+
+### New Files
+- [x] `app/agreement-view.tsx` — Read-only screen for both tenant and manager to view a fully rendered agreement with signature information. Accepts `leaseId` from `useLocalSearchParams`, loads content via `useAgreementContent(leaseId)` and consent state via `useConsentState(leaseId)`. Shows status badge (Executed/Awaiting Tenant Consent/etc.), signature status card for tenant and manager, and renders the full document via `AgreementRenderer` with `mode="view"`. Includes a "View Version History" button linking to `/agreement-history`.
+- [x] `app/agreement-history.tsx` — Lists all agreement versions for a lease. Accepts `leaseId` from `useLocalSearchParams`, loads version history via `useAgreementVersionHistory(leaseId)`. Each version card shows version number, agreement number, status badge, tenant/manager signature status (with signed name if available), and creation date. The active version is highlighted with a green left border and soft background. Tapping a version navigates to `/agreement-view`.
+
+### Patterns Used
+- Route params via `useLocalSearchParams<{ leaseId: string }>()`
+- `useAgreementContent()`, `useConsentState()`, `useAgreementVersionHistory()` from `@/src/hooks/useAgreements`
+- `AgreementRenderer` with `mode="view"` for document display
+- `Screen`, `PageHeader`, `Card`, `Badge`, `Button`, `LoadingState`, `ErrorState`, `EmptyState` components
+- `AgreementStatus` type mapping to tone/label config for badges
+- `lucide-react-native` icons (`CheckCircle`, `Clock`, `FileText`, `History`)
+
+### Verification
+- [x] `npx tsc --noEmit` — no new errors from these files

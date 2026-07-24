@@ -29,7 +29,7 @@ export default function PaymentHistoryScreen() {
     return data.items.filter((p) => p.lease_id === leaseId);
   }, [data, leaseId]);
 
-  const totalPaid = payments.filter((p) => p.status === "confirmed").reduce((sum, p) => sum + p.amount, 0);
+  const totalPaid = payments.filter((p) => p.status === "confirmed").reduce((sum, p) => sum + Number(p.amount), 0);
 
   const handleDelete = (payment: { id: string; amount: number }) => {
     Alert.alert(
@@ -43,6 +43,10 @@ export default function PaymentHistoryScreen() {
           onPress: async () => {
             try {
               await deletePayment.mutateAsync(payment.id);
+              Alert.alert(
+                "Payment Deleted",
+                `The payment record of ${formatUGX(payment.amount)} has been deleted successfully.`
+              );
             } catch {
               Alert.alert("Error", "Failed to delete payment. Please try again.");
             }

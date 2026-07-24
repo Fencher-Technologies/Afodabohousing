@@ -10,11 +10,22 @@ from services.base import BaseService, with_retry
 
 logger = logging.getLogger(__name__)
 
-BOOST_PRICE_PER_DAY = 10000  # UGX 10,000/day — configurable by super admin later
+BOOST_PACKAGES = [
+    {"days": 7, "price": 10000, "label": "7 Days"},
+    {"days": 14, "price": 18000, "label": "14 Days"},
+    {"days": 30, "price": 35000, "label": "30 Days"},
+]
+
+
+def get_boost_packages() -> list[dict]:
+    return list(BOOST_PACKAGES)
 
 
 def calculate_boost_price(duration_days: int) -> Decimal:
-    return Decimal(str(BOOST_PRICE_PER_DAY * duration_days))
+    for pkg in BOOST_PACKAGES:
+        if pkg["days"] == duration_days:
+            return Decimal(str(pkg["price"]))
+    raise ValueError(f"Invalid boost duration: {duration_days}. Available packages: {[p['days'] for p in BOOST_PACKAGES]}")
 
 
 class BoostService(BaseService):
@@ -146,7 +157,27 @@ class BoostService(BaseService):
             avg_boost_price=avg,
         )
 
+    # ── Packages ──
+
+    def get_packages(self) -> list[dict]:
+        return get_boost_packages()
+
     # ── Ranking ──
+
+    @with_retry
+    def get_active_boost_by_property_id(self, property_id: str) -> dict | None:
+        now = datetime.now(UTC).isoformat()
+        result = (
+            self.supabase.table(self._table)
+            .select("*")
+            .eq("property_id", property_id)
+            .eq("status", "active")
+            .gt("expires_at", now)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
 
     @with_retry
     def get_active_boosted_property_ids(self) -> set[str]:
@@ -160,6 +191,31 @@ class BoostService(BaseService):
             .execute()
         )
         return {r["property_id"] for r in (result.data or []) if r.get("property_id")}
+
+    @with_retry
+    def get_active_boost_details(self) -> dict[str, dict]:
+        """Return dict of property_id → boost details for all active boosts."""
+        now = datetime.now(UTC).isoformat()
+        result = (
+            self.supabase.table(self._table)
+            .select("*")
+            .eq("status", "active")
+            .gt("expires_at", now)
+            .execute()
+        )
+        details: dict[str, dict] = {}
+        for b in (result.data or []):
+            pid = b.get("property_id")
+            if pid:
+                details[pid] = {
+                    "is_boosted": True,
+                    "boosted_until": b.get("expires_at"),
+                    "boost_started_at": b.get("started_at"),
+                    "boost_duration_days": b.get("duration_days"),
+                    "boost_package_label": f"{b.get('duration_days')} Days",
+                    "boost_amount_paid": b.get("amount_paid"),
+                }
+        return details
 
 
 def get_boost_service(supabase: Client) -> BoostService:

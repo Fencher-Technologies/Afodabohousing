@@ -2,7 +2,7 @@
  * PropertyCard — reusable card for property listings.
  */
 
-import { MapPin, BedDouble, Bath } from "lucide-react-native";
+import { MapPin, BedDouble, Bath, Star } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -21,6 +21,7 @@ interface PropertyCardProps {
 
 export function PropertyCard({ property, onPress, occupiedUnits, totalUnits, showStatus = false, featured = false }: PropertyCardProps) {
   const hasImage = property.images.length > 0;
+  const isBoosted = property.is_boosted ?? featured;
 
   return (
     <Pressable
@@ -40,9 +41,9 @@ export function PropertyCard({ property, onPress, occupiedUnits, totalUnits, sho
         <View style={styles.typeBadge}>
           <Badge label={formatPropertyType(property.type)} tone="primary" />
         </View>
-        {featured && (
-          <View style={styles.featuredBadge}>
-            <Badge label="Featured" tone="accent" size="sm" />
+        {isBoosted && (
+          <View style={styles.boostedBadge}>
+            <Badge label="★ Boosted" tone="gold" size="sm" />
           </View>
         )}
       </View>
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
     top: Spacing.sm,
     left: Spacing.sm,
   },
-  featuredBadge: {
+  boostedBadge: {
     position: "absolute",
     top: Spacing.sm,
     right: Spacing.sm,
