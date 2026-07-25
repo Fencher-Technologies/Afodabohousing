@@ -1,5 +1,7 @@
 import logging
+
 from supabase import Client
+
 from .base import BaseService
 
 logger = logging.getLogger(__name__)

@@ -4,8 +4,6 @@ from uuid import UUID, uuid4
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-
-logger = logging.getLogger(__name__)
 from pydantic import BaseModel
 from supabase import Client
 
@@ -15,6 +13,8 @@ from models import PaymentCreate, PaymentResponse, PaymentUpdate
 from services import PaymentService, get_payment_service
 from services.notifications import notify
 from services.nylonpay import initiate_payment
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 settings = get_settings()

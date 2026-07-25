@@ -25,8 +25,6 @@ from .payment_verification import (
 )
 from .profile import Profile, ProfileCreate, ProfileResponse, ProfileUpdate
 from .property import Property, PropertyCreate, PropertyResponse, PropertyUpdate
-from .terms import TermsConsentRequest, TermsConsentResponse, TermsStatusResponse, TermsVersion
-from .tracking import PageViewCreate, PageViewResponse, PageViewStats
 from .renewal_request import RenewalRequest, RenewalRequestCreate, RenewalRequestResponse
 from .rental_unit import RentalUnit, RentalUnitCreate, RentalUnitResponse, RentalUnitUpdate
 from .subscription import (
@@ -38,6 +36,8 @@ from .subscription import (
     SubscriptionPlanResponse,
 )
 from .tenant import Tenant, TenantCreate, TenantResponse, TenantUpdate
+from .terms import TermsConsentRequest, TermsConsentResponse, TermsStatusResponse, TermsVersion
+from .tracking import PageViewCreate, PageViewResponse, PageViewStats
 
 __all__ = [
     "Profile",

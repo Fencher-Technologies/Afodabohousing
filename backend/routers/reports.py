@@ -1,5 +1,4 @@
 import logging
-from datetime import date, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -348,7 +347,6 @@ def rent_collection_report(
 
     paid_in_full = sum(1 for l in leases if float(l.get("balance_due") or 0) <= 0)
     with_balance = sum(1 for l in leases if float(l.get("balance_due") or 0) > 0)
-    total = len(leases) or 1
 
     collection_pct = round((total_collected / total_expected) * 100, 2) if total_expected > 0 else 0.0
 

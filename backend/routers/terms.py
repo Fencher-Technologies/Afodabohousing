@@ -1,8 +1,15 @@
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from supabase import Client
+
 from dependencies import CurrentUser, get_current_user, get_service_client
-from models.terms import TermsConsentRequest, TermsConsentResponse, TermsStatusResponse, TermsVersion
+from models.terms import (
+    TermsConsentRequest,
+    TermsConsentResponse,
+    TermsStatusResponse,
+    TermsVersion,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/terms", tags=["terms"])

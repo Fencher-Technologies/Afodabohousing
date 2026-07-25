@@ -6,13 +6,10 @@ from supabase import Client
 
 from dependencies.auth import (
     CurrentUser,
-    get_current_user,
-    require_manager,
     require_super_admin_or_manager,
     require_tenant,
 )
-from dependencies.database import get_service_client, get_supabase_client
-from models.payment import PaymentCreate
+from dependencies.database import get_service_client
 from models.payment_verification import (
     PaymentVerificationCreate,
     PaymentVerificationReject,

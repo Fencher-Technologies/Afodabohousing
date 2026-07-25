@@ -1,8 +1,10 @@
 import logging
+
 from fastapi import APIRouter, Depends, Request, status
 from supabase import Client
-from dependencies import CurrentUser, get_current_user, get_service_client, get_optional_user
-from models.tracking import PageViewCreate, PageViewResponse, PageViewStats
+
+from dependencies import CurrentUser, get_current_user, get_optional_user, get_service_client
+from models.tracking import PageViewCreate, PageViewStats
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/tracking", tags=["tracking"])

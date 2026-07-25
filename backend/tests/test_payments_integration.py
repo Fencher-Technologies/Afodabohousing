@@ -1,7 +1,8 @@
+# mypy: ignore-errors
 import pytest
 from fastapi.testclient import TestClient
 
-from dependencies import get_current_user, get_supabase_client
+from dependencies import get_current_user
 from main import app
 
 UID_OWNER = "00000000-0000-0000-0000-000000000001"

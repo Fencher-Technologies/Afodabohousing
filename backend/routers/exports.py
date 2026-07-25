@@ -231,11 +231,12 @@ def export_report_pdf(
     supabase: Client = Depends(get_service_client),
 ):
     from io import BytesIO
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table
 
     props = supabase.table("properties").select("title, property_type, bedrooms, monthly_rent, status, city, state").eq("owner_id", current_user.id).execute()
     tenants_data = supabase.table("tenants").select("first_name, last_name, email, phone, status").eq("owner_id", current_user.id).execute()

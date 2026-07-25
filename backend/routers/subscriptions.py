@@ -5,15 +5,20 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from supabase import Client
 
-from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client, require_active_user
+from dependencies import (
+    CurrentUser,
+    get_service_client,
+    get_supabase_client,
+    require_active_user,
+)
 from models.subscription import (
     ManagerSubscriptionResponse,
     SubscriptionCreateRequest,
     SubscriptionCreateResponse,
     SubscriptionPlanResponse,
 )
-from services.subscriptions import SubscriptionService, get_subscription_service
 from services.nylonpay import verify_webhook
+from services.subscriptions import SubscriptionService, get_subscription_service
 
 logger = logging.getLogger(__name__)
 

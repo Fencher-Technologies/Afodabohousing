@@ -1,19 +1,18 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from supabase import Client
 
 from dependencies.auth import CurrentUser, get_current_user
 from dependencies.database import get_service_client
 from models.agreements import (
     AgreementConsentRecordResponse,
-    AgreementConsentStateResponse,
     AgreementConsentResponse,
+    AgreementConsentStateResponse,
     AgreementDocumentResponse,
     AgreementTemplateResponse,
     AgreementVersionHistoryResponse,
-    AgreementVersionsResponse,
     BuildAgreementRequest,
     BuildAgreementResponse,
     ConsentRequest,
@@ -128,7 +127,7 @@ def build_agreement(
         supabase, svc, lease, current_user,
         event_type="agreement_generated",
         title="New Tenancy Agreement",
-        body=f"A new tenancy agreement has been created for your review.",
+        body="A new tenancy agreement has been created for your review.",
         metadata={
             "lease_id": str(lease_id),
             "agreement_number": content.get("agreement_number"),

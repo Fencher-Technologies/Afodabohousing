@@ -20,7 +20,12 @@ from models.boost import (
     InitiateBoostRequest,
     InitiateBoostResponse,
 )
-from services.boost import BoostService, calculate_boost_price, get_boost_packages, get_boost_service
+from services.boost import (
+    BoostService,
+    calculate_boost_price,
+    get_boost_packages,
+    get_boost_service,
+)
 from services.nylonpay import initiate_boost_payment
 
 logger = logging.getLogger(__name__)

@@ -1,10 +1,16 @@
 import logging
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, status
+
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 from supabase import Client
-from dependencies import CurrentUser, get_current_user, get_service_client, require_super_admin_or_manager
+
+from dependencies import (
+    CurrentUser,
+    get_service_client,
+    require_super_admin_or_manager,
+)
 from services.agreement_generator import generate_agreement_pdf
 from services.crud import get_lease_service, get_property_service, get_tenant_service
 

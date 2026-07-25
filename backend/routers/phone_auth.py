@@ -1,7 +1,9 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from supabase import Client
+
 from dependencies import get_service_client
 
 logger = logging.getLogger(__name__)
@@ -30,7 +32,7 @@ def phone_signin(
     supabase: Client = Depends(get_service_client),
 ) -> PhoneSignInResponse:
     try:
-        result = supabase.auth.sign_in_with_otp({"phone": data.phone})
+        supabase.auth.sign_in_with_otp({"phone": data.phone})
         return PhoneSignInResponse(message="OTP sent to phone number")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

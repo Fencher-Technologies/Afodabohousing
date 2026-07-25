@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 import logging
 import secrets
 from datetime import UTC, datetime

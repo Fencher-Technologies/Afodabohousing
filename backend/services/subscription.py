@@ -1,11 +1,11 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
 from supabase import Client
 
-from models.subscription import SubscriptionResponse, SubscriptionStats
+from models.subscription import SubscriptionStats
 from services.base import BaseService, with_retry
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class SubscriptionService(BaseService):
 
     @with_retry
     def create_pending(self, manager_id: UUID, plan_type: str, amount_paid: Decimal, reference: str) -> dict:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         days = PLAN_DURATIONS.get(plan_type, 90)
         expires = now + timedelta(days=days)
         payload = {
@@ -67,7 +67,7 @@ class SubscriptionService(BaseService):
 
     @with_retry
     def is_active(self, manager_id: UUID) -> bool:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         result = (
             self.table.select("id", count="exact")
             .eq("manager_id", str(manager_id))
@@ -91,7 +91,7 @@ class SubscriptionService(BaseService):
 
     @with_retry
     def expire_old(self) -> int:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         result = (
             self.table.update({"status": "expired"})
             .eq("status", "active")
@@ -111,7 +111,7 @@ class SubscriptionService(BaseService):
 
     @with_retry
     def get_stats(self) -> SubscriptionStats:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         all_subs = self.supabase.table(self._table).select("*").execute()
         data = all_subs.data or []
 

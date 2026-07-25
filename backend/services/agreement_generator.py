@@ -1,12 +1,11 @@
 import logging
 from datetime import date
 from io import BytesIO
-from typing import Any
 
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 logger = logging.getLogger(__name__)
@@ -38,7 +37,6 @@ def generate_agreement_pdf(
     title_style = ParagraphStyle("AgreementTitle", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=22, leading=28, textColor=colors.HexColor("#0F766E"), spaceAfter=12)
     heading_style = ParagraphStyle("Heading", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=13, leading=18, textColor=colors.HexColor("#334E68"), spaceAfter=6, spaceBefore=14)
     body_style = ParagraphStyle("Body", parent=styles["Normal"], fontSize=10, leading=16, spaceAfter=6)
-    signature_style = ParagraphStyle("Signature", parent=styles["Normal"], fontSize=10, leading=16, spaceBefore=20)
     story = [
         Paragraph("AFODABO HOUSING", ParagraphStyle("Brand", parent=styles["Normal"], fontSize=10, leading=14, textColor=colors.HexColor("#0F766E"))),
         Paragraph("Tenancy Agreement", title_style),

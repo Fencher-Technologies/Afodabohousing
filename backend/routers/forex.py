@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
-from dependencies import get_current_user, CurrentUser
+
+from dependencies import CurrentUser, get_current_user
 from services.forex import convert, get_all_rates
 
 router = APIRouter(prefix="/forex", tags=["forex"])
