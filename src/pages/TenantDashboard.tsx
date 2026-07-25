@@ -14,6 +14,7 @@ import {
   X, Download, Upload, ThumbsUp, ThumbsDown, FileUp, Sidebar, Camera
 } from 'lucide-react';
 import { format, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from 'date-fns';
+import MobileAppBanner from '@/components/MobileAppBanner';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -433,6 +434,8 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
           </div>
         </header>
 
+        <MobileAppBanner />
+
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {/* ==================== HOME TAB ==================== */}
           {tab === 'home' && (
@@ -706,9 +709,15 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                   <p className="text-2xl font-bold text-accent">{onTimePct}%</p>
                 </div>
               </div>
-              <Input placeholder="Search payments..."
-                value={paymentSearch} onChange={e => { setPaymentSearch(e.target.value); setPaymentPage(0); }}
-                className="rounded-lg h-11 max-w-sm" />
+              <div className="flex items-center gap-3 flex-wrap">
+                <Input placeholder="Search payments..."
+                  value={paymentSearch} onChange={e => { setPaymentSearch(e.target.value); setPaymentPage(0); }}
+                  className="rounded-lg h-11 max-w-sm" />
+                <Button size="sm" className="gradient-primary text-primary-foreground rounded-lg h-10 gap-1.5"
+                  onClick={() => navigate('/dashboard/tenant/payments/submit')}>
+                  <Upload className="h-4 w-4" /> Submit Payment
+                </Button>
+              </div>
               {pagePayments.length === 0 ? (
                 <div className="text-center py-12 bg-card border border-border rounded-xl">
                   <DollarSign className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />

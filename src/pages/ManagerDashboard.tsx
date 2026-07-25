@@ -15,6 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { listPayments, updatePayment, PaymentData } from '@/services/payments';
 import AvatarUpload from '@/components/AvatarUpload';
+import MobileAppBanner from '@/components/MobileAppBanner';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload,
@@ -488,6 +489,7 @@ export default function ManagerDashboard() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
+      <MobileAppBanner />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop Sidebar */}
@@ -1056,6 +1058,10 @@ export default function ManagerDashboard() {
                     <h2 className="font-display font-bold text-xl">Payments</h2>
                     <p className="text-sm text-muted-foreground">{payments.length} records · {pendingPayments.length} awaiting review</p>
                   </div>
+                  <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate('/dashboard/manager/payment-verifications')}>
+                    <Upload className="h-3.5 w-3.5" /> Verifications
+                  </Button>
                   <div className="flex gap-2 text-xs">
                     {[
                       { label: 'Confirmed', val: payments.filter(p => p.status === 'confirmed').length, color: 'text-accent' },

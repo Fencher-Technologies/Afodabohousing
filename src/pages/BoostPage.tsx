@@ -13,12 +13,6 @@ import { ArrowLeft, TrendingUp, CheckCircle, Loader2 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
 
-const DURATION_OPTIONS = [
-  { days: 7, label: '7 days', price: 15000 },
-  { days: 14, label: '14 days', price: 25000 },
-  { days: 30, label: '30 days', price: 45000 },
-];
-
 export default function BoostPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -31,6 +25,11 @@ export default function BoostPage() {
   const [done, setDone] = useState(false);
   const [duration, setDuration] = useState(7);
   const [phone, setPhone] = useState('');
+  const [packages, setPackages] = useState<{ days: number; label: string; price: number }[]>([]);
+
+  useEffect(() => {
+    fetch(`${API}/boosts/packages`).then(r => r.json()).then(setPackages).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -42,7 +41,12 @@ export default function BoostPage() {
     });
   }, [id]);
 
-  const price = DURATION_OPTIONS.find(d => d.days === duration)?.price || 0;
+  const options = packages.length > 0 ? packages : [
+    { days: 7, label: '7 days', price: 15000 },
+    { days: 14, label: '14 days', price: 25000 },
+    { days: 30, label: '30 days', price: 45000 },
+  ];
+  const price = options.find(d => d.days === duration)?.price || 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +122,7 @@ export default function BoostPage() {
                   <Select value={String(duration)} onValueChange={v => setDuration(Number(v))}>
                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {DURATION_OPTIONS.map(d => (
+                      {options.map(d => (
                         <SelectItem key={d.days} value={String(d.days)}>
                           {d.label} — UGX {d.price.toLocaleString()}
                         </SelectItem>

@@ -41,6 +41,8 @@ import EditProperty from "./pages/EditProperty";
 import TenantBrowse from "./pages/TenantBrowse";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
+import ManagerPaymentVerifications from "./pages/ManagerPaymentVerifications";
+import TenantSubmitPayment from "./pages/TenantSubmitPayment";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -94,6 +96,7 @@ const App = () => (
               <Route path="/dashboard/manager/boost/:id" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><BoostPage /></ProtectedRoute>} />
               <Route path="/dashboard/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
               <Route path="/dashboard/tenant/payments" element={<ProtectedRoute allowedRoles={['tenant']}><TenantPayments /></ProtectedRoute>} />
+              <Route path="/dashboard/tenant/payments/submit" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSubmitPayment /></ProtectedRoute>} />
               <Route path="/dashboard/tenant/payments/:id" element={<ProtectedRoute allowedRoles={['tenant']}><TenantPaymentDetail /></ProtectedRoute>} />
               <Route path="/dashboard/tenant/subscription" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSubscription /></ProtectedRoute>} />
               <Route path="/dashboard/manager/tenancies" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerTenancies /></ProtectedRoute>} />
@@ -101,6 +104,7 @@ const App = () => (
               <Route path="/dashboard/manager/tenancies/:id" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerTenancyDetail /></ProtectedRoute>} />
               <Route path="/dashboard/manager/tenancies/:id/edit" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerEditTenancy /></ProtectedRoute>} />
               <Route path="/dashboard/manager/reports" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerReports /></ProtectedRoute>} />
+              <Route path="/dashboard/manager/payment-verifications" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerPaymentVerifications /></ProtectedRoute>} />
               <Route path="/account" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><Account /></ProtectedRoute>} />
               <Route path="/account/edit" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><EditProfile /></ProtectedRoute>} />
               <Route path="/account/change-password" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><ChangePassword /></ProtectedRoute>} />
