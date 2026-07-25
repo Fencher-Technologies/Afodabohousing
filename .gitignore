@@ -35,3 +35,4 @@ mobile/android/
 mobile/ios/
 .opencode
 .gitignore
+backend/.coverage
