@@ -336,7 +336,7 @@ class AgreementService:
         custom_clauses: list[dict[str, Any]],
         actor_user_id: str,
     ) -> dict[str, Any]:
-        """Edit an existing agreement. Creates new version only if significant changes detected."""
+        """Edit an existing agreement. Always updates in-place and resets all signatures + consent records."""
         current = self.get_current_document(lease_id)
         if not current or current.get("agreement_type") != "generated":
             raise HTTPException(status_code=404, detail="No generated agreement found to edit")
@@ -345,70 +345,54 @@ class AgreementService:
         if not old_content:
             raise HTTPException(status_code=400, detail="Agreement has no content")
 
-        # Build new content with same version initially
+        prev_version = old_content.get("version", 1) or 1
+        new_version = prev_version + 1
+
         new_content = self._build_content(
             lease_id,
             standard_clauses,
             custom_clauses,
-            existing_version=old_content.get("version", 1),
+            existing_version=prev_version,
             existing_number=old_content.get("agreement_number"),
         )
+        new_content["version"] = new_version
+        new_content["generated_at"] = _now_iso()
 
-        has_significant = self._check_significant_changes(old_content, new_content)
+        # Reset signatures for both parties — the agreement stays, consent is withdrawn
+        new_content["signatures"]["tenant"] = {
+            "signed_name": None, "signed_at": None, "consent_status": "pending", "consent_version": 0,
+        }
+        new_content["signatures"]["manager"] = {
+            "signed_name": None, "signed_at": None, "consent_status": "pending", "consent_version": 0,
+        }
 
-        if has_significant:
-            # New version
-            new_content["version"] = (old_content.get("version", 1) or 1) + 1
-            new_content["generated_at"] = _now_iso()
-            new_content["signatures"]["tenant"] = {
-                "signed_name": None, "signed_at": None, "consent_status": "pending", "consent_version": 0,
-            }
-            new_content["signatures"]["manager"] = {
-                "signed_name": None, "signed_at": None, "consent_status": "pending", "consent_version": 0,
-            }
+        # Update the same document in-place (no new document, no superseding)
+        self.supabase.table("agreement_documents").update({
+            "content": new_content,
+            "version": new_version,
+            "status": "awaiting_tenant_consent",
+            "updated_at": _now_iso(),
+        }).eq("id", str(current["id"])).execute()
+        document = self.get_document_by_id(str(current["id"]))
 
-            # Archive current
-            self.supabase.table("agreement_documents").update(
-                {"is_active": False, "status": "superseded"}
-            ).eq("id", str(current["id"])).execute()
+        # Reset consent records for this document
+        self.supabase.table("agreement_consents").update({
+            "consent_status": "pending",
+            "signed_name": None,
+        }).eq("agreement_document_id", str(current["id"])).execute()
 
-            payload = {
-                "lease_id": str(lease_id),
-                "uploaded_by": str(actor_user_id),
-                "file_name": f"agreement-v{new_content['version']}.json",
-                "agreement_type": "generated",
+        self.record_audit_event(
+            lease_id=str(lease_id),
+            agreement_document_id=str(current["id"]),
+            actor_user_id=str(actor_user_id),
+            event_type="agreement_edited",
+            evidence_hash=hashlib.sha256(json.dumps(new_content, default=str).encode()).hexdigest(),
+            metadata={
+                "previous_version": prev_version,
+                "new_version": new_version,
                 "agreement_number": new_content["agreement_number"],
-                "content": new_content,
-                "version": new_content["version"],
-                "is_active": True,
-                "status": "awaiting_tenant_consent",
-            }
-            response = self.supabase.table("agreement_documents").insert(payload).execute()
-            document = response.data[0]
-
-            self.record_audit_event(
-                lease_id=str(lease_id),
-                agreement_document_id=str(document["id"]),
-                actor_user_id=str(actor_user_id),
-                event_type="agreement_edited",
-                evidence_hash=hashlib.sha256(json.dumps(new_content, default=str).encode()).hexdigest(),
-                metadata={
-                    "previous_version": old_content.get("version", 1),
-                    "new_version": new_content["version"],
-                    "reason": "significant_changes",
-                    "agreement_number": new_content["agreement_number"],
-                },
-            )
-        else:
-            # Update in place — no version bump, no consent reset
-            new_content["generated_at"] = _now_iso()
-            # Preserve existing signatures
-            new_content["signatures"] = old_content.get("signatures", {})
-            self.supabase.table("agreement_documents").update({
-                "content": new_content,
-                "updated_at": _now_iso(),
-            }).eq("id", str(current["id"])).execute()
-            document = self.get_document_by_id(str(current["id"]))
+            },
+        )
 
         return {**document, "content": new_content}
 

@@ -293,7 +293,7 @@ export function AgreementFlow({
         </View>
       </View>
 
-      {/* History + Cancel */}
+      {/* History + Edit + Cancel */}
       <View style={styles.agreementActions}>
         <Button
           label="History"
@@ -304,7 +304,16 @@ export function AgreementFlow({
         />
         {role === "manager" && (
           <Button
-            label="Cancel Agreement"
+            label="Edit"
+            variant="outline"
+            size="sm"
+            onPress={() => router.push(`/create-agreement?leaseId=${leaseId}&mode=edit`)}
+            leftIcon={<FileText size={16} color={Colors.primary} />}
+          />
+        )}
+        {role === "manager" && (
+          <Button
+            label="Cancel"
             onPress={handleCancel}
             variant="outline"
             tone="danger"
