@@ -43,3 +43,9 @@ export function useResolveTenantByEmail() {
     mutationFn: (email: string) => tenantsService.resolveByEmail(email),
   });
 }
+
+export function useResolveTenantByPhone() {
+  return useMutation({
+    mutationFn: (phone: string) => tenantsService.resolveByPhone(phone),
+  });
+}

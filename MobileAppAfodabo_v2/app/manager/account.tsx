@@ -15,7 +15,6 @@ import {
   Info,
   ChevronRight,
   LogOut,
-  Send,
   ShieldCheck,
   FileText,
   Headphones,
@@ -57,7 +56,7 @@ export default function ManagerAccountScreen() {
           <Avatar name={user.full_name} />
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{user.full_name}</Text>
-            <Text style={styles.profileEmail}>{user.email}</Text>
+            <Text style={styles.profileEmail}>{user.email.startsWith("phone_") ? user.phone || user.email : user.email}</Text>
             <View style={styles.profileMeta}>
               <Badge label="House Manager" tone="primary" />
               {user.email_verified && (
@@ -114,8 +113,6 @@ export default function ManagerAccountScreen() {
             <ActionRow icon={<Users size={20} color={Colors.primary} />} label="Tenancies" onPress={() => router.push("/manager/tenancies")} />
             <Divider />
             <ActionRow icon={<FileText size={20} color={Colors.primary} />} label="Reports" onPress={() => router.push("/manager/reports")} />
-            <Divider />
-            <ActionRow icon={<Send size={20} color={Colors.primary} />} label="Send Invite" onPress={() => Alert.alert("Send Invite", "Enter tenant email to send an invitation.")} />
           </Card>
         </View>
 
@@ -126,6 +123,8 @@ export default function ManagerAccountScreen() {
             <ActionRow icon={<User size={20} color={Colors.textSecondary} />} label="Edit Profile" onPress={() => router.push("/edit-profile")} />
             <Divider />
             <ActionRow icon={<Lock size={20} color={Colors.textSecondary} />} label="Change Password" onPress={() => router.push("/change-password")} />
+            <Divider />
+            <ActionRow icon={<Lock size={20} color={Colors.textSecondary} />} label="Change PIN" onPress={() => router.push("/change-pin")} />
           </Card>
         </View>
 

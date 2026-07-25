@@ -19,6 +19,10 @@ class Profile(BaseModel):
     manager_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
+    accepted_terms: bool = False
+    accepted_terms_at: datetime | None = None
+    terms_version: str | None = None
+    privacy_version: str | None = None
 
 
 class ProfileCreate(BaseModel):
@@ -29,6 +33,10 @@ class ProfileCreate(BaseModel):
     status: Literal["active", "suspended", "pending"] = "active"
     created_by: UUID | None = None
     manager_id: UUID | None = None
+    accepted_terms: bool = False
+    accepted_terms_at: datetime | None = None
+    terms_version: str | None = None
+    privacy_version: str | None = None
 
 
 class ProfileUpdate(BaseModel):
@@ -50,3 +58,7 @@ class ProfileResponse(BaseModel):
     created_by: str | None = None
     manager_id: str | None = None
     created_at: datetime
+    accepted_terms: bool = False
+    accepted_terms_at: datetime | None = None
+    terms_version: str | None = None
+    privacy_version: str | None = None

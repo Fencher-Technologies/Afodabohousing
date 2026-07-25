@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { CheckCircle, ChevronRight } from "lucide-react-native";
@@ -13,36 +13,63 @@ import { ErrorState } from "@/src/components/ErrorState";
 import {
   useAgreementTemplate,
   useBuildAgreement,
+  useEditAgreement,
 } from "@/src/hooks/useAgreements";
 import { useTenancy } from "@/src/hooks/useTenancies";
+import type { AgreementStandardClause, AgreementCustomClause } from "@/src/types";
 
 export default function AgreementSummaryScreen() {
-  const { leaseId } = useLocalSearchParams<{ leaseId: string }>();
+  const { leaseId, mode, standardClauses: rawClauses, customClauses: rawCustom } = useLocalSearchParams<{
+    leaseId: string;
+    mode?: string;
+    standardClauses?: string;
+    customClauses?: string;
+  }>();
   const { data: template, isLoading: templateLoading, isError: templateError } = useAgreementTemplate();
   const { data: lease, isLoading: leaseLoading, isError: leaseError } = useTenancy(leaseId || "");
   const buildAgreement = useBuildAgreement();
+  const editAgreement = useEditAgreement();
+
+  const isEdit = mode === "edit";
 
   const [successState, setSuccessState] = useState<{ agreementNumber: string } | null>(null);
 
   const isLoading = templateLoading || leaseLoading;
   const isError = templateError || leaseError;
 
-  const standardClauses = template?.standard_clauses.filter((c) => c.enabled_by_default) ?? [];
-  const customClausesCount = 0;
+  // Read clauses from URL params (passed from create-agreement.tsx) or default to template
+  const standardClauses = useMemo<AgreementStandardClause[]>(() => {
+    if (rawClauses) {
+      try { return JSON.parse(rawClauses) as AgreementStandardClause[]; } catch { /* fall through */ }
+    }
+    return (template?.standard_clauses.filter((c) => c.enabled_by_default) ?? []) as unknown as AgreementStandardClause[];
+  }, [rawClauses, template]);
+
+  const customClauses = useMemo<AgreementCustomClause[]>(() => {
+    if (rawCustom) {
+      try { return JSON.parse(rawCustom) as AgreementCustomClause[]; } catch { /* fall through */ }
+    }
+    return [];
+  }, [rawCustom]);
+
+  const mutation = isEdit ? editAgreement : buildAgreement;
 
   const handleGenerate = async () => {
     if (!leaseId) return;
     try {
-      const result = await buildAgreement.mutateAsync({
+      const result = await mutation.mutateAsync({
         leaseId,
         data: {
           standard_clauses: standardClauses.map((c) => ({
             key: c.key,
             title: c.title,
             content: c.content,
-            enabled: true,
+            enabled: c.enabled,
           })),
-          custom_clauses: [],
+          custom_clauses: customClauses.map((c) => ({
+            title: c.title,
+            content: c.content,
+          })),
         },
       });
       setSuccessState({ agreementNumber: result.agreement_number });
@@ -58,11 +85,13 @@ export default function AgreementSummaryScreen() {
           <View style={styles.successIconWrap}>
             <CheckCircle size={48} color={Colors.success} />
           </View>
-          <Text style={styles.successTitle}>Agreement Generated</Text>
+          <Text style={styles.successTitle}>{isEdit ? "Agreement Updated" : "Agreement Generated"}</Text>
           <Text style={styles.successSubtitle}>Agreement No.</Text>
           <Text style={styles.successNumber}>{successState.agreementNumber}</Text>
           <Text style={styles.successDesc}>
-            The agreement has been saved and is ready for signatures.
+            {isEdit
+              ? "The agreement has been updated. All signatures have been reset — both parties must consent again."
+              : "The agreement has been saved and is ready for signatures."}
           </Text>
           <View style={styles.successActions}>
             <Button
@@ -80,7 +109,7 @@ export default function AgreementSummaryScreen() {
   if (isLoading) {
     return (
       <Screen>
-        <PageHeader title="Agreement Summary" onBack={() => router.back()} />
+        <PageHeader title={isEdit ? "Edit Agreement" : "Agreement Summary"} onBack={() => router.back()} />
         <LoadingState message="Loading agreement data…" />
       </Screen>
     );
@@ -89,7 +118,7 @@ export default function AgreementSummaryScreen() {
   if (isError || !lease) {
     return (
       <Screen>
-        <PageHeader title="Agreement Summary" onBack={() => router.back()} />
+        <PageHeader title={isEdit ? "Edit Agreement" : "Agreement Summary"} onBack={() => router.back()} />
         <ErrorState title="Could not load data" onRetry={() => router.back()} />
       </Screen>
     );
@@ -97,7 +126,7 @@ export default function AgreementSummaryScreen() {
 
   return (
     <Screen scroll>
-      <PageHeader title="Agreement Summary" onBack={() => router.back()} />
+      <PageHeader title={isEdit ? "Edit Agreement" : "Agreement Summary"} onBack={() => router.back()} />
 
       <View style={styles.content}>
         <Card padding="md" style={styles.agreementCard}>
@@ -156,7 +185,7 @@ export default function AgreementSummaryScreen() {
         <Card padding="md" style={styles.card}>
           <Text style={styles.sectionTitle}>Clauses</Text>
           <Text style={styles.clauseCount}>
-            {standardClauses.length} Standard + {customClausesCount} Custom clauses
+            {standardClauses.length} Standard + {customClauses.length} Custom clauses
           </Text>
           {template && (
             <Text style={styles.templateName}>Template: {template.name}</Text>
@@ -166,7 +195,15 @@ export default function AgreementSummaryScreen() {
         <View style={styles.actions}>
           <Button
             label="View Full Agreement"
-            onPress={() => router.push(`/agreement-preview?leaseId=${leaseId}`)}
+            onPress={() => router.push({
+              pathname: "/agreement-preview",
+              params: {
+                leaseId,
+                mode: isEdit ? "edit" : undefined,
+                standardClauses: JSON.stringify(standardClauses),
+                customClauses: JSON.stringify(customClauses),
+              },
+            })}
             variant="outline"
             fullWidth
             size="lg"
@@ -174,12 +211,12 @@ export default function AgreementSummaryScreen() {
           />
           <View style={{ height: Spacing.md }} />
           <Button
-            label="Generate & Save Agreement"
+            label={isEdit ? "Save Changes" : "Generate & Save Agreement"}
             onPress={handleGenerate}
             fullWidth
             size="lg"
-            loading={buildAgreement.isPending}
-            disabled={buildAgreement.isPending}
+            loading={mutation.isPending}
+            disabled={mutation.isPending}
           />
         </View>
       </View>

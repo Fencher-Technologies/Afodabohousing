@@ -61,6 +61,18 @@ class Settings(BaseSettings):
     sms_provider_api_key: str = ""
     sms_provider_url: str = "https://api.example.com/sms/send"
 
+    # EgoSMS (Comms API v1 JSON — for OTP delivery)
+    egosms_username: str = ""
+    egosms_password: str = ""
+    egosms_sender_id: str = "Afodabo"
+    egosms_url: str = "https://comms.egosms.co/api/v1/json/"
+
+    # OTP
+    otp_length: int = 6
+    otp_expiry_seconds: int = 300  # 5 minutes
+    otp_max_attempts: int = 3
+    otp_rate_limit_seconds: int = 60  # 1 OTP per 60s per phone
+
     # Notifications
     email_provider_api_key: str = ""
     email_provider_url: str = ""

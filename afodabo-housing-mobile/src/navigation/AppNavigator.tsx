@@ -35,6 +35,10 @@ import { ManagerTenanciesScreen } from '../screens/manager-tenancies-screen';
 import { ManagerTenancyDetailsScreen } from '../screens/manager-tenancy-details-screen';
 import { SendInviteScreen } from '../screens/send-invite-screen';
 import { OnboardingScreen } from '../screens/onboarding-screen';
+import { PhoneAuthScreen } from '../screens/phone-auth-screen';
+import { PhoneSignInScreen } from '../screens/phone-signin-screen';
+import { PinSetupScreen } from '../screens/pin-setup-screen';
+import { OtpVerificationScreen } from '../screens/otp-verification-screen';
 import { PropertyDetailsScreen } from '../screens/property-details-screen';
 import { PrivacyScreen } from '../screens/privacy-screen';
 import { RegisterScreen } from '../screens/register-screen';
@@ -491,6 +495,26 @@ export function AppNavigator() {
           options={{ title: 'Privacy Policy' }}
         />
         <RootStack.Screen component={LoginScreen} name="Login" options={{ title: 'Sign In' }} />
+        <RootStack.Screen
+          component={OtpVerificationScreen}
+          name="OtpVerification"
+          options={{ title: 'Verify Code' }}
+        />
+        <RootStack.Screen
+          component={PhoneAuthScreen}
+          name="PhoneAuth"
+          options={{ title: 'Phone Number' }}
+        />
+        <RootStack.Screen
+          component={PhoneSignInScreen}
+          name="PhoneSignIn"
+          options={{ title: 'Sign In' }}
+        />
+        <RootStack.Screen
+          component={PinSetupScreen}
+          name="PinSetup"
+          options={{ title: 'Create PIN' }}
+        />
         <RootStack.Screen
           component={RegisterScreen}
           name="Register"

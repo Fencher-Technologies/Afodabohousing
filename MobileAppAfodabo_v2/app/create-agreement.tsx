@@ -11,7 +11,7 @@ import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
-import { useAgreementTemplate } from "@/src/hooks/useAgreements";
+import { useAgreementTemplate, useAgreementContent, useEditAgreement } from "@/src/hooks/useAgreements";
 import { useTenancy } from "@/src/hooks/useTenancies";
 import type {
   AgreementCustomClause,
@@ -39,17 +39,50 @@ function capitalize(label: string): string {
 }
 
 export default function CreateAgreementScreen() {
-  const { leaseId } = useLocalSearchParams<{ leaseId: string }>();
+  const { leaseId, mode } = useLocalSearchParams<{ leaseId: string; mode?: string }>();
+  const isEdit = mode === "edit";
 
   const { data: template, isLoading: templateLoading, isError: templateError } = useAgreementTemplate();
   const { data: lease, isLoading: leaseLoading, isError: leaseError } = useTenancy(leaseId || "");
+  const { data: existingContent, isLoading: contentLoading } = useAgreementContent(isEdit ? leaseId : undefined);
+  const editAgreement = useEditAgreement();
 
   const [standardClauses, setStandardClauses] = useState<AgreementStandardClause[]>([]);
   const [customClauses, setCustomClauses] = useState<AgreementCustomClause[]>([]);
   const [initialized, setInitialized] = useState(false);
 
+  // Pre-fill from existing content (edit mode) or template defaults (create mode)
   useEffect(() => {
-    if (template?.standard_clauses && !initialized) {
+    if (initialized) return;
+
+    if (isEdit && existingContent) {
+      setStandardClauses(
+        existingContent.standard_clauses?.map((c: AgreementStandardClause) => ({
+          key: c.key,
+          title: c.title,
+          content: c.content,
+          enabled: c.enabled,
+        })) ?? [],
+      );
+      setCustomClauses(
+        existingContent.custom_clauses?.map((c: AgreementCustomClause) => ({
+          title: c.title,
+          content: c.content,
+        })) ?? [],
+      );
+      setInitialized(true);
+    } else if (isEdit && !contentLoading && !existingContent && template?.standard_clauses) {
+      // Edit mode but content unavailable (404) — fallback to template
+      setStandardClauses(
+        template.standard_clauses.map((clause: AgreementTemplateClause) => ({
+          key: clause.key,
+          title: clause.title,
+          content: clause.content,
+          enabled: clause.optional ? clause.enabled_by_default : true,
+        })),
+      );
+      setInitialized(true);
+    } else if (!isEdit && template?.standard_clauses) {
       setStandardClauses(
         template.standard_clauses.map((clause: AgreementTemplateClause) => ({
           key: clause.key,
@@ -60,7 +93,7 @@ export default function CreateAgreementScreen() {
       );
       setInitialized(true);
     }
-  }, [template, initialized]);
+  }, [template, existingContent, initialized, isEdit, contentLoading]);
 
   const handleToggleClause = useCallback((key: string) => {
     setStandardClauses((prev) =>
@@ -107,11 +140,43 @@ export default function CreateAgreementScreen() {
       pathname: "/agreement-summary",
       params: {
         leaseId,
+        mode: isEdit ? "edit" : undefined,
         standardClauses: JSON.stringify(enabledClauses),
         customClauses: JSON.stringify(customClauses),
       },
     });
-  }, [leaseId, standardClauses, customClauses]);
+  }, [leaseId, standardClauses, customClauses, isEdit]);
+
+  const handleSaveChanges = useCallback(async () => {
+    if (!leaseId) return;
+    const enabledClauses = standardClauses.filter((c) => c.enabled);
+    if (enabledClauses.length === 0 && customClauses.length === 0) {
+      Alert.alert("Missing Clauses", "Add at least one clause to the agreement.");
+      return;
+    }
+    try {
+      await editAgreement.mutateAsync({
+        leaseId,
+        data: {
+          standard_clauses: enabledClauses.map((c) => ({
+            key: c.key,
+            title: c.title,
+            content: c.content,
+            enabled: c.enabled,
+          })),
+          custom_clauses: customClauses.map((c) => ({
+            title: c.title,
+            content: c.content,
+          })),
+        },
+      });
+      Alert.alert("Agreement Updated", "All signatures have been reset. Both parties must consent again.", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
+    } catch {
+      // handled by mutation
+    }
+  }, [leaseId, standardClauses, customClauses, editAgreement]);
 
   const isLoading = templateLoading || leaseLoading;
 
@@ -122,7 +187,7 @@ export default function CreateAgreementScreen() {
   if (templateError || leaseError || !lease) {
     return (
       <Screen scroll>
-        <PageHeader title="Create Agreement" onBack={() => router.back()} />
+        <PageHeader title={isEdit ? "Edit Agreement" : "Create Agreement"} onBack={() => router.back()} />
         <ErrorState
           title="Failed to load data"
           description="Could not load the tenancy or agreement template."
@@ -134,7 +199,7 @@ export default function CreateAgreementScreen() {
 
   return (
     <Screen scroll>
-      <PageHeader title="Create Agreement" onBack={() => router.back()} />
+      <PageHeader title={isEdit ? "Edit Agreement" : "Create Agreement"} onBack={() => router.back()} />
 
       <View style={styles.content}>
         {/* ── Section 1: Auto-populated Tenancy Info ── */}
@@ -249,15 +314,37 @@ export default function CreateAgreementScreen() {
           style={styles.addClauseBtn}
         />
 
-        {/* ── Preview Button ── */}
+        {/* ── Action Buttons ── */}
         <View style={styles.previewSection}>
-          <Button
-            label="Preview Agreement"
-            size="lg"
-            fullWidth
-            leftIcon={<FileText size={20} color={Colors.textOnPrimary} />}
-            onPress={handlePreview}
-          />
+          {isEdit ? (
+            <View style={styles.editActions}>
+              <Button
+                label="Preview Changes"
+                size="lg"
+                variant="outline"
+                fullWidth
+                leftIcon={<FileText size={20} color={Colors.primary} />}
+                onPress={handlePreview}
+              />
+              <View style={{ height: Spacing.sm }} />
+              <Button
+                label="Save Changes"
+                size="lg"
+                fullWidth
+                loading={editAgreement.isPending}
+                disabled={editAgreement.isPending}
+                onPress={handleSaveChanges}
+              />
+            </View>
+          ) : (
+            <Button
+              label="Preview Agreement"
+              size="lg"
+              fullWidth
+              leftIcon={<FileText size={20} color={Colors.textOnPrimary} />}
+              onPress={handlePreview}
+            />
+          )}
         </View>
       </View>
 
@@ -347,5 +434,8 @@ const styles = StyleSheet.create({
   },
   previewSection: {
     marginTop: Spacing.xxl,
+  },
+  editActions: {
+    width: "100%",
   },
 });

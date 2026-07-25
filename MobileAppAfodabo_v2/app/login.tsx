@@ -8,14 +8,17 @@ import { router } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Mail, Lock } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
+import { OrDivider } from "@/src/components/OrDivider";
 import { useAuth } from "@/src/context/auth-context";
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -98,10 +101,20 @@ export default function LoginScreen() {
             size="lg"
           />
 
+          <OrDivider />
+
+          <Button
+            label="Sign in with Phone Number"
+            onPress={() => router.push("/phone-signin")}
+            variant="outline"
+            fullWidth
+            size="lg"
+          />
+
           {error && <Text style={styles.errorText}>{error}</Text>}
         </View>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { marginBottom: Math.max(insets.bottom, 16) }]}>
           <Text style={styles.footerText}>Don't have an account? </Text>
           <Pressable onPress={() => router.push("/register")}>
             <Text style={styles.footerLink}>Create Account</Text>

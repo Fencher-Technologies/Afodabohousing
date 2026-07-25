@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { Spacing } from "@/constants/theme";
@@ -9,7 +9,7 @@ import { Button } from "@/src/components/Button";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { AgreementRenderer } from "@/src/components/AgreementRenderer";
-import { useAgreementTemplate, useBuildAgreement } from "@/src/hooks/useAgreements";
+import { useAgreementTemplate, useBuildAgreement, useEditAgreement } from "@/src/hooks/useAgreements";
 import { useTenancy } from "@/src/hooks/useTenancies";
 import type {
   AgreementContent,
@@ -17,10 +17,18 @@ import type {
   AgreementManagerInfo,
   AgreementPropertyInfo,
   AgreementTenancyInfo,
+  AgreementStandardClause,
+  AgreementCustomClause,
 } from "@/src/types";
 
 export default function AgreementPreviewScreen() {
-  const { leaseId } = useLocalSearchParams<{ leaseId: string }>();
+  const { leaseId, mode, standardClauses: rawClauses, customClauses: rawCustom } = useLocalSearchParams<{
+    leaseId: string;
+    mode?: string;
+    standardClauses?: string;
+    customClauses?: string;
+  }>();
+  const isEdit = mode === "edit";
 
   const {
     data: template,
@@ -34,8 +42,24 @@ export default function AgreementPreviewScreen() {
   } = useTenancy(leaseId || "");
 
   const buildAgreement = useBuildAgreement();
+  const editAgreement = useEditAgreement();
 
   const isLoading = templateLoading || leaseLoading;
+
+  // Parse draft clauses from URL params if provided
+  const draftStandardClauses = useMemo<AgreementStandardClause[] | null>(() => {
+    if (rawClauses) {
+      try { return JSON.parse(rawClauses) as AgreementStandardClause[]; } catch { return null; }
+    }
+    return null;
+  }, [rawClauses]);
+
+  const draftCustomClauses = useMemo<AgreementCustomClause[] | null>(() => {
+    if (rawCustom) {
+      try { return JSON.parse(rawCustom) as AgreementCustomClause[]; } catch { return null; }
+    }
+    return null;
+  }, [rawCustom]);
 
   const previewContent = useMemo<AgreementContent | null>(() => {
     if (!template || !lease) return null;
@@ -67,7 +91,8 @@ export default function AgreementPreviewScreen() {
       payment_frequency: "Monthly",
     };
 
-    const standardClauses = template.standard_clauses
+    // Use draft clauses from params if provided (edit preview), else template defaults
+    const standardClauses = draftStandardClauses ?? template.standard_clauses
       .filter((c) => c.enabled_by_default)
       .map((c) => ({
         key: c.key,
@@ -75,6 +100,8 @@ export default function AgreementPreviewScreen() {
         content: c.content,
         enabled: true,
       }));
+
+    const customClauses = draftCustomClauses ?? [];
 
     return {
       agreement_number: "",
@@ -85,10 +112,10 @@ export default function AgreementPreviewScreen() {
       property: propertyInfo,
       tenancy: tenancyInfo,
       standard_clauses: standardClauses,
-      custom_clauses: [],
+      custom_clauses: customClauses,
       signatures: {},
     };
-  }, [template, lease]);
+  }, [template, lease, draftStandardClauses, draftCustomClauses]);
 
   const handleGenerate = async () => {
     if (!leaseId || !template) return;
@@ -102,7 +129,7 @@ export default function AgreementPreviewScreen() {
           enabled: true,
         }));
 
-      const result = await buildAgreement.mutateAsync({
+      await buildAgreement.mutateAsync({
         leaseId,
         data: {
           standard_clauses: standardClauses,
@@ -110,9 +137,35 @@ export default function AgreementPreviewScreen() {
         },
       });
 
-      router.replace(`/tenancy-detail?leaseId=${leaseId}`);
+      router.replace(`/tenancy-detail?id=${leaseId}`);
     } catch {
       // error handled by mutation
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    if (!leaseId || !draftStandardClauses) return;
+    try {
+      await editAgreement.mutateAsync({
+        leaseId,
+        data: {
+          standard_clauses: draftStandardClauses.map((c) => ({
+            key: c.key,
+            title: c.title,
+            content: c.content,
+            enabled: c.enabled,
+          })),
+          custom_clauses: (draftCustomClauses ?? []).map((c) => ({
+            title: c.title,
+            content: c.content,
+          })),
+        },
+      });
+      Alert.alert("Agreement Updated", "All signatures have been reset. Both parties must consent again.", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
+    } catch {
+      // handled by mutation
     }
   };
 
@@ -134,21 +187,34 @@ export default function AgreementPreviewScreen() {
     );
   }
 
+  const mutation = isEdit ? editAgreement : buildAgreement;
+
   return (
     <Screen scroll>
-      <PageHeader title="Agreement Preview" onBack={() => router.back()} subtitle="Unpublished draft" />
+      <PageHeader title="Agreement Preview" onBack={() => router.back()} subtitle={isEdit ? "Draft changes" : "Unpublished draft"} />
 
       <AgreementRenderer content={previewContent} mode="preview" />
 
       <View style={styles.footer}>
-        <Button
-          label="Generate & Save Agreement"
-          onPress={handleGenerate}
-          fullWidth
-          size="lg"
-          loading={buildAgreement.isPending}
-          disabled={buildAgreement.isPending}
-        />
+        {isEdit ? (
+          <Button
+            label="Save Changes"
+            onPress={handleSaveChanges}
+            fullWidth
+            size="lg"
+            loading={mutation.isPending}
+            disabled={mutation.isPending}
+          />
+        ) : (
+          <Button
+            label="Generate & Save Agreement"
+            onPress={handleGenerate}
+            fullWidth
+            size="lg"
+            loading={mutation.isPending}
+            disabled={mutation.isPending}
+          />
+        )}
       </View>
 
       <View style={{ height: Spacing.xxl }} />

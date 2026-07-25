@@ -8,6 +8,7 @@ from supabase import Client
 
 from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client
 from models import TenantCreate, TenantResponse, TenantUpdate
+from phone import normalize_phone
 from services import TenantService, get_tenant_service
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
@@ -102,6 +103,62 @@ def resolve_tenant_by_email(
             first_name=first_name,
             last_name=last_name,
             phone=profile.get("phone") if profile else None,
+            status="active",
+            user_id=user_id,
+        ),
+        current_user.id,
+    )
+    return TenantResponse(**tenant)
+
+
+@router.get("/resolve-by-phone", response_model=TenantResponse)
+def resolve_tenant_by_phone(
+    phone: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    service: TenantService = Depends(get_tenant_svc),
+    service_supabase: Client = Depends(get_service_client),
+) -> TenantResponse:
+    normalized_phone = normalize_phone(phone)
+
+    existing = (
+        service_supabase.table("tenants")
+        .select("*")
+        .eq("owner_id", current_user.id)
+        .eq("phone", normalized_phone)
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        return TenantResponse(**existing.data[0])
+
+    profile_result = (
+        service_supabase.table("profiles")
+        .select("user_id, full_name, email")
+        .eq("phone", normalized_phone)
+        .limit(1)
+        .execute()
+    )
+    profile = profile_result.data[0] if profile_result.data else None
+    user_id = profile.get("user_id") if profile else None
+
+    if not user_id:
+        raise HTTPException(status_code=404, detail="No registered user matched that phone number")
+
+    full_name = (profile.get("full_name") or "").strip() if profile else ""
+    name_parts = [part for part in full_name.split() if part]
+    if name_parts:
+        first_name = name_parts[0]
+        last_name = " ".join(name_parts[1:]) or "Tenant"
+    else:
+        first_name = "Phone"
+        last_name = "Tenant"
+
+    tenant = service.create(
+        TenantCreate(
+            email=profile.get("email") if profile else None,
+            first_name=first_name,
+            last_name=last_name,
+            phone=normalized_phone,
             status="active",
             user_id=user_id,
         ),

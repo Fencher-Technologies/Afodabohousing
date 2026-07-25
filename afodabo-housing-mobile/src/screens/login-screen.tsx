@@ -57,8 +57,14 @@ export function LoginScreen({ navigation }: StackScreenProps<RootStackParamList,
         <Button disabled={loading || !email || !password} onPress={() => runLogin(email, password)}>
           {loading ? 'Signing in...' : 'Sign In'}
         </Button>
-        <Button onPress={() => navigation.navigate('Register')} variant="outline">
-          Create an Account
+        <Button onPress={() => navigation.navigate('PhoneSignIn')} variant="outline">
+          Sign in with Phone
+        </Button>
+        <Button onPress={() => navigation.navigate('PhoneAuth')} variant="ghost">
+          Register with Phone
+        </Button>
+        <Button onPress={() => navigation.navigate('Register')} variant="ghost">
+          Create an Account with Email
         </Button>
       </View>
     </Screen>

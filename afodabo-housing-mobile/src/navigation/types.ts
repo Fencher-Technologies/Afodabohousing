@@ -19,6 +19,10 @@ export type RootStackParamList = {
   ManagerTenancyDetails: { tenancyId: string };
   Main: undefined;
   Onboarding: undefined;
+  OtpVerification: { phone: string };
+  PhoneAuth: undefined;
+  PhoneSignIn: undefined;
+  PinSetup: { phone: string; verifyToken: string };
   PropertyDetails: { propertyId: string };
   Privacy: undefined;
   Register: undefined;

@@ -28,6 +28,7 @@ from .nylonpay import (
     initiate_payment,
     verify_webhook,
 )
+from .phone_auth import PhoneAuthService, get_phone_auth_service, hash_pin, verify_pin, encrypt_password, decrypt_password
 
 __all__ = [
     "generate_agreement_pdf",
@@ -53,6 +54,12 @@ __all__ = [
     "get_agreement_service",
     "AuthService",
     "get_auth_service",
+    "PhoneAuthService",
+    "get_phone_auth_service",
+    "hash_pin",
+    "verify_pin",
+    "encrypt_password",
+    "decrypt_password",
     "get_nylonpay_sdk",
     "initiate_boost_payment",
     "initiate_payment",
