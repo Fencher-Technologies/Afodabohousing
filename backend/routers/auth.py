@@ -1,4 +1,5 @@
 import logging
+import secrets
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,7 +16,17 @@ from dependencies import (
     require_super_admin_or_manager,
 )
 from models import ProfileResponse, ProfileUpdate
-from services import AuthService, get_auth_service
+from phone import normalize_phone, phone_to_email, validate_pin
+from services import (
+    AuthService,
+    PhoneAuthService,
+    decrypt_password,
+    encrypt_password,
+    get_auth_service,
+    get_phone_auth_service,
+    hash_pin,
+    verify_pin,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,17 +39,22 @@ class SignUpRequest(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     role: str = "tenant"
+    accepted_terms: bool = False
+    terms_version: str | None = None
+    privacy_version: str | None = None
 
 
 class InviteRequest(BaseModel):
-    email: EmailStr
+    email: EmailStr | None = None
+    phone: str | None = None
     role: str
 
 
 class InviteResponse(BaseModel):
     message: str
     invitation_id: str
-    email: str
+    email: str | None = None
+    phone: str | None = None
     role: str
     token: str
     expires_at: str
@@ -47,9 +63,11 @@ class InviteResponse(BaseModel):
 
 class AcceptInviteRequest(BaseModel):
     token: str
-    password: str
+    password: str | None = None
     full_name: str
     phone: str | None = None
+    verify_token: str | None = None
+    pin: str | None = None
 
 
 class SignInRequest(BaseModel):
@@ -84,6 +102,71 @@ class RefreshRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+class PhoneSendOtpRequest(BaseModel):
+    phone: str
+
+
+class PhoneVerifyOtpRequest(BaseModel):
+    phone: str
+    otp: str
+
+
+class PhoneRegisterRequest(BaseModel):
+    phone: str
+    verify_token: str
+    full_name: str
+    pin: str
+    accepted_terms: bool = False
+    terms_version: str | None = None
+    privacy_version: str | None = None
+
+
+class PhoneSignInRequest(BaseModel):
+    phone: str
+    pin: str
+
+
+class PhoneLinkRequest(BaseModel):
+    phone: str
+    verify_token: str
+    pin: str
+    current_password: str
+
+
+class PhoneForgotPinRequest(BaseModel):
+    phone: str
+    verify_token: str
+    new_pin: str
+
+
+class PhoneChangePinRequest(BaseModel):
+    current_pin: str
+    new_pin: str
+
+
+class PhoneOtpResponse(BaseModel):
+    status: str
+    message: str
+    expires_in: int | None = None
+
+
+class PhoneVerifyOtpResponse(BaseModel):
+    valid: bool
+    message: str
+    verify_token: str | None = None
+
+
+class PhoneRegisterResponse(BaseModel):
+    access_token: str
+    refresh_token: str | None = None
+    role: str = "tenant"
+    token_type: str = "bearer"
+    user: dict
+
+
+PhoneSignInResponse = TokenResponse
 
 
 # ── Helpers ──
@@ -136,6 +219,24 @@ def signup(
             detail="Public signup is only available for the tenant role",
         )
 
+    if not data.accepted_terms:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You must accept the Terms of Service and Privacy Policy to create an account.",
+        )
+
+    existing_profile = (
+        service_supabase.table("profiles")
+        .select("id, user_id")
+        .eq("email", data.email)
+        .limit(1)
+        .execute()
+    )
+    if existing_profile.data:
+        auth_id = _find_auth_user_by_email(service_supabase, data.email)
+        if not auth_id:
+            service_supabase.table("profiles").delete().eq("id", existing_profile.data[0]["id"]).execute()
+
     try:
         result = service.sign_up(
             email=data.email,
@@ -170,6 +271,10 @@ def signup(
             "full_name": data.full_name,
             "phone": data.phone,
             "user_id": user_id,
+            "accepted_terms": True,
+            "accepted_terms_at": datetime.now(UTC).isoformat(),
+            "terms_version": data.terms_version or "1.0",
+            "privacy_version": data.privacy_version or "1.0",
         }
         service_supabase.table("profiles").upsert(profile_payload, on_conflict="user_id").execute()
         service_supabase.table("profiles").update({"role": data.role}).eq("user_id", user_id).execute()
@@ -193,6 +298,12 @@ def invite_user(
     current_user: CurrentUser = Depends(require_super_admin_or_manager),
     supabase: Client = Depends(get_service_client),
 ) -> InviteResponse:
+    if not data.email and not data.phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either email or phone must be provided.",
+        )
+
     valid_roles = {"house_manager", "tenant"}
     if data.role not in valid_roles:
         raise HTTPException(
@@ -212,22 +323,33 @@ def invite_user(
             detail="House manager can only invite tenants",
         )
 
-    existing = supabase.table("profiles").select("user_id").eq("email", data.email).execute()
-    if existing.data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"A user with email '{data.email}' already exists in the system. They can sign in directly.",
-        )
+    if data.email:
+        normalized_email = data.email.lower().strip()
+        existing = supabase.table("profiles").select("user_id").eq("email", normalized_email).execute()
+        if existing.data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"A user with email '{normalized_email}' already exists in the system. They can sign in directly.",
+            )
+        existing_auth = _find_auth_user_by_email(supabase, normalized_email)
+        if existing_auth:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"An account with email '{normalized_email}' already exists but has no profile. Contact support.",
+            )
 
-    existing_auth = _find_auth_user_by_email(supabase, data.email)
-    if existing_auth:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"An account with email '{data.email}' already exists but has no profile. Contact support.",
-        )
+    if data.phone:
+        normalized_phone = normalize_phone(data.phone)
+        existing_phone = supabase.table("profiles").select("user_id").eq("phone", normalized_phone).execute()
+        if existing_phone.data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"A user with phone '{normalized_phone}' already exists in the system. They can sign in directly.",
+            )
 
     invite_payload = {
-        "email": data.email,
+        "email": data.email.lower().strip() if data.email else None,
+        "phone": normalize_phone(data.phone) if data.phone else None,
         "role": data.role,
         "invited_by": current_user.id,
         "manager_id": current_user.id if data.role == "tenant" else None,
@@ -243,14 +365,15 @@ def invite_user(
     invitation = result.data[0]
 
     logger.info(
-        "Invitation created: role=%s email=%s invited_by=%s token=%s",
-        data.role, data.email, current_user.id, invitation["token"],
+        "Invitation created: role=%s email=%s phone=%s invited_by=%s token=%s",
+        data.role, data.email, data.phone, current_user.id, invitation["token"],
     )
 
     return InviteResponse(
-        message=f"Invitation sent to {data.email}",
+        message=f"Invitation sent to {data.email or data.phone}",
         invitation_id=invitation["id"],
-        email=invitation["email"],
+        email=invitation.get("email"),
+        phone=invitation.get("phone"),
         role=invitation["role"],
         token=str(invitation["token"]),
         expires_at=invitation["expires_at"],
@@ -297,7 +420,126 @@ def accept_invite(
             detail="Invitation has expired",
         )
 
-    invite_email = invitation["email"]
+    invite_phone = invitation.get("phone")
+    invite_email = invitation.get("email")
+
+    # ── Phone-based invitation ──
+    if invite_phone:
+        phone = normalize_phone(invite_phone)
+
+        if not data.verify_token or not data.pin:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone invitations require verify_token and pin.",
+            )
+
+        pin_error = validate_pin(data.pin)
+        if pin_error:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=pin_error)
+
+        verify = _verify_phone_token(supabase, phone, data.verify_token)
+        if not verify:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired verification token.",
+            )
+
+        internal_email = phone_to_email(phone)
+        password = secrets.token_urlsafe(24)
+
+        pin_hash_val = hash_pin(data.pin)
+        encrypted_password = encrypt_password(password, data.pin)
+
+        orphan_id = _find_auth_user_by_email(supabase, internal_email)
+        if orphan_id:
+            try:
+                supabase.auth.admin.delete_user(orphan_id)
+            except Exception:
+                pass
+
+        try:
+            auth_result = supabase.auth.admin.create_user({
+                "email": internal_email,
+                "password": password,
+                "email_confirm": True,
+                "user_metadata": {"full_name": data.full_name, "phone": phone},
+            })
+        except Exception as e:
+            msg = str(e)
+            if hasattr(e, "response") and e.response is not None:
+                try:
+                    body = e.response.json()
+                    msg = body.get("msg", body.get("error_description", body.get("error", msg)))
+                except Exception:
+                    msg = str(e)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+
+        user = auth_result.user
+        user_id = user.id
+
+        profile_payload = {
+            "user_id": user_id,
+            "email": internal_email,
+            "full_name": data.full_name,
+            "phone": phone,
+            "role": invitation["role"],
+            "created_by": invitation["invited_by"],
+            "status": "active",
+            "pin_hash": pin_hash_val,
+            "auth_password_enc": encrypted_password,
+            "phone_verified_at": datetime.now(UTC).isoformat(),
+        }
+        if invitation.get("manager_id"):
+            profile_payload["manager_id"] = invitation["manager_id"]
+
+        try:
+            supabase.table("profiles").upsert(profile_payload, on_conflict="user_id").execute()
+        except Exception as e:
+            try:
+                supabase.auth.admin.delete_user(user_id)
+            except Exception:
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create profile: {str(e)}",
+            )
+
+        supabase.table("invitations").update({"status": "accepted"}).eq("id", invitation["id"]).execute()
+
+        try:
+            sign_in_result = supabase.auth.sign_in_with_password({
+                "email": internal_email,
+                "password": password,
+            })
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Account created but sign-in failed: {str(e)}",
+            )
+
+        session = sign_in_result.session
+        user_data = user.model_dump() if hasattr(user, "model_dump") else {"id": str(user_id), "email": internal_email}
+
+        return TokenResponse(
+            access_token=session.access_token,
+            refresh_token=getattr(session, "refresh_token", None),
+            role=invitation["role"],
+            user=user_data,
+        )
+
+    # ── Email-based invitation ──
+    if not invite_email:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Invitation has no email or phone.",
+        )
+
+    if not data.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email invitations require a password.",
+        )
+
     existing_user_id = _find_auth_user_by_email(supabase, invite_email)
 
     if existing_user_id:
@@ -550,6 +792,414 @@ def change_password(
         )
 
     return {"message": "Password updated successfully"}
+
+
+# ── Phone Auth Helpers ──
+
+
+def _verify_phone_token(supabase: Client, phone: str, token: str) -> bool:
+    phone = normalize_phone(phone)
+    now = datetime.now(UTC)
+    result = (
+        supabase.table("phone_otps")
+        .select("*")
+        .eq("phone", phone)
+        .eq("otp_code", f"verify_token:{token}")
+        .gte("expires_at", now.isoformat())
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        return False
+    supabase.table("phone_otps").update({"verified_at": now.isoformat()}).eq("id", result.data[0]["id"]).execute()
+    return True
+
+
+# ── Phone Auth ──
+
+
+@router.post("/phone/send-otp", response_model=PhoneOtpResponse)
+async def send_phone_otp(
+    data: PhoneSendOtpRequest,
+    svc: PhoneAuthService = Depends(get_phone_auth_service),
+) -> PhoneOtpResponse:
+    result = await svc.send_otp(data.phone)
+    return PhoneOtpResponse(**result)
+
+
+@router.post("/phone/verify-otp", response_model=PhoneVerifyOtpResponse)
+async def verify_phone_otp(
+    data: PhoneVerifyOtpRequest,
+    svc: PhoneAuthService = Depends(get_phone_auth_service),
+) -> PhoneVerifyOtpResponse:
+    token = await svc.verify_otp_for_token(data.phone, data.otp)
+    if not token:
+        return PhoneVerifyOtpResponse(valid=False, message="OTP verification failed", verify_token=None)
+    return PhoneVerifyOtpResponse(valid=True, message="Phone verified", verify_token=token)
+
+
+@router.post("/phone/register", response_model=PhoneRegisterResponse)
+def register_phone(
+    data: PhoneRegisterRequest,
+    supabase: Client = Depends(get_service_client),
+    svc: PhoneAuthService = Depends(get_phone_auth_service),
+) -> PhoneRegisterResponse:
+    phone = normalize_phone(data.phone)
+
+    pin_error = validate_pin(data.pin)
+    if pin_error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=pin_error)
+
+    if not data.accepted_terms:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You must accept the Terms of Service and Privacy Policy to create an account.",
+        )
+
+    existing = svc.get_profile_by_phone(phone)
+    if existing:
+        internal_email = existing.get("email", phone_to_email(phone))
+        auth_id = _find_auth_user_by_email(supabase, internal_email)
+        if not auth_id:
+            supabase.table("profiles").delete().eq("id", existing["id"]).execute()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This phone number is already registered. Sign in with your PIN instead.",
+            )
+
+    verify = _verify_phone_token(supabase, phone, data.verify_token)
+    if not verify:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token. Please verify your OTP again.",
+        )
+
+    internal_email = phone_to_email(phone)
+    password = secrets.token_urlsafe(24)
+
+    pin_hash_val = hash_pin(data.pin)
+    encrypted_password = encrypt_password(password, data.pin)
+
+    orphan_id = _find_auth_user_by_email(supabase, internal_email)
+    if orphan_id:
+        try:
+            supabase.auth.admin.delete_user(orphan_id)
+        except Exception:
+            pass
+
+    try:
+        auth_result = supabase.auth.admin.create_user({
+            "email": internal_email,
+            "password": password,
+            "email_confirm": True,
+            "user_metadata": {"full_name": data.full_name, "phone": phone},
+        })
+    except Exception as e:
+        msg = str(e)
+        if hasattr(e, "response") and e.response is not None:
+            try:
+                body = e.response.json()
+                msg = body.get("msg", body.get("error_description", body.get("error", msg)))
+            except Exception:
+                msg = str(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+
+    user = auth_result.user
+    user_id = user.id
+
+    try:
+        supabase.table("profiles").upsert({
+            "user_id": user_id,
+            "email": internal_email,
+            "full_name": data.full_name,
+            "phone": phone,
+            "role": "tenant",
+            "status": "active",
+            "pin_hash": pin_hash_val,
+            "auth_password_enc": encrypted_password,
+            "phone_verified_at": datetime.now(UTC).isoformat(),
+            "accepted_terms": True,
+            "accepted_terms_at": datetime.now(UTC).isoformat(),
+            "terms_version": data.terms_version or "1.0",
+            "privacy_version": data.privacy_version or "1.0",
+        }, on_conflict="user_id").execute()
+    except Exception as e:
+        try:
+            supabase.auth.admin.delete_user(user_id)
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create profile: {str(e)}",
+        )
+
+    try:
+        sign_in = supabase.auth.sign_in_with_password({
+            "email": internal_email,
+            "password": password,
+        })
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Account created but sign-in failed: {str(e)}",
+        )
+
+    session = sign_in.session
+    user_data = user.model_dump() if hasattr(user, "model_dump") else {"id": str(user_id), "email": internal_email}
+
+    return PhoneRegisterResponse(
+        access_token=session.access_token,
+        refresh_token=getattr(session, "refresh_token", None),
+        user=user_data,
+        role="tenant",
+    )
+
+
+@router.post("/phone/signin", response_model=PhoneSignInResponse)
+def signin_phone(
+    data: PhoneSignInRequest,
+    supabase: Client = Depends(get_service_client),
+) -> PhoneSignInResponse:
+    phone = normalize_phone(data.phone)
+
+    profile = supabase.table("profiles").select("*").eq("phone", phone).execute()
+    if not profile.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this phone number.",
+        )
+
+    profile = profile.data[0]
+
+    if not profile.get("pin_hash") or not profile.get("auth_password_enc"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account does not have a PIN set up. Please sign in with email and password.",
+        )
+
+    if not verify_pin(data.pin, profile["pin_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect PIN.",
+        )
+
+    if profile.get("status") != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Account is {profile['status']}. Please contact your administrator.",
+        )
+
+    try:
+        decrypted_password = decrypt_password(profile["auth_password_enc"], data.pin)
+    except Exception as e:
+        logger.error("Failed to decrypt auth password for %s: %s", profile["phone"], str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to authenticate. Please try again.",
+        )
+
+    email_to_use = profile.get("email")
+    if not email_to_use:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Account has no email configured.",
+        )
+
+    try:
+        result = supabase.auth.sign_in_with_password({
+            "email": email_to_use,
+            "password": decrypted_password,
+        })
+    except Exception as e:
+        msg = str(e)
+        if hasattr(e, "response") and e.response is not None:
+            try:
+                body = e.response.json()
+                msg = body.get("msg", body.get("error_description", body.get("error", msg)))
+            except Exception:
+                msg = str(e)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=msg)
+
+    user_data = result.user
+    user_data_dict = user_data.model_dump() if hasattr(user_data, "model_dump") else user_data
+
+    return TokenResponse(
+        access_token=result.session.access_token,
+        refresh_token=getattr(result.session, "refresh_token", None),
+        role=profile.get("role", "tenant"),
+        user=user_data_dict,
+    )
+
+
+@router.post("/phone/link")
+def link_phone(
+    data: PhoneLinkRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    phone = normalize_phone(data.phone)
+
+    pin_error = validate_pin(data.pin)
+    if pin_error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=pin_error)
+
+    existing = supabase.table("profiles").select("id").eq("phone", phone).execute()
+    if existing.data:
+        existing_id = existing.data[0].get("user_id")
+        if existing_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This phone number is already linked to another account.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This phone number is already linked to your account.",
+        )
+
+    verify = _verify_phone_token(supabase, phone, data.verify_token)
+    if not verify:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token.",
+        )
+
+    profile = _get_profile(current_user.id, supabase)
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found.")
+
+    email = profile.get("email")
+    if not email:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Profile has no email.")
+
+    try:
+        supabase.auth.sign_in_with_password({"email": email, "password": data.current_password})
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect.",
+        )
+
+    pin_hash_val = hash_pin(data.pin)
+    encrypted_password = encrypt_password(data.current_password, data.pin)
+
+    supabase.table("profiles").update({
+        "phone": phone,
+        "pin_hash": pin_hash_val,
+        "auth_password_enc": encrypted_password,
+        "phone_verified_at": datetime.now(UTC).isoformat(),
+    }).eq("user_id", current_user.id).execute()
+
+    return {"message": "Phone number linked successfully. You can now sign in with your phone and PIN."}
+
+
+@router.post("/phone/forgot-pin")
+def forgot_pin(
+    data: PhoneForgotPinRequest,
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    phone = normalize_phone(data.phone)
+
+    pin_error = validate_pin(data.new_pin)
+    if pin_error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=pin_error)
+
+    verify = _verify_phone_token(supabase, phone, data.verify_token)
+    if not verify:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token.",
+        )
+
+    profile_result = supabase.table("profiles").select("*").eq("phone", phone).execute()
+    if not profile_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this phone number.",
+        )
+
+    profile = profile_result.data[0]
+
+    if not profile.get("pin_hash") or not profile.get("auth_password_enc"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This phone number is not linked to a PIN-based account.",
+        )
+
+    email = profile.get("email")
+    if not email:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Profile has no email.")
+
+    new_password = secrets.token_urlsafe(24)
+
+    try:
+        supabase.auth.admin.update_user_by_id(profile["user_id"], {"password": new_password})
+    except Exception as e:
+        logger.error("Failed to update password for user %s: %s", profile["user_id"], str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reset PIN. Please try again.",
+        )
+
+    pin_hash_val = hash_pin(data.new_pin)
+    encrypted_password = encrypt_password(new_password, data.new_pin)
+
+    supabase.table("profiles").update({
+        "pin_hash": pin_hash_val,
+        "auth_password_enc": encrypted_password,
+    }).eq("user_id", profile["user_id"]).execute()
+
+    return {"message": "PIN reset successfully. You can now sign in with your new PIN."}
+
+
+@router.post("/phone/change-pin")
+def change_pin(
+    data: PhoneChangePinRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    pin_error = validate_pin(data.new_pin)
+    if pin_error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=pin_error)
+
+    profile = _get_profile(current_user.id, supabase)
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found.")
+
+    if not profile.get("auth_password_enc"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No PIN is set on this account. Link a phone first.",
+        )
+
+    if not verify_pin(data.current_pin, profile["pin_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current PIN is incorrect.",
+        )
+
+    try:
+        decrypted_password = decrypt_password(profile["auth_password_enc"], data.current_pin)
+    except Exception as e:
+        logger.error("Failed to decrypt password for PIN change: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to change PIN. Please try again.",
+        )
+
+    pin_hash_val = hash_pin(data.new_pin)
+    encrypted_password = encrypt_password(decrypted_password, data.new_pin)
+
+    supabase.table("profiles").update({
+        "pin_hash": pin_hash_val,
+        "auth_password_enc": encrypted_password,
+    }).eq("user_id", current_user.id).execute()
+
+    return {"message": "PIN changed successfully."}
+
+
+# ── Helpers ──
 
 
 @router.get("/me", response_model=UserResponse)

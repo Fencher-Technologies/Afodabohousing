@@ -53,6 +53,13 @@ function RootLayoutNav() {
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
       <Stack.Screen name="forgot-password" />
+      <Stack.Screen name="phone-auth" />
+      <Stack.Screen name="phone-otp" />
+      <Stack.Screen name="phone-pin-setup" />
+      <Stack.Screen name="phone-signin" />
+      <Stack.Screen name="forgot-pin" />
+      <Stack.Screen name="change-pin" />
+      <Stack.Screen name="accept-invite" />
       <Stack.Screen name="manager" />
       <Stack.Screen name="tenant" />
       <Stack.Screen name="guest" />

@@ -14,6 +14,7 @@ import {
   FileText,
   Headphones,
   Mail,
+  Phone,
 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -51,7 +52,7 @@ export default function TenantAccountScreen() {
           />
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{user.full_name}</Text>
-            <Text style={styles.profileEmail}>{user.email}</Text>
+            <Text style={styles.profileEmail}>{user.email.startsWith("phone_") ? user.phone || user.email : user.email}</Text>
             <View style={styles.profileMeta}>
               <Badge label="Tenant" tone="primary" />
               {user.email_verified && <Badge label="Verified" tone="success" dot />}
@@ -66,6 +67,8 @@ export default function TenantAccountScreen() {
             <ActionRow icon={<User size={20} color={Colors.textSecondary} />} label="Edit Profile" onPress={() => router.push("/edit-profile")} />
             <Divider />
             <ActionRow icon={<Lock size={20} color={Colors.textSecondary} />} label="Change Password" onPress={() => router.push("/change-password")} />
+            <Divider />
+            <ActionRow icon={<Phone size={20} color={Colors.textSecondary} />} label="Change PIN" onPress={() => router.push("/change-pin")} />
           </Card>
         </View>
 

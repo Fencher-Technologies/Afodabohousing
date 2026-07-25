@@ -67,4 +67,33 @@ export const authService = {
 
   getMe: () =>
     api.get<UserResponse>("/auth/me"),
+
+  // ── Phone Auth ──────────────────────────────────────────
+  sendOtp: (phone: string) =>
+    api.post<{ message: string; otp_length: number }>("/auth/phone/send-otp", { phone }),
+
+  verifyOtp: (phone: string, otp: string) =>
+    api.post<{ valid: boolean; message: string; verify_token?: string | null }>("/auth/phone/verify-otp", { phone, otp }),
+
+  registerWithPhone: (data: { phone: string; full_name: string; pin: string; verify_token: string; accepted_terms?: boolean; terms_version?: string; privacy_version?: string }) =>
+    api.post<SignInResponse>("/auth/phone/register", data),
+
+  signInWithPhone: (phone: string, pin: string) =>
+    api.post<SignInResponse>("/auth/phone/signin", { phone, pin }),
+
+  linkPhone: (data: { phone: string; pin: string; current_password: string }) =>
+    api.post<{ message: string }>("/auth/phone/link", data),
+
+  forgotPin: (data: { phone: string; verify_token: string; new_pin: string }) =>
+    api.post<{ message: string }>("/auth/phone/forgot-pin", data),
+
+  changePin: (data: { current_pin: string; new_pin: string }) =>
+    api.post<{ message: string }>("/auth/phone/change-pin", data),
+
+  // ── Invites ──────────────────────────────────────────────
+  sendInvite: (data: { email?: string; phone?: string; role: string }) =>
+    api.post<{ message: string; invitation_id: string; token: string; expires_at: string; status: string }>("/auth/invite", data),
+
+  acceptInvite: (data: { token: string; full_name: string; password?: string; verify_token?: string; pin?: string; phone?: string }) =>
+    api.post<SignInResponse>("/auth/accept-invite", data),
 };

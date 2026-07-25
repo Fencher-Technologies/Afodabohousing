@@ -36,17 +36,19 @@ function useAuthInner() {
         if (token) {
           const me = await authService.getMe();
           const role = (me.role === "house_manager" ? "manager" : me.role) as UserRole;
+          let fullName = "";
           let phone = "";
           try {
             const profile = await authService.getProfile();
+            fullName = profile.full_name || "";
             phone = profile.phone || "";
           } catch {
-            // profile is best-effort; phone stays empty if unavailable
+            // profile is best-effort; stays empty if unavailable
           }
           setUser({
             id: me.id,
             email: me.email,
-            full_name: me.full_name || "",
+            full_name: fullName,
             phone,
             role,
             email_verified: me.status === "active",
@@ -146,13 +148,16 @@ function useAuthInner() {
     return userData;
   }, []);
 
-  const register = useCallback(async (role: UserRole, data: { full_name: string; email: string; phone: string; password: string }) => {
+  const register = useCallback(async (role: UserRole, data: { full_name: string; email: string; phone: string; password: string; accepted_terms?: boolean; terms_version?: string; privacy_version?: string }) => {
     const result = await authService.signUp({
       email: data.email,
       password: data.password,
       full_name: data.full_name,
       phone: data.phone,
       role: role === "manager" ? "house_manager" : "tenant",
+      accepted_terms: data.accepted_terms,
+      terms_version: data.terms_version,
+      privacy_version: data.privacy_version,
     });
     await setStoredToken(result.access_token);
     if (result.refresh_token) {
@@ -206,6 +211,43 @@ function useAuthInner() {
     );
   }, []);
 
+  const refreshAuth = useCallback(async () => {
+    try {
+      const token = await getStoredToken();
+      if (!token) {
+        setUser(null);
+        return null;
+      }
+      const me = await authService.getMe();
+      const role = (me.role === "house_manager" ? "manager" : me.role) as UserRole;
+      let fullName = "";
+      let phone = "";
+      try {
+        const profile = await authService.getProfile();
+        fullName = profile.full_name || "";
+        phone = profile.phone || "";
+      } catch {
+        // best-effort
+      }
+      const userData: User = {
+        id: me.id,
+        email: me.email,
+        full_name: fullName,
+        phone,
+        role,
+        email_verified: me.status === "active",
+        created_at: "",
+      };
+      setUser(userData);
+      await AsyncStorage.setItem(SESSION_KEY, role);
+      return userData;
+    } catch {
+      await clearTokens();
+      setUser(null);
+      return null;
+    }
+  }, []);
+
   return {
     user,
     isLoading,
@@ -217,6 +259,7 @@ function useAuthInner() {
     signOut,
     markOnboardingSeen,
     updateProfile,
+    refreshAuth,
   };
 }
 

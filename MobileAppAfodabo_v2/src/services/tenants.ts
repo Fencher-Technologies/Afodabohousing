@@ -48,4 +48,7 @@ export const tenantsService = {
 
   resolveByEmail: (email: string) =>
     api.get<TenantResponse>(`/tenants/resolve-by-email?email=${encodeURIComponent(email)}`),
+
+  resolveByPhone: (phone: string) =>
+    api.get<TenantResponse>(`/tenants/resolve-by-phone?phone=${encodeURIComponent(phone)}`),
 };

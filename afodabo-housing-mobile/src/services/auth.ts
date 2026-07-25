@@ -207,9 +207,11 @@ export async function registerUser(payload: RegisterPayload) {
 
 export interface AcceptInvitePayload {
   token: string;
-  password: string;
+  password?: string;
   fullName: string;
-  phone: string;
+  phone?: string;
+  verifyToken?: string;
+  pin?: string;
 }
 
 export async function changePassword(currentPassword: string, newPassword: string) {
@@ -236,9 +238,11 @@ export async function acceptInvite(payload: AcceptInvitePayload) {
   }>('/auth/accept-invite', {
     body: {
       token: payload.token,
-      password: payload.password,
+      password: payload.password || null,
       full_name: payload.fullName,
       phone: payload.phone || null,
+      verify_token: payload.verifyToken || null,
+      pin: payload.pin || null,
     },
     method: 'POST',
   });
@@ -300,4 +304,139 @@ export async function updateProfile(payload: UpdateProfilePayload) {
   });
 
   return mapBackendProfileToProfileRow(profile);
+}
+
+// ── Phone Auth ──
+
+export interface SendOtpResponse {
+  status: string;
+  message: string;
+  expires_in: number;
+}
+
+export interface VerifyOtpResponse {
+  valid: boolean;
+  message: string;
+  verify_token: string | null;
+}
+
+export interface PhoneRegisterResponse {
+  access_token: string;
+  refresh_token?: string | null;
+  role?: string | null;
+  token_type: string;
+  user: {
+    email: string;
+    id: string;
+    user_metadata?: Record<string, unknown> | null;
+  };
+}
+
+export async function sendOtp(phone: string): Promise<SendOtpResponse> {
+  return apiRequest<SendOtpResponse>('/auth/phone/send-otp', {
+    body: { phone },
+    method: 'POST',
+  });
+}
+
+export async function verifyOtp(phone: string, otp: string): Promise<VerifyOtpResponse> {
+  return apiRequest<VerifyOtpResponse>('/auth/phone/verify-otp', {
+    body: { phone, otp },
+    method: 'POST',
+  });
+}
+
+export async function registerWithPhone(
+  phone: string,
+  verifyToken: string,
+  fullName: string,
+  pin: string,
+): Promise<AuthSession> {
+  const response = await apiRequest<PhoneRegisterResponse>('/auth/phone/register', {
+    body: {
+      phone,
+      verify_token: verifyToken,
+      full_name: fullName,
+      pin,
+    },
+    method: 'POST',
+  });
+
+  const session: AuthSession = {
+    accessToken: response.access_token,
+    refreshToken: response.refresh_token ?? null,
+    role: response.role === 'tenant' || response.role === 'house_manager' ? response.role : null,
+    user: {
+      email: response.user.email,
+      id: response.user.id,
+      user_metadata: response.user.user_metadata ?? null,
+    },
+  };
+
+  await setStoredAuthSession(session);
+
+  return session;
+}
+
+export interface PhoneSignInResponse {
+  access_token: string;
+  refresh_token?: string | null;
+  role?: string | null;
+  token_type: string;
+  user: {
+    email: string;
+    id: string;
+    user_metadata?: Record<string, unknown> | null;
+  };
+}
+
+export async function signInWithPhone(phone: string, pin: string): Promise<AuthSession> {
+  const response = await apiRequest<PhoneSignInResponse>('/auth/phone/signin', {
+    body: { phone, pin },
+    method: 'POST',
+  });
+
+  const session: AuthSession = {
+    accessToken: response.access_token,
+    refreshToken: response.refresh_token ?? null,
+    role: response.role === 'tenant' || response.role === 'house_manager' ? response.role : null,
+    user: {
+      email: response.user.email,
+      id: response.user.id,
+      user_metadata: response.user.user_metadata ?? null,
+    },
+  };
+
+  await setStoredAuthSession(session);
+
+  return session;
+}
+
+export async function linkPhone(
+  phone: string,
+  verifyToken: string,
+  pin: string,
+  currentPassword: string,
+): Promise<void> {
+  await apiRequest('/auth/phone/link', {
+    auth: true,
+    body: {
+      phone,
+      verify_token: verifyToken,
+      pin,
+      current_password: currentPassword,
+    },
+    method: 'POST',
+  });
+}
+
+export async function changePin(currentPin: string, newPin: string): Promise<void> {
+  await apiRequest('/auth/phone/change-pin', {
+    auth: true,
+    body: {
+      current_pin: currentPin,
+      new_pin: newPin,
+    },
+    method: 'POST',
+  });
 }

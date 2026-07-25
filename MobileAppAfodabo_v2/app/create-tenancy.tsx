@@ -12,7 +12,8 @@ import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import { useAuth } from "@/src/context/auth-context";
 import { usePropertyList } from "@/src/hooks/useProperties";
 import { useCreateTenancy } from "@/src/hooks/useTenancies";
-import { useResolveTenantByEmail } from "@/src/hooks/useTenants";
+import { SegmentedControl } from "@/src/components/SegmentedControl";
+import { useResolveTenantByEmail, useResolveTenantByPhone } from "@/src/hooks/useTenants";
 
 const MONTHS = [
   { label: "January", value: "01" },
@@ -37,10 +38,12 @@ export default function CreateTenancyScreen() {
   const { subscription } = useAuth();
   const { data: propertiesData } = usePropertyList();
   const createTenancy = useCreateTenancy();
-  const resolveTenant = useResolveTenantByEmail();
+  const resolveTenantByEmail = useResolveTenantByEmail();
+  const resolveTenantByPhone = useResolveTenantByPhone();
 
   const [showGate, setShowGate] = useState(false);
-  const [tenantEmail, setTenantEmail] = useState("");
+  const [contactMethod, setContactMethod] = useState("email");
+  const [tenantContact, setTenantContact] = useState("");
   const [propertyId, setPropertyId] = useState("");
   const [unitLabel, setUnitLabel] = useState("");
   const [rentAmount, setRentAmount] = useState("");
@@ -74,13 +77,15 @@ export default function CreateTenancyScreen() {
       setShowGate(true);
       return;
     }
-    if (!tenantEmail.trim() || !propertyId || !rentAmount.trim()) {
-      Alert.alert("Missing fields", "Please fill in tenant email, property, and rent amount.");
+    if (!tenantContact.trim() || !propertyId || !rentAmount.trim()) {
+      Alert.alert("Missing fields", "Please fill in tenant contact, property, and rent amount.");
       return;
     }
 
     try {
-      const tenant = await resolveTenant.mutateAsync(tenantEmail.trim());
+      const resolve =
+        contactMethod === "email" ? resolveTenantByEmail : resolveTenantByPhone;
+      const tenant = await resolve.mutateAsync(tenantContact.trim());
 
       await createTenancy.mutateAsync({
         property_id: propertyId,
@@ -95,7 +100,7 @@ export default function CreateTenancyScreen() {
 
       Alert.alert("Success", "Tenancy created successfully!", [{ text: "OK", onPress: () => router.back() }]);
     } catch {
-      Alert.alert("Error", "Could not create tenancy. Make sure the tenant email is registered.");
+      Alert.alert("Error", "Could not create tenancy. Make sure the tenant is registered.");
     }
   };
 
@@ -105,15 +110,26 @@ export default function CreateTenancyScreen() {
 
       <View style={styles.content}>
         <Text style={styles.sectionLabel}>Tenant</Text>
+        <SegmentedControl
+          segments={[
+            { label: "Email", value: "email" },
+            { label: "Phone", value: "phone" },
+          ]}
+          value={contactMethod}
+          onChange={setContactMethod}
+        />
+        <View style={{ height: Spacing.md }} />
         <InputField
-          label="Tenant Email"
-          value={tenantEmail}
-          onChangeText={setTenantEmail}
-          placeholder="tenant@example.com"
-          keyboardType="email-address"
+          label={contactMethod === "email" ? "Tenant Email" : "Tenant Phone"}
+          value={tenantContact}
+          onChangeText={setTenantContact}
+          placeholder={contactMethod === "email" ? "tenant@example.com" : "+2567XXXXXXXX"}
+          keyboardType={contactMethod === "email" ? "email-address" : "phone-pad"}
           autoCapitalize="none"
         />
-        <Text style={styles.hint}>Enter the tenant's registered email address.</Text>
+        <Text style={styles.hint}>
+          Enter the tenant's registered {contactMethod === "email" ? "email address" : "phone number"}.
+        </Text>
 
         <View style={{ height: Spacing.lg }} />
         <Text style={styles.sectionLabel}>Property & Unit</Text>

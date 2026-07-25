@@ -3,27 +3,31 @@
  */
 
 import { useState } from "react";
-import { StyleSheet, Text, View, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { StyleSheet, Text, View, KeyboardAvoidingView, Platform, ScrollView, Pressable } from "react-native";
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Mail, Lock, User, Phone } from "lucide-react-native";
+import { Mail, Lock, User, Phone, Square, CheckSquare } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
+import { OrDivider } from "@/src/components/OrDivider";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { useAuth } from "@/src/context/auth-context";
 import type { UserRole } from "@/src/types";
 
 export default function RegisterScreen() {
   const { register } = useAuth();
+  const insets = useSafeAreaInsets();
   const [role, setRole] = useState<UserRole>("manager");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -43,7 +47,7 @@ export default function RegisterScreen() {
     setLoading(true);
     setError(null);
     try {
-      await register(role, { full_name: fullName, email, phone, password });
+      await register(role, { full_name: fullName, email, phone, password, accepted_terms: true, terms_version: "1.0", privacy_version: "1.0" });
     } catch {
       setError("Registration failed. Please try again.");
     } finally {
@@ -66,7 +70,7 @@ export default function RegisterScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={styles.formWrap}
+          contentContainerStyle={[styles.formWrap, { paddingBottom: Math.max(insets.bottom + 16, 40) }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -128,8 +132,41 @@ export default function RegisterScreen() {
             />
           </View>
 
+          <View style={{ height: Spacing.md }} />
+          <Pressable
+            onPress={() => setTermsAccepted((v) => !v)}
+            style={styles.checkboxRow}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: termsAccepted }}
+          >
+            {termsAccepted ? (
+              <CheckSquare size={20} color={Colors.primary} />
+            ) : (
+              <Square size={20} color={Colors.textMuted} />
+            )}
+            <Text style={styles.checkboxLabel}>
+              I agree to the{" "}
+              <Text style={styles.checkboxLink} onPress={() => router.push("/legal?type=terms")}>
+                Terms of Service
+              </Text>{" "}
+              and{" "}
+              <Text style={styles.checkboxLink} onPress={() => router.push("/legal?type=privacy")}>
+                Privacy Policy
+              </Text>
+            </Text>
+          </Pressable>
+
           <View style={{ height: Spacing.lg }} />
-          <Button label="Create Account" onPress={handleRegister} loading={loading} fullWidth size="lg" />
+          <Button label="Create Account" onPress={handleRegister} loading={loading} fullWidth size="lg" disabled={!termsAccepted} />
+
+          <OrDivider />
+          <Button
+            label="Register with Phone Number"
+            onPress={() => router.push("/phone-auth")}
+            variant="outline"
+            fullWidth
+            size="lg"
+          />
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account? </Text>
@@ -194,4 +231,19 @@ const styles = StyleSheet.create({
   },
   footerText: { fontSize: FontSize.body, color: Colors.textSecondary },
   footerLink: { fontSize: FontSize.body, color: Colors.accent, fontWeight: FontWeight.bold },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  checkboxLabel: {
+    fontSize: FontSize.body,
+    color: Colors.textSecondary,
+    flex: 1,
+    lineHeight: 20,
+  },
+  checkboxLink: {
+    color: Colors.accent,
+    fontWeight: FontWeight.semibold,
+  },
 });
