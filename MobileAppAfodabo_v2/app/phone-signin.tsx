@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StyleSheet, Text, View, KeyboardAvoidingView, Platform } from "react-native";
+import { Alert, StyleSheet, Text, View, KeyboardAvoidingView, Platform } from "react-native";
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -34,6 +34,7 @@ export default function PhoneSignInScreen() {
       const result = await authService.signInWithPhone(phone.trim(), pin);
       await setStoredToken(result.access_token);
       await refreshAuth();
+      Alert.alert("Login successful", "Welcome back!");
       router.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");

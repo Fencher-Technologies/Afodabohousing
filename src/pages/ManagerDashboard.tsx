@@ -1074,6 +1074,7 @@ export default function ManagerDashboard() {
                       </div>
                     ))}
                   </div>
+                  </div>
                 </div>
                 <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-card">
                   <div className="overflow-x-auto">

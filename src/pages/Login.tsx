@@ -81,6 +81,7 @@ export default function LoginPage() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) { toast({ title: 'Login failed', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Login successful', description: 'Welcome back!' });
     navigateAfterLogin(data.user.id);
   };
 
@@ -112,6 +113,7 @@ export default function LoginPage() {
       if (!res.ok) throw new Error((await res.json()).detail || 'Verification failed');
       const data = await res.json();
       await supabase.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+      toast({ title: 'Login successful', description: 'Welcome back!' });
       const { data: { user } } = await supabase.auth.getUser();
       if (user) navigateAfterLogin(user.id);
     } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
