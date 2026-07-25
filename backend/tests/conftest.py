@@ -27,7 +27,7 @@ PID_BOOST = "00000000-0000-0000-0000-000000000070"
 
 class MockResponse:
     def __init__(self, data=None, count=None):
-        self.data = data or []
+        self.data = data if data is not None else []
         self.count = count
 
 
@@ -55,6 +55,30 @@ class MockTableBuilder:
         self._filters[column] = value
         return self
 
+    def neq(self, column, value):
+        self._filters[column] = ("neq", value)
+        return self
+
+    def gt(self, column, value):
+        self._filters[column] = ("gt", value)
+        return self
+
+    def gte(self, column, value):
+        self._filters[column] = ("gte", value)
+        return self
+
+    def lt(self, column, value):
+        self._filters[column] = ("lt", value)
+        return self
+
+    def lte(self, column, value):
+        self._filters[column] = ("lte", value)
+        return self
+
+    def ilike(self, column, value):
+        self._filters[column] = ("ilike", value)
+        return self
+
     def order(self, column, desc=False):
         self._order_col = column
         self._order_desc = desc
@@ -63,6 +87,14 @@ class MockTableBuilder:
     def range(self, start, end):
         self._range_start = start
         self._range_end = end
+        return self
+
+    def limit(self, count):
+        self._range_end = self._range_start + count - 1 if count > 0 else 0
+        return self
+
+    def maybe_single(self):
+        self._maybe_single = True
         return self
 
     def insert(self, payload):
@@ -133,10 +165,14 @@ class MockTableBuilder:
                 elif op == "ilike":
                     pattern = arg.replace("%", "").lower()
                     data = [d for d in data if pattern in str(d.get(col, "")).lower()]
+                elif op == "neq":
+                    data = [d for d in data if d.get(col) != arg]
             else:
                 data = [d for d in data if d.get(col) == val]
 
         count = len(data)
+        if self._maybe_single:
+            return MockResponse(data=data[0] if data else None, count=count)
         if self._count == "exact":
             return MockResponse(data=data, count=count)
 
@@ -303,7 +339,16 @@ class MockSupabaseClient:
     def rpc(self, name, params=None):
         mock = MagicMock()
         if name == "get_user_role":
-            mock.execute.return_value = MockResponse(data=["admin"])
+            user_id = (params or {}).get("_user_id")
+            if user_id == UID_ADMIN:
+                role = "super_admin"
+            elif user_id == UID_OWNER:
+                role = "house_manager"
+            elif user_id == UID_TENANT_USER:
+                role = "tenant"
+            else:
+                role = "admin"
+            mock.execute.return_value = MockResponse(data=[role])
         else:
             mock.execute.return_value = MockResponse(data=[])
         return mock

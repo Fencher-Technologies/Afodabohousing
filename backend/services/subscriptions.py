@@ -23,6 +23,11 @@ def get_subscription_service(supabase: Client) -> "SubscriptionService":
 class SubscriptionService:
     def __init__(self, supabase: Client):
         self.supabase = supabase
+        self._table = "manager_subscriptions"
+
+    @property
+    def table(self):
+        return self.supabase.table(self._table)
 
     def get_active_plans(self) -> list[SubscriptionPlanResponse]:
         result = (
@@ -177,6 +182,15 @@ class SubscriptionService:
         ).execute()
 
         return self.get_current_subscription(sub["manager_id"])
+
+    def activate_by_reference(self, reference: str, txn_id: str) -> dict | None:
+        result = (
+            self.table.update({"status": "active", "transaction_id": txn_id})
+            .eq("transaction_id", reference)
+            .eq("status", "pending")
+            .execute()
+        )
+        return result.data[0] if result.data else None
 
     def expire_subscriptions(self) -> int:
         now = datetime.now(UTC).isoformat()

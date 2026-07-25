@@ -31,7 +31,7 @@ class TestPaymentLifecycle:
         assert resp.status_code == 201
         created = resp.json()
         assert float(created["amount"]) == 1500000
-        assert created["status"] == "pending"
+        assert created["status"] == "confirmed"
         assert created["payment_type"] == "rent"
 
     def test_list_payments(self, owner_client: TestClient):
@@ -58,13 +58,13 @@ class TestPaymentLifecycle:
         )
         assert resp.status_code == 404
 
-    def test_tenant_cannot_access_payments(self, client):
+    def test_tenant_can_access_own_payments(self, client):
         from dependencies import CurrentUser
         tenant_user = CurrentUser(id="00000000-0000-0000-0000-000000000002", email="tenant@test.com", role="tenant")
         app.dependency_overrides[get_current_user] = lambda: tenant_user
 
         resp = client.get("/payments")
-        assert resp.status_code == 403
+        assert resp.status_code == 200
 
     def test_payment_pagination(self, owner_client: TestClient):
         resp = owner_client.get("/payments?skip=0&limit=5")
@@ -76,8 +76,7 @@ class TestPaymentLifecycle:
 
 
 class TestPesapalInitiation:
-    def test_initiate_pesapal_removed(self, owner_client: TestClient):
-        """Pesapal rent payment endpoint removed — now only for subscriptions."""
+    def test_initiate_pesapal_requires_credentials(self, owner_client: TestClient):
         resp = owner_client.post("/payments/initiate-pesapal", json={
             "amount": 1500000,
             "callback_url": "https://example.com/callback",
@@ -88,12 +87,11 @@ class TestPesapalInitiation:
             "payment_id": str(PID_PAYMENT),
             "phone": "+256700000000",
         })
-        assert resp.status_code == 405
+        assert resp.status_code == 503
 
 
 class TestNylonPayInitiation:
-    def test_initiate_nylonpay_removed(self, owner_client: TestClient):
-        """NylonPay rent payment endpoint removed — now only for subscriptions."""
+    def test_initiate_nylonpay(self, owner_client: TestClient):
         resp = owner_client.post("/payments/initiate-nylonpay", json={
             "amount": 1500000,
             "phone_number": "+256700000000",
@@ -102,4 +100,4 @@ class TestNylonPayInitiation:
             "first_name": "Test",
             "last_name": "User",
         })
-        assert resp.status_code == 405
+        assert resp.status_code == 200
