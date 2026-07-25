@@ -204,7 +204,10 @@ class TestNylonPayWebhook:
         assert resp.status_code == 200
 
     def test_rejects_invalid_signature(self, client):
-        with patch("services.nylonpay.verify_webhook", return_value=False):
+        from config import get_settings
+        old_secret = get_settings().nylonpay_webhook_secret
+        get_settings().nylonpay_webhook_secret = "test-nylon-secret"
+        with patch("routers.webhooks.verify_nylonpay_webhook", return_value=False):
             resp = client.post(
                 "/webhooks/nylonpay",
                 json={"event": "transaction.successful", "data": {}},
@@ -213,6 +216,7 @@ class TestNylonPayWebhook:
                     "Content-Type": "application/json",
                 },
             )
+        get_settings().nylonpay_webhook_secret = old_secret
         assert resp.status_code == 401
 
 

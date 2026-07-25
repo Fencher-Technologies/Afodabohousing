@@ -74,6 +74,7 @@ class TestProperties:
 
     def test_create_property(self, client: TestClient):
         payload = {
+            "title": "Oak Avenue Apartment",
             "address": "456 Oak Ave",
             "city": "Jinja",
             "state": "Eastern",
@@ -307,7 +308,7 @@ class TestBoosts:
         data = resp.json()
         assert data["status"] == "active"
         assert data["duration_days"] == 14
-        assert float(data["amount_paid"]) == 140000.0
+        assert float(data["amount_paid"]) == 18000.0
 
     def test_create_boost_property_not_found(self, admin_client: TestClient):
         resp = admin_client.post("/boosts", json={

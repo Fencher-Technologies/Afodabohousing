@@ -991,6 +991,12 @@ class PaymentService(BaseService):
         return response.data or [], total
 
     @with_retry
+    def get_all_for_owner(
+        self, owner_id: UUID, skip: int = 0, limit: int = 100
+    ) -> tuple[list[dict[str, Any]], int]:
+        return self.get_all(owner_id, skip, limit)
+
+    @with_retry
     def get_by_id(self, payment_id: UUID) -> dict[str, Any] | None:
         response = (
             self.table.select("*")
