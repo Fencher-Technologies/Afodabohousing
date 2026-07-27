@@ -306,12 +306,13 @@ export default function LoginPage() {
                           className="mt-1.5 text-center text-xl tracking-widest font-mono h-14" />
                       </div>
                       <Button type="button" onClick={handlePinSignIn} disabled={loading || !phone.trim() || pin.length < 4}
-                        className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
+                        className="w-full gap-2">
                         {loading ? 'Signing in...' : <><KeyRound className="h-4 w-4" /> Sign In with PIN</>}
                       </Button>
-                      <p className="text-center text-xs text-muted-foreground">
-                        Don't have a PIN? <Link to="/register" className="text-primary hover:underline">Register here</Link>
-                      </p>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <Link to="/register" className="text-primary hover:underline">Register here</Link>
+                        <Link to="/forgot-pin" className="text-primary hover:underline">Forgot PIN?</Link>
+                      </div>
                     </>
                   )}
                 </div>

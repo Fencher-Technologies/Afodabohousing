@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell, Star, TrendingUp } from 'lucide-react';
+import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell, Star, TrendingUp, Smartphone, Download } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
 
 interface Property {
@@ -412,6 +412,27 @@ export default function HomePage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* APK DOWNLOAD */}
+      <section className="container pb-20">
+        <div className="bg-card border border-border rounded-3xl p-8 md:p-12 shadow-card">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="bg-primary/10 text-primary rounded-2xl p-5 shrink-0">
+              <Smartphone className="h-12 w-12" />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <h2 className="font-display text-2xl font-bold text-foreground mb-2">Get the Afodabo App</h2>
+              <p className="text-muted-foreground text-sm max-w-lg">
+                Download our Android app for a faster experience. Browse properties, pay rent, message managers, and manage your tenancy on the go.
+              </p>
+            </div>
+            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shrink-0 gap-2"
+              onClick={() => window.open(import.meta.env.VITE_MOBILE_APK_URL || '#', '_blank')}>
+              <Download className="h-5 w-5" /> Download APK
+            </Button>
+          </div>
         </div>
       </section>
 

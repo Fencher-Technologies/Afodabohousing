@@ -24,6 +24,8 @@ import ContactPage from "./pages/Contact";
 import PrivacyPage from "./pages/Privacy";
 import TermsPage from "./pages/Terms";
 import ForgotPassword from "./pages/ForgotPassword";
+import ForgotPin from "./pages/ForgotPin";
+import ChangePin from "./pages/ChangePin";
 import Account from "./pages/Account";
 import EditProfile from "./pages/EditProfile";
 import ChangePassword from "./pages/ChangePassword";
@@ -108,6 +110,8 @@ const App = () => (
               <Route path="/account" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><Account /></ProtectedRoute>} />
               <Route path="/account/edit" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><EditProfile /></ProtectedRoute>} />
               <Route path="/account/change-password" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><ChangePassword /></ProtectedRoute>} />
+              <Route path="/account/change-pin" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><ChangePin /></ProtectedRoute>} />
+              <Route path="/forgot-pin" element={<ForgotPin />} />
               <Route path="/notifications" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><Notifications /></ProtectedRoute>} />
               <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager']}><Onboarding /></ProtectedRoute>} />
               <Route path="/dashboard/manager/properties/new" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><CreateProperty /></ProtectedRoute>} />
