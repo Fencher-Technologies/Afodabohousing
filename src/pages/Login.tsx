@@ -7,12 +7,13 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import logoImg from '@/assets/logo.png';
 import heroBg from '@/assets/hero-bg.jpg';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Smartphone, MessageSquare } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Smartphone, MessageSquare, KeyRound } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
 
 export default function LoginPage() {
   const [method, setMethod] = useState<'email' | 'phone'>('email');
+  const [phoneMethod, setPhoneMethod] = useState<'otp' | 'pin'>('otp');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -22,6 +23,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -120,6 +122,27 @@ export default function LoginPage() {
     setLoading(false);
   };
 
+  const handlePinSignIn = async () => {
+    if (!phone.trim() || !pin.trim()) { toast({ title: 'Enter phone number and PIN', variant: 'destructive' }); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/auth/phone/signin`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.trim(), pin: pin.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'PIN sign-in failed');
+      }
+      const data = await res.json();
+      await supabase.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+      toast({ title: 'Login successful', description: 'Welcome back!' });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) navigateAfterLogin(user.id);
+    } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* LEFT PANEL */}
@@ -167,7 +190,7 @@ export default function LoginPage() {
                   className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${method === 'email' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                   <Mail className="h-3.5 w-3.5 inline mr-1.5" />Email
                 </button>
-                <button type="button" onClick={() => setMethod('phone')}
+                <button type="button" onClick={() => { setMethod('phone'); setOtpSent(false); setOtp(''); }}
                   className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${method === 'phone' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                   <Smartphone className="h-3.5 w-3.5 inline mr-1.5" />Phone
                 </button>
@@ -213,6 +236,16 @@ export default function LoginPage() {
                 </form>
               ) : (
                 <div className="space-y-5">
+                  <div className="flex gap-1 bg-muted rounded-lg p-1">
+                    <button type="button" onClick={() => { setPhoneMethod('otp'); setOtpSent(false); setOtp(''); }}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${phoneMethod === 'otp' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                      <MessageSquare className="h-3 w-3 inline mr-1" />OTP
+                    </button>
+                    <button type="button" onClick={() => setPhoneMethod('pin')}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${phoneMethod === 'pin' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                      <KeyRound className="h-3 w-3 inline mr-1" />PIN
+                    </button>
+                  </div>
                   <div>
                     <Label>Phone number</Label>
                     <div className="relative mt-1.5">
@@ -222,36 +255,54 @@ export default function LoginPage() {
                         className="pl-9" required />
                     </div>
                   </div>
-                  {!otpSent ? (
-                    <Button type="button" onClick={handleSendOtp} disabled={loading || !phone.trim()}
-                      className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
-                      {loading ? 'Sending...' : <><MessageSquare className="h-4 w-4" /> Send OTP</>}
-                    </Button>
+                  {phoneMethod === 'otp' ? (
+                    !otpSent ? (
+                      <Button type="button" onClick={handleSendOtp} disabled={loading || !phone.trim()}
+                        className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
+                        {loading ? 'Sending...' : <><MessageSquare className="h-4 w-4" /> Send OTP</>}
+                      </Button>
+                    ) : (
+                      <>
+                        <div>
+                          <Label>Enter OTP</Label>
+                          <Input type="text" inputMode="numeric" placeholder="000000" value={otp}
+                            onChange={e => setOtp(e.target.value)} maxLength={6}
+                            className="mt-1.5 text-center text-2xl tracking-[0.5em] font-mono h-14" />
+                        </div>
+                        <Button type="button" onClick={handleVerifyOtp} disabled={loading || otp.length < 4}
+                          className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
+                          {loading ? 'Verifying...' : <><ArrowRight className="h-4 w-4" /> Verify & Sign In</>}
+                        </Button>
+                        <div className="text-center">
+                          <button type="button" onClick={() => { setOtpSent(false); setOtp(''); setPhone(''); }}
+                            className="text-xs text-muted-foreground hover:text-foreground underline">
+                            Use a different number
+                          </button>
+                          {cooldown > 0 && (
+                            <span className="text-xs text-muted-foreground ml-3">Resend in {cooldown}s</span>
+                          )}
+                          {cooldown === 0 && otpSent && (
+                            <button type="button" onClick={handleSendOtp} disabled={loading}
+                              className="text-xs text-primary hover:underline ml-3">Resend OTP</button>
+                          )}
+                        </div>
+                      </>
+                    )
                   ) : (
                     <>
                       <div>
-                        <Label>Enter OTP</Label>
-                        <Input type="text" inputMode="numeric" placeholder="000000" value={otp}
-                          onChange={e => setOtp(e.target.value)} maxLength={6}
-                          className="mt-1.5 text-center text-2xl tracking-[0.5em] font-mono h-14" />
+                        <Label>PIN</Label>
+                        <Input type="password" inputMode="numeric" placeholder="Enter your PIN" value={pin}
+                          onChange={e => setPin(e.target.value)} maxLength={6}
+                          className="mt-1.5 text-center text-xl tracking-widest font-mono h-14" />
                       </div>
-                      <Button type="button" onClick={handleVerifyOtp} disabled={loading || otp.length < 4}
+                      <Button type="button" onClick={handlePinSignIn} disabled={loading || !phone.trim() || pin.length < 4}
                         className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
-                        {loading ? 'Verifying...' : <><ArrowRight className="h-4 w-4" /> Verify & Sign In</>}
+                        {loading ? 'Signing in...' : <><KeyRound className="h-4 w-4" /> Sign In with PIN</>}
                       </Button>
-                      <div className="text-center">
-                        <button type="button" onClick={() => { setOtpSent(false); setOtp(''); setPhone(''); }}
-                          className="text-xs text-muted-foreground hover:text-foreground underline">
-                          Use a different number
-                        </button>
-                        {cooldown > 0 && (
-                          <span className="text-xs text-muted-foreground ml-3">Resend in {cooldown}s</span>
-                        )}
-                        {cooldown === 0 && otpSent && (
-                          <button type="button" onClick={handleSendOtp} disabled={loading}
-                            className="text-xs text-primary hover:underline ml-3">Resend OTP</button>
-                        )}
-                      </div>
+                      <p className="text-center text-xs text-muted-foreground">
+                        Don't have a PIN? <Link to="/register" className="text-primary hover:underline">Register here</Link>
+                      </p>
                     </>
                   )}
                 </div>
