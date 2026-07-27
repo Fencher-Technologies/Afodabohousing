@@ -32,18 +32,30 @@ FastAPI backend for the Afodabo Housing rental management platform.
 
 ### Auth
 
-| Method | Path                   | Auth  | Description                                 |
-| ------ | ---------------------- | ----- | ------------------------------------------- |
-| POST   | `/auth/signup`         | No    | Register new user                           |
-| POST   | `/auth/signin`         | No    | Email/password sign-in                      |
-| POST   | `/auth/signin/form`    | No    | OAuth2 form-based sign-in                   |
-| POST   | `/auth/signout`        | Yes   | Sign out                                    |
-| POST   | `/auth/reset-password` | No    | Request password reset                      |
-| GET    | `/auth/me`             | Yes   | Current user info + roles                   |
-| GET    | `/auth/profile`        | Yes   | Get user profile                            |
-| PATCH  | `/auth/profile`        | Yes   | Update user profile                         |
-| GET    | `/auth/roles`          | Yes   | Get current user role from profiles         |
-| POST   | `/auth/roles`          | Admin | Assign role to user (updates profiles.role) |
+| Method | Path                   | Auth  | Description                                      |
+| ------ | ---------------------- | ----- | ------------------------------------------------ |
+| POST   | `/auth/signup`         | No    | Register new user                                |
+| POST   | `/auth/signin`         | No    | Email/password sign-in                           |
+| POST   | `/auth/signin/form`    | No    | OAuth2 form-based sign-in                        |
+| POST   | `/auth/signout`        | Yes   | Sign out                                         |
+| POST   | `/auth/reset-password` | No    | Request password reset                           |
+| GET    | `/auth/me`             | Yes   | Current user info + roles                        |
+| GET    | `/auth/profile`        | Yes   | Get user profile                                 |
+| PATCH  | `/auth/profile`        | Yes   | Update user profile                              |
+| GET    | `/auth/roles`          | Yes   | Get current user role from profiles              |
+| POST   | `/auth/roles`          | Admin | Assign role to user (updates profiles.role)      |
+
+### Phone Auth
+
+| Method | Path                         | Auth | Description                                           |
+| ------ | ---------------------------- | ---- | ----------------------------------------------------- |
+| POST   | `/auth/phone/send-otp`       | No   | Send OTP to phone number                              |
+| POST   | `/auth/phone/verify-otp`     | No   | Verify OTP, returns `verify_token`                    |
+| POST   | `/auth/phone/register`       | No   | Create account (phone + verify_token + full_name + pin + accepted_terms) |
+| POST   | `/auth/phone/signin`         | No   | PIN-based sign-in (phone + pin)                       |
+| POST   | `/auth/phone/forgot-pin`     | No   | Send OTP to reset forgotten PIN                       |
+
+Phone numbers are normalized on save: non-digit characters stripped, leading `0` replaced with `+256`.
 
 ### Properties
 
@@ -150,30 +162,13 @@ uv run python scripts/load_test_rate_limit.py --base-url http://127.0.0.1:8000 -
 ## Running
 
 ```bash
-# 1. Navigate to backend directory
 cd backend
-
-# 2. Create and activate virtual environment (first time)
-python3 -m venv venv
-source .venv/bin/activate     # Linux/Mac
-# venv\Scripts\activate      # Windows
-
-# 3. Install dependencies (first time)
-pip install -r requirements.txt
-# or: uv sync
-
-# 4. Start dev server (auto-reload)
-uvicorn main:app --reload
-
-# On a different port
-uvicorn main:app --reload --port 8000
+uv sync
+uv run uvicorn main:app --reload
 
 # Production (no reload)
-uvicorn main:app --host 0.0.0.0 --port 8000
+uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
-cd backend
-source .venv/bin/activate  
-uvicorn main:app --reload
 
 ## Testing
 

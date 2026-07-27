@@ -17,15 +17,13 @@ Rental management platform with role-based access (super_admin → house_manager
 
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+uv sync        # or: pip install -r requirements.txt
 ```
 
 Copy `backend/.env.example` to `backend/.env` and fill in your Supabase project credentials.
 
 ```bash
-uvicorn main:app --reload
+uv run uvicorn main:app --reload
 # http://localhost:8000 | docs at /docs
 ```
 
@@ -39,26 +37,17 @@ npm run dev
 
 ## Migrations
 
-SQL migrations live in `supabase/migrations/` and run in timestamp order via Supabase CLI or SQL Editor.
+SQL migrations live in `backend/migrations/` and run in numeric order via Supabase SQL Editor.
 
 ```bash
-# Apply via Supabase CLI
-supabase migration up
-
-# Or manually via Dashboard → SQL Editor
+# Apply via Dashboard → SQL Editor, one file at a time in order
 ```
 
-Ordered list:
+Latest migration:
 
 | File | Purpose |
 |------|---------|
-| `001_initial_schema.sql` | Core tables (profiles, properties, tenants, leases, payments) |
-| `...` | Intermediate migrations |
-| `012_agreements.sql` | Tenancy agreement upload + consent |
-| `...` | Various fixes |
-| `20260723000000_terms_consent.sql` | Terms & conditions versions + consent tracking |
-| `20260723000001_gps_required.sql` | GPS lat/lng required on properties |
-| `20260723000002_page_views.sql` | Page view / click tracking analytics |
+| `028_drop_price_add_indexes.sql` | Drop duplicated `properties.price`, add FK indexes |
 
 ## Role System
 
@@ -69,6 +58,7 @@ Ordered list:
 | `tenant` | View own lease/payments, submit maintenance requests, sign agreements |
 | `free` | Browse properties, bookmark listings, contact managers |
 
+- Phone users register via OTP verification + PIN setup
 - Public signup creates `free` or `tenant` accounts
 - Super admin creates managers directly (password generated server-side)
 - Managers create tenant accounts via dashboard (password shown once)
@@ -84,7 +74,7 @@ Ordered list:
 | Page Views / Clicks | `routers/tracking.py`, `services/tracking.py` | — | Pending |
 | Effective Dates | `services/crud.py` (tenancy_progress fields) | — | Pending |
 | Overdue Tenant List | `routers/leases.py` (`GET /leases/overdue`) | Overdue card in dashboard | Pending |
-| Phone Auth | `routers/phone_auth.py` (OTP signin/verify) | — | Pending |
+| Phone Auth | `routers/phone_auth.py` (OTP/PIN signin + register) | Phone OTP/PIN signin, phone registration | Pending |
 | PDF Reports | `routers/exports.py` (`GET /exports/report-pdf`) | — | Pending |
 | Currency Exchange | `routers/forex.py`, `services/forex.py` | — | Pending |
 | Auto Agreement Gen | `routers/agreement_generator.py`, `services/agreement_generator.py` | — | Pending |

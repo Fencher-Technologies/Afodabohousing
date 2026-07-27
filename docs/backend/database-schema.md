@@ -208,6 +208,11 @@ erDiagram
 | `terms_consents` | Immutable per-user consent records linked to a terms version. | Terms router. |
 | `page_views` | Anonymous and authenticated page-view/click tracking with session and metadata. | Tracking router. |
 
+## Schema Changes (Migration 028)
+
+- **Dropped** `properties.price` (bigint) — duplicated `monthly_rent` column, unused in code
+- **Added indexes**: `idx_properties_owner_id`, `idx_properties_status`, `idx_leases_owner_id`, `idx_leases_property_id`, `idx_payments_lease_id`, `idx_payments_tenant_id`, `idx_profiles_role`, `idx_maintenance_requests_property_id`
+
 ## Important Constraints And Indexes
 
 | Area | Constraint/Index |
@@ -215,6 +220,7 @@ erDiagram
 | Property type | Restricted to supported marketplace categories in current migrations and models: `Residential`, `Office Space`. |
 | Payment status | `pending`, `completed`, `failed`, `refunded`. |
 | Lease status | `draft`, `active`, `expired`, `terminated`, `renewed`. |
+| Property status | `available`, `occupied`, `maintenance`, `unlisted`. |
 | Notification idempotency | `UNIQUE(event_key, channel)` on `notification_deliveries`. |
 | Agreement evidence | Immutable triggers block update/delete on agreement documents, consents, and audit logs. |
 | Filtering indexes | Composite indexes support multi-parameter filters for properties, tenants, leases, payments, and profiles. |
