@@ -48,6 +48,7 @@ Latest migration:
 | File | Purpose |
 |------|---------|
 | `028_drop_price_add_indexes.sql` | Drop duplicated `properties.price`, add FK indexes |
+| `029_fix_renewal_uuid_types.sql` | Fix renewal tables: text → uuid with FK constraints |
 
 ## Role System
 
