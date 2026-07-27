@@ -1,5 +1,10 @@
 def normalize_phone(phone: str) -> str:
-    return phone.strip()
+    cleaned = "".join(c for c in phone if c.isdigit() or c == "+")
+    if cleaned.startswith("+"):
+        return cleaned
+    if cleaned.startswith("256"):
+        return "+" + cleaned
+    return "+256" + cleaned.lstrip("0")
 
 
 def phone_to_email(phone: str) -> str:

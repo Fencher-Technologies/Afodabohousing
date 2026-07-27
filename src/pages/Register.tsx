@@ -10,6 +10,13 @@ import { Mail, Smartphone, ArrowRight, MessageSquare, KeyRound, User, Check } fr
 
 const API = import.meta.env.VITE_API_URL || '';
 
+function phoneWarning(val: string): string | null {
+  if (!val) return null;
+  const cleaned = val.replace(/[+\d]/g, '');
+  if (cleaned.length > 0) return 'Only digits and leading + allowed, no spaces or symbols';
+  return null;
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -23,6 +30,7 @@ export default function RegisterPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [phoneWarn, setPhoneWarn] = useState<string | null>(null);
 
   const handleSendOtp = async () => {
     if (!phone.trim()) { toast({ title: 'Enter your phone number', variant: 'destructive' }); return; }
@@ -150,8 +158,11 @@ export default function RegisterPage() {
                     <div className="relative mt-1.5">
                       <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input type="tel" placeholder="+256 7XX XXX XXX" value={phone}
-                        onChange={e => setPhone(e.target.value)} className="pl-9" />
+                        onChange={e => { setPhone(e.target.value); setPhoneWarn(phoneWarning(e.target.value)); }}
+                        className="pl-9" />
                     </div>
+                    {phoneWarn && <p className="text-xs text-destructive mt-1">{phoneWarn}</p>}
+                  </div>
                   </div>
                   <Button type="button" onClick={handleSendOtp} disabled={loading || !phone.trim()}
                     className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">

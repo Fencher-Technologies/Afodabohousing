@@ -11,6 +11,13 @@ import { Eye, EyeOff, Mail, Lock, ArrowRight, Smartphone, MessageSquare, KeyRoun
 
 const API = import.meta.env.VITE_API_URL || '';
 
+function phoneWarning(val: string): string | null {
+  if (!val) return null;
+  const cleaned = val.replace(/[+\d]/g, '');
+  if (cleaned.length > 0) return 'Only digits and leading + allowed, no spaces or symbols';
+  return null;
+}
+
 export default function LoginPage() {
   const [method, setMethod] = useState<'email' | 'phone'>('email');
   const [phoneMethod, setPhoneMethod] = useState<'otp' | 'pin'>('otp');
@@ -27,6 +34,7 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [phoneWarn, setPhoneWarn] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -251,9 +259,10 @@ export default function LoginPage() {
                     <div className="relative mt-1.5">
                       <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input type="tel" placeholder="+256 7XX XXX XXX" value={phone}
-                        onChange={e => setPhone(e.target.value)} disabled={otpSent}
-                        className="pl-9" required />
+                        onChange={e => { setPhone(e.target.value); setPhoneWarn(phoneWarning(e.target.value)); }}
+                        disabled={otpSent} className="pl-9" required />
                     </div>
+                    {phoneWarn && <p className="text-xs text-destructive mt-1">{phoneWarn}</p>}
                   </div>
                   {phoneMethod === 'otp' ? (
                     !otpSent ? (
