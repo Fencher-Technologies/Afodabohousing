@@ -60,7 +60,7 @@ export default function TenantSubscription() {
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-4 lg:p-6 space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/tenant')} className="p-0 h-9 w-9">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="p-0 h-9 w-9">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>

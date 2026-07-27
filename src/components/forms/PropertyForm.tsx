@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Save, Home, MapPin, DollarSign, Image } from 'lucide-react';
+import { ArrowLeft, Save, Home, MapPin, DollarSign, Image, Upload, X } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const DISTRICTS = ['Kampala', 'Wakiso', 'Mukono', 'Mbarara', 'Gulu', 'Jinja', 'Entebbe', 'Mbale', 'Lira', 'Arua', 'Fort Portal', 'Masaka', 'Kabale', 'Hoima', 'Kasese', 'Soroti', 'Tororo'];
 const AMENITIES = ['Water', 'Electricity', 'WiFi', 'Parking', 'Security', 'Garden', 'Generator', 'DSTV', 'Borehole', 'Tiled Floors'];
@@ -12,6 +13,7 @@ export interface PropertyFormData {
   area: string; address: string; bedrooms: number; sitting_rooms: number;
   kitchens: number; bathrooms: number; rent_amount: number; rent_period: string;
   manager_phone: string; manager_email: string; amenities: string[];
+  images: string[];
 }
 
 interface Props {
@@ -23,17 +25,41 @@ interface Props {
 }
 
 export default function PropertyForm({ initialData, onSave, onCancel, submitLabel, saving }: Props) {
+  const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState<PropertyFormData>({
     title: '', description: '', property_type: 'Residential', state: '',
     area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1,
     bathrooms: 1, rent_amount: 0, rent_period: 'monthly',
-    manager_phone: '', manager_email: '', amenities: [],
+    manager_phone: '', manager_email: '', amenities: [], images: [],
     ...initialData,
   });
 
   const toggleAmenity = (a: string) => {
     setForm(f => ({ ...f, amenities: f.amenities.includes(a) ? f.amenities.filter(x => x !== a) : [...f.amenities, a] }));
   };
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast({ title: 'Only image files allowed', variant: 'destructive' }); return; }
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `property_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { data, error } = await supabase.storage.from('property-images').upload(path, file);
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path);
+      setForm(f => ({ ...f, images: [...f.images, publicUrl] }));
+    } catch (err: any) { toast({ title: 'Upload failed', description: err.message, variant: 'destructive' }); }
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  function removeImage(url: string) {
+    setForm(f => ({ ...f, images: f.images.filter(i => i !== url) }));
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +143,29 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
           <p className="text-sm font-semibold mb-2">Rent Amount (UGX)</p>
           <Input type="number" min={0} value={form.rent_amount || ''} onChange={e => setForm(f => ({ ...f, rent_amount: Number(e.target.value) }))}
             required placeholder="e.g. 500000" className="rounded-lg h-11" />
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-5">
+        <h2 className="font-bold text-sm flex items-center gap-2"><Image className="h-4 w-4 text-primary" /> Photos</h2>
+        <div>
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+          <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading} className="gap-2">
+            <Upload className="h-4 w-4" /> {uploading ? 'Uploading...' : 'Upload Photo'}
+          </Button>
+          {form.images.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {form.images.map(url => (
+                <div key={url} className="relative group">
+                  <img src={url} alt="" className="h-20 w-20 rounded-lg object-cover border" />
+                  <button type="button" onClick={() => removeImage(url)}
+                    className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

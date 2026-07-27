@@ -1,17 +1,12 @@
 import logging
-import threading
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
 
 from supabase import Client
 
-from config import get_settings
 from models.subscription import (
     ManagerSubscriptionResponse,
-    SubscriptionCreateResponse,
     SubscriptionPlanResponse,
 )
-from services.nylonpay import initiate_payment
 
 logger = logging.getLogger(__name__)
 
@@ -80,69 +75,6 @@ class SubscriptionService:
             payment_reference=sub.get("payment_reference"),
             payment_status=sub.get("payment_status", "pending"),
             days_remaining=days_remaining,
-        )
-
-    def create_subscription(
-        self, manager_id: str, plan_id: str, profile: dict | None = None, phone_number: str | None = None
-    ) -> SubscriptionCreateResponse:
-        plan = self.get_plan(plan_id)
-        if not plan:
-            raise ValueError(f"Plan '{plan_id}' not found")
-
-        reference = str(uuid4())
-        amount = int(plan["price_ugx"])
-
-        profile = profile or {}
-        first_name = (profile.get("full_name") or "").split()[0] or "Manager"
-        last_name = " ".join((profile.get("full_name") or "").split()[1:]) or "User"
-        phone = phone_number or profile.get("phone") or ""
-        email = profile.get("email") or ""
-
-        sub_payload = {
-            "manager_id": manager_id,
-            "plan_id": plan_id,
-            "status": "pending",
-            "payment_reference": reference,
-            "payment_status": "pending",
-        }
-
-        result = self.supabase.table("manager_subscriptions").insert(sub_payload).execute()
-        subscription_id = str(result.data[0]["id"])
-
-        initiate_payment(
-            amount=amount,
-            customer_name=f"{first_name} {last_name}".strip(),
-            customer_phone=phone,
-            customer_email=email,
-            reference=reference,
-            description=f"Afodabo Housing - {plan['name']} Subscription",
-            metadata={
-                "subscription_id": subscription_id,
-                "manager_id": manager_id,
-                "plan_id": plan_id,
-            },
-        )
-
-        settings = get_settings()
-        if settings.nylonpay_environment == "sandbox":
-            def auto_confirm():
-                try:
-                    import time as _time
-                    _time.sleep(30)
-                    self.confirm_subscription(reference)
-                    logger.info("Sandbox auto-confirmed subscription %s", reference)
-                except Exception as e:
-                    logger.error("Sandbox auto-confirm failed for %s: %s", reference, e)
-            threading.Timer(30.0, auto_confirm).start()
-            logger.info("Scheduled sandbox auto-confirm for reference %s in 30s", reference)
-
-        return SubscriptionCreateResponse(
-            subscription_id=subscription_id,
-            plan_id=plan_id,
-            amount=float(amount),
-            currency="UGX",
-            payment_reference=reference,
-            message="Check your phone for the payment prompt.",
         )
 
     def confirm_subscription(self, payment_reference: str) -> dict | None:

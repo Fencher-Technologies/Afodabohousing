@@ -49,14 +49,6 @@ class Settings(BaseSettings):
     pesapal_environment: str = "sandbox"
     pesapal_ipn_url: str = ""
 
-    # NylonPay
-    nylonpay_api_key: str = ""
-    nylonpay_api_secret: str = ""
-    nylonpay_webhook_secret: str = ""
-    nylonpay_environment: str = "sandbox"
-    nylonpay_sandbox_base_url: str = "https://sandbox-api.nylonpay.com"
-    nylonpay_live_base_url: str = "https://api.nylonpay.com"
-
     # SMS
     sms_provider_api_key: str = ""
     sms_provider_url: str = "https://api.example.com/sms/send"

@@ -30,9 +30,7 @@ def generate_agreement(
     supabase: Client = Depends(get_service_client),
 ):
     lease_svc = get_lease_service(supabase)
-    lease = lease_svc.get_by_id_public(data.lease_id) if hasattr(lease_svc, "get_by_id_public") else None
-    if not lease:
-        lease = lease_svc.get_by_id(data.lease_id)
+    lease = lease_svc.get_by_id(data.lease_id)
     if not lease:
         raise HTTPException(status_code=404, detail="Lease not found")
     prop = get_property_service(supabase).get_by_id_public(lease["property_id"]) or {}

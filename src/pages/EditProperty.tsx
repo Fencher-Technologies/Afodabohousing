@@ -38,6 +38,7 @@ export default function EditProperty() {
       rent_amount: data.rent_amount || 0, rent_period: data.rent_period || 'monthly',
       manager_phone: data.manager_phone || '', manager_email: data.manager_email || '',
       amenities: data.amenities || [],
+      images: data.images || [],
     });
     setLoading(false);
   };
@@ -51,6 +52,7 @@ export default function EditProperty() {
       kitchens: data.kitchens, bathrooms: data.bathrooms, rent_amount: data.rent_amount,
       rent_period: data.rent_period, manager_phone: data.manager_phone || null,
       manager_email: data.manager_email || null, amenities: data.amenities,
+      images: data.images.length > 0 ? data.images : null,
     }).eq('id', id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Property updated!' });
@@ -67,7 +69,7 @@ export default function EditProperty() {
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto p-4 lg:p-6 space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/manager')} className="p-0 h-9 w-9">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="p-0 h-9 w-9">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>

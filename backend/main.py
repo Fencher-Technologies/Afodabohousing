@@ -245,10 +245,26 @@ def _error_response(
     return JSONResponse(status_code=status_code, headers=response_headers, content=payload)
 
 
+def _validate_required_settings():
+    missing = []
+    if not settings.pesapal_consumer_key:
+        missing.append("PESAPAL_CONSUMER_KEY")
+    if not settings.pesapal_consumer_secret:
+        missing.append("PESAPAL_CONSUMER_SECRET")
+    if missing:
+        logger.warning(
+            "Payment provider credentials not configured: %s. "
+            "Boosts and subscription payments will fail at runtime. "
+            "Set these in .env or environment variables.",
+            ", ".join(missing),
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _scheduler_started
     logger.info(f"Starting Rental Management API v{app.version}")
+    _validate_required_settings()
     if settings.environment != "test" and not _scheduler_started:
         try:
             from services.scheduler import start_scheduler, stop_scheduler

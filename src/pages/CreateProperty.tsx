@@ -32,6 +32,7 @@ export default function CreateProperty() {
       kitchens: data.kitchens, bathrooms: data.bathrooms, rent_amount: data.rent_amount,
       rent_period: data.rent_period, manager_phone: data.manager_phone || null,
       manager_email: data.manager_email || null, amenities: data.amenities,
+      images: data.images.length > 0 ? data.images : null,
       status: 'available',
     });
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
@@ -43,7 +44,7 @@ export default function CreateProperty() {
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto p-4 lg:p-6 space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/manager')} className="p-0 h-9 w-9">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="p-0 h-9 w-9">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>

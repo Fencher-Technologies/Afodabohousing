@@ -394,9 +394,9 @@ def get_dashboard_stats(
 
     try:
         # Outstanding: sum of lease amounts where status = active and no completed payment this month
-        active_leases = supabase.table("leases").select("id, rent_amount").eq("status", "active").execute()
+        active_leases = supabase.table("leases").select("id, monthly_rent").eq("status", "active").execute()
         if active_leases.data:
-            total_outstanding = sum(float(l.get("rent_amount", 0) or 0) for l in active_leases.data)
+            total_outstanding = sum(float(l.get("monthly_rent", 0) or 0) for l in active_leases.data)
     except Exception:
         pass
 

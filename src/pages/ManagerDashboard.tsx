@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
-import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { listPayments, updatePayment, PaymentData } from '@/services/payments';
+import { getCurrentSubscription } from '@/services/subscriptions';
 import AvatarUpload from '@/components/AvatarUpload';
 import MobileAppBanner from '@/components/MobileAppBanner';
 import {
@@ -21,7 +21,7 @@ import {
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload,
   TrendingUp, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
   Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2, Settings,
-  Wrench, MessageCircle, ArrowLeft, KeyRound, Ban, Copy
+  Wrench, MessageCircle, ArrowLeft, KeyRound, Ban, Copy, Crown
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
@@ -73,11 +73,11 @@ export default function ManagerDashboard() {
   const [sendingAction, setSendingAction] = useState('');
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
   const [selectedPropertyForUnit, setSelectedPropertyForUnit] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [profile, setProfile] = useState<{ photo_url: string | null; full_name: string | null; email: string; phone: string } | null>(null);
   const [showTenantForm, setShowTenantForm] = useState(false);
+  const [subscription, setSubscription] = useState<any>(null);
   const [tenantFormData, setTenantFormData] = useState({
     full_name: '', phone: '', email: '', property_id: '',
     start_date: '', end_date: '', monthly_rent: 0,
@@ -114,14 +114,16 @@ export default function ManagerDashboard() {
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
-    const [propsRes, tenancyRes, leaseRes, tenantRes, payRes, profileRes] = await Promise.all([
+    const [propsRes, tenancyRes, leaseRes, tenantRes, payRes, profileRes, subscriptionData] = await Promise.all([
       supabase.from('properties').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
       supabase.from('tenancies').select('*').eq('manager_id', user.id).order('created_at', { ascending: false }),
       supabase.from('leases').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
       supabase.from('tenants').select('id, first_name, last_name, phone, user_id').eq('owner_id', user.id),
       listPayments().catch(() => ({ items: [], total: 0 })),
       supabase.from('profiles').select('photo_url, full_name, email, phone').eq('user_id', user.id).single(),
+      getCurrentSubscription().catch(() => null),
     ]);
+    setSubscription(subscriptionData);
 
     const allPayments = payRes.items || [];
 
@@ -420,119 +422,10 @@ export default function ManagerDashboard() {
     { label: 'Revenue Confirmed', val: `UGX ${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
   ];
 
-  const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className={`flex flex-col h-full ${mobile ? '' : 'w-60 shrink-0'}`}>
-      {/* Brand */}
-      <div className="px-5 py-6 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground font-display font-bold text-base shadow">
-            {user?.email?.charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sidebar-foreground font-semibold text-sm truncate">{user?.email?.split('@')[0]}</p>
-            <p className="text-sidebar-foreground/50 text-xs">House Manager</p>
-          </div>
-        </div>
-      </div>
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map(item => {
-          const badge = item.id === 'payments' ? pendingPayments.length : 0;
-          return (
-            <button
-              key={item.id}
-              onClick={() => { setTab(item.id); setSidebarOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${tab === item.id
-                ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
-                : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'}`}
-            >
-              <span className="shrink-0">{item.icon}</span>
-              <span className="flex-1 text-left">{item.label}</span>
-              {badge > 0 && (
-                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center ${tab === item.id ? 'bg-sidebar-primary-foreground/20 text-sidebar-primary-foreground' : 'bg-sidebar-primary/30 text-sidebar-primary'}`}>
-                  {badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
-      {/* Quick actions */}
-      <div className="px-3 py-4 border-t border-sidebar-border space-y-2">
-        <button
-          onClick={() => { setShowTenantForm(true); setSidebarOpen(false); }}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all"
-        >
-          <UserPlus className="h-4 w-4" /><span>Add Tenant</span>
-        </button>
-        <button
-          onClick={() => {
-            setForm({ title: '', description: '', property_type: 'Residential', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: profile?.phone || '', manager_email: profile?.email || '', amenities: [] });
-            setEditingProperty(null);
-            setPropDialogOpen(true); setSidebarOpen(false);
-          }}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-sidebar-primary hover:bg-sidebar-accent transition-all"
-        >
-          <Plus className="h-4 w-4" /><span>Add Property</span>
-        </button>
-      </div>
-      <div className="px-3 pb-3">
-        <button onClick={signOut}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-all"
-        >
-          <LogOut className="h-4 w-4" /><span>Sign Out</span>
-        </button>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Navbar />
+    <div>
       <MobileAppBanner />
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border min-h-[calc(100vh-64px)] sticky top-16 self-start h-[calc(100vh-64px)] overflow-y-auto w-60 shrink-0">
-          <Sidebar />
-        </aside>
-
-        {/* Mobile Sidebar Overlay */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
-            <aside className="absolute left-0 top-0 h-full w-64 bg-sidebar flex flex-col shadow-xl">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-sidebar-border">
-                <span className="text-sidebar-foreground font-display font-bold">Menu</span>
-                <button onClick={() => setSidebarOpen(false)} className="text-sidebar-foreground/60 hover:text-sidebar-foreground">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <Sidebar mobile />
-            </aside>
-          </div>
-        )}
-
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto min-h-[calc(100vh-64px)]">
-          {/* Top bar */}
-          <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg hover:bg-muted transition-colors">
-                <Menu className="h-5 w-5" />
-              </button>
-              <div>
-                <h1 className="font-display font-bold text-xl text-foreground capitalize">{tab === 'overview' ? 'Dashboard' : tab}</h1>
-                <p className="text-xs text-muted-foreground hidden sm:block">Property Manager · Afodabohousing</p>
-              </div>
-            </div>
-            <Button size="sm" variant="outline" onClick={fetchData} disabled={loading} className="gap-2 h-8 text-xs">
-              <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-          </div>
-
-          <div className="p-6 space-y-6">
+      <div className="p-4 lg:p-6 space-y-6">
             {showTenantForm ? (
               <div className="max-w-2xl mx-auto">
                 <button onClick={() => setShowTenantForm(false)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
@@ -655,6 +548,30 @@ export default function ManagerDashboard() {
             {/* OVERVIEW */}
             {tab === 'overview' && (
               <div className="space-y-6">
+                {/* Alert Pills */}
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                  {pendingPayments.length > 0 && (
+                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
+                      {pendingPayments.length} pending review
+                    </div>
+                  )}
+                  {dueSoonTenancies.length > 0 && (
+                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold/10 border border-gold/20 text-gold text-xs font-semibold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+                      {dueSoonTenancies.length} rent due soon
+                    </div>
+                  )}
+                  <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    {leases.filter(l => l.status === 'active').length} active tenancies
+                  </div>
+                  <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                    {properties.length} properties
+                  </div>
+                </div>
+
                 {/* Stat Cards */}
                 <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
                   {statCards.map(s => (
@@ -668,6 +585,41 @@ export default function ManagerDashboard() {
                       <div className="text-xs text-muted-foreground mt-0.5">{s.sub}</div>
                     </div>
                   ))}
+                </div>
+
+                {/* Quick Actions (mobile-style) */}
+                <div>
+                  <h3 className="font-display font-semibold text-sm text-muted-foreground mb-3">Quick Actions</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <button onClick={() => navigate('/dashboard/manager/tenancies/new')}
+                      className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-primary/30 transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Users className="h-5 w-5 text-primary" />
+                      </div>
+                      <span className="text-xs font-semibold text-foreground text-center">Create Tenancy</span>
+                    </button>
+                    <button onClick={() => setPropDialogOpen(true)}
+                      className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-primary/30 transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Building2 className="h-5 w-5 text-primary" />
+                      </div>
+                      <span className="text-xs font-semibold text-foreground text-center">List Property</span>
+                    </button>
+                    <button onClick={() => navigate('/dashboard/manager/reports')}
+                      className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-primary/30 transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <BarChart2 className="h-5 w-5 text-primary" />
+                      </div>
+                      <span className="text-xs font-semibold text-foreground text-center">Reports</span>
+                    </button>
+                    <button onClick={() => navigate('/subscription')}
+                      className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-gold/50 transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center">
+                        <Crown className="h-5 w-5 text-gold" />
+                      </div>
+                      <span className="text-xs font-semibold text-foreground text-center">Subscription</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid lg:grid-cols-2 gap-6">
@@ -1246,8 +1198,6 @@ export default function ManagerDashboard() {
             )}
             </>)}
           </div>
-        </main>
-      </div>
 
       {/* Add / Edit Property Dialog */}
       <Dialog open={propDialogOpen} onOpenChange={o => { setPropDialogOpen(o); if (!o) setEditingProperty(null); }}>

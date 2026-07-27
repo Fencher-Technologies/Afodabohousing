@@ -2,6 +2,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 from supabase import Client
 
 from dependencies.auth import CurrentUser, get_current_user
@@ -20,6 +21,7 @@ from models.agreements import (
     EditAgreementRequest,
     PartyConsentState,
 )
+from services.agreement_generator import generate_agreement_pdf
 from services.agreements import AgreementService, get_agreement_service
 from services.notifications import notify
 
@@ -51,7 +53,7 @@ def _notify_other_party(
     body: str,
     metadata: dict | None = None,
 ):
-    caller_role = "tenant" if str(lease.get("owner_id")) == current_user.id else "manager"
+    caller_role = "manager" if str(lease.get("owner_id")) == current_user.id else "tenant"
     other_user_id = (
         svc.get_tenant_user_id(lease) if caller_role == "manager"
         else lease.get("owner_id")
@@ -97,6 +99,54 @@ def get_agreement_content(
     if not content:
         raise HTTPException(status_code=404, detail="No agreement content found")
     return content
+
+
+# ─── PDF Download ─────────────────────────────────────────────────────────
+
+@router.get("/{lease_id}/pdf")
+def download_agreement_pdf(
+    lease_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    svc: AgreementService = Depends(get_agreement_service),
+    supabase: Client = Depends(get_service_client),
+):
+    """Download agreement as a PDF document."""
+    _authorized_lease(lease_id, current_user, svc)
+    doc = svc.get_current_document(lease_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="No agreement document found")
+
+    content = doc.get("content")
+    if not content:
+        raise HTTPException(status_code=404, detail="Agreement has no content to generate PDF from")
+
+    try:
+        pdf_bytes = generate_agreement_pdf(content)
+    except Exception as e:
+        logger.error("PDF generation failed: %s", str(e))
+        raise HTTPException(status_code=500, detail="Failed to generate PDF")
+
+    agreement_number = content.get("agreement_number") or "draft"
+    # Record audit event
+    try:
+        svc.record_audit_event(
+            lease_id=str(lease_id),
+            agreement_document_id=str(doc["id"]),
+            actor_user_id=current_user.id,
+            event_type="pdf_downloaded",
+            evidence_hash=doc.get("agreement_hash", ""),
+            metadata={"agreement_number": agreement_number, "version": content.get("version", 1)},
+        )
+    except Exception as e:
+        logger.warning("Failed to record pdf_downloaded audit: %s", str(e))
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="agreement-{agreement_number}.pdf"',
+        },
+    )
 
 
 # ─── Build ────────────────────────────────────────────────────────────────

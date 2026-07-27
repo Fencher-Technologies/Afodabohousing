@@ -21,7 +21,7 @@ class TrackingService(BaseService):
         )
         counts: dict[str, int] = {}
         for row in (result.data or []):
-            prop_id = row.get("metadata", {}).get("property_id")
+            prop_id = row.get("property_id")
             if prop_id:
                 counts[prop_id] = counts.get(prop_id, 0) + 1
         sorted_props = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:limit]

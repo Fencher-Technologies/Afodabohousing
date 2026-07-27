@@ -9,7 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import {
   ArrowLeft, Home, Users, DollarSign, TrendingUp, AlertTriangle,
   Download, FileText, Calendar, CheckCircle, XCircle, Clock,
-  Search, Filter, Percent,
+  Search, Filter, Percent, Printer,
 } from 'lucide-react';
 import {
   getFinancialSummary, getRentCollection, getOutstanding, getPaymentHistory,
@@ -87,6 +87,22 @@ export default function ManagerReports() {
     a.click();
   };
 
+  const downloadPdfReport = async () => {
+    const base = import.meta.env.VITE_API_URL || '';
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const a = document.createElement('a');
+    a.href = `${base}/exports/report-pdf`;
+    a.target = '_blank';
+    if (token) a.href += `&token=${token}`;
+    a.click();
+  };
+
+  const downloadTenantStatement = async (tenantId: string) => {
+    window.open(`/dashboard/manager/tenants/${tenantId}`, '_blank');
+  };
+
   const summaryCards = summary ? [
     { label: 'Active Tenancies', value: summary.active_tenancies, icon: Home, color: 'text-primary', bg: 'bg-primary/10' },
     { label: 'Expected Rent', value: fmt(summary.total_expected), icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-100' },
@@ -114,7 +130,7 @@ export default function ManagerReports() {
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/manager')} className="p-0 h-9 w-9">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="p-0 h-9 w-9">
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
@@ -232,6 +248,9 @@ export default function ManagerReports() {
                     <FileText className="h-4 w-4" /> {e.label}
                   </Button>
                 ))}
+                <Button variant="outline" size="sm" onClick={downloadPdfReport} className="gap-2">
+                  <Printer className="h-4 w-4" /> PDF Report
+                </Button>
               </div>
             </div>
           </div>
@@ -270,6 +289,10 @@ export default function ManagerReports() {
                       <td className="p-3">
                         <p className="font-semibold">{o.tenant_name || 'Unknown'}</p>
                         {o.tenant_phone && <p className="text-xs text-muted-foreground">{o.tenant_phone}</p>}
+                        {o.tenant_id && (
+                          <button onClick={() => navigate(`/dashboard/manager/tenants/${o.tenant_id}`)}
+                            className="text-xs text-primary hover:underline mt-0.5 block">View Statement</button>
+                        )}
                       </td>
                       <td className="p-3">
                         <p>{o.property_title || '—'}</p>

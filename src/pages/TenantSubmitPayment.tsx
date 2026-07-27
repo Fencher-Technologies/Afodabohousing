@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Upload, CheckCircle, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Upload, CheckCircle, ShieldCheck, X } from 'lucide-react';
 import { createVerification } from '@/services/payment-verifications';
+import { supabase } from '@/integrations/supabase/client';
 
 const METHODS = [
   { label: 'Cash', value: 'cash' },
@@ -30,6 +31,26 @@ export default function TenantSubmitPayment() {
   const [notes, setNotes] = useState('');
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
+  const [screenshotUrl, setScreenshotUrl] = useState('');
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const screenshotRef = useRef<HTMLInputElement>(null);
+
+  async function handleScreenshotUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast({ title: 'Only image files allowed', variant: 'destructive' }); return; }
+    setUploadingScreenshot(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `payment_proof_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { data, error } = await supabase.storage.from('payment-proofs').upload(path, file);
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('payment-proofs').getPublicUrl(path);
+      setScreenshotUrl(publicUrl);
+    } catch (err: any) { toast({ title: 'Upload failed', description: err.message, variant: 'destructive' }); }
+    setUploadingScreenshot(false);
+    if (screenshotRef.current) screenshotRef.current.value = '';
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +63,7 @@ export default function TenantSubmitPayment() {
         amount: num, payment_method: method,
         transaction_reference: reference || undefined,
         payment_date: paymentDate, notes: notes || undefined,
+        screenshot_url: screenshotUrl || undefined,
       });
       setDone(true);
       toast({ title: 'Payment submitted for verification' });
@@ -75,8 +97,8 @@ export default function TenantSubmitPayment() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="max-w-lg mx-auto px-4 py-8">
-        <button onClick={() => navigate('/dashboard/tenant')} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6">
-          <ArrowLeft className="h-4 w-4" /> Back to Dashboard
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6">
+          <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <Card>
           <CardHeader>
@@ -106,6 +128,23 @@ export default function TenantSubmitPayment() {
               <div>
                 <Label>Payment Date</Label>
                 <Input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="mt-1" required />
+              </div>
+              <div>
+                <Label>Screenshot (optional)</Label>
+                <input ref={screenshotRef} type="file" accept="image/*" onChange={handleScreenshotUpload} className="hidden" />
+                <div className="mt-1 flex items-center gap-3">
+                  <Button type="button" variant="outline" size="sm" onClick={() => screenshotRef.current?.click()} disabled={uploadingScreenshot} className="gap-2">
+                    <Upload className="h-4 w-4" /> {uploadingScreenshot ? 'Uploading...' : 'Upload Proof'}
+                  </Button>
+                  {screenshotUrl && (
+                    <div className="flex items-center gap-2">
+                      <img src={screenshotUrl} alt="" className="h-10 w-10 rounded object-cover border" />
+                      <button type="button" onClick={() => setScreenshotUrl('')} className="text-destructive hover:text-destructive/80">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <Label>Notes (optional)</Label>

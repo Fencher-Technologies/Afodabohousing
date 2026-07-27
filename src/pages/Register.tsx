@@ -163,7 +163,6 @@ export default function RegisterPage() {
                     </div>
                     {phoneWarn && <p className="text-xs text-destructive mt-1">{phoneWarn}</p>}
                   </div>
-                  </div>
                   <Button type="button" onClick={handleSendOtp} disabled={loading || !phone.trim()}
                     className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
                     {loading ? 'Sending...' : <><MessageSquare className="h-4 w-4" /> Send OTP</>}
