@@ -583,6 +583,7 @@ def accept_invite(
         session = sign_in_result.session
         return TokenResponse(
             access_token=session.access_token,
+            refresh_token=getattr(session, "refresh_token", None),
             user={"id": existing_user_id, "email": invite_email},
             role=invitation["role"],
         )
@@ -654,6 +655,7 @@ def accept_invite(
 
     return TokenResponse(
         access_token=session.access_token,
+        refresh_token=getattr(session, "refresh_token", None),
         user=user_data,
         role=invitation["role"],
     )

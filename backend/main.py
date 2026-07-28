@@ -136,6 +136,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             "/auth/signin",
             "/auth/signin/form",
             "/auth/signup",
+            "/auth/phone/send-otp",
+            "/auth/phone/verify-otp",
+            "/auth/phone/otp-signin",
+            "/auth/phone/otp-verify",
+            "/auth/phone/register",
+            "/auth/phone/signin",
+            "/auth/phone/forgot-pin",
         }
         if path in auth_paths:
             return "auth", self.auth_requests, self.auth_window

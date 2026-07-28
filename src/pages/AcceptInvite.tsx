@@ -60,14 +60,15 @@ export default function AcceptInvitePage() {
       const data = await res.json();
       await supabase.auth.setSession({
         access_token: data.access_token,
-        refresh_token: '',
+        refresh_token: data.refresh_token || '',
       });
 
       setAccepted(true);
       toast({ title: 'Account created!', description: 'You can now sign in.' });
 
       setTimeout(() => {
-        if (data.role === 'house_manager') navigate('/dashboard/manager');
+        if (data.role === 'super_admin') navigate('/dashboard/super-admin');
+        else if (data.role === 'house_manager') navigate('/dashboard/manager');
         else navigate('/dashboard/tenant');
       }, 1500);
     } catch (err: any) {
