@@ -277,6 +277,17 @@ Update this file after every meaningful implementation change.
   - **Badge Component**: Already supports `accent` tone via ThemeColors
   - Green remains primary brand color; orange used sparingly for emphasis, premium features, and WhatsApp actions
 
+## Fixed This Session
+
+- **Agreement PDF download — matches on-screen layout exactly, auto-saves**:
+  - **Root cause**: Previous implementation used `reportlab` PDF generation on the backend with completely different formatting from the on-screen `AgreementRenderer` component, and used `fetch` + `response.blob()` which was unreliable in React Native (no `downloadAsync` in new `expo-file-system` API).
+  - **Fix**: Completely replaced the download approach:
+    - **Frontend** (`src/utils/agreement-html.ts`): New `buildAgreementHtml(content)` — builds an HTML string that exactly mirrors the `AgreementRenderer` component's visual layout (same colors, fonts, spacing, section ordering, signature blocks).
+    - **Frontend** (`src/services/agreements.ts`): Rewrote `downloadPdf` to accept `AgreementContent` directly (no backend round-trip needed), uses `expo-print` (`Print.printToFileAsync`) to generate PDF from HTML matching the screen layout. Saves directly to device — uses Android StorageAccessFramework for Downloads folder, falls back to share sheet on iOS. Added `downloadVersionPdf(leaseId, versionId)` for history downloads.
+    - **Backend** (`routers/agreements.py`): Added `GET /agreements/{lease_id}/versions/{version_id}/content` endpoint to fetch a specific version's content JSON for historical PDF generation.
+    - **Frontend** (`app/agreement-view.tsx`): Passes the already-loaded `displayContent` to `downloadPdf()`, shows "Saved" success alert.
+    - **Frontend** (`app/agreement-history.tsx`): Per-version download button calls `downloadVersionPdf()` with loading spinner, shows success/error alert.
+
 ## Open Questions
 
 - Payment flows should continue using the same backend capabilities as web, including proof upload and NylonPay initiation where supported on mobile.
@@ -295,6 +306,18 @@ Update this file after every meaningful implementation change.
 - **Backend-only mobile runtime**: The mobile app should depend only on the Python API at runtime, with any Supabase usage hidden fully behind backend services rather than the client app.
 
 ## Session Notes
+
+- **Fixed property public detail 404**: `GET /properties/public/{id}` used anon key (RLS-restricted). Changed to `get_service_client()` (service role, bypasses RLS) — matches the public list endpoint behavior.
+- **Fixed property type round-trip corruption**: `mapBackendPropertyType()` in `property-mapper.ts` didn't handle `"Residential"` or `"Office Space"` backend enum values, falling back to `"apartment"`. Added explicit mapping: `"Residential"` → `"apartment"`, `"Office Space"` → `"shop"`.
+- **Fixed security_deposit null crash**: `create-property.tsx` and `edit-property.tsx` sent `null` for empty deposit field, violating backend's `Decimal` non-nullable constraint. Changed to `0`.
+- **Fixed guest explore boost badge**: `explore.tsx` referenced `isBoosted` (camelCase) but backend returns `is_boosted` (snake_case). Corrected the property access.
+- **Fixed property-detail double API call**: `usePublicProperty` was always called even for manager route, causing duplicate fetches. Added `enabled` option to `usePublicProperty` hook and passed `enabled: !isManager`.
+- **Fixed ErrorState without refetch**: Retry button on property-detail error called `router.back()` instead of re-fetching. Now passes `refetch` from the active query.
+- **Removed edit-agreement Stack.Screen**: The `_layout.tsx` referenced `edit-agreement` route which has no corresponding file, causing Expo Router warnings.
+- **Fixed phone auth decrypt legacy fallback**: `decrypt_password()` in `phone_auth.py` now tries legacy SHA256-based key derivation when the current PBKDF2+pepper key fails, supporting accounts encrypted before the pepper change.
+- **Fixed public property_type filter**: `properties.ts` `listPublic` now maps frontend property types (`"apartment"`, `"shop"`) to backend enum values (`"Residential"`, `"Office Space"`) before sending the filter.
+- **Fixed skip/limit param serialization**: `listPublic` used truthy checks (`if (params?.skip)`) which omitted `skip=0`. Changed to `!== undefined` checks.
+- **Added migration 029_fix_user_role_function.sql**: Restores `get_user_role()` RPC to read from `profiles.role` instead of the `user_roles` table (which is never populated by Python code). Also removes outdated CHECK constraint from migration 001 that limited roles to `('landlord', 'tenant', 'admin')` — the app now uses `'house_manager'`, `'tenant'`, `'admin'`.
 
 - Context now reflects the real production backend and the requirement that mobile be a native client for the existing Afodabo Housing platform.
 - The app now launches into a mobile-first property exploration experience instead of a landing page and routes authenticated users by the same backend roles used on web.

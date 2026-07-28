@@ -110,7 +110,7 @@ export default function CreatePropertyScreen() {
         bedrooms: Number(beds) || 0,
         bathrooms: Number(baths) || 0,
         square_feet: squareFeet ? Number(squareFeet) : null,
-        security_deposit: deposit ? Number(deposit) : null,
+        security_deposit: deposit ? Number(deposit) : 0,
         latitude: locationCoords?.lat ?? null,
         longitude: locationCoords?.lng ?? null,
         description: description.trim() || null,

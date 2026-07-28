@@ -35,7 +35,7 @@ function useAuthInner() {
 
         if (token) {
           const me = await authService.getMe();
-          const role = (me.role === "house_manager" ? "manager" : me.role) as UserRole;
+          const role = (me.role === "house_manager" || me.role === "landlord" ? "manager" : me.role) as UserRole;
           let fullName = "";
           let phone = "";
           try {
@@ -99,7 +99,7 @@ function useAuthInner() {
       await setRefreshToken(result.refresh_token);
     }
 
-    const role = (result.role === "house_manager" ? "manager" : result.role) as UserRole;
+    const role = (result.role === "house_manager" || result.role === "landlord" ? "manager" : result.role) as UserRole;
 
     let fullName = "";
     let phone = "";
@@ -219,7 +219,7 @@ function useAuthInner() {
         return null;
       }
       const me = await authService.getMe();
-      const role = (me.role === "house_manager" ? "manager" : me.role) as UserRole;
+      const role = (me.role === "house_manager" || me.role === "landlord" ? "manager" : me.role) as UserRole;
       let fullName = "";
       let phone = "";
       try {

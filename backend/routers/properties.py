@@ -79,9 +79,9 @@ def get_property(
 @router.get("/public/{property_id}", response_model=PropertyResponse)
 def get_public_property(
     property_id: UUID,
-    service: PropertyService = Depends(get_property_svc),
 ) -> PropertyResponse:
-    property_data = service.get_by_id_public(property_id)
+    svc = PropertyService(get_service_client())
+    property_data = svc.get_by_id_public(property_id)
     if not property_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

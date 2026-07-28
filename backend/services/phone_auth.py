@@ -61,7 +61,13 @@ def encrypt_password(password: str, pin: str) -> str:
 def decrypt_password(encrypted: str, pin: str) -> str:
     key = _derive_key(pin)
     cipher = Fernet(key)
-    return cipher.decrypt(encrypted.encode()).decode()
+    try:
+        return cipher.decrypt(encrypted.encode()).decode()
+    except Exception:
+        # Legacy fallback: some accounts were encrypted with SHA256-based key
+        legacy_key = urlsafe_b64encode(hashlib.sha256(pin.encode()).digest())
+        legacy_cipher = Fernet(legacy_key)
+        return legacy_cipher.decrypt(encrypted.encode()).decode()
 
 
 def generate_otp() -> str:

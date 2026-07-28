@@ -44,8 +44,11 @@ def list_plans(
 def get_current_subscription(
     current_user: CurrentUser = Depends(require_active_user),
     service: SubscriptionService = Depends(get_sub_svc),
+    supabase: Client = Depends(get_service_client),
 ) -> ManagerSubscriptionResponse | None:
-    if current_user.role not in ("house_manager", "super_admin"):
+    profile = supabase.table("profiles").select("role").eq("user_id", current_user.id).limit(1).execute()
+    user_role = profile.data[0]["role"] if profile.data else None
+    if user_role not in ("house_manager", "super_admin"):
         return None
     return service.get_current_subscription(current_user.id)
 
@@ -55,13 +58,13 @@ def create_subscription(
     data: SubscriptionCreateRequest,
     current_user: CurrentUser = Depends(require_active_user),
     service: SubscriptionService = Depends(get_sub_svc),
-    supabase: Client = Depends(get_supabase_client),
+    supabase: Client = Depends(get_service_client),
 ) -> SubscriptionCreateResponse:
-    if current_user.role not in ("house_manager", "super_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only managers can subscribe")
-
     profile_result = supabase.table("profiles").select("*").eq("user_id", current_user.id).limit(1).execute()
     profile = profile_result.data[0] if profile_result.data else None
+    user_role = profile.get("role") if profile else None
+    if user_role not in ("house_manager", "super_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only managers can subscribe")
 
     try:
         return service.create_subscription(

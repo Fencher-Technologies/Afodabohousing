@@ -78,7 +78,7 @@ function RootLayoutNav() {
       <Stack.Screen name="submit-payment" />
       <Stack.Screen name="payment-verification" />
       <Stack.Screen name="create-agreement" />
-      <Stack.Screen name="edit-agreement" />
+
       <Stack.Screen name="agreement-summary" />
       <Stack.Screen name="agreement-preview" />
       <Stack.Screen name="agreement-view" />

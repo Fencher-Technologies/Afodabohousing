@@ -41,11 +41,12 @@ export default function PropertyDetailScreen() {
 
   const { user } = useAuth();
   const authQuery = useProperty(id ?? "", { enabled: isManager });
-  const publicQuery = usePublicProperty(id ?? "");
+  const publicQuery = usePublicProperty(id ?? "", { enabled: !isManager });
   const { data: property, isLoading, error } = isManager ? authQuery : publicQuery;
 
   const deleteMutation = useDeleteProperty();
   const updateMutation = useUpdateProperty();
+  const refetch = isManager ? authQuery.refetch : publicQuery.refetch;
   const [bookmarked, setBookmarked] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -63,7 +64,7 @@ export default function PropertyDetailScreen() {
   if (error || !property) {
     return (
       <Screen scroll>
-        <ErrorState title="Property not found" description="This property may have been removed." onRetry={() => router.back()} />
+        <ErrorState title="Property not found" description="This property may have been removed." onRetry={refetch} />
       </Screen>
     );
   }

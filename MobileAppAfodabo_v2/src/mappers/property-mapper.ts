@@ -11,6 +11,8 @@ function mapBackendStatus(status: string): "active" | "inactive" {
 }
 
 function mapBackendPropertyType(type: string): Property["type"] {
+  if (type === "Residential") return "apartment";
+  if (type === "Office Space") return "shop";
   const valid: Property["type"][] = ["apartment", "house", "studio", "shop", "single_room"];
   return valid.includes(type as Property["type"]) ? (type as Property["type"]) : "apartment";
 }
