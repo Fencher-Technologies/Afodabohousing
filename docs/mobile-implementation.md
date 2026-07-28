@@ -86,13 +86,13 @@ Auth: Bearer token from Supabase Auth session.
 ### 7. Phone Auth
 
 **Backend endpoints:**
-- `POST /auth/phone/signin` — request OTP (`{ phone }`)
-- `POST /auth/phone/verify` — verify OTP (`{ phone, token }`)
+- `POST /auth/phone/otp-signin` — request OTP (`{ phone }`)
+- `POST /auth/phone/otp-verify` — verify OTP (`{ phone, token }`)
 
 **Mobile steps:**
 1. Add "Sign in with Phone" option on the login screen
-2. Phone input → calls `POST /auth/phone/signin`
-3. OTP input screen → calls `POST /auth/phone/verify`
+2. Phone input → calls `POST /auth/phone/otp-signin`
+3. OTP input screen → calls `POST /auth/phone/otp-verify`
 4. On success, store the returned `access_token` and `refresh_token`
 5. Fall back to email/password for existing users
 
@@ -201,8 +201,8 @@ const API = {
       fetch(`${BASE}/tracking/page-view`, { method: 'POST', headers: AUTH, body: JSON.stringify({ path, ...meta }) }).catch(() => {}),
   },
   phoneAuth: {
-    signin: (phone: string) => fetch(`${BASE}/auth/phone/signin`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) }).then(r => r.json()),
-    verify: (phone: string, token: string) => fetch(`${BASE}/auth/phone/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, token }) }).then(r => r.json()),
+    signin: (phone: string) => fetch(`${BASE}/auth/phone/otp-signin`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) }).then(r => r.json()),
+    verify: (phone: string, token: string) => fetch(`${BASE}/auth/phone/otp-verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, token }) }).then(r => r.json()),
   },
   agreements: {
     generate: (leaseId: string, signature?: string) =>

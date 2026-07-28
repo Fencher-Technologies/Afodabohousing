@@ -99,7 +99,7 @@ export default function LoginPage() {
     if (!phone.trim()) { toast({ title: 'Enter your phone number', variant: 'destructive' }); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/auth/phone/signin`, {
+      const res = await fetch(`${API}/auth/phone/otp-signin`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phone.trim() }),
       });
@@ -116,7 +116,7 @@ export default function LoginPage() {
     if (!otp.trim()) { toast({ title: 'Enter the OTP code', variant: 'destructive' }); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/auth/phone/verify`, {
+      const res = await fetch(`${API}/auth/phone/otp-verify`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phone.trim(), token: otp.trim() }),
       });

@@ -26,7 +26,7 @@ class PhoneSignInResponse(BaseModel):
     user: dict | None = None
 
 
-@router.post("/signin", response_model=PhoneSignInResponse)
+@router.post("/otp-signin", response_model=PhoneSignInResponse)
 def phone_signin(
     data: PhoneSignInRequest,
     supabase: Client = Depends(get_service_client),
@@ -38,7 +38,7 @@ def phone_signin(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/verify", response_model=PhoneSignInResponse)
+@router.post("/otp-verify", response_model=PhoneSignInResponse)
 def phone_verify(
     data: PhoneVerifyRequest,
     supabase: Client = Depends(get_service_client),

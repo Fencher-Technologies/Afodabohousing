@@ -1,9 +1,7 @@
 import logging
-from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
 
 from config import get_settings

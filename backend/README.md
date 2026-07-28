@@ -51,6 +51,8 @@ FastAPI backend for the Afodabo Housing rental management platform.
 | ------ | ---------------------------- | ---- | ----------------------------------------------------- |
 | POST   | `/auth/phone/send-otp`       | No   | Send OTP to phone number                              |
 | POST   | `/auth/phone/verify-otp`     | No   | Verify OTP, returns `verify_token`                    |
+| POST   | `/auth/phone/otp-signin`     | No   | Request Supabase SMS OTP sign-in                      |
+| POST   | `/auth/phone/otp-verify`     | No   | Verify Supabase SMS OTP, returns session tokens       |
 | POST   | `/auth/phone/register`       | No   | Create account (phone + verify_token + full_name + pin + accepted_terms) |
 | POST   | `/auth/phone/signin`         | No   | PIN-based sign-in (phone + pin)                       |
 | POST   | `/auth/phone/forgot-pin`     | No   | Send OTP to reset forgotten PIN                       |
