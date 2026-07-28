@@ -10,8 +10,6 @@ from dependencies import get_current_user, get_service_client
 from main import app
 
 
-
-
 @pytest.fixture
 def client(test_user, mock_supabase):
     from dependencies.database import _get_cached_client

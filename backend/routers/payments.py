@@ -1,6 +1,6 @@
 import logging
 import time
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -12,6 +12,7 @@ from dependencies import CurrentUser, get_current_user, get_service_client, get_
 from models import PaymentCreate, PaymentResponse, PaymentUpdate
 from services import PaymentService, get_payment_service
 from services.notifications import notify
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payments", tags=["payments"])
