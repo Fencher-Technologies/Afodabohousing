@@ -64,6 +64,7 @@ class InitiateBoostRequest(BaseModel):
     property_id: UUID
     duration_days: int = 7
     phone_number: str
+    callback_url: str | None = None
 
 
 class InitiateBoostResponse(BaseModel):
@@ -71,6 +72,7 @@ class InitiateBoostResponse(BaseModel):
     reference: str
     status: str
     message: str
+    redirect_url: str | None = None
 
 
 class BoostPackage(BaseModel):

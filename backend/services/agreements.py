@@ -1,8 +1,7 @@
 # mypy: ignore-errors
 import hashlib
 import json
-from datetime import UTC, date, datetime
-from decimal import Decimal
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -10,8 +9,9 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from supabase import Client
 
-from .base import with_retry
 from dependencies.database import get_service_client
+
+from .base import with_retry
 
 AGREEMENT_BUCKET = "tenancy-agreements"
 AGREEMENT_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 30
@@ -287,8 +287,7 @@ class AgreementService:
                 detail="An active agreement already exists. Use edit instead.",
             )
 
-        rel = self.get_lease_with_relations(lease_id)
-        lease = rel["lease"]
+        self.get_lease_with_relations(lease_id)
 
         content = self._build_content(lease_id, standard_clauses, custom_clauses)
 

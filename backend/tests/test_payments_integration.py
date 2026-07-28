@@ -1,7 +1,8 @@
+# mypy: ignore-errors
 import pytest
 from fastapi.testclient import TestClient
 
-from dependencies import get_current_user, get_supabase_client
+from dependencies import get_current_user
 from main import app
 
 UID_OWNER = "00000000-0000-0000-0000-000000000001"
@@ -86,19 +87,5 @@ class TestPesapalInitiation:
             "last_name": "User",
             "payment_id": str(PID_PAYMENT),
             "phone": "+256700000000",
-        })
-        assert resp.status_code == 405
-
-
-class TestNylonPayInitiation:
-    def test_initiate_nylonpay_removed(self, owner_client: TestClient):
-        """NylonPay rent payment endpoint removed — now only for subscriptions."""
-        resp = owner_client.post("/payments/initiate-nylonpay", json={
-            "amount": 1500000,
-            "phone_number": "+256700000000",
-            "description": "Rent payment",
-            "payment_id": str(PID_PAYMENT),
-            "first_name": "Test",
-            "last_name": "User",
         })
         assert resp.status_code == 405

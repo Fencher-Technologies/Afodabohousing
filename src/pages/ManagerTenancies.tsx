@@ -6,8 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Plus, Search, ChevronRight, Home, User, CalendarDays, DollarSign, Phone } from 'lucide-react';
+import { Building2, Plus, Search, ChevronRight, Home, User, CalendarDays, DollarSign, Phone, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
+
+type FilterTab = 'all' | 'active' | 'pending' | 'expired' | 'terminated';
+const FILTER_TABS: { id: FilterTab; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'active', label: 'Active' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'expired', label: 'Expired' },
+  { id: 'terminated', label: 'Terminated' },
+];
 
 export default function ManagerTenancies() {
   const { user, loading: authLoading } = useAuth();
@@ -16,6 +25,7 @@ export default function ManagerTenancies() {
   const [leases, setLeases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<FilterTab>('all');
 
   useEffect(() => {
     if (authLoading) return;
@@ -50,7 +60,15 @@ export default function ManagerTenancies() {
     return colors[status] || 'bg-muted text-muted-foreground border-border';
   };
 
+  // ponytail: simple health check based on status only; add payment recency when backend provides it
+  function healthIcon(status: string) {
+    if (status === 'active') return <CheckCircle className="h-3 w-3 text-success" />;
+    if (status === 'expired' || status === 'terminated') return <AlertTriangle className="h-3 w-3 text-destructive" />;
+    return <Clock className="h-3 w-3 text-gold" />;
+  }
+
   const filtered = leases.filter(l => {
+    if (filter !== 'all' && l.status !== filter) return false;
     if (!search) return true;
     const s = search.toLowerCase();
     const t = l.tenants;
@@ -77,6 +95,15 @@ export default function ManagerTenancies() {
           <Button onClick={() => navigate('/dashboard/manager/tenancies/new')} className="gap-2 rounded-lg">
             <Plus className="h-4 w-4" /> New Tenancy
           </Button>
+        </div>
+
+        <div className="flex gap-1 bg-muted rounded-lg p-1">
+          {FILTER_TABS.map(t => (
+            <button key={t.id} onClick={() => setFilter(t.id)}
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${filter === t.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+              {t.label}
+            </button>
+          ))}
         </div>
 
         <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
@@ -111,8 +138,8 @@ export default function ManagerTenancies() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-semibold truncate">{t.first_name || ''} {t.last_name || ''}</p>
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${statusColor(lease.status)}`}>
-                          {lease.status}
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${statusColor(lease.status)}`}>
+                          {healthIcon(lease.status)} {lease.status}
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">

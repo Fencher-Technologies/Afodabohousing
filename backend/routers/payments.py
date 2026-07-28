@@ -4,8 +4,6 @@ from uuid import UUID, uuid4
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-
-logger = logging.getLogger(__name__)
 from pydantic import BaseModel
 from supabase import Client
 
@@ -14,7 +12,7 @@ from dependencies import CurrentUser, get_current_user, get_service_client, get_
 from models import PaymentCreate, PaymentResponse, PaymentUpdate
 from services import PaymentService, get_payment_service
 from services.notifications import notify
-from services.nylonpay import initiate_payment
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 settings = get_settings()
@@ -116,7 +114,7 @@ def list_payments(
     if tenant.data:
         payments, total = service.get_all_for_tenant(tenant.data[0]["id"], skip, limit)
     else:
-        payments, total = service.get_all_for_owner(current_user.id, skip, limit)
+        payments, total = service.get_all(current_user.id, skip, limit)
     return PaginatedResponse(
         items=[PaymentResponse(**p) for p in payments],
         total=total,
@@ -306,7 +304,8 @@ async def initiate_pesapal_payment(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> PesapalInitiateResponse:
     token = await _get_pesapal_token()
-    ipn_id = await _register_pesapal_ipn(token, f"{settings.supabase_url}/functions/v1/pesapal-ipn")
+    ipn_url = settings.pesapal_ipn_url or data.callback_url
+    ipn_id = await _register_pesapal_ipn(token, ipn_url)
     order_id = f"AFODABO-{data.payment_id}-{int(time.time() * 1000)}"
 
     async with httpx.AsyncClient(timeout=20) as client:
@@ -349,52 +348,4 @@ async def initiate_pesapal_payment(
     )
 
 
-class NylonPayInitiateRequest(BaseModel):
-    amount: float
-    phone_number: str
-    email: str | None = None
-    description: str
-    payment_id: str
-    first_name: str
-    last_name: str
 
-
-class NylonPayInitiateResponse(BaseModel):
-    success: bool
-    reference: str | None = None
-    status: str | None = None
-    message: str
-
-
-@router.post("/initiate-nylonpay", response_model=NylonPayInitiateResponse)
-async def initiate_nylonpay_payment(
-    data: NylonPayInitiateRequest,
-    current_user: CurrentUser = Depends(get_current_user),
-):
-    reference = str(uuid4())
-    amount = int(data.amount)
-    full_name = f"{data.first_name} {data.last_name}".strip() or current_user.email
-
-    try:
-        initiate_payment(
-            amount=amount,
-            customer_name=full_name,
-            customer_phone=data.phone_number,
-            customer_email=data.email or current_user.email,
-            reference=reference,
-            description=data.description,
-            metadata={"payment_id": data.payment_id},
-        )
-    except Exception as e:
-        logger.error("NylonPay payment initiation failed: %s", str(e))
-        return NylonPayInitiateResponse(
-            success=False,
-            message="Payment initiation failed. Please try again.",
-        )
-
-    return NylonPayInitiateResponse(
-        success=True,
-        reference=reference,
-        status="pending",
-        message="Check your phone for the payment prompt. Enter your PIN to confirm.",
-    )

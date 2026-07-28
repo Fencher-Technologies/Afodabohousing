@@ -20,8 +20,17 @@ from models.boost import (
     InitiateBoostRequest,
     InitiateBoostResponse,
 )
-from services.boost import BoostService, calculate_boost_price, get_boost_packages, get_boost_service
-from services.nylonpay import initiate_boost_payment
+from services.boost import (
+    BoostService,
+    calculate_boost_price,
+    get_boost_packages,
+    get_boost_service,
+)
+from services.pesapal import (
+    get_auth_token,
+    register_ipn,
+    submit_order,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -209,17 +218,17 @@ def expire_old_boosts(
     return {"message": f"{count} boost(s) expired", "expired_count": count}
 
 
-# ── Manager: Self-service boost initiation with NylonPay ──
+BOOST_CALLBACK_URL = "/dashboard/manager"
 
 
 @router.post("/initiate", response_model=InitiateBoostResponse)
-def initiate_boost(
+async def initiate_boost(
     data: InitiateBoostRequest,
     current_user: CurrentUser = Depends(require_super_admin_or_manager),
     supabase: Client = Depends(get_service_client),
     service: BoostService = Depends(get_boost_svc),
 ) -> InitiateBoostResponse:
-    """Manager initiates a boost for their own property. Payment via NylonPay mobile money."""
+    """Manager initiates a boost for their own property. Payment via Pesapal."""
     prop = supabase.table("properties").select("id, owner_id, title").eq("id", str(data.property_id)).maybe_single().execute()
     if not prop.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found")
@@ -236,29 +245,65 @@ def initiate_boost(
         amount_paid=calculate_boost_price(data.duration_days),
     )
 
-    result = service.create_pending(boost_data, UUID(current_user.id), reference, "nylonpay")
+    result = service.create_pending(boost_data, UUID(current_user.id), reference, "pesapal")
 
     try:
-        initiate_boost_payment(
-            amount=amount,
-            customer_name=current_user.full_name or current_user.email,
-            customer_phone=data.phone_number,
-            reference=reference,
+        profile = supabase.table("profiles").select("full_name, email, phone").eq("user_id", current_user.id).single().execute()
+        full_name = (profile.data.get("full_name") or current_user.email).split(" ", 1)
+        first_name = full_name[0] if full_name else current_user.email
+        last_name = full_name[1] if len(full_name) > 1 else ""
+        customer_email = profile.data.get("email") or current_user.email
+        customer_phone = profile.data.get("phone") or ""
+    except Exception:
+        first_name = current_user.email
+        last_name = ""
+        customer_email = current_user.email
+        customer_phone = ""
+
+    base_url = str(data.callback_url or "").rstrip("/")
+    callback_url = f"{base_url}{BOOST_CALLBACK_URL}"
+    # Use the configured IPN URL or default to the backend callback
+    from config import get_settings as _gs
+    s = _gs()
+    ipn_url = s.pesapal_ipn_url or f"{base_url}/payments/webhook/pesapal"
+
+    try:
+        token = await get_auth_token()
+        ipn_id = await register_ipn(token, ipn_url)
+        order_id = reference
+        pay_resp = await submit_order(
+            token=token,
+            order_id=order_id,
+            amount=float(amount),
+            currency="UGX",
             description=f"Boost {prop_title} ({data.duration_days} days)",
+            callback_url=callback_url,
+            ipn_id=ipn_id,
+            first_name=first_name,
+            last_name=last_name,
+            email=customer_email,
+            phone=customer_phone,
         )
-    except Exception as e:
-        logger.error("NylonPay payment initiation failed for boost %s: %s", result["id"], str(e))
+    except RuntimeError as e:
+        logger.error("Pesapal configuration error for boost %s: %s", result["id"], e)
         service.cancel(result["id"])
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Payment initiation failed. Please try again.",
-        )
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+    except Exception as e:
+        logger.error("Pesapal payment initiation failed for boost %s: %s", result["id"], str(e))
+        service.cancel(result["id"])
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Payment initiation failed. Please try again.")
+
+    redirect_url = pay_resp.get("redirect_url", "")
+    if not redirect_url:
+        service.cancel(result["id"])
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to get payment redirect URL from Pesapal")
 
     return InitiateBoostResponse(
         boost_id=result["id"],
         reference=reference,
         status="pending",
-        message="Check your phone for the payment prompt. Enter your PIN to confirm.",
+        redirect_url=redirect_url,
+        message=f"Redirecting to Pesapal to complete payment of UGX {amount:,}.",
     )
 
 

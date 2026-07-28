@@ -14,6 +14,7 @@ import {
   X, Download, Upload, ThumbsUp, ThumbsDown, FileUp, Sidebar, Camera
 } from 'lucide-react';
 import { format, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from 'date-fns';
+import MobileAppBanner from '@/components/MobileAppBanner';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -401,39 +402,9 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <SidebarOverlay />
-      <SidebarNav />
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top header */}
-        <header className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 lg:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-muted-foreground hover:text-foreground">
-              <Menu className="h-5 w-5" />
-            </button>
-            <div>
-              <h1 className="text-sm font-bold text-foreground">
-                {NAV_ITEMS.find(n => n.id === tab)?.label || 'Dashboard'}
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                {property?.title || 'Tenant Portal'} {property?.state ? `· ${property.state}` : ''}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {profile?.photo_url ? (
-              <img src={profile.photo_url} alt="" className="h-8 w-8 rounded-lg object-cover ring-2 ring-border" />
-            ) : (
-              <div className="h-8 w-8 rounded-lg flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: initBg(user?.id || '') }}>
-                {initials(profile?.full_name || '', user?.email || '')}
-              </div>
-            )}
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+    <div>
+      <MobileAppBanner />
+      <div className="p-4 lg:p-6">
           {/* ==================== HOME TAB ==================== */}
           {tab === 'home' && (
             <div className="max-w-5xl mx-auto space-y-6">
@@ -706,9 +677,15 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                   <p className="text-2xl font-bold text-accent">{onTimePct}%</p>
                 </div>
               </div>
-              <Input placeholder="Search payments..."
-                value={paymentSearch} onChange={e => { setPaymentSearch(e.target.value); setPaymentPage(0); }}
-                className="rounded-lg h-11 max-w-sm" />
+              <div className="flex items-center gap-3 flex-wrap">
+                <Input placeholder="Search payments..."
+                  value={paymentSearch} onChange={e => { setPaymentSearch(e.target.value); setPaymentPage(0); }}
+                  className="rounded-lg h-11 max-w-sm" />
+                <Button size="sm" className="gradient-primary text-primary-foreground rounded-lg h-10 gap-1.5"
+                  onClick={() => navigate('/dashboard/tenant/payments/submit')}>
+                  <Upload className="h-4 w-4" /> Submit Payment
+                </Button>
+              </div>
               {pagePayments.length === 0 ? (
                 <div className="text-center py-12 bg-card border border-border rounded-xl">
                   <DollarSign className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
@@ -814,7 +791,15 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
           {/* ==================== AGREEMENTS TAB ==================== */}
           {tab === 'agreements' && (
             <div className="max-w-4xl mx-auto space-y-6">
-              <h2 className="font-bold text-xl">Tenancy Agreement</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="font-bold text-xl">Tenancy Agreement</h2>
+                {activeLease && (
+                  <Button variant="outline" size="sm" className="rounded-lg gap-1.5 text-xs"
+                    onClick={() => navigate(`/dashboard/tenant/agreement/${activeLease.id}`)}>
+                    <FileText className="h-3.5 w-3.5" /> Full Page
+                  </Button>
+                )}
+              </div>
               {!activeLease ? (
                 <div className="bg-card border border-border rounded-xl p-8 text-center">
                   <FileText className="h-16 w-16 text-muted-foreground/20 mx-auto mb-3" />
@@ -847,10 +832,17 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                                 {(agreementState.current_document.file_size / 1024).toFixed(1)} KB · {agreementState.current_document.file_mime_type}
                               </p>
                             </div>
-                            <a href={agreementState.current_document.agreement_url} target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90">
-                              <Download className="h-4 w-4" /> View Document
-                            </a>
+                            {agreementState.current_document.agreement_url ? (
+                              <a href={agreementState.current_document.agreement_url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90">
+                                <Download className="h-4 w-4" /> View Document
+                              </a>
+                            ) : (
+                              <a href={`${API_BASE}/agreements/${activeLease.id}/pdf`} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90">
+                                <Download className="h-4 w-4" /> Download PDF
+                              </a>
+                            )}
                           </div>
                         </div>
 
@@ -1023,7 +1015,6 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
               </div>
             </div>
           )}
-        </main>
       </div>
 
       {/* Change Password Drawer */}

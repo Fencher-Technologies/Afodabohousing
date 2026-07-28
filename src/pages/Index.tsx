@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { apiGet } from '@/services/api';
 import Navbar from '@/components/Navbar';
 import PropertyCard from '@/components/PropertyCard';
 import Footer from '@/components/Footer';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell, Star, TrendingUp } from 'lucide-react';
+import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell, Star, TrendingUp, Smartphone, Download } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
 
 interface Property {
@@ -85,11 +86,13 @@ export default function HomePage() {
 
   const fetchProperties = async () => {
     setLoading(true);
-    let query = supabase.from('properties').select('*').eq('status', 'available').order('created_at', { ascending: false });
-    if (searchDistrict && searchDistrict !== 'all') query = query.ilike('state', `%${searchDistrict}%`);
-    if (filterType && filterType !== 'all') query = query.eq('property_type', filterType);
-    const { data } = await query.limit(9);
-    if (data) setProperties(data.map(p => ({ ...p, rent_amount: p.monthly_rent || p.rent_amount })));
+    try {
+      const params = new URLSearchParams({ limit: '9' });
+      if (searchDistrict && searchDistrict !== 'all') params.set('state', searchDistrict);
+      if (filterType && filterType !== 'all') params.set('property_type', filterType);
+      const res = await apiGet<{ items: any[]; total: number }>(`/properties/public?${params}`);
+      setProperties(res.items.map((p: any) => ({ ...p, rent_amount: p.monthly_rent || p.rent_amount })));
+    } catch { setProperties([]); }
     setLoading(false);
   };
 
@@ -285,6 +288,52 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ONBOARDING BENEFITS / ROLE-SPECIFIC */}
+      <section className="bg-card border-y border-border py-20" id="benefits">
+        <div className="container">
+          <div className="text-center mb-12">
+            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Tailored for You</p>
+            <h2 className="font-display text-4xl font-bold text-foreground">Get Started in Minutes</h2>
+            <p className="text-muted-foreground mt-3 max-w-xl mx-auto">Whether you're renting or managing, Afodabo Housing gives you the right tools from day one.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="rounded-2xl p-8 bg-gradient-to-br from-accent/5 to-accent/10 border border-accent/20 text-center">
+              <div className="text-4xl mb-4">👤</div>
+              <h3 className="font-display text-xl font-bold mb-2">Tenants</h3>
+              <ul className="text-sm text-muted-foreground space-y-2 text-left">
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-accent shrink-0 mt-0.5" /><span>Browse and bookmark verified properties</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-accent shrink-0 mt-0.5" /><span>Pay rent via MTN/Airtel or card</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-accent shrink-0 mt-0.5" /><span>Track payments and tenancy progress</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-accent shrink-0 mt-0.5" /><span>Request maintenance and get updates</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-accent shrink-0 mt-0.5" /><span>Sign agreements digitally</span></li>
+              </ul>
+            </div>
+            <div className="rounded-2xl p-8 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 text-center">
+              <div className="text-4xl mb-4">🏠</div>
+              <h3 className="font-display text-xl font-bold mb-2">House Managers</h3>
+              <ul className="text-sm text-muted-foreground space-y-2 text-left">
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" /><span>List properties with GPS and photos</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" /><span>Manage tenants, leases, and units</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" /><span>Review and confirm payments instantly</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" /><span>Send SMS rent reminders automatically</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" /><span>Export CSV/XLSX/PDF reports</span></li>
+              </ul>
+            </div>
+            <div className="rounded-2xl p-8 bg-gradient-to-br from-gold/5 to-gold/10 border border-gold/20 text-center">
+              <div className="text-4xl mb-4">🔍</div>
+              <h3 className="font-display text-xl font-bold mb-2">Free Users</h3>
+              <ul className="text-sm text-muted-foreground space-y-2 text-left">
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" /><span>Browse all properties with full details</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" /><span>Save bookmarks and compare listings</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" /><span>Contact managers directly via phone/email</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" /><span>Get GPS directions to any property</span></li>
+                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" /><span>Free to join — no commitment needed</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* HOW IT WORKS */}
       <section className="container py-20" id="how-it-works">
         <div className="text-center mb-14">
@@ -363,6 +412,27 @@ export default function HomePage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* APK DOWNLOAD */}
+      <section className="container pb-20">
+        <div className="bg-card border border-border rounded-3xl p-8 md:p-12 shadow-card">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="bg-primary/10 text-primary rounded-2xl p-5 shrink-0">
+              <Smartphone className="h-12 w-12" />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <h2 className="font-display text-2xl font-bold text-foreground mb-2">Get the Afodabo App</h2>
+              <p className="text-muted-foreground text-sm max-w-lg">
+                Download our Android app for a faster experience. Browse properties, pay rent, message managers, and manage your tenancy on the go.
+              </p>
+            </div>
+            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shrink-0 gap-2"
+              onClick={() => window.open(import.meta.env.VITE_MOBILE_APK_URL || '#', '_blank')}>
+              <Download className="h-5 w-5" /> Download APK
+            </Button>
+          </div>
         </div>
       </section>
 

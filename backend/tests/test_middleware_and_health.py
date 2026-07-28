@@ -1,11 +1,7 @@
 import json
-import time
 from unittest.mock import patch
 
 import pytest
-from fastapi.testclient import TestClient
-
-from main import app
 
 
 class TestHealthEndpoints:
@@ -80,6 +76,7 @@ class TestExceptionHandler:
     @pytest.mark.anyio
     async def test_global_exception_handler_returns_500(self):
         from fastapi import Request
+
         from main import global_exception_handler
 
         scope = {"type": "http", "method": "GET", "path": "/test", "headers": [], "query_string": b""}

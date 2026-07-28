@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, DollarSign, Search, Download, ChevronRight } from 'lucide-react';
+import { ArrowLeft, DollarSign, Search, Download, ChevronRight, Plus, Wallet } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function TenantPayments() {
@@ -15,6 +15,7 @@ export default function TenantPayments() {
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [lease, setLease] = useState<any>(null);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 10;
 
@@ -33,6 +34,11 @@ export default function TenantPayments() {
       .eq('tenant_id', tenant.id)
       .order('created_at', { ascending: false });
     setPayments(data || []);
+    const { data: leases } = await supabase
+      .from('leases').select('monthly_rent, rent_period, start_date, end_date, status')
+      .eq('tenant_id', tenant.id)
+      .order('created_at', { ascending: false });
+    setLease(leases?.find((l: any) => l.status === 'active') ?? leases?.[0] ?? null);
     setLoading(false);
   };
 
@@ -47,6 +53,9 @@ export default function TenantPayments() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const confirmedTotal = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0);
+  const monthRent = lease?.monthly_rent || 0;
+  const balanceDue = Math.max(0, monthRent - confirmedTotal);
+  const credit = Math.max(0, confirmedTotal - monthRent);
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -58,7 +67,7 @@ export default function TenantPayments() {
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-4 lg:p-6 space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/tenant')} className="p-0 h-9 w-9">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="p-0 h-9 w-9">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -67,26 +76,40 @@ export default function TenantPayments() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-card border border-border rounded-xl p-5 text-center">
-            <p className="text-xs text-muted-foreground">This month</p>
-            <p className="text-2xl font-bold text-foreground">
-              {payments.filter(p => {
-                const d = new Date(p.created_at);
-                const now = new Date();
-                return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-              }).length}
-            </p>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="bg-card border border-border rounded-xl p-5 text-center">
             <p className="text-xs text-muted-foreground">Total paid</p>
             <p className="text-2xl font-bold text-success">UGX {confirmedTotal.toLocaleString()}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-5 text-center">
+            <p className="text-xs text-muted-foreground">Expected</p>
+            <p className="text-2xl font-bold text-foreground">UGX {monthRent.toLocaleString()}<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
+          </div>
+          {balanceDue > 0 ? (
+            <div className="bg-card border border-border rounded-xl p-5 text-center">
+              <p className="text-xs text-muted-foreground">Balance Due</p>
+              <p className="text-2xl font-bold text-destructive">UGX {balanceDue.toLocaleString()}</p>
+            </div>
+          ) : credit > 0 ? (
+            <div className="bg-card border border-border rounded-xl p-5 text-center">
+              <p className="text-xs text-muted-foreground">Credit</p>
+              <p className="text-2xl font-bold text-gold">UGX {credit.toLocaleString()}</p>
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-xl p-5 text-center">
+              <p className="text-xs text-muted-foreground">Status</p>
+              <p className="text-2xl font-bold text-success">All good</p>
+            </div>
+          )}
+          <div className="bg-card border border-border rounded-xl p-5 text-center">
             <p className="text-xs text-muted-foreground">Payments</p>
             <p className="text-2xl font-bold text-accent">{payments.length}</p>
           </div>
         </div>
+
+        <Button className="w-full gap-2" onClick={() => navigate('/dashboard/tenant/payments/submit')}>
+          <Plus className="h-4 w-4" /> Submit Payment for Verification
+        </Button>
 
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

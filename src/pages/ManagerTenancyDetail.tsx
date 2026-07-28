@@ -6,11 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import RenewTenancyModal from '@/components/RenewTenancyModal';
+import RecordPaymentModal from '@/components/RecordPaymentModal';
 import {
   ArrowLeft, User, Home, CalendarDays, DollarSign, Phone, Mail, FileText,
-  Edit3, Ban, CheckCircle, XCircle, Clock, Share2, MapPin
+  Edit3, Ban, CheckCircle, XCircle, Clock, Share2, MapPin, Plus, ChevronRight,
+  Wallet, MessageCircle, TrendingUp,
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
+import AgreementFlowCard from '@/components/AgreementFlowCard';
 
 export default function ManagerTenancyDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +25,8 @@ export default function ManagerTenancyDetail() {
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deactivating, setDeactivating] = useState(false);
+  const [renewOpen, setRenewOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -68,21 +74,13 @@ export default function ManagerTenancyDetail() {
     fetchData();
   };
 
-  const handleRenewalRequest = async () => {
+  const handleRenew = async ({ newEndDate, monthlyRent }: { newEndDate: string; monthlyRent?: number }) => {
     if (!id) return;
-    const newEnd = prompt('Enter new end date (YYYY-MM-DD):');
-    if (!newEnd) return;
-    setDeactivating(true);
-    const { error } = await supabase.from('leases').update({
-      end_date: newEnd,
-      status: 'active',
-    }).eq('id', id);
-    setDeactivating(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      return;
-    }
-    toast({ title: 'Lease renewed', description: `New end date: ${newEnd}` });
+    const updates: any = { end_date: newEndDate, status: 'active' };
+    if (monthlyRent) updates.monthly_rent = monthlyRent;
+    const { error } = await supabase.from('leases').update(updates).eq('id', id);
+    if (error) throw new Error(error.message);
+    toast({ title: 'Lease renewed', description: `New end date: ${newEndDate}` });
     fetchData();
   };
 
@@ -107,7 +105,7 @@ export default function ManagerTenancyDetail() {
       <div className="max-w-4xl mx-auto p-4 lg:p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/manager/tenancies')} className="p-0 h-9 w-9">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="p-0 h-9 w-9">
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
@@ -118,7 +116,7 @@ export default function ManagerTenancyDetail() {
           <div className="flex gap-2">
             {lease.status === 'active' && (
               <>
-                <Button variant="outline" size="sm" onClick={handleRenewalRequest} disabled={deactivating}
+                <Button variant="outline" size="sm" onClick={() => setRenewOpen(true)} disabled={deactivating}
                   className="gap-2 rounded-lg">
                   <Share2 className="h-4 w-4" /> Renew
                 </Button>
@@ -253,11 +251,60 @@ export default function ManagerTenancyDetail() {
           </div>
         </div>
 
+        {/* Record Payment + Quick Actions */}
+        {balance > 0 && (
+          <Button onClick={() => setPaymentOpen(true)} className="w-full h-12 rounded-xl font-bold text-base gap-2 bg-gold hover:bg-gold/90 text-gold-foreground">
+            <Wallet className="h-5 w-5" />
+            Record Payment
+          </Button>
+        )}
+
+        <div className="flex gap-3">
+          {t.phone && (
+            <a href={`https://wa.me/${t.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer"
+              className="flex-1 flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-primary/30 transition-colors">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <MessageCircle className="h-5 w-5 text-primary" />
+              </div>
+              <span className="text-xs font-semibold text-foreground">WhatsApp</span>
+            </a>
+          )}
+          {t.phone && (
+            <button onClick={() => {
+              const msg = encodeURIComponent(`Dear ${t.first_name || ''}, this is a friendly reminder that your rent payment is due. Please make your payment promptly to avoid any inconvenience. Thank you.`);
+              window.open(`https://wa.me/${t.phone.replace(/[^0-9]/g, '')}?text=${msg}`, '_blank');
+            }}
+              className="flex-1 flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-colors">
+              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-accent" />
+              </div>
+              <span className="text-xs font-semibold text-foreground">Remind</span>
+            </button>
+          )}
+          <button onClick={() => navigate(`/dashboard/manager/tenancies/${id}/edit`)}
+            className="flex-1 flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-primary/30 transition-colors">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Edit3 className="h-5 w-5 text-primary" />
+            </div>
+            <span className="text-xs font-semibold text-foreground">Edit</span>
+          </button>
+        </div>
+
+        {/* Agreement Flow Card */}
+        <AgreementFlowCard leaseId={id!} />
+
         {/* Payment history */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <h2 className="font-bold text-sm mb-4 flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-primary" /> Payment History
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-sm flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-primary" /> Payment History
+            </h2>
+            {payments.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => navigate(`/dashboard/manager/payments?tenancyId=${id}`)} className="text-xs gap-1">
+                See all <ChevronRight className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
           {payments.length === 0 ? (
             <div className="text-center py-8">
               <DollarSign className="h-10 w-10 text-muted-foreground/20 mx-auto mb-2" />
@@ -276,7 +323,8 @@ export default function ManagerTenancyDetail() {
                 </thead>
                 <tbody>
                   {payments.map(pay => (
-                    <tr key={pay.id} className="border-b border-border/50 hover:bg-muted/20">
+                    <tr key={pay.id} onClick={() => navigate(`/dashboard/manager/payments/${pay.id}`)}
+                      className="border-b border-border/50 hover:bg-muted/20 cursor-pointer transition-colors">
                       <td className="py-3 px-4 font-medium capitalize">{pay.payment_type || 'Payment'}</td>
                       <td className="py-3 px-4 font-bold">UGX {(pay.amount || 0).toLocaleString()}</td>
                       <td className="py-3 px-4 text-muted-foreground">
@@ -297,6 +345,22 @@ export default function ManagerTenancyDetail() {
           )}
         </div>
       </div>
+      <RenewTenancyModal
+        open={renewOpen}
+        onClose={() => setRenewOpen(false)}
+        currentEndDate={lease.end_date}
+        currentRent={lease.monthly_rent}
+        tenantName={lease.tenants ? `${lease.tenants.first_name || ''} ${lease.tenants.last_name || ''}`.trim() : undefined}
+        onRenew={handleRenew}
+      />
+      <RecordPaymentModal
+        open={paymentOpen}
+        onClose={() => setPaymentOpen(false)}
+        leaseId={id!}
+        tenantId={lease.tenant_id}
+        balanceDue={balance}
+        onRecorded={fetchData}
+      />
     </div>
   );
 }

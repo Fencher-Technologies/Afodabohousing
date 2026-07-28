@@ -16,11 +16,13 @@ from config import get_settings
 from dependencies.database import get_service_client
 from routers import (
     admin_router,
+    agreement_generator_router,
     agreements_router,
     auth_router,
     bookmarks_router,
     boosts_router,
     exports_router,
+    forex_router,
     leases_router,
     maintenance_requests_router,
     managers_router,
@@ -28,11 +30,14 @@ from routers import (
     notifications_router,
     payment_verifications_router,
     payments_router,
+    phone_auth_router,
     properties_router,
     rental_units_router,
     reports_router,
     subscriptions_router,
     tenants_router,
+    terms_router,
+    tracking_router,
     uploads_router,
     webhooks_router,
 )
@@ -240,10 +245,26 @@ def _error_response(
     return JSONResponse(status_code=status_code, headers=response_headers, content=payload)
 
 
+def _validate_required_settings():
+    missing = []
+    if not settings.pesapal_consumer_key:
+        missing.append("PESAPAL_CONSUMER_KEY")
+    if not settings.pesapal_consumer_secret:
+        missing.append("PESAPAL_CONSUMER_SECRET")
+    if missing:
+        logger.warning(
+            "Payment provider credentials not configured: %s. "
+            "Boosts and subscription payments will fail at runtime. "
+            "Set these in .env or environment variables.",
+            ", ".join(missing),
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _scheduler_started
     logger.info(f"Starting Rental Management API v{app.version}")
+    _validate_required_settings()
     if settings.environment != "test" and not _scheduler_started:
         try:
             from services.scheduler import start_scheduler, stop_scheduler
@@ -341,10 +362,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 app.include_router(admin_router)
+app.include_router(agreement_generator_router)
 app.include_router(agreements_router)
 app.include_router(auth_router)
 app.include_router(bookmarks_router)
 app.include_router(exports_router)
+app.include_router(forex_router)
 app.include_router(boosts_router)
 app.include_router(properties_router)
 app.include_router(tenants_router)
@@ -353,10 +376,13 @@ app.include_router(managers_router)
 app.include_router(messages_router)
 app.include_router(payment_verifications_router)
 app.include_router(payments_router)
+app.include_router(phone_auth_router)
 app.include_router(rental_units_router)
 app.include_router(reports_router)
 app.include_router(subscriptions_router)
 app.include_router(maintenance_requests_router)
+app.include_router(terms_router)
+app.include_router(tracking_router)
 app.include_router(uploads_router)
 app.include_router(webhooks_router)
 app.include_router(notifications_router)

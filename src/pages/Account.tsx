@@ -3,34 +3,42 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Phone, Building2, LogOut, ChevronRight, KeyRound, Edit3, Camera } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  User, Mail, Phone, Building2, LogOut, ChevronRight, KeyRound, Edit3, Crown,
+  Info, ShieldCheck, FileText, Headphones, Users, TrendingUp, ChevronDown,
+} from 'lucide-react';
 
 export default function Account() {
   const { user, role, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [profile, setProfile] = useState<any>(null);
+  const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [supportOpen, setSupportOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) { navigate('/login'); return; }
-    loadProfile();
+    loadData();
   }, [user, authLoading]);
 
-  const loadProfile = async () => {
+  async function loadData() {
     if (!user) return;
-    const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
-    setProfile(data);
+    const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+    setProfile(p);
+    if (p?.role === 'house_manager') {
+      const { data: sub } = await supabase.from('manager_subscriptions').select('*, subscription_plans!inner(name)').eq('manager_id', user.id).maybeSingle();
+      if (sub) setSubscription(sub);
+    }
     setLoading(false);
-  };
+  }
 
   function initBg(id: string) {
     let h = 0;
     for (let i = 0; i < id.length; i++) h = id.charCodeAt(i) + ((h << 5) - h);
-    const hues = [14, 182, 200, 340, 48, 260, 30];
-    return `hsl(${hues[Math.abs(h) % hues.length]}, 50%, 45%)`;
+    const hues = [155, 42, 24, 200, 340, 48, 260, 30];
+    return `hsl(${hues[Math.abs(h) % hues.length]}, 47%, 35%)`;
   }
 
   function initials(name: string, email: string) {
@@ -47,17 +55,22 @@ export default function Account() {
     </div>
   );
 
+  const isManager = role === 'house_manager' || role === 'super_admin';
+  const isTenant = role === 'tenant';
   const dashboardRoute = role === 'super_admin' ? '/dashboard/super-admin'
     : role === 'house_manager' ? '/dashboard/manager'
-    : role === 'tenant' ? '/dashboard/tenant'
-    : '/';
+    : role === 'tenant' ? '/dashboard/tenant' : '/';
+  const isActive = subscription?.status === 'active';
+  const emailDisplay = user?.email?.startsWith('phone_') ? (profile?.phone || user?.email) : user?.email;
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto p-4 lg:p-6 space-y-6">
+
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-bold text-2xl">Account</h1>
+            <h1 className="font-display text-2xl font-bold text-foreground">Account</h1>
             <p className="text-sm text-muted-foreground">Manage your profile and settings</p>
           </div>
           <Button variant="ghost" size="sm" onClick={() => navigate(dashboardRoute)} className="gap-2">
@@ -65,15 +78,11 @@ export default function Account() {
           </Button>
         </div>
 
+        {/* Profile Card */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <div className="flex items-center gap-4">
             {profile?.photo_url ? (
-              <div className="relative">
-                <img src={profile.photo_url} alt="" className="h-20 w-20 rounded-2xl object-cover ring-2 ring-border" />
-                <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-                  <Camera className="h-3.5 w-3.5" />
-                </div>
-              </div>
+              <img src={profile.photo_url} alt="" className="h-20 w-20 rounded-2xl object-cover ring-2 ring-border" />
             ) : (
               <div className="h-20 w-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white ring-2 ring-border"
                 style={{ backgroundColor: initBg(user?.id || '') }}>
@@ -81,10 +90,20 @@ export default function Account() {
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="font-bold text-xl text-foreground truncate">
-                {profile?.full_name || user?.email?.split('@')[0]}
-              </p>
-              <p className="text-sm text-muted-foreground capitalize">{role?.replace(/_/g, ' ') || 'User'}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-bold text-xl text-foreground truncate">
+                  {profile?.full_name || user?.email?.split('@')[0]}
+                </p>
+                {user?.email_confirmed_at && (
+                  <Badge variant="outline" className="text-[10px] h-5 px-2 border-success/30 text-success bg-success/5">Verified</Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">{emailDisplay}</p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <Badge variant="outline" className="text-[10px] h-5 px-2 border-primary/30 text-primary bg-primary/5 capitalize">
+                  {role?.replace(/_/g, ' ') || 'User'}
+                </Badge>
+              </div>
             </div>
             <Button variant="outline" size="sm" className="shrink-0 gap-2 rounded-lg"
               onClick={() => navigate('/account/edit')}>
@@ -93,67 +112,193 @@ export default function Account() {
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-xl shadow-sm divide-y divide-border">
-          <div className="p-5">
-            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-3">Contact Information</p>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Mail className="h-4 w-4 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Email</p>
-                  <p className="text-sm font-semibold truncate">{user?.email}</p>
-                </div>
+        {/* Subscription Card (manager only) */}
+        {isManager && (
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center">
+                <Crown className="h-5 w-5 text-gold" />
               </div>
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Phone className="h-4 w-4 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Phone</p>
-                  <p className="text-sm font-semibold">{profile?.phone || 'Not set'}</p>
-                </div>
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground">Subscription</p>
+                <p className="text-sm font-bold text-foreground">{subscription?.subscription_plans?.name || 'No plan'}</p>
               </div>
+              <Badge className={isActive ? 'bg-success/10 text-success border-success/20' : 'bg-destructive/10 text-destructive border-destructive/20'}>
+                {isActive ? 'Active' : 'Expired'}
+              </Badge>
             </div>
+            {isActive && subscription && (
+              <div className="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground font-medium">Expires</p>
+                  <p className="text-sm font-semibold">{new Date(subscription.expires_at).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground font-medium">Days left</p>
+                  <p className="text-sm font-semibold">{Math.ceil((new Date(subscription.expires_at).getTime() - Date.now()) / 86400000)} days</p>
+                </div>
+              </div>
+            )}
+            {!isActive && (
+              <Button variant="outline" size="sm" className="w-full rounded-lg gap-2" onClick={() => navigate('/subscription')}>
+                <TrendingUp className="h-4 w-4" /> Renew Now
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Manage section (manager only) */}
+        {isManager && (
+          <div>
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2 px-1">Manage</p>
+            <div className="bg-card border border-border rounded-xl shadow-sm divide-y divide-border">
+              <button onClick={() => navigate('/dashboard/manager')}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Building2 className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">Properties</p>
+                  <p className="text-xs text-muted-foreground">Manage your property listings</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+              <button onClick={() => navigate('/dashboard/manager/tenancies')}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">Tenancies</p>
+                  <p className="text-xs text-muted-foreground">View and manage tenancies</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+              <button onClick={() => navigate('/dashboard/manager/reports')}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <FileText className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">Reports</p>
+                  <p className="text-xs text-muted-foreground">View reports and analytics</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+              <button onClick={() => navigate('/subscription')}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">Subscription</p>
+                  <p className="text-xs text-muted-foreground">Manage your subscription plan</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Settings */}
+        <div>
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2 px-1">Settings</p>
+          <div className="bg-card border border-border rounded-xl shadow-sm divide-y divide-border">
+            <button onClick={() => navigate('/account/edit')}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <User className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">Edit Profile</p>
+                <p className="text-xs text-muted-foreground">Update your name, phone and photo</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+            <button onClick={() => navigate('/account/change-password')}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <KeyRound className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">Change Password</p>
+                <p className="text-xs text-muted-foreground">Update your account password</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+            <button onClick={() => navigate('/account/change-pin')}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">Change PIN</p>
+                <p className="text-xs text-muted-foreground">Update your phone sign-in PIN</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-xl shadow-sm divide-y divide-border">
-          <button onClick={() => navigate('/account/change-password')}
-            className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
-            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <KeyRound className="h-4 w-4 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Change Password</p>
-              <p className="text-xs text-muted-foreground">Update your account password</p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-          </button>
-          <button onClick={() => navigate(dashboardRoute)}
-            className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
-            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Building2 className="h-4 w-4 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Back to Dashboard</p>
-              <p className="text-xs text-muted-foreground">Return to your role dashboard</p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-          </button>
-          <button onClick={() => { signOut().then(() => navigate('/')); }}
-            className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-destructive/5 transition-colors">
-            <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
-              <LogOut className="h-4 w-4 text-destructive" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-destructive">Sign Out</p>
-              <p className="text-xs text-muted-foreground">Log out of your account</p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-          </button>
+        {/* Support & Policies */}
+        <div>
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2 px-1">Support & Policies</p>
+          <div className="bg-card border border-border rounded-xl shadow-sm">
+            <button onClick={() => navigate('/about')}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors border-b border-border">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">About Afodabo</p>
+                <p className="text-xs text-muted-foreground">Learn about the platform</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+            <button onClick={() => window.location.href = 'mailto:support@afodabo.com'}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors border-b border-border">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <Headphones className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">Contact Support</p>
+                <p className="text-xs text-muted-foreground">Get help with your account</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+            <button onClick={() => navigate('/privacy')}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors border-b border-border">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">Privacy Policy</p>
+                <p className="text-xs text-muted-foreground">How we handle your data</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+            <button onClick={() => navigate('/terms')}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">Terms of Service</p>
+                <p className="text-xs text-muted-foreground">Platform terms and conditions</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+          </div>
         </div>
+
+        {/* Sign Out */}
+        <button onClick={() => { signOut().then(() => navigate('/')); }}
+          className="w-full flex items-center justify-center gap-2 py-4 bg-card border border-destructive/20 rounded-xl text-destructive hover:bg-destructive/5 transition-colors">
+          <LogOut className="h-5 w-5" />
+          <span className="font-semibold">Sign Out</span>
+        </button>
+
+        <p className="text-xs text-muted-foreground text-center">Afodabo Housing v1.0.0</p>
       </div>
     </div>
   );

@@ -2,22 +2,15 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, TrendingUp, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, TrendingUp, ShieldCheck, ExternalLink, Loader2 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
-
-const DURATION_OPTIONS = [
-  { days: 7, label: '7 days', price: 15000 },
-  { days: 14, label: '14 days', price: 25000 },
-  { days: 30, label: '30 days', price: 45000 },
-];
 
 export default function BoostPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,8 +22,14 @@ export default function BoostPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
+  const [redirectUrl, setRedirectUrl] = useState('');
   const [duration, setDuration] = useState(7);
   const [phone, setPhone] = useState('');
+  const [packages, setPackages] = useState<{ days: number; label: string; price: number }[]>([]);
+
+  useEffect(() => {
+    fetch(`${API}/boosts/packages`).then(r => r.json()).then(setPackages).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -42,7 +41,12 @@ export default function BoostPage() {
     });
   }, [id]);
 
-  const price = DURATION_OPTIONS.find(d => d.days === duration)?.price || 0;
+  const options = packages.length > 0 ? packages : [
+    { days: 7, label: '7 days', price: 15000 },
+    { days: 14, label: '14 days', price: 25000 },
+    { days: 30, label: '30 days', price: 45000 },
+  ];
+  const price = options.find(d => d.days === duration)?.price || 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,12 +58,23 @@ export default function BoostPage() {
       const res = await fetch(`${API}/boosts/initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ property_id: id, duration_days: duration, phone_number: phone.trim() }),
+        body: JSON.stringify({
+          property_id: id,
+          duration_days: duration,
+          phone_number: phone.trim(),
+          callback_url: window.location.origin,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Boost initiation failed');
-      setDone(true);
-      toast({ title: 'Boost initiated!', description: 'Check your phone for the payment prompt.' });
+      if (data.redirect_url) {
+        setRedirectUrl(data.redirect_url);
+        setDone(true);
+        window.location.href = data.redirect_url;
+      } else {
+        setDone(true);
+      }
+      toast({ title: 'Redirecting to Pesapal...', description: 'Complete payment on the secure page.' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
@@ -68,31 +83,34 @@ export default function BoostPage() {
 
   if (loading) return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <div className="flex items-center justify-center h-[80vh]"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <div className="max-w-lg mx-auto px-4 py-8">
-        <button onClick={() => navigate('/dashboard/manager')} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Back to Dashboard
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back
         </button>
 
         {done ? (
           <Card className="text-center py-12">
             <CardContent className="space-y-4 pt-6">
               <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
-                <CheckCircle className="h-8 w-8 text-accent" />
+                <ExternalLink className="h-8 w-8 text-accent" />
               </div>
-              <CardTitle className="text-xl">Boost Request Sent!</CardTitle>
+              <CardTitle className="text-xl">Redirecting to Pesapal...</CardTitle>
               <CardDescription>
-                A payment request of <strong>UGX {price.toLocaleString()}</strong> has been pushed to <strong>{phone}</strong>.
-                Enter your mobile money PIN to confirm.
+                Complete your payment of <strong>UGX {price.toLocaleString()}</strong> on the secure Pesapal page.
               </CardDescription>
-              <Button onClick={() => navigate('/dashboard/manager')} className="mt-4 gradient-primary text-primary-foreground">
+              {redirectUrl && (
+                <a href={redirectUrl}
+                  className="inline-flex items-center gap-2 text-primary hover:underline text-sm">
+                  <ExternalLink className="h-4 w-4" /> Open payment page
+                </a>
+              )}
+              <Button onClick={() => navigate('/dashboard/manager')} className="mt-2">
                 Back to Dashboard
               </Button>
             </CardContent>
@@ -118,7 +136,7 @@ export default function BoostPage() {
                   <Select value={String(duration)} onValueChange={v => setDuration(Number(v))}>
                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {DURATION_OPTIONS.map(d => (
+                      {options.map(d => (
                         <SelectItem key={d.days} value={String(d.days)}>
                           {d.label} — UGX {d.price.toLocaleString()}
                         </SelectItem>
@@ -128,7 +146,7 @@ export default function BoostPage() {
                 </div>
 
                 <div>
-                  <Label>Mobile Money Number</Label>
+                  <Label>Phone Number</Label>
                   <Input
                     type="tel"
                     value={phone}
@@ -137,11 +155,11 @@ export default function BoostPage() {
                     className="mt-1"
                     required
                   />
-                  <p className="text-xs text-muted-foreground mt-1">You'll receive a payment prompt on this number.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Used for billing reference on Pesapal.</p>
                 </div>
 
                 <Button type="submit" disabled={sending} className="w-full gradient-primary text-primary-foreground gap-2">
-                  {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><TrendingUp className="h-4 w-4" /> Boost for UGX {price.toLocaleString()}</>}
+                  {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><ExternalLink className="h-4 w-4" /> Pay with Pesapal — UGX {price.toLocaleString()}</>}
                 </Button>
               </form>
             </CardContent>

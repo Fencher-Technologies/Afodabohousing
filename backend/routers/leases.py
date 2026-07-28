@@ -9,10 +9,10 @@ from models import (
     LeaseCreate,
     LeaseResponse,
     LeaseUpdate,
-    RenewLease,
     RenewalRequestCreate,
+    RenewLease,
 )
-from services import LeaseService, get_lease_service
+from services import LeaseService, PaymentService, get_lease_service, get_payment_service
 from services.notifications import notify
 
 router = APIRouter(prefix="/leases", tags=["leases"])
@@ -25,8 +25,33 @@ class PaginatedResponse(BaseModel):
     limit: int
 
 
+class OverdueListResponse(BaseModel):
+    total_overdue: int
+    total_balance_due: float
+    items: list
+
+
 def get_lease_svc(supabase: Client = Depends(get_supabase_client)) -> LeaseService:
     return get_lease_service(supabase)
+
+
+def get_payment_owner_svc(supabase: Client = Depends(get_supabase_client)) -> PaymentService:
+    return get_payment_service(supabase)
+
+
+@router.get("/overdue", response_model=OverdueListResponse)
+def list_overdue_leases(
+    current_user: CurrentUser = Depends(get_current_user),
+    service: LeaseService = Depends(get_lease_svc),
+    payment_svc: PaymentService = Depends(get_payment_owner_svc),
+) -> OverdueListResponse:
+    overdue, total_overdue = payment_svc.get_overdue(current_user.id, 0, 10000)
+    total_balance = sum(float(l.get("balance_due", 0)) for l in overdue)
+    return OverdueListResponse(
+        total_overdue=total_overdue,
+        total_balance_due=round(total_balance, 2),
+        items=[LeaseResponse(**l) for l in overdue],
+    )
 
 
 @router.get("", response_model=PaginatedResponse)
@@ -96,7 +121,10 @@ def get_lease(
     current_user: CurrentUser = Depends(get_current_user),
     service: LeaseService = Depends(get_lease_svc),
 ) -> LeaseResponse:
-    lease = service.get_by_id(lease_id, current_user.id)
+    if current_user.role == "tenant":
+        lease = service.get_by_id_for_tenant(lease_id, current_user.id)
+    else:
+        lease = service.get_by_id(lease_id, current_user.id)
     if not lease:
         raise HTTPException(status_code=404, detail="Lease not found")
     return LeaseResponse(**lease)

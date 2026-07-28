@@ -1,5 +1,5 @@
 import logging
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -12,7 +12,7 @@ from models.payment_verification import (
     PaymentVerificationCreate,
     PaymentVerificationReject,
 )
-from services.crud import PaymentService, get_payment_service
+from services.crud import PaymentService
 from services.notifications import notify
 
 logger = logging.getLogger(__name__)
@@ -260,7 +260,7 @@ class PaymentVerificationService:
             )
         )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         update_payload = {
             "status": "approved",
             "reviewed_by": reviewer_id,
@@ -311,7 +311,7 @@ class PaymentVerificationService:
                 detail=f"Cannot reject a {submission['status']} verification request.",
             )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         update_payload = {
             "status": "rejected",
             "reviewed_by": reviewer_id,

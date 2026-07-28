@@ -23,4 +23,10 @@ services:
       - key: RATE_LIMIT_ENABLED
         value: "true"
       - key: PESAPAL_ENVIRONMENT
-        value: sandbox
+        value: live
+      - key: PESAPAL_CONSUMER_KEY
+        sync: false
+      - key: PESAPAL_CONSUMER_SECRET
+        sync: false
+      - key: PESAPAL_IPN_URL
+        sync: false

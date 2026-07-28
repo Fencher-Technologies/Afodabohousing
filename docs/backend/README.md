@@ -1,6 +1,6 @@
 # Backend Engineering Guide
 
-This guide is the entry point for engineers working on the Afodabo Housing backend. The backend is a FastAPI service backed by Supabase/Postgres and Supabase Storage. It exposes REST endpoints for authentication, properties, rental units, tenants, managers, leases, agreements, payments, receipts, maintenance, messaging, uploads, webhooks, metrics, and background reminder workflows.
+This guide is the entry point for engineers working on the Afodabo Housing backend. The backend is a FastAPI service backed by Supabase/Postgres and Supabase Storage. It exposes REST endpoints for authentication, properties, rental units, tenants, managers, leases, agreements, payments, receipts, maintenance, messaging, uploads, webhooks, metrics, background reminder workflows, and new v0.3 features: terms & consent, page-view tracking, phone auth, agreement generation, currency exchange, and PDF portfolio reports.
 
 ## Quick Links
 
@@ -48,6 +48,8 @@ Regenerate [openapi.json](openapi.json) whenever router paths, request bodies, r
 | Jobs | APScheduler | Scheduler starts during FastAPI lifespan outside test mode. |
 | Observability | JSON logs, request IDs, metrics, Sentry hooks | Implemented in `main.py` and `services/observability.py`. |
 | PDF receipts | ReportLab | Payment receipt PDFs are rendered server-side in `services/receipts.py`. |
+| PDF agreements | ReportLab | Tenancy agreements are generated server-side in `services/agreement_generator.py`. |
+| Forex | open.er-api.com | Currency exchange rates cached in `services/forex.py` (6h TTL). |
 
 ## Engineering Conventions
 

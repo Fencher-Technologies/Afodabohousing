@@ -36,6 +36,8 @@ from .subscription import (
     SubscriptionPlanResponse,
 )
 from .tenant import Tenant, TenantCreate, TenantResponse, TenantUpdate
+from .terms import TermsConsentRequest, TermsConsentResponse, TermsStatusResponse, TermsVersion
+from .tracking import PageViewCreate, PageViewResponse, PageViewStats
 
 __all__ = [
     "Profile",
@@ -83,6 +85,13 @@ __all__ = [
     "AgreementVersionsResponse",
     "Bookmark",
     "BookmarkResponse",
+    "TermsVersion",
+    "TermsConsentRequest",
+    "TermsConsentResponse",
+    "TermsStatusResponse",
+    "PageViewCreate",
+    "PageViewResponse",
+    "PageViewStats",
     "RenewalRequest",
     "RenewalRequestCreate",
     "RenewalRequestResponse",

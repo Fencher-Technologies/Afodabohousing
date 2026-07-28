@@ -86,6 +86,11 @@ class LeaseResponse(BaseModel):
     last_payment_date: date | None = None
     last_payment_amount: float | None = None
     last_payment_method: str | None = None
+    # Tenancy progress — computed in _enrich_leases
+    tenancy_total_days: int = 1
+    tenancy_elapsed_days: int = 0
+    tenancy_remaining_days: int = 0
+    tenancy_progress_pct: float = 0.0
     # Manager / owner contact — resolved from profiles via owner_id
     manager_name: str | None = None
     manager_phone: str | None = None

@@ -9,8 +9,7 @@ from fastapi.testclient import TestClient
 from dependencies import get_current_user, get_service_client
 from main import app
 
-UID_ADMIN = "00000000-0000-0000-0000-000000000003"
-PID_BOOST = "00000000-0000-0000-0000-000000000070"
+
 
 
 @pytest.fixture
@@ -151,69 +150,6 @@ class TestPesapalWebhook:
         )
         assert resp2.status_code == 200
         assert resp1.json() == resp2.json()
-
-
-class TestNylonPayWebhook:
-    def test_successful_payment_activates_boost(self, client, mock_supabase):
-        mock_supabase.table("property_boosts").insert({
-            "property_id": PID_BOOST,
-            "manager_id": UID_ADMIN,
-            "amount_paid": "70000",
-            "duration_days": 7,
-            "status": "pending",
-            "transaction_id": "ref-nylon-test",
-            "payment_method": "nylonpay",
-        }).execute()
-
-        with patch("services.nylonpay.verify_webhook_signature", return_value=True):
-            resp = client.post(
-                "/webhooks/nylonpay",
-                json={
-                    "event": "transaction.successful",
-                    "data": {
-                        "reference": "ref-nylon-test",
-                        "id": "nylon-txn-001",
-                        "status": "completed",
-                    },
-                },
-                headers={
-                    "x-nylon-signature": "valid-sig",
-                    "Content-Type": "application/json",
-                },
-            )
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "received"
-
-    def test_failed_payment(self, client):
-        with patch("services.nylonpay.verify_webhook_signature", return_value=True):
-            resp = client.post(
-                "/webhooks/nylonpay",
-                json={
-                    "event": "transaction.failed",
-                    "data": {
-                        "reference": "ref-fail",
-                        "id": "nylon-txn-fail",
-                        "status": "failed",
-                    },
-                },
-                headers={
-                    "x-nylon-signature": "valid-sig",
-                    "Content-Type": "application/json",
-                },
-            )
-        assert resp.status_code == 200
-
-    def test_rejects_invalid_signature(self, client):
-        with patch("services.nylonpay.verify_webhook", return_value=False):
-            resp = client.post(
-                "/webhooks/nylonpay",
-                json={"event": "transaction.successful", "data": {}},
-                headers={
-                    "x-nylon-signature": "bad-sig",
-                    "Content-Type": "application/json",
-                },
-            )
-        assert resp.status_code == 401
 
 
 class TestSmsWebhook:

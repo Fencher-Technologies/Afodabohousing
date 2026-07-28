@@ -1,12 +1,10 @@
-name: CI
+name: Backend CI
 
 on:
   push:
     branches: [main, develop]
-    paths: ["backend/**"]
   pull_request:
     branches: [main]
-    paths: ["backend/**"]
 
 jobs:
   lint-and-test:
@@ -23,16 +21,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Cache pip
+      - name: Install uv
+        run: pip install uv
+
+      - name: Cache uv
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('backend/pyproject.toml') }}
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('backend/pyproject.toml') }}
 
       - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install .[dev]
+        run: uv pip install --system .[dev]
 
       - name: Lint with ruff
         run: ruff check .
@@ -42,3 +41,8 @@ jobs:
 
       - name: Test with pytest
         run: pytest --cov=. --cov-report=term-missing
+
+      - name: Scan dependencies for vulnerabilities
+        run: |
+          pip install pip-audit
+          pip-audit --strict --desc on

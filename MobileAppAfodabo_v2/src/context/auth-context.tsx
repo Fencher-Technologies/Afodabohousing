@@ -2,6 +2,7 @@ import createContextHook from "@nkzw/create-context-hook";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState, useCallback, useEffect } from "react";
 
+import { Alert } from "react-native";
 import { api, clearTokens, getStoredToken, onTokensCleared, setRefreshToken, setStoredToken } from "../lib/api-client";
 import { authService } from "../services/auth";
 import { subscriptionsService } from "../services/subscriptions";
@@ -98,6 +99,7 @@ function useAuthInner() {
     if (result.refresh_token) {
       await setRefreshToken(result.refresh_token);
     }
+    Alert.alert("Login successful", "Welcome back!");
 
     const role = (result.role === "house_manager" || result.role === "landlord" ? "manager" : result.role) as UserRole;
 

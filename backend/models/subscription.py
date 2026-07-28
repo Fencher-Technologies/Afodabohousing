@@ -60,14 +60,7 @@ class ManagerSubscriptionResponse(BaseModel):
 class SubscriptionCreateRequest(BaseModel):
     plan_id: str
     phone_number: str | None = None
-
-
-class PaymentMethodInfo(BaseModel):
-    id: str
-    name: str
-    description: str
-    icon: str = "phone"
-    recommended: bool = False
+    callback_url: str | None = None
 
 
 class SubscriptionCreateResponse(BaseModel):
@@ -76,13 +69,5 @@ class SubscriptionCreateResponse(BaseModel):
     amount: float
     currency: str = "UGX"
     payment_reference: str
+    redirect_url: str | None = None
     message: str
-    payment_methods: list[PaymentMethodInfo] = [
-        PaymentMethodInfo(
-            id="mobile_money",
-            name="Mobile Money (Recommended)",
-            description="MTN or Airtel — instant payment",
-            icon="phone",
-            recommended=True,
-        )
-    ]
