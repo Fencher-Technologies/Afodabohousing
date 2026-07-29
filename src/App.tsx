@@ -26,6 +26,7 @@ import TermsPage from "./pages/Terms";
 import ForgotPassword from "./pages/ForgotPassword";
 import ForgotPin from "./pages/ForgotPin";
 import PhoneAuth from "./pages/PhoneAuth";
+import GettingStarted from "./pages/GettingStarted";
 import PhoneOtp from "./pages/PhoneOtp";
 import PhonePinSetup from "./pages/PhonePinSetup";
 import PhoneSignin from "./pages/PhoneSignin";
@@ -110,6 +111,7 @@ const App = () => (
               <Route path="/properties" element={<PropertiesPage />} />
               <Route path="/properties/:id" element={<PropertyDetailPage />} />
               <Route path="/phone-auth" element={<PhoneAuth />} />
+              <Route path="/getting-started" element={<GettingStarted />} />
               <Route path="/phone-otp" element={<PhoneOtp />} />
               <Route path="/phone-pin-setup" element={<PhonePinSetup />} />
               <Route path="/phone-signin" element={<PhoneSignin />} />

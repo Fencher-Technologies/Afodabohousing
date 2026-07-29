@@ -310,7 +310,7 @@ export default function LoginPage() {
                         {loading ? 'Signing in...' : <><KeyRound className="h-4 w-4" /> Sign In with PIN</>}
                       </Button>
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <Link to="/register" className="text-primary hover:underline">Register here</Link>
+                        <Link to="/getting-started" className="text-primary hover:underline">Get Started</Link>
                         <Link to="/forgot-pin" className="text-primary hover:underline">Forgot PIN?</Link>
                       </div>
                     </>
