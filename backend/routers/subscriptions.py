@@ -130,17 +130,19 @@ async def create_subscription(
         )
     except RuntimeError as e:
         logger.error("Pesapal configuration error for subscription %s: %s", subscription_id, e)
-        supabase.table("manager_subscriptions").update({"status": "failed"}).eq("id", subscription_id).execute()
+        supabase.table("manager_subscriptions").update({"status": "cancelled"}).eq("id", subscription_id).execute()
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
     except Exception as e:
         logger.error("Pesapal payment initiation failed for subscription %s: %s", subscription_id, str(e))
-        supabase.table("manager_subscriptions").update({"status": "failed"}).eq("id", subscription_id).execute()
+        supabase.table("manager_subscriptions").update({"status": "cancelled"}).eq("id", subscription_id).execute()
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Payment initiation failed. Please try again.")
 
-    redirect_url = pay_resp.get("redirect_url", "")
+    redirect_url = pay_resp.get("redirect_url") or ""
     if not redirect_url:
-        supabase.table("manager_subscriptions").update({"status": "failed"}).eq("id", subscription_id).execute()
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to get payment redirect URL from Pesapal")
+        error_msg = pay_resp.get("error", {}).get("message") or str(pay_resp)
+        logger.error("Pesapal order submission response missing redirect_url for subscription %s: %s", subscription_id, error_msg)
+        supabase.table("manager_subscriptions").update({"status": "cancelled"}).eq("id", subscription_id).execute()
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=error_msg)
 
     return SubscriptionCreateResponse(
         subscription_id=subscription_id,
