@@ -271,24 +271,11 @@ export default function ManagerDashboard() {
     if (form.latitude) {
       payload.latitude = Number(form.latitude);
       payload.longitude = Number(form.longitude);
-    } else {
-      const addr = [form.address, form.area, form.city, form.state].filter(Boolean).join(', ');
-      try {
-        const geoResp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1`);
-        const geoData = await geoResp.json();
-        if (geoData?.length > 0) {
-          payload.latitude = parseFloat(geoData[0].lat);
-          payload.longitude = parseFloat(geoData[0].lon);
-        } else {
-          setGeoError('Please add property location via Maps URL or enter coordinates manually.');
-          setUploading(false);
-          return;
-        }
-      } catch {
-        setGeoError('Could not auto-detect location. Please add it via Maps URL or enter coordinates manually.');
-        setUploading(false);
-        return;
-      }
+    }
+    if (!payload.latitude || !payload.longitude) {
+      setGeoError('Please add property location via Maps URL, GPS coordinates, or the Maps button.');
+      setUploading(false);
+      return;
     }
     if (imageUrls.length > 0) payload.images = imageUrls;
 
