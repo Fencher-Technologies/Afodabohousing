@@ -14,11 +14,12 @@ interface RecordPaymentModalProps {
   onClose: () => void;
   leaseId: string;
   tenantId: string;
+  monthlyRent: number;
   balanceDue: number;
   onRecorded: () => void;
 }
 
-export default function RecordPaymentModal({ open, onClose, leaseId, tenantId, balanceDue, onRecorded }: RecordPaymentModalProps) {
+export default function RecordPaymentModal({ open, onClose, leaseId, tenantId, monthlyRent, balanceDue, onRecorded }: RecordPaymentModalProps) {
   const { toast } = useToast();
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -28,6 +29,8 @@ export default function RecordPaymentModal({ open, onClose, leaseId, tenantId, b
 
   const numericAmount = parseInt(amount.replace(/[^0-9]/g, ''), 10) || 0;
   const exceedsBalance = numericAmount > balanceDue && balanceDue > 0;
+  const monthsCovered = monthlyRent > 0 ? numericAmount / monthlyRent : 0;
+  const daysCovered = Math.round(monthsCovered * 30);
 
   const handleRecord = async () => {
     if (numericAmount <= 0) {
@@ -56,6 +59,7 @@ export default function RecordPaymentModal({ open, onClose, leaseId, tenantId, b
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
           <DialogDescription>
+            Agreed rent: <strong>UGX {monthlyRent.toLocaleString()}/month</strong> &middot;
             Balance due: <strong>UGX {balanceDue.toLocaleString()}</strong>
             {exceedsBalance && <span className="text-gold ml-2">Amount exceeds balance</span>}
           </DialogDescription>
@@ -65,6 +69,12 @@ export default function RecordPaymentModal({ open, onClose, leaseId, tenantId, b
             <Label>Amount (UGX)</Label>
             <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" className="mt-1 h-11 text-lg font-bold" />
           </div>
+          {numericAmount > 0 && monthlyRent > 0 && (
+            <div className="bg-muted rounded-xl p-3 text-sm space-y-1">
+              <p>Covers <strong>{monthsCovered >= 1 ? `${monthsCovered.toFixed(1)} months` : ''}{monthsCovered >= 1 && daysCovered % 30 !== 0 ? ' + ' : ''}{daysCovered % 30 > 0 ? `${daysCovered % 30} days` : ''}</strong></p>
+              <p className="text-muted-foreground">{numericAmount.toLocaleString()} &divide; {monthlyRent.toLocaleString()} = {monthsCovered.toFixed(2)} months &times; 30 = {daysCovered} days</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Date</Label>
