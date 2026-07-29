@@ -90,8 +90,12 @@ export default function ManagerDashboard() {
     title: '', description: '', property_type: 'Residential', state: '', city: '',
     area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1,
     rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '',
-    amenities: [] as string[],
+    amenities: [] as string[], latitude: '', longitude: '',
   });
+  const [mapsUrl, setMapsUrl] = useState('');
+  const [showMapsInput, setShowMapsInput] = useState(false);
+  const [mapsError, setMapsError] = useState('');
+  const [geoError, setGeoError] = useState('');
 
   const [unitForm, setUnitForm] = useState({
     unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 0,
@@ -207,6 +211,41 @@ export default function ManagerDashboard() {
     catch (e) { console.log('SMS failed (non-blocking):', e); }
   };
 
+  const parseGoogleMapsLink = (url: string): { lat: number; lng: number } | null => {
+    const patterns = [
+      /@?(-?\d+\.\d+),(-?\d+\.\d+)/,
+      /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/,
+      /[?&]query=(-?\d+\.\d+),(-?\d+\.\d+)/,
+      /[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/,
+    ];
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        const lat = parseFloat(match[1]);
+        const lng = parseFloat(match[2]);
+        if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+      }
+    }
+    return null;
+  };
+
+  const handleParseMapsUrl = async () => {
+    let url = mapsUrl.trim();
+    if (url.includes('goo.gl') || url.includes('maps.app.goo')) {
+      try {
+        const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
+        url = resp.url;
+      } catch { setMapsError('Could not open that link.'); return; }
+    }
+    const result = parseGoogleMapsLink(url);
+    if (!result) { setMapsError('Could not find coordinates in that link.'); return; }
+    setForm(f => ({ ...f, latitude: String(result.lat), longitude: String(result.lng) }));
+    setMapsUrl('');
+    setShowMapsInput(false);
+    setMapsError('');
+    setGeoError('');
+  };
+
   const handleAddProperty = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -229,6 +268,15 @@ export default function ManagerDashboard() {
     delete payload.rent_amount; // DB column is monthly_rent
     delete payload.kitchens;    // not in DB
     delete payload.area;        // not in DB
+    if (form.latitude) {
+      payload.latitude = Number(form.latitude);
+      payload.longitude = Number(form.longitude);
+    }
+    if (!payload.latitude || !payload.longitude) {
+      setGeoError('Please add property location via Maps URL, GPS coordinates, or the Maps button.');
+      setUploading(false);
+      return;
+    }
     if (imageUrls.length > 0) payload.images = imageUrls;
 
     if (editingProperty) {
@@ -245,7 +293,7 @@ export default function ManagerDashboard() {
     }
     setPropDialogOpen(false);
     setEditingProperty(null);
-    setForm({ title: '', description: '', property_type: 'Residential', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [] });
+    setForm({ title: '', description: '', property_type: 'Residential', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [], latitude: '', longitude: '' });
     setImageFiles([]);
     fetchData();
   };
@@ -258,8 +306,10 @@ export default function ManagerDashboard() {
       bedrooms: p.bedrooms, sitting_rooms: p.sitting_rooms, kitchens: p.kitchens, bathrooms: p.bathrooms,
       rent_amount: p.rent_amount, rent_period: p.rent_period, manager_phone: p.manager_phone || '',
       manager_email: p.manager_email || '', amenities: p.amenities || [],
+      latitude: p.latitude ? String(p.latitude) : '', longitude: p.longitude ? String(p.longitude) : '',
     });
     setImageFiles([]);
+    setGeoError('');
     setPropDialogOpen(true);
   };
 
@@ -1231,6 +1281,24 @@ export default function ManagerDashboard() {
               </div>
               <div><Label>Area / Neighbourhood</Label><Input value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} placeholder="e.g. Ntinda, Bukoto" className="mt-1" /></div>
               <div className="col-span-2"><Label>Full Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Plot 45, Road name..." className="mt-1" /></div>
+              <div className="col-span-2">
+                <Label>Property Location</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} placeholder="Latitude" className="flex-1" />
+                  <Input value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} placeholder="Longitude" className="flex-1" />
+                  <button type="button" onClick={() => setShowMapsInput(!showMapsInput)} className="px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:border-primary whitespace-nowrap">
+                    Maps URL
+                  </button>
+                </div>
+                {showMapsInput && (
+                  <div className="flex gap-2 mt-2 items-start">
+                    <Input value={mapsUrl} onChange={e => { setMapsUrl(e.target.value); setMapsError(''); }} placeholder="Paste Google Maps link..." className="flex-1" />
+                    <button type="button" onClick={handleParseMapsUrl} className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm whitespace-nowrap">Parse</button>
+                  </div>
+                )}
+                {mapsError && <p className="text-xs text-red-500 mt-1">{mapsError}</p>}
+                {geoError && <p className="text-xs text-red-500 mt-1">{geoError}</p>}
+              </div>
             </div>
             <div className="grid grid-cols-4 gap-3">
               {(['bedrooms', 'sitting_rooms', 'kitchens', 'bathrooms'] as const).map(f => (

@@ -17,6 +17,7 @@ from .phone_auth import router as phone_auth_router
 from .properties import router as properties_router
 from .rental_units import router as rental_units_router
 from .reports import router as reports_router
+from .saved_phones import router as saved_phones_router
 from .subscriptions import router as subscriptions_router
 from .tenants import router as tenants_router
 from .terms import router as terms_router
@@ -43,6 +44,7 @@ __all__ = [
     "properties_router",
     "rental_units_router",
     "reports_router",
+    "saved_phones_router",
     "subscriptions_router",
     "tenants_router",
     "terms_router",

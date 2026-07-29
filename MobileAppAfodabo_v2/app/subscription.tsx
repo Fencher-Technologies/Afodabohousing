@@ -166,7 +166,7 @@ export default function SubscriptionScreen() {
         />
 
         <Text style={styles.finePrint}>
-          Cancel anytime. Payments are processed securely via NylonPay.
+          Cancel anytime. Payments are processed securely via PesaPal.
         </Text>
       </View>
 

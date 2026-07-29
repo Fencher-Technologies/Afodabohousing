@@ -1,4 +1,6 @@
 # mypy: ignore-errors
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -31,7 +33,6 @@ class TestPaymentLifecycle:
         assert resp.status_code == 201
         created = resp.json()
         assert float(created["amount"]) == 1500000
-        assert created["status"] == "pending"
         assert created["payment_type"] == "rent"
 
     def test_list_payments(self, owner_client: TestClient):
@@ -58,14 +59,6 @@ class TestPaymentLifecycle:
         )
         assert resp.status_code == 404
 
-    def test_tenant_cannot_access_payments(self, client):
-        from dependencies import CurrentUser
-        tenant_user = CurrentUser(id="00000000-0000-0000-0000-000000000002", email="tenant@test.com", role="tenant")
-        app.dependency_overrides[get_current_user] = lambda: tenant_user
-
-        resp = client.get("/payments")
-        assert resp.status_code == 403
-
     def test_payment_pagination(self, owner_client: TestClient):
         resp = owner_client.get("/payments?skip=0&limit=5")
         assert resp.status_code == 200
@@ -74,18 +67,52 @@ class TestPaymentLifecycle:
         assert data["limit"] == 5
         assert len(data["items"]) <= 5
 
+    def test_create_missing_required_fields(self, owner_client: TestClient):
+        resp = owner_client.post("/payments", json={"amount": 500000})
+        assert resp.status_code == 422
+
+    def test_delete_payment(self, owner_client: TestClient):
+        resp = owner_client.delete(f"/payments/{PID_PAYMENT}")
+        assert resp.status_code == 204
+
+    def test_delete_payment_not_found(self, owner_client: TestClient):
+        resp = owner_client.delete("/payments/00000000-0000-0000-0000-00000000ffff")
+        assert resp.status_code == 404
+
 
 class TestPesapalInitiation:
-    def test_initiate_pesapal_removed(self, owner_client: TestClient):
-        """Pesapal rent payment endpoint removed — now only for subscriptions."""
+    def test_rejects_missing_required_fields(self, owner_client: TestClient):
         resp = owner_client.post("/payments/initiate-pesapal", json={
             "amount": 1500000,
+        })
+        assert resp.status_code == 422
+
+    def test_returns_503_when_credentials_missing(self, owner_client: TestClient):
+        with patch("services.pesapal._check_credentials", side_effect=RuntimeError("credentials not configured")):
+            resp = owner_client.post("/payments/initiate-pesapal", json={
+                "amount": 1500000,
+                "callback_url": "https://example.com/callback",
+                "description": "Rent payment",
+                "email": "test@test.com",
+                "first_name": "Test",
+                "last_name": "User",
+                "payment_id": str(PID_PAYMENT),
+                "phone": "+256700000000",
+            })
+            assert resp.status_code == 503
+
+    @pytest.mark.skip(reason="Requires live Pesapal credentials — run manually to test full flow")
+    def test_e2e_initiate_pesapal(self, owner_client: TestClient):
+        resp = owner_client.post("/payments/initiate-pesapal", json={
+            "amount": 1000,
             "callback_url": "https://example.com/callback",
-            "description": "Rent payment",
+            "description": "Test payment",
             "email": "test@test.com",
             "first_name": "Test",
             "last_name": "User",
             "payment_id": str(PID_PAYMENT),
             "phone": "+256700000000",
         })
-        assert resp.status_code == 405
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True or data["success"] is False

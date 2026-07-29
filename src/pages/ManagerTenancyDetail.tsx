@@ -13,7 +13,7 @@ import {
   Edit3, Ban, CheckCircle, XCircle, Clock, Share2, MapPin, Plus, ChevronRight,
   Wallet, MessageCircle, TrendingUp,
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, differenceInMonths } from 'date-fns';
 import AgreementFlowCard from '@/components/AgreementFlowCard';
 
 export default function ManagerTenancyDetail() {
@@ -98,7 +98,9 @@ export default function ManagerTenancyDetail() {
   const isExpired = daysLeft < 0;
   const isEnding = daysLeft >= 0 && daysLeft <= 30;
   const totalPaid = payments.filter(pay => pay.status === 'confirmed').reduce((s: number, pay: any) => s + pay.amount, 0);
-  const balance = Math.max(0, (lease.monthly_rent || 0) - totalPaid);
+  const months = Math.max(1, differenceInMonths(new Date(lease.end_date), new Date(lease.start_date)));
+  const expectedRent = (lease.monthly_rent || 0) * months;
+  const balance = Math.max(0, expectedRent - totalPaid);
 
   return (
     <div className="min-h-screen bg-background">
@@ -358,6 +360,7 @@ export default function ManagerTenancyDetail() {
         onClose={() => setPaymentOpen(false)}
         leaseId={id!}
         tenantId={lease.tenant_id}
+        monthlyRent={lease.monthly_rent || 0}
         balanceDue={balance}
         onRecorded={fetchData}
       />

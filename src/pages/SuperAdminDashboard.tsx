@@ -12,7 +12,7 @@ import {
   LayoutDashboard, Users, Building2, LogOut, Menu,
   RefreshCcw, Mail, Shield, Plus, DollarSign, Copy, CheckCircle2,
   TrendingUp, AlertTriangle, Home, UserCheck, Calendar, Activity,
-  ChevronRight, ArrowUp, ArrowDown, BarChart3, Search,
+  ChevronRight, ArrowUp, ArrowDown, BarChart3, Search, Crown,
   MoreHorizontal, X, Download, ArrowUpDown, ChevronLeft, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 import {
@@ -26,7 +26,7 @@ import {
   Legend
 } from 'recharts';
 
-type Tab = 'overview' | 'managers' | 'settings';
+type Tab = 'overview' | 'managers' | 'approvals' | 'settings';
 
 type DashboardStats = {
   total_managers: number; total_tenants: number;
@@ -37,6 +37,10 @@ type DashboardStats = {
   occupancy_rate: number;
   total_collected: number; total_outstanding: number;
   avg_collection_rate: number; recent_payments_count: number;
+  active_subscriptions: number;
+  subscription_revenue_total: number;
+  subscription_revenue_this_month: number;
+  subscription_growth_pct: number;
 };
 
 type Manager = {
@@ -86,6 +90,7 @@ type BarFilter = 'today' | 'week' | 'month';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
+  { id: 'approvals', label: 'Approvals', icon: <UserCheck className="h-4 w-4" /> },
   { id: 'managers', label: 'Managers', icon: <Users className="h-4 w-4" /> },
   { id: 'settings', label: 'Settings', icon: <Shield className="h-4 w-4" /> },
 ];
@@ -159,6 +164,7 @@ export default function SuperAdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [boostStats, setBoostStats] = useState<{ total_revenue: number; active_boosts: number } | null>(null);
   const [managers, setManagers] = useState<Manager[]>([]);
+  const [pendingManagers, setPendingManagers] = useState<Manager[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -278,14 +284,16 @@ export default function SuperAdminDashboard() {
     setLoading(true);
     try {
       const headers = await getHeaders();
-      const [statsRes, usersRes, boostRes] = await Promise.all([
+      const [statsRes, usersRes, boostRes, pendingRes] = await Promise.all([
         fetch(`${apiBase}/admin/stats`, { headers }),
         fetch(`${apiBase}/admin/users?role=house_manager`, { headers }),
         fetch(`${apiBase}/boosts/stats`, { headers }),
+        fetch(`${apiBase}/admin/pending-managers`, { headers }),
       ]);
       if (statsRes.ok) setStats(await statsRes.json());
       if (usersRes.ok) setManagers(await usersRes.json());
       if (boostRes.ok) setBoostStats(await boostRes.json());
+      if (pendingRes.ok) setPendingManagers(await pendingRes.json());
     } catch (err: any) {
       console.error('Failed to fetch admin data:', err);
     }
@@ -315,6 +323,8 @@ export default function SuperAdminDashboard() {
   const managerSparkline = [8, 9, 9, 10, 10, 9, 10, 10];
   const tenantSparkline = [24, 26, 28, 30, 32, 35, 38, 42];
   const rentSparkline = [18000000, 19500000, 21000000, 20500000, 22000000, 21500000, 23000000, 25000000];
+  const subSparkline = [3, 3, 4, 4, 5, 5, 6, 8];
+  const subRevenueSparkline = [150000, 150000, 200000, 200000, 250000, 250000, 300000, 400000];
 
   // Rent Collection Trend — multi-line per property/manager
   // TODO: query Supabase for monthly collection grouped by property
@@ -417,7 +427,7 @@ export default function SuperAdminDashboard() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!createName.trim() || !createEmail.trim()) return;
+    if (!createName.trim() || !createPhone.trim()) return;
     setSubmitting(true);
     setCreatedPassword(null);
     try {
@@ -461,6 +471,36 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const handleApproveManager = async (m: Manager) => {
+    try {
+      const headers = await getHeaders();
+      const res = await fetch(`${apiBase}/admin/users/${m.user_id}/status`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({ status: 'active' }),
+      });
+      if (!res.ok) throw new Error('Failed to approve');
+      toast({ title: 'Manager approved', description: `${m.full_name || m.email} is now active.` });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleRejectManager = async (m: Manager) => {
+    try {
+      const headers = await getHeaders();
+      const res = await fetch(`${apiBase}/admin/users/${m.user_id}/status`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({ status: 'rejected' }),
+      });
+      if (!res.ok) throw new Error('Failed to reject');
+      toast({ title: 'Manager rejected', description: `${m.full_name || m.email} has been rejected.` });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
   // ── Status badge helper ──
   const statusBadge = (s: string) => ({
     completed: 'bg-emerald-50 text-emerald-700',
@@ -478,7 +518,7 @@ export default function SuperAdminDashboard() {
             <div className="space-y-6 max-w-7xl">
 
               {/* ── TOP STAT CARDS ── */}
-              <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+              <div className="grid grid-cols-2 xl:grid-cols-6 gap-3 md:gap-4">
                 {[
                   {
                     label: 'Total Properties', icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10',
@@ -487,7 +527,6 @@ export default function SuperAdminDashboard() {
                   },
                   {
                     label: 'House Managers', icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10',
-                    // TODO: pending invites count from invitations table
                     val: String(stats?.active_managers ?? 0), sub: `${(stats?.total_managers ?? 0) - (stats?.active_managers ?? 0)} pending invite`,
                     trend: managerTrend, spark: managerSparkline, sparkColor: '#10b981',
                   },
@@ -497,9 +536,19 @@ export default function SuperAdminDashboard() {
                     trend: tenantTrend, spark: tenantSparkline, sparkColor: '#06b6d4',
                   },
                   {
-                    label: 'Monthly Rent Collected', icon: <DollarSign className="h-5 w-5" />, color: 'text-emerald-600', bg: 'bg-emerald-50',
+                    label: 'Active Subs', icon: <Crown className="h-5 w-5" />, color: 'text-gold', bg: 'bg-gold/10',
+                    val: String(stats?.active_subscriptions ?? 0), sub: `${stats?.subscription_growth_pct ?? 0}% growth`,
+                    trend: stats?.subscription_growth_pct ?? 0, spark: subSparkline, sparkColor: '#f59e0b',
+                  },
+                  {
+                    label: 'Sub Revenue (MTD)', icon: <DollarSign className="h-5 w-5" />, color: 'text-emerald-600', bg: 'bg-emerald-50',
+                    val: formatUGX(stats?.subscription_revenue_this_month ?? 0), sub: `Total: ${formatUGX(stats?.subscription_revenue_total ?? 0)}`,
+                    trend: 0, spark: subRevenueSparkline, sparkColor: '#10b981',
+                  },
+                  {
+                    label: 'Monthly Rent Collected', icon: <BarChart3 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10',
                     val: formatUGX(stats?.total_collected ?? 0), sub: `${stats?.recent_payments_count ?? 0} payments this period`,
-                    trend: rentTrend, spark: rentSparkline, sparkColor: '#10b981',
+                    trend: rentTrend, spark: rentSparkline, sparkColor: '#6366f1',
                   },
                 ].map(card => (
                   <div key={card.label} className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-sm relative overflow-hidden">
@@ -724,6 +773,54 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
 
+            </div>
+          )}
+
+          {/* ═══════════ APPROVALS ═══════════ */}
+          {tab === 'approvals' && (
+            <div className="space-y-5 max-w-4xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-display font-bold text-xl">Pending Approvals</h2>
+                  <p className="text-sm text-muted-foreground">{pendingManagers.length} awaiting review</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchData} className="gap-1.5">
+                  <RefreshCcw className="h-3.5 w-3.5" /> Refresh
+                </Button>
+              </div>
+
+              {pendingManagers.length === 0 ? (
+                <div className="text-center py-24 bg-card border border-border rounded-2xl">
+                  <UserCheck className="h-16 w-16 mx-auto mb-4 text-muted-foreground/20" />
+                  <p className="text-xl font-display font-bold text-foreground">All caught up!</p>
+                  <p className="text-sm mt-2 text-muted-foreground">No pending manager registrations.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pendingManagers.map(m => (
+                    <div key={m.id} className="bg-card border border-border rounded-2xl p-5 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <ManagerAvatar photoUrl={m.photo_url} fullName={m.full_name} email={m.email} userId={m.user_id} size="h-12 w-12 text-sm" />
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground">{m.full_name || 'Unnamed'}</p>
+                          <p className="text-sm text-muted-foreground">{m.email}</p>
+                          <p className="text-xs text-muted-foreground">Registered {m.created_at ? format(new Date(m.created_at), 'MMM dd, yyyy') : ''}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button size="sm" className="gradient-primary text-primary-foreground h-9 gap-1"
+                          onClick={() => handleApproveManager(m)}>
+                          <CheckCircle2 className="h-4 w-4" /> Approve
+                        </Button>
+                        <Button size="sm" variant="destructive" className="h-9 gap-1"
+                          onClick={() => handleRejectManager(m)}>
+                          <XCircle className="h-4 w-4" /> Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1064,14 +1161,14 @@ export default function SuperAdminDashboard() {
                         placeholder="John Mukasa" required className="mt-1" />
                     </div>
                     <div>
-                      <Label>Email Address *</Label>
+                      <Label>Email Address (optional)</Label>
                       <Input type="email" value={createEmail} onChange={e => setCreateEmail(e.target.value)}
-                        placeholder="manager@example.com" required className="mt-1" />
+                        placeholder="manager@example.com" className="mt-1" />
                     </div>
                     <div>
-                      <Label>Phone Number</Label>
+                      <Label>Phone Number *</Label>
                       <Input type="tel" value={createPhone} onChange={e => setCreatePhone(e.target.value)}
-                        placeholder="+256 700 000000" className="mt-1" />
+                        placeholder="+256 700 000000" required className="mt-1" />
                     </div>
                     <Button type="submit" disabled={submitting} className="w-full">
                       {submitting ? 'Creating...' : 'Create Account'}

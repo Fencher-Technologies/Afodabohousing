@@ -33,6 +33,8 @@ export default function CreateProperty() {
       rent_period: data.rent_period, manager_phone: data.manager_phone || null,
       manager_email: data.manager_email || null, amenities: data.amenities,
       images: data.images.length > 0 ? data.images : null,
+      latitude: data.latitude ? Number(data.latitude) : null,
+      longitude: data.longitude ? Number(data.longitude) : null,
       status: 'available',
     });
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }

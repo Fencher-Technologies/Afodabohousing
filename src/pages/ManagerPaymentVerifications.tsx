@@ -120,6 +120,11 @@ export default function ManagerPaymentVerifications() {
                     <p className="text-xs text-muted-foreground">{s.payment_date} · {s.created_at ? format(new Date(s.created_at), 'MMM dd') : ''}</p>
                     {s.notes && <p className="text-xs text-muted-foreground italic">{s.notes}</p>}
                     {s.rejection_reason && <p className="text-xs text-destructive">Reason: {s.rejection_reason}</p>}
+                    {s.screenshot_url && (
+                      <a href={s.screenshot_url} target="_blank" rel="noopener noreferrer" className="inline-block mt-2">
+                        <img src={s.screenshot_url} alt="Payment proof" className="h-20 w-auto rounded-lg border object-cover hover:opacity-80 transition-opacity" />
+                      </a>
+                    )}
                   </div>
                   {s.status === 'pending' && (
                     <div className="flex gap-2 shrink-0">

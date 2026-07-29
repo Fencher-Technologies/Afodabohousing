@@ -39,6 +39,8 @@ export default function EditProperty() {
       manager_phone: data.manager_phone || '', manager_email: data.manager_email || '',
       amenities: data.amenities || [],
       images: data.images || [],
+      latitude: data.latitude ? String(data.latitude) : '',
+      longitude: data.longitude ? String(data.longitude) : '',
     });
     setLoading(false);
   };
@@ -53,6 +55,8 @@ export default function EditProperty() {
       rent_period: data.rent_period, manager_phone: data.manager_phone || null,
       manager_email: data.manager_email || null, amenities: data.amenities,
       images: data.images.length > 0 ? data.images : null,
+      latitude: data.latitude ? Number(data.latitude) : null,
+      longitude: data.longitude ? Number(data.longitude) : null,
     }).eq('id', id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Property updated!' });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,9 @@ import { ArrowLeft, Crown, Check, Loader2, Phone, ShieldCheck, ExternalLink, XCi
 import { listPlans, getCurrentSubscription, createSubscription, SubscriptionPlan, SubscriptionCreateResponse } from '@/services/subscriptions';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import SavedPhonePicker from '@/components/SavedPhonePicker';
+import PaymentCountdown from '@/components/PaymentCountdown';
+import { savePhone } from '@/services/saved-phones';
 
 type Step = 'plans' | 'payment' | 'waiting' | 'success' | 'failed' | 'timeout';
 
@@ -28,6 +31,15 @@ export default function ManagerSubscription() {
   const [responseMsg, setResponseMsg] = useState('');
   const [paymentResult, setPaymentResult] = useState<SubscriptionCreateResponse | null>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [redirectUrl, setRedirectUrl] = useState('');
+  const [pullToken, setPullToken] = useState('');
+  const calledRef = useRef(false);
+
+  const doRedirect = (url: string) => {
+    if (calledRef.current) return;
+    calledRef.current = true;
+    window.location.href = url;
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -65,12 +77,16 @@ export default function ManagerSubscription() {
     }
     setActivating(true);
     try {
+      const { data: { session } } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
+      const t = session?.access_token || '';
+      setPullToken(t);
       const result = await createSubscription(selectedPlan.id, phone.trim(), window.location.origin);
       setPaymentResult(result);
       setResponseMsg(result.message || 'Redirecting to Pesapal...');
       setStep('waiting');
       if (result.redirect_url) {
-        window.location.href = result.redirect_url;
+        setRedirectUrl(result.redirect_url);
+        if (t) savePhone(t, phone.trim()).catch(() => {});
       }
     } catch (err: any) {
       toast({ title: 'Payment failed', description: err.message || 'Could not initiate payment', variant: 'destructive' });
@@ -309,6 +325,17 @@ export default function ManagerSubscription() {
                 <label className="text-sm font-medium mb-1.5 block">Phone Number</label>
                 <Input value={phone} onChange={e => setPhone(e.target.value)}
                   placeholder="2567XX XXX XXX" className="rounded-xl h-12" />
+                {pullToken && (
+                  <div className="mt-2">
+                    <SavedPhonePicker
+                      token={pullToken}
+                      value={phone}
+                      onChange={setPhone}
+                      onSave={() => {}}
+                      profilePhone={profile?.phone || undefined}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -325,6 +352,14 @@ export default function ManagerSubscription() {
 
             <p className="text-xs text-muted-foreground text-center">Pay securely via Pesapal. Cards and mobile money accepted.</p>
           </div>
+        )}
+
+        {!!redirectUrl && (
+          <PaymentCountdown
+            redirectUrl={redirectUrl}
+            onComplete={() => doRedirect(redirectUrl)}
+            onSkip={() => { setRedirectUrl(''); setStep('payment'); }}
+          />
         )}
       </div>
     </div>

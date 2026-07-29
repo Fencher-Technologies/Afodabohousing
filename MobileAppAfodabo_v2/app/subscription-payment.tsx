@@ -266,7 +266,7 @@ export default function SubscriptionPaymentScreen() {
         <View style={styles.securityNote}>
           <ShieldCheck size={16} color={Colors.textMuted} />
           <Text style={styles.securityText}>
-            Your payment is processed securely by NylonPay. We don't store your financial details.
+            Your payment is processed securely by PesaPal. We don't store your financial details.
           </Text>
         </View>
 

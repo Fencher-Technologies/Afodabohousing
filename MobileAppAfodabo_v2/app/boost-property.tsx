@@ -75,8 +75,7 @@ export default function BoostPropertyScreen() {
           </View>
           <Text style={styles.successTitle}>Payment Initiated</Text>
           <Text style={styles.successText}>
-            Check your phone for the payment prompt from NylonPay. Enter your
-            Mobile Money PIN to complete the payment.
+            You will be redirected to PesaPal to complete the payment securely.
           </Text>
           <Text style={styles.successText}>
             Once the payment is confirmed, your property will automatically be
