@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StyleSheet, Text, View, KeyboardAvoidingView, Platform } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Phone } from "lucide-react-native";
@@ -9,11 +9,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
+import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { authService } from "@/src/services/auth";
+import type { UserRole } from "@/src/types";
 
 export default function PhoneAuthScreen() {
   const insets = useSafeAreaInsets();
-  const [phone, setPhone] = useState("");
+  const { phone: prefillPhone } = useLocalSearchParams<{ phone?: string }>();
+  const [role, setRole] = useState<UserRole>("tenant");
+  const [phone, setPhone] = useState(prefillPhone || "");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +30,7 @@ export default function PhoneAuthScreen() {
     setError(null);
     try {
       await authService.sendOtp(phone.trim());
-      router.push(`/phone-otp?phone=${encodeURIComponent(phone.trim())}`);
+      router.push(`/phone-otp?phone=${encodeURIComponent(phone.trim())}&role=${role}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send code");
     } finally {
@@ -49,6 +53,18 @@ export default function PhoneAuthScreen() {
         style={styles.formWrap}
       >
         <View style={styles.form}>
+          <Text style={styles.label}>I am a…</Text>
+          <SegmentedControl
+            segments={[
+              { label: "Property Manager", value: "manager" },
+              { label: "Tenant", value: "tenant" },
+            ]}
+            value={role}
+            onChange={(v) => setRole(v as UserRole)}
+          />
+
+          <View style={{ height: Spacing.lg }} />
+
           <InputField
             label="Phone Number"
             value={phone}
@@ -115,6 +131,12 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xl,
   },
   form: { gap: 0 },
+  label: {
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+  },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
