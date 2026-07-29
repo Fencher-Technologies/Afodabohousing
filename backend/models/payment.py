@@ -18,6 +18,7 @@ class Payment(BaseModel):
     paid_date: date | None = None
     transaction_id: str | None = None
     notes: str | None = None
+    proof_url: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -33,6 +34,7 @@ class PaymentCreate(BaseModel):
     paid_date: date | None = None
     transaction_id: str | None = None
     notes: str | None = None
+    proof_url: str | None = None
 
 
 class PaymentUpdate(BaseModel):
@@ -44,6 +46,7 @@ class PaymentUpdate(BaseModel):
     paid_date: date | None = None
     transaction_id: str | None = None
     notes: str | None = None
+    proof_url: str | None = None
 
 
 class PaymentResponse(BaseModel):
@@ -59,5 +62,6 @@ class PaymentResponse(BaseModel):
     paid_date: date | None = None
     transaction_id: str | None = None
     notes: str | None = None
+    proof_url: str | None = None
     created_at: datetime
     updated_at: datetime

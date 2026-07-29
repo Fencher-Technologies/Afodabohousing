@@ -22,6 +22,9 @@ export interface PaymentData {
   paid_date?: string | null;
   transaction_id?: string | null;
   notes?: string | null;
+  proof_url?: string | null;
+  period_start?: string;
+  period_end?: string;
   created_at?: string;
   updated_at?: string;
 }

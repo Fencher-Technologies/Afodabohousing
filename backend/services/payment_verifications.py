@@ -256,6 +256,7 @@ class PaymentVerificationService:
                 status="confirmed",
                 paid_date=submission["payment_date"],
                 transaction_id=submission["transaction_reference"] or None,
+                proof_url=submission.get("screenshot_url") or None,
                 notes=f"Verified payment. Original verification ID: {submission['id']}",
             )
         )
