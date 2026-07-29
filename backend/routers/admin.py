@@ -2,6 +2,7 @@ import logging
 import secrets
 from datetime import UTC, datetime
 
+from dateutil.parser import isoparse
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, EmailStr
 from supabase import Client
@@ -22,9 +23,9 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 class CreateManagerRequest(BaseModel):
-    email: EmailStr
+    email: str | None = None
     full_name: str
-    phone: str | None = None
+    phone: str
 
 
 class CreateTenantRequest(BaseModel):
@@ -76,9 +77,21 @@ class DashboardStats(BaseModel):
     total_outstanding: float = 0
     avg_collection_rate: float = 0
     recent_payments_count: int = 0
+    # Subscription stats
+    active_subscriptions: int = 0
+    subscription_revenue_total: float = 0
+    subscription_revenue_this_month: float = 0
+    subscription_growth_pct: float = 0
 
 
 # ── Helpers ──
+
+
+def parse_timestamp(ts: str) -> datetime:
+    try:
+        return isoparse(ts)
+    except Exception:
+        return datetime.min.replace(tzinfo=UTC)
 
 
 def _count(supabase: Client, table: str, **filters) -> int:
@@ -107,22 +120,29 @@ def create_manager(
     if not data.full_name.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Full name is required")
 
-    # Check for existing user with this email
-    existing = supabase.table("profiles").select("user_id").eq("email", data.email).execute()
-    if existing.data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A user with this email already exists",
-        )
+    email = data.email.strip() if data.email else None
+    phone = data.phone.strip()
+
+    # Normalise phone to a safe slug for placeholder email
+    phone_slug = phone.replace("+", "").replace(" ", "").replace("-", "")
+    effective_email = email or f"manager-{phone_slug}@afodabo.internal"
+
+    if email:
+        existing = supabase.table("profiles").select("user_id").eq("email", email).execute()
+        if existing.data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A user with this email already exists",
+            )
 
     password = secrets.token_urlsafe(12)
 
     try:
         auth_result = supabase.auth.admin.create_user({
-            "email": data.email,
+            "email": effective_email,
             "password": password,
             "email_confirm": True,
-            "user_metadata": {"full_name": data.full_name},
+            "user_metadata": {"full_name": data.full_name, "phone": phone},
         })
     except Exception as e:
         msg = str(e)
@@ -142,22 +162,23 @@ def create_manager(
 
     supabase.table("profiles").upsert({
         "user_id": user_id,
-        "email": data.email,
+        "email": effective_email,
         "full_name": data.full_name,
-        "phone": data.phone or "",
+        "phone": phone,
         "role": "house_manager",
         "status": "active",
         "created_by": current_user.id,
     }, on_conflict="user_id").execute()
 
     logger.info(
-        "Manager created: email=%s user_id=%s by super_admin=%s",
-        data.email, user_id, current_user.id,
+        "Manager created: email=%s phone=%s user_id=%s by super_admin=%s",
+        effective_email, phone, user_id, current_user.id,
     )
 
     return {
         "message": "Manager account created",
-        "email": data.email,
+        "email": effective_email,
+        "phone": phone,
         "user_id": user_id,
         "temporary_password": password,
     }
@@ -321,6 +342,35 @@ def list_users(
     return responses
 
 
+@router.get("/pending-managers", response_model=list[UserResponse])
+def list_pending_managers(
+    current_user: CurrentUser = Depends(require_super_admin),
+    supabase: Client = Depends(get_service_client),
+) -> list[UserResponse]:
+    result = (
+        supabase.table("profiles")
+        .select("user_id, full_name, role, status, created_at, email, photo_url, phone")
+        .eq("role", "house_manager")
+        .eq("status", "pending")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    users = result.data or []
+    return [
+        UserResponse(
+            id=str(u["user_id"]),
+            user_id=str(u["user_id"]),
+            email=u.get("email", ""),
+            full_name=u.get("full_name"),
+            photo_url=u.get("photo_url"),
+            role=u.get("role", ""),
+            status=u.get("status", "pending"),
+            created_at=str(u["created_at"]) if u.get("created_at") else None,
+        )
+        for u in users
+    ]
+
+
 @router.patch("/users/{user_id}/status")
 def update_user_status(
     user_id: str,
@@ -328,10 +378,10 @@ def update_user_status(
     current_user: CurrentUser = Depends(require_super_admin),
     supabase: Client = Depends(get_service_client),
 ) -> dict:
-    if data.status not in ("active", "suspended"):
+    if data.status not in ("active", "suspended", "rejected"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Status must be 'active' or 'suspended'",
+            detail="Status must be 'active', 'suspended', or 'rejected'",
         )
 
     result = supabase.table("profiles").update({"status": data.status}).eq("user_id", user_id).execute()
@@ -403,6 +453,43 @@ def get_dashboard_stats(
     if total_outstanding + total_collected > 0:
         collection_rate = round(total_collected / (total_collected + total_outstanding), 2)
 
+    # ── Subscription stats ──
+    active_subs = 0
+    sub_revenue_total = 0.0
+    sub_revenue_month = 0.0
+    sub_growth = 0.0
+
+    try:
+        subs = supabase.table("manager_subscriptions").select("plan_id, status, created_at").execute()
+        all_subs = subs.data or []
+        active_subs = sum(1 for s in all_subs if s.get("status") == "active")
+
+        # Last month active subs count for growth
+        last_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Rough: count subs created before this month vs during this month
+        created_before = [
+            s for s in all_subs
+            if s.get("created_at") and parse_timestamp(s["created_at"]) < last_month_start
+        ]
+        active_before = sum(1 for s in created_before if s.get("status") == "active")
+        sub_growth = round(
+            ((active_subs - active_before) / active_before * 100) if active_before > 0 else 0, 1
+        )
+
+        # Revenue from plans — joins via plan_id
+        plans = supabase.table("subscription_plans").select("id, price_ugx").execute()
+        plan_prices = {p["id"]: float(p.get("price_ugx", 0)) for p in (plans.data or [])}
+        for s in all_subs:
+            price = plan_prices.get(s.get("plan_id", ""), 0)
+            sub_revenue_total += price
+            if (
+                s.get("created_at")
+                and parse_timestamp(s["created_at"]) >= month_start
+            ):
+                sub_revenue_month += price
+    except Exception:
+        pass
+
     return DashboardStats(
         total_managers=total_managers,
         total_tenants=total_tenants,
@@ -417,4 +504,8 @@ def get_dashboard_stats(
         total_outstanding=total_outstanding,
         avg_collection_rate=collection_rate,
         recent_payments_count=recent_count,
+        active_subscriptions=active_subs,
+        subscription_revenue_total=sub_revenue_total,
+        subscription_revenue_this_month=sub_revenue_month,
+        subscription_growth_pct=sub_growth,
     )

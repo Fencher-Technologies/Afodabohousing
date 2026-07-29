@@ -124,6 +124,19 @@ class PhoneRegisterRequest(BaseModel):
     privacy_version: str | None = None
 
 
+class PhoneRegisterManagerRequest(BaseModel):
+    phone: str
+    verify_token: str
+    first_name: str
+    last_name: str
+    email: str | None = None
+
+
+class PhoneRegisterManagerResponse(BaseModel):
+    success: bool
+    message: str
+
+
 class PhoneSignInRequest(BaseModel):
     phone: str
     pin: str
@@ -955,6 +968,99 @@ def register_phone(
         refresh_token=getattr(session, "refresh_token", None),
         user=user_data,
         role="tenant",
+    )
+
+
+@router.post("/phone/register-manager", response_model=PhoneRegisterManagerResponse)
+def register_manager(
+    data: PhoneRegisterManagerRequest,
+    supabase: Client = Depends(get_service_client),
+    svc: PhoneAuthService = Depends(get_phone_auth_service),
+) -> PhoneRegisterManagerResponse:
+    phone = normalize_phone(data.phone)
+
+    if not data.first_name.strip() or not data.last_name.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="First and last name are required")
+
+    existing = svc.get_profile_by_phone(phone)
+    if existing and existing.get("role") == "house_manager":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This phone number is already registered as a house manager.",
+        )
+
+    verify = _verify_phone_token(supabase, phone, data.verify_token)
+    if not verify:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token. Please verify your OTP again.",
+        )
+
+    full_name = f"{data.first_name.strip()} {data.last_name.strip()}"
+    email = data.email.strip() if data.email else None
+    if email:
+        existing_email = supabase.table("profiles").select("user_id").eq("email", email).execute()
+        if existing_email.data:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A user with this email already exists.",
+            )
+
+    internal_email = email or phone_to_email(phone)
+    password = secrets.token_urlsafe(24)
+
+    orphan_id = _find_auth_user_by_email(supabase, internal_email)
+    if orphan_id:
+        try:
+            supabase.auth.admin.delete_user(orphan_id)
+        except Exception:
+            pass
+
+    try:
+        auth_result = supabase.auth.admin.create_user({
+            "email": internal_email,
+            "password": password,
+            "email_confirm": True,
+            "user_metadata": {"full_name": full_name, "phone": phone},
+        })
+    except Exception as e:
+        msg = str(e)
+        if hasattr(e, "response") and e.response is not None:
+            try:
+                body = e.response.json()
+                msg = body.get("msg", body.get("error_description", body.get("error", msg)))
+            except Exception:
+                msg = str(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+
+    user = auth_result.user
+    user_id = user.id
+
+    try:
+        supabase.table("profiles").upsert({
+            "user_id": user_id,
+            "email": email or '',
+            "full_name": full_name,
+            "phone": phone,
+            "role": "house_manager",
+            "status": "pending",
+            "phone_verified_at": datetime.now(UTC).isoformat(),
+        }, on_conflict="user_id").execute()
+    except Exception as e:
+        try:
+            supabase.auth.admin.delete_user(user_id)
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create profile: {str(e)}",
+        )
+
+    logger.info("House manager registered pending approval: phone=%s email=%s", phone, internal_email)
+
+    return PhoneRegisterManagerResponse(
+        success=True,
+        message="Verification successful. Your registration is pending admin approval.",
     )
 
 
