@@ -13,7 +13,7 @@ export interface PropertyFormData {
   area: string; address: string; bedrooms: number; sitting_rooms: number;
   kitchens: number; bathrooms: number; rent_amount: number; rent_period: string;
   manager_phone: string; manager_email: string; amenities: string[];
-  images: string[];
+  images: string[]; latitude: string; longitude: string;
 }
 
 interface Props {
@@ -28,11 +28,16 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [mapsUrl, setMapsUrl] = useState('');
+  const [showMapsInput, setShowMapsInput] = useState(false);
+  const [mapsError, setMapsError] = useState('');
+  const [geoError, setGeoError] = useState('');
   const [form, setForm] = useState<PropertyFormData>({
     title: '', description: '', property_type: 'Residential', state: '',
     area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1,
     bathrooms: 1, rent_amount: 0, rent_period: 'monthly',
     manager_phone: '', manager_email: '', amenities: [], images: [],
+    latitude: '', longitude: '',
     ...initialData,
   });
 
@@ -61,8 +66,25 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
     setForm(f => ({ ...f, images: f.images.filter(i => i !== url) }));
   }
 
+  const parseGoogleMapsLink = (url: string) => {
+    const patterns = [/@?(-?\d+\.\d+),(-?\d+\.\d+)/, /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/, /[?&]query=(-?\d+\.\d+),(-?\d+\.\d+)/, /[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/];
+    for (const p of patterns) { const m = url.match(p); if (m) { const lat = parseFloat(m[1]), lng = parseFloat(m[2]); if (!isNaN(lat) && !isNaN(lng)) return { lat, lng }; } }
+    return null;
+  };
+
+  const handleParseMapsUrl = async () => {
+    let url = mapsUrl.trim();
+    if (url.includes('goo.gl') || url.includes('maps.app.goo')) { try { const r = await fetch(url, { method: 'GET', redirect: 'follow' }); url = r.url; } catch { setMapsError('Could not open that link.'); return; } }
+    const r = parseGoogleMapsLink(url);
+    if (!r) { setMapsError('Could not find coordinates in that link.'); return; }
+    setForm(f => ({ ...f, latitude: String(r.lat), longitude: String(r.lng) }));
+    setMapsUrl(''); setShowMapsInput(false); setMapsError('');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.latitude || !form.longitude) { setGeoError('Please add property location via Maps URL or enter coordinates manually.'); return; }
+    setGeoError('');
     onSave(form);
   };
 
@@ -121,6 +143,24 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
           <p className="text-sm font-semibold mb-2">Full Address</p>
           <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
             placeholder="Plot 45, Road name..." className="rounded-lg h-11" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold mb-2">Property Location</p>
+          <div className="flex gap-2">
+            <Input value={form.latitude} onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))} placeholder="Latitude" className="flex-1 rounded-lg h-11" />
+            <Input value={form.longitude} onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))} placeholder="Longitude" className="flex-1 rounded-lg h-11" />
+            <button type="button" onClick={() => setShowMapsInput(!showMapsInput)} className="px-3 h-11 rounded-lg border border-input bg-background text-sm text-muted-foreground hover:border-primary whitespace-nowrap">
+              Maps URL
+            </button>
+          </div>
+          {showMapsInput && (
+            <div className="flex gap-2 mt-2">
+              <Input value={mapsUrl} onChange={e => { setMapsUrl(e.target.value); setMapsError(''); }} placeholder="Paste Google Maps link..." className="flex-1 rounded-lg h-11" />
+              <button type="button" onClick={handleParseMapsUrl} className="px-4 h-11 rounded-lg bg-primary text-primary-foreground text-sm">Parse</button>
+            </div>
+          )}
+          {mapsError && <p className="text-xs text-red-500 mt-1">{mapsError}</p>}
+          {geoError && <p className="text-xs text-red-500 mt-1">{geoError}</p>}
         </div>
       </div>
 
