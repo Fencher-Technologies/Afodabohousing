@@ -1,6 +1,6 @@
 # Afodabo Housing
 
-Rental management platform with role-based access (super_admin → house_manager → tenant → free user), PesaPal + NylonPay payment integration, digital tenancy agreements, and automated workflows.
+Rental management platform with role-based access (super_admin → house_manager → tenant → free user), PesaPal payment integration, digital tenancy agreements, and automated workflows.
 
 ## Stack
 
@@ -9,7 +9,7 @@ Rental management platform with role-based access (super_admin → house_manager
 | Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui |
 | Backend  | Python, FastAPI, ReportLab (PDF), APScheduler |
 | Database | Supabase (PostgreSQL, RLS, Auth, Storage) |
-| Payments | PesaPal (card), NylonPay (mobile money) |
+| Payments | PesaPal |
 
 ## Quick Start
 
