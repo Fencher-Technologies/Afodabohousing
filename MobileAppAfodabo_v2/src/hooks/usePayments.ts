@@ -55,8 +55,4 @@ export function useDeletePayment() {
   });
 }
 
-export function useInitiateNylonPay() {
-  return useMutation({
-    mutationFn: paymentsService.initiateNylonPay,
-  });
-}
+

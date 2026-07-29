@@ -39,23 +39,6 @@ interface PaymentCreateData {
   status?: string;
 }
 
-interface NylonPayInitiateRequest {
-  amount: number;
-  phone_number: string;
-  email?: string;
-  description: string;
-  payment_id: string;
-  first_name: string;
-  last_name: string;
-}
-
-interface NylonPayInitiateResponse {
-  success: boolean;
-  reference?: string;
-  status?: string;
-  message: string;
-}
-
 export const paymentsService = {
   list: (skip = 0, limit = 100) =>
     api.get<PaginatedResponse<PaymentResponse>>(`/payments?skip=${skip}&limit=${limit}`),
@@ -71,7 +54,4 @@ export const paymentsService = {
 
   delete: (id: string) =>
     api.delete<void>(`/payments/${id}`),
-
-  initiateNylonPay: (data: NylonPayInitiateRequest) =>
-    api.post<NylonPayInitiateResponse>("/payments/initiate-nylonpay", data),
 };
