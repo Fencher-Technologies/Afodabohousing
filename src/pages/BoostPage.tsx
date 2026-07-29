@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, TrendingUp, ShieldCheck, ExternalLink, Loader2 } from 'lucide-react';
+import SavedPhonePicker from '@/components/SavedPhonePicker';
+import PaymentCountdown from '@/components/PaymentCountdown';
+import { savePhone } from '@/services/saved-phones';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -48,16 +51,26 @@ export default function BoostPage() {
   ];
   const price = options.find(d => d.days === duration)?.price || 0;
 
+  const [token, setToken] = useState<string | null>(null);
+  const calledRef = useRef(false);
+
+  const doRedirect = (url: string) => {
+    if (calledRef.current) return;
+    calledRef.current = true;
+    window.location.href = url;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone.trim()) { toast({ title: 'Phone number required', variant: 'destructive' }); return; }
     setSending(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const t = session?.access_token;
+      setToken(t || null);
       const res = await fetch(`${API}/boosts/initiate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) },
         body: JSON.stringify({
           property_id: id,
           duration_days: duration,
@@ -70,7 +83,7 @@ export default function BoostPage() {
       if (data.redirect_url) {
         setRedirectUrl(data.redirect_url);
         setDone(true);
-        window.location.href = data.redirect_url;
+        if (t) savePhone(t, phone.trim()).catch(() => {});
       } else {
         setDone(true);
       }
@@ -158,12 +171,30 @@ export default function BoostPage() {
                   <p className="text-xs text-muted-foreground mt-1">Used for billing reference on Pesapal.</p>
                 </div>
 
+                {token && (
+                  <SavedPhonePicker
+                    token={token}
+                    value={phone}
+                    onChange={setPhone}
+                    onSave={() => {}}
+                    profilePhone={property?.manager_phone || undefined}
+                  />
+                )}
+
                 <Button type="submit" disabled={sending} className="w-full gradient-primary text-primary-foreground gap-2">
                   {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><ExternalLink className="h-4 w-4" /> Pay with Pesapal — UGX {price.toLocaleString()}</>}
                 </Button>
               </form>
             </CardContent>
           </Card>
+        )}
+
+        {done && redirectUrl && (
+          <PaymentCountdown
+            redirectUrl={redirectUrl}
+            onComplete={() => doRedirect(redirectUrl)}
+            onSkip={() => { setDone(false); setRedirectUrl(''); }}
+          />
         )}
       </div>
     </div>
