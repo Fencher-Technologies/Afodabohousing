@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
-import { Pressable, StyleSheet, Text, View, Alert } from "react-native";
+import { useState, useEffect, useRef } from "react";
+import { Pressable, StyleSheet, Text, View, Alert, Linking, BackHandler } from "react-native";
+import { WebView } from "react-native-webview";
 import { router, useLocalSearchParams } from "expo-router";
-import { Sparkles, Phone, ArrowLeft } from "lucide-react-native";
+import { Sparkles, Phone, ArrowLeft, X, Loader2 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
@@ -13,6 +14,7 @@ import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { boostsService } from "@/src/services/boosts";
 import type { BoostPackage } from "@/src/types";
+import { API_BASE_URL } from "@/constants/config";
 
 export default function BoostPropertyScreen() {
   const { propertyId } = useLocalSearchParams<{ propertyId: string }>();
@@ -22,7 +24,9 @@ export default function BoostPropertyScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [initiated, setInitiated] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [paymentComplete, setPaymentComplete] = useState(false);
+  const webViewRef = useRef<any>(null);
 
   useEffect(() => {
     (async () => {
@@ -45,12 +49,31 @@ export default function BoostPropertyScreen() {
     }
     setSubmitting(true);
     try {
-      await boostsService.initiateBoost(propertyId, selectedDays, phone.trim());
-      setInitiated(true);
+      const result = await boostsService.initiateBoost(propertyId, selectedDays, phone.trim());
+      if (result.redirect_url) {
+        setPaymentUrl(result.redirect_url);
+        setPaymentComplete(false);
+      }
     } catch (e: any) {
       Alert.alert("Payment failed", e.message || "Could not initiate payment. Please try again.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleClosePayment = () => {
+    setPaymentUrl(null);
+    setPaymentComplete(false);
+  };
+
+  const handleNavigationStateChange = (navState: any) => {
+    const url = navState.url || "";
+    // Detect when Pesapal redirects back to our callback URL
+    if (url.startsWith(API_BASE_URL) && url.includes("/payment/status")) {
+      webViewRef.current?.stopLoading();
+      setPaymentComplete(true);
+      // Poll status after a short delay
+      setTimeout(() => router.back(), 2000);
     }
   };
 
@@ -66,20 +89,55 @@ export default function BoostPropertyScreen() {
     );
   }
 
-  if (initiated) {
+  // Show payment WebView overlay
+  if (paymentUrl && !paymentComplete) {
     return (
-      <Screen scroll>
+      <Screen style={styles.paymentOverlay}>
+        <View style={styles.paymentHeader}>
+          <Text style={styles.paymentTitle}>Complete Payment</Text>
+          <Button
+            variant="ghost"
+            size="sm"
+            label=""
+            onPress={handleClosePayment}
+            leftIcon={<X size={20} color={Colors.textPrimary} />}
+          />
+        </View>
+        <View style={styles.webViewContainer}>
+          <WebView
+            ref={webViewRef}
+            source={{ uri: paymentUrl }}
+            style={styles.webView}
+            onNavigationStateChange={handleNavigationStateChange}
+            startInLoadingState={true}
+            renderLoading={() => (
+              <View style={styles.loadingOverlay}>
+                <Loader2 size={32} color={Colors.gold} />
+                <Text style={styles.loadingText}>Loading Pesapal…</Text>
+              </View>
+            )}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+          />
+        </View>
+      </Screen>
+    );
+  }
+
+  // Show success state
+  if (paymentComplete) {
+    return (
+      <Screen scroll style={styles.successScreen}>
         <View style={styles.successContainer}>
           <View style={styles.successIcon}>
             <Sparkles size={48} color={Colors.gold} />
           </View>
-          <Text style={styles.successTitle}>Payment Initiated</Text>
+          <Text style={styles.successTitle}>Payment Submitted</Text>
           <Text style={styles.successText}>
-            You will be redirected to PesaPal to complete the payment securely.
+            Your payment is being processed. You will receive a confirmation shortly.
           </Text>
           <Text style={styles.successText}>
-            Once the payment is confirmed, your property will automatically be
-            boosted. This usually takes a few minutes.
+            Once confirmed, your property will automatically be boosted.
           </Text>
           <View style={{ marginTop: Spacing.xl, width: "100%" }}>
             <Button
@@ -287,6 +345,51 @@ const styles = StyleSheet.create({
     fontSize: FontSize.h2,
     fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
+  },
+  paymentOverlay: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+  },
+  paymentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  paymentTitle: {
+    fontSize: FontSize.h2,
+    fontWeight: FontWeight.bold,
+    color: Colors.textPrimary,
+  },
+  webViewContainer: {
+    flex: 1,
+  },
+  webView: {
+    flex: 1,
+  },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    zIndex: 100,
+  },
+  loadingText: {
+    marginTop: Spacing.md,
+    fontSize: FontSize.body,
+    color: Colors.textSecondary,
+  },
+  successScreen: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
   },
   successContainer: {
     paddingHorizontal: Spacing.xl,
