@@ -3,19 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { ArrowLeft, Crown, Check, Loader2, Phone, ShieldCheck, ExternalLink, XCircle } from 'lucide-react';
-import { listPlans, getCurrentSubscription, createSubscription, SubscriptionPlan, SubscriptionCreateResponse } from '@/services/subscriptions';
+import { ArrowLeft, Crown, Check, Loader2, ShieldCheck, ExternalLink, XCircle } from 'lucide-react';
+import { listPlans, getCurrentSubscription, createSubscription, SubscriptionPlan } from '@/services/subscriptions';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import SavedPhonePicker from '@/components/SavedPhonePicker';
-import PaymentCountdown from '@/components/PaymentCountdown';
-import { savePhone } from '@/services/saved-phones';
 
-type Step = 'plans' | 'payment' | 'waiting' | 'success' | 'failed' | 'timeout';
-
-const POLL_INTERVAL = 5000;
-const POLL_TIMEOUT = 120000;
+type Step = 'plans' | 'success' | 'failed';
 
 export default function ManagerSubscription() {
   const { user, role, loading: authLoading } = useAuth();
@@ -26,13 +19,7 @@ export default function ManagerSubscription() {
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<Step>('plans');
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
-  const [phone, setPhone] = useState('');
   const [activating, setActivating] = useState(false);
-  const [responseMsg, setResponseMsg] = useState('');
-  const [paymentResult, setPaymentResult] = useState<SubscriptionCreateResponse | null>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [redirectUrl, setRedirectUrl] = useState('');
-  const [pullToken, setPullToken] = useState('');
   const calledRef = useRef(false);
 
   const doRedirect = (url: string) => {
@@ -49,15 +36,12 @@ export default function ManagerSubscription() {
 
   const fetchData = async () => {
     try {
-      const [p, c, { data: prof }] = await Promise.all([
+      const [p, c] = await Promise.all([
         listPlans(),
         getCurrentSubscription().catch(() => null),
-        user ? (await import('@/integrations/supabase/client')).supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
       ]);
       setPlans(p);
       setCurrentSub(c);
-      setProfile(prof?.data || null);
-      if (prof?.data?.phone) setPhone(prof.data.phone);
     } catch (e: any) {
       console.error('Failed to load subscription data:', e);
     }
@@ -66,28 +50,15 @@ export default function ManagerSubscription() {
 
   const handleSelectPlan = (plan: SubscriptionPlan) => {
     setSelectedPlan(plan);
-    setStep('payment');
+    setStep('plans');
   };
 
   const handlePay = async () => {
     if (!selectedPlan) return;
-    if (!phone.trim()) {
-      toast({ title: 'Phone required', description: 'Enter your phone number for payment.', variant: 'destructive' });
-      return;
-    }
     setActivating(true);
     try {
-      const { data: { session } } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
-      const t = session?.access_token || '';
-      setPullToken(t);
-      const result = await createSubscription(selectedPlan.id, phone.trim(), window.location.origin);
-      setPaymentResult(result);
-      setResponseMsg(result.message || 'Redirecting to Pesapal...');
-      setStep('waiting');
-      if (result.redirect_url) {
-        setRedirectUrl(result.redirect_url);
-        if (t) savePhone(t, phone.trim()).catch(() => {});
-      }
+      const result = await createSubscription(selectedPlan.id, undefined, window.location.origin);
+      if (result.redirect_url) doRedirect(result.redirect_url);
     } catch (err: any) {
       toast({ title: 'Payment failed', description: err.message || 'Could not initiate payment', variant: 'destructive' });
       setStep('failed');
@@ -136,31 +107,7 @@ export default function ManagerSubscription() {
             </div>
             <h2 className="text-xl font-bold">Payment Failed</h2>
             <p className="text-muted-foreground">Your payment could not be processed. Please try again.</p>
-            <Button onClick={() => setStep('payment')} className="rounded-lg">Try Again</Button>
-          </div>
-        )}
-
-        {step === 'waiting' && paymentResult?.redirect_url && (
-          <div className="text-center py-12 space-y-4">
-            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-              <ExternalLink className="h-12 w-12 text-primary" />
-            </div>
-            <h2 className="text-xl font-bold">Redirecting to Pesapal</h2>
-            <p className="text-muted-foreground">{responseMsg}</p>
-            <div className="bg-card border border-border rounded-xl p-5 text-left max-w-sm mx-auto space-y-3">
-              <div className="flex items-center gap-2 text-sm">
-                <ExternalLink className="h-4 w-4 text-primary" />
-                <span>You will be redirected to Pesapal's secure payment page</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <ShieldCheck className="h-4 w-4 text-primary" />
-                <span>Pay with card or mobile money</span>
-              </div>
-            </div>
-            <a href={paymentResult.redirect_url}
-              className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
-              <ExternalLink className="h-4 w-4" /> Open payment page
-            </a>
+            <Button onClick={() => setStep('plans')} className="rounded-lg">Try Again</Button>
           </div>
         )}
 
@@ -258,108 +205,14 @@ export default function ManagerSubscription() {
             )}
 
             {selectedPlan && (
-              <Button onClick={() => setStep('payment')} className="w-full h-12 rounded-xl font-bold text-base gap-2 bg-gold hover:bg-gold/90 text-gold-foreground">
-                <Crown className="h-5 w-5" />
-                Continue to Payment
+              <Button onClick={handlePay} disabled={activating} className="w-full h-12 rounded-xl font-bold text-base gap-2 bg-gold hover:bg-gold/90 text-gold-foreground">
+                {activating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Crown className="h-5 w-5" />}
+                {activating ? 'Redirecting...' : `Pay using Pesapal — UGX ${selectedPlan.price_ugx.toLocaleString()}`}
               </Button>
             )}
 
             <p className="text-xs text-muted-foreground text-center">Pay securely via Pesapal. Cards and mobile money accepted.</p>
           </>
-        )}
-
-        {step === 'payment' && selectedPlan && (
-          <div className="space-y-6">
-            <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-xl bg-gold/10 flex items-center justify-center">
-                  <Crown className="h-5 w-5 text-gold" />
-                </div>
-                <div>
-                  <p className="font-bold text-lg">{selectedPlan.name}</p>
-                  <p className="text-sm text-muted-foreground">{selectedPlan.duration_days} days</p>
-                </div>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Price (USD)</span>
-                  <span className="font-semibold">${selectedPlan.price_usd}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Price (UGX)</span>
-                  <span className="font-semibold">UGX {selectedPlan.price_ugx.toLocaleString()}</span>
-                </div>
-                <hr className="border-border" />
-                <div className="flex justify-between">
-                  <span className="font-bold">Total</span>
-                  <span className="font-bold text-primary">UGX {selectedPlan.price_ugx.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
-            {selectedPlan.benefits.length > 0 && (
-              <div>
-                <h3 className="font-bold text-sm mb-2">What you get</h3>
-                <div className="space-y-2">
-                  {selectedPlan.benefits.map((b, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-success shrink-0" />
-                      <span>{b}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <h3 className="font-bold text-sm mb-3">Payment Method</h3>
-              <div className="bg-card border-2 border-accent rounded-xl p-4 flex items-center gap-3 mb-4">
-                <ShieldCheck className="h-5 w-5 text-accent" />
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">Pesapal (Secure Checkout)</p>
-                  <p className="text-xs text-muted-foreground">Cards & Mobile Money — redirected to secure page</p>
-                </div>
-                <span className="text-[10px] font-bold bg-accent text-accent-foreground px-2 py-0.5 rounded-full">Secure</span>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Phone Number</label>
-                <Input value={phone} onChange={e => setPhone(e.target.value)}
-                  placeholder="2567XX XXX XXX" className="rounded-xl h-12" />
-                {pullToken && (
-                  <div className="mt-2">
-                    <SavedPhonePicker
-                      token={pullToken}
-                      value={phone}
-                      onChange={setPhone}
-                      onSave={() => {}}
-                      profilePhone={profile?.phone || undefined}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-4 bg-muted/30 rounded-xl">
-              <ShieldCheck className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-              <p className="text-xs text-muted-foreground">Your payment is processed securely by Pesapal. We don't store your financial details.</p>
-            </div>
-
-            <Button onClick={handlePay} disabled={activating}
-              className="w-full h-12 rounded-xl font-bold text-base gap-2 bg-gold hover:bg-gold/90 text-gold-foreground">
-              {activating ? <Loader2 className="h-5 w-5 animate-spin" /> : <ExternalLink className="h-5 w-5" />}
-              {activating ? 'Processing...' : 'Pay with Pesapal'}
-            </Button>
-
-            <p className="text-xs text-muted-foreground text-center">Pay securely via Pesapal. Cards and mobile money accepted.</p>
-          </div>
-        )}
-
-        {!!redirectUrl && (
-          <PaymentCountdown
-            redirectUrl={redirectUrl}
-            onComplete={() => doRedirect(redirectUrl)}
-            onSkip={() => { setRedirectUrl(''); setStep('payment'); }}
-          />
         )}
       </div>
     </div>

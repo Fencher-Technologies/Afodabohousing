@@ -42,6 +42,7 @@ class MockTableBuilder:
         self._order_desc = False
         self._range_start = 0
         self._range_end = 0
+        self._limit = 0
         self._select_cols = "*"
         self._count = None
         self._maybe_single = False
@@ -65,8 +66,24 @@ class MockTableBuilder:
         self._range_end = end
         return self
 
+    def limit(self, n):
+        self._limit = n
+        return self
+
     def insert(self, payload):
         self._inserted = payload
+        return self
+
+    def upsert(self, payload, on_conflict=None):
+        self._inserted = payload
+        return self
+
+    def single(self):
+        self._maybe_single = True
+        return self
+
+    def maybe_single(self):
+        self._maybe_single = True
         return self
 
     def update(self, payload):
@@ -79,6 +96,26 @@ class MockTableBuilder:
 
     def in_(self, column, values):
         self._filters[column] = ("in", values)
+        return self
+
+    def gt(self, column, value):
+        self._filters[column] = ("gt", value)
+        return self
+
+    def gte(self, column, value):
+        self._filters[column] = ("gte", value)
+        return self
+
+    def lt(self, column, value):
+        self._filters[column] = ("lt", value)
+        return self
+
+    def lte(self, column, value):
+        self._filters[column] = ("lte", value)
+        return self
+
+    def ilike(self, column, pattern):
+        self._filters[column] = ("ilike", pattern)
         return self
 
     def execute(self):
@@ -144,6 +181,10 @@ class MockTableBuilder:
         end = self._range_end
         if end:
             data = data[start:end + 1]
+        if self._limit:
+            data = data[:self._limit]
+        if self._maybe_single:
+            return MockResponse(data=data[0] if data else None, count=count)
         return MockResponse(data=data, count=count)
 
     def _seed_data(self):
@@ -288,7 +329,7 @@ class MockTableBuilder:
                     "id": PID_PROFILE,
                     "user_id": UID_OWNER,
                     "email": "test@test.com",
-                    "role": "admin",
+                    "role": "super_admin",
                     "full_name": "Test User",
                     "created_at": "2026-01-01T00:00:00Z",
                     "updated_at": "2026-01-01T00:00:00Z",
@@ -304,7 +345,7 @@ class MockSupabaseClient:
     def rpc(self, name, params=None):
         mock = MagicMock()
         if name == "get_user_role":
-            mock.execute.return_value = MockResponse(data=["admin"])
+            mock.execute.return_value = MockResponse(data=["super_admin"])
         else:
             mock.execute.return_value = MockResponse(data=[])
         return mock
@@ -324,6 +365,17 @@ class MockSupabaseClient:
             user=MagicMock(model_dump=lambda: {"user_metadata": {"full_name": "Test User"}})
         )
         return mock
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _disable_rate_limits():
+    from config import get_settings
+
+    s = get_settings()
+    previous = s.rate_limit_enabled
+    s.rate_limit_enabled = False
+    yield
+    s.rate_limit_enabled = previous
 
 
 @pytest.fixture

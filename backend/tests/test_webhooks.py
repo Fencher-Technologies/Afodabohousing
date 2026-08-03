@@ -1,15 +1,13 @@
 import hashlib
 import hmac
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from dependencies import get_current_user, get_service_client
 from main import app
-
-
 
 
 @pytest.fixture
@@ -36,28 +34,73 @@ class TestPesapalWebhook:
     def _sign(self, body: bytes, secret: str) -> str:
         return hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
 
-    def test_valid_webhook_updates_payment(self, client, pesapal_secret):
-        body = json.dumps({
-            "pesapal_transaction_tracking_id": "txn-001",
-            "payment_status_description": "COMPLETED",
-            "merchant_reference": "ref-001",
+    def _ipn(self, tracking_id: str, ref: str) -> str:
+        return json.dumps({
+            "OrderTrackingId": tracking_id,
+            "OrderMerchantReference": ref,
+            "OrderNotificationType": "IPNCHANGE",
         })
+
+    def test_completed_calls_get_transaction_status_and_activates(self, client, pesapal_secret):
+        body = self._ipn("txn-001", "ref-001")
         sig = self._sign(body.encode(), pesapal_secret)
 
-        resp = client.post(
-            "/payments/webhook/pesapal",
-            content=body,
-            headers={
-                "X-Pesapal-Signature": sig,
-                "Content-Type": "application/json",
-            },
-        )
+        boost_svc = MagicMock()
+        boost_svc.activate_by_reference.return_value = {"id": "boost-1"}
+
+        with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
+            "routers.webhooks.get_transaction_status",
+            return_value={"payment_status_description": "COMPLETED"},
+        ) as gts, patch("routers.webhooks.get_boost_service", return_value=boost_svc):
+            resp = client.post(
+                "/payments/webhook/pesapal",
+                content=body,
+                headers={"X-Pesapal-Signature": sig, "Content-Type": "application/json"},
+            )
+
         assert resp.status_code == 200
-        assert resp.json()["status"] == "received"
         assert resp.json()["payment_status"] == "completed"
+        gts.assert_called_once_with("tok", "txn-001")
+        boost_svc.activate_by_reference.assert_called_once_with("ref-001", "txn-001")
+
+    def test_pending_does_not_activate(self, client, pesapal_secret):
+        body = self._ipn("txn-pending", "ref-pending")
+        sig = self._sign(body.encode(), pesapal_secret)
+
+        with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
+            "routers.webhooks.get_transaction_status",
+            return_value={"payment_status_description": "PENDING"},
+        ) as gts, patch("routers.webhooks.get_boost_service") as gbs:
+            resp = client.post(
+                "/payments/webhook/pesapal",
+                content=body,
+                headers={"X-Pesapal-Signature": sig, "Content-Type": "application/json"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["payment_status"] == "pending"
+        gts.assert_called_once_with("tok", "txn-pending")
+        gbs.assert_not_called()
+
+    def test_returns_200_even_when_status_lookup_fails(self, client, pesapal_secret):
+        body = self._ipn("txn-down", "ref-down")
+        sig = self._sign(body.encode(), pesapal_secret)
+
+        with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
+            "routers.webhooks.get_transaction_status",
+            side_effect=RuntimeError("upstream down"),
+        ):
+            resp = client.post(
+                "/payments/webhook/pesapal",
+                content=body,
+                headers={"X-Pesapal-Signature": sig, "Content-Type": "application/json"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["payment_status"] == "pending"
 
     def test_rejects_missing_signature(self, client, pesapal_secret):
-        body = json.dumps({"pesapal_transaction_tracking_id": "txn-002"})
+        body = self._ipn("txn-002", "ref-002")
         resp = client.post(
             "/payments/webhook/pesapal",
             content=body,
@@ -66,7 +109,7 @@ class TestPesapalWebhook:
         assert resp.status_code == 401
 
     def test_rejects_bad_signature(self, client, pesapal_secret):
-        body = json.dumps({"pesapal_transaction_tracking_id": "txn-003"})
+        body = self._ipn("txn-003", "ref-003")
         resp = client.post(
             "/payments/webhook/pesapal",
             content=body,
@@ -80,25 +123,24 @@ class TestPesapalWebhook:
     @pytest.mark.parametrize("desc,expected", [
         ("COMPLETED", "completed"),
         ("PENDING", "pending"),
+        ("PROCESSING", "pending"),
         ("FAILED", "failed"),
-        ("REFUNDED", "refunded"),
+        ("REVERSED", "failed"),
         ("UNKNOWN_STATUS", "pending"),
     ])
     def test_status_mapping(self, client, pesapal_secret, desc, expected):
-        body = json.dumps({
-            "pesapal_transaction_tracking_id": "txn-status",
-            "payment_status_description": desc,
-            "merchant_reference": "ref-status",
-        })
+        body = self._ipn(f"txn-status-{desc}", "ref-status")
         sig = self._sign(body.encode(), pesapal_secret)
-        resp = client.post(
-            "/payments/webhook/pesapal",
-            content=body,
-            headers={
-                "X-Pesapal-Signature": sig,
-                "Content-Type": "application/json",
-            },
-        )
+
+        with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
+            "routers.webhooks.get_transaction_status",
+            return_value={"payment_status_description": desc},
+        ):
+            resp = client.post(
+                "/payments/webhook/pesapal",
+                content=body,
+                headers={"X-Pesapal-Signature": sig, "Content-Type": "application/json"},
+            )
         assert resp.status_code == 200
         assert resp.json()["payment_status"] == expected
 
@@ -107,10 +149,7 @@ class TestPesapalWebhook:
         secret = get_settings().pesapal_consumer_secret
         get_settings().pesapal_consumer_secret = ""
 
-        body = json.dumps({
-            "pesapal_transaction_tracking_id": "txn-no-secret",
-            "payment_status_description": "COMPLETED",
-        })
+        body = self._ipn("txn-no-secret", "ref-no-secret")
         resp = client.post(
             "/payments/webhook/pesapal",
             content=body,
@@ -121,35 +160,28 @@ class TestPesapalWebhook:
         get_settings().pesapal_consumer_secret = secret
 
     def test_idempotency_returns_cached_response(self, client, pesapal_secret):
-        body = json.dumps({
-            "pesapal_transaction_tracking_id": "txn-idempotent",
-            "payment_status_description": "COMPLETED",
-            "merchant_reference": "ref-idempotent",
-        })
+        body = self._ipn("txn-idempotent", "ref-idempotent")
         sig = self._sign(body.encode(), pesapal_secret)
 
-        resp1 = client.post(
-            "/payments/webhook/pesapal",
-            content=body,
-            headers={
-                "X-Pesapal-Signature": sig,
-                "Content-Type": "application/json",
-                "Idempotency-Key": "key-123",
-            },
-        )
-        assert resp1.status_code == 200
+        with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
+            "routers.webhooks.get_transaction_status",
+            return_value={"payment_status_description": "COMPLETED"},
+        ) as gts:
+            resp1 = client.post(
+                "/payments/webhook/pesapal",
+                content=body,
+                headers={"X-Pesapal-Signature": sig, "Content-Type": "application/json"},
+            )
+            resp2 = client.post(
+                "/payments/webhook/pesapal",
+                content=body,
+                headers={"X-Pesapal-Signature": sig, "Content-Type": "application/json"},
+            )
 
-        resp2 = client.post(
-            "/payments/webhook/pesapal",
-            content=body,
-            headers={
-                "X-Pesapal-Signature": sig,
-                "Content-Type": "application/json",
-                "Idempotency-Key": "key-123",
-            },
-        )
+        assert resp1.status_code == 200
         assert resp2.status_code == 200
         assert resp1.json() == resp2.json()
+        assert gts.call_count == 1
 
 
 class TestSmsWebhook:

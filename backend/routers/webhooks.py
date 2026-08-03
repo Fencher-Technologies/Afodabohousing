@@ -1,5 +1,4 @@
 import hashlib
-import hmac
 import json
 import logging
 import time
@@ -7,14 +6,20 @@ from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from supabase import Client
 
 from config import get_settings
 from dependencies import get_service_client
 from services.boost import get_boost_service
 from services.notifications import notify
-from services.pesapal import verify_webhook as verify_pesapal
+from services.pesapal import (
+    get_auth_token,
+    get_transaction_status,
+)
+from services.pesapal import (
+    verify_webhook as verify_pesapal,
+)
 from services.subscriptions import get_subscription_service
 
 logger = logging.getLogger(__name__)
@@ -43,13 +48,25 @@ def _set_idempotency(key: str, response: dict[str, Any]) -> None:
 
 
 class PesapalWebhookPayload(BaseModel):
-    pesapal_transaction_tracking_id: str
-    payment_method: str | None = None
-    payment_status_description: str | None = None
-    currency: str | None = "UGX"
-    amount: float | None = None
-    description: str | None = None
-    merchant_reference: str | None = None
+    """Pesapal IPN payload — carries order ids only, NO payment status.
+
+    The real status is fetched via GetTransactionStatus using order_tracking_id.
+    """
+
+    order_tracking_id: str = Field(validation_alias="OrderTrackingId")
+    order_merchant_reference: str = Field(validation_alias="OrderMerchantReference")
+    order_notification_type: str | None = Field(default=None, validation_alias="OrderNotificationType")
+
+
+PESAPAL_STATUS_MAP = {
+    "COMPLETED": "completed",
+    "PENDING": "pending",
+    "PROCESSING": "pending",
+    "FAILED": "failed",
+    "REVERSED": "failed",
+    "EXPIRED": "failed",
+    "INVALID": "failed",
+}
 
 
 class SmsSendRequest(BaseModel):
@@ -76,40 +93,42 @@ async def pesapal_webhook(
             detail="Invalid signature",
         )
 
-    idempotency_key = request.headers.get("Idempotency-Key") or request.headers.get("X-Idempotency-Key")
-    if idempotency_key:
-        cached = _check_idempotency(idempotency_key)
-        if cached:
-            logger.info("Returning cached response for idempotency key %s", idempotency_key)
-            return cached
+    payload = PesapalWebhookPayload.model_validate(json.loads(body))
+    tracking_id = payload.order_tracking_id
+    merchant_ref = payload.order_merchant_reference
 
-    payload = PesapalWebhookPayload(**json.loads(body))
+    # Idempotency: Pesapal may retry; only process each tracking id once.
+    idempotency_key = f"pesapal:{tracking_id}"
+    cached = _check_idempotency(idempotency_key)
+    if cached:
+        logger.info("Duplicate Pesapal IPN suppressed for txn=%s", tracking_id)
+        return cached
 
     logger.info(
-        "Pesapal webhook received: txn=%s status=%s ref=%s",
-        payload.pesapal_transaction_tracking_id,
-        payload.payment_status_description,
-        payload.merchant_reference,
+        "Pesapal IPN received: txn=%s ref=%s type=%s",
+        tracking_id, merchant_ref, payload.order_notification_type,
     )
 
-    status_map = {
-        "COMPLETED": "completed",
-        "PENDING": "pending",
-        "FAILED": "failed",
-        "REFUNDED": "refunded",
-    }
-    payment_status = status_map.get(
-        (payload.payment_status_description or "").upper(),
-        "pending",
-    )
-
-    merchant_ref = payload.merchant_reference or ""
-    txn_id = payload.pesapal_transaction_tracking_id
+    # The IPN payload has no payment status — GetTransactionStatus is the
+    # source of truth. If it fails, return 200 anyway; Pesapal retries.
+    payment_status = "pending"
+    try:
+        token = await get_auth_token()
+        status_data = await get_transaction_status(token, tracking_id)
+        payment_status = PESAPAL_STATUS_MAP.get(
+            (status_data.get("payment_status_description") or "").upper(),
+            "pending",
+        )
+        logger.info(
+            "Pesapal txn=%s status_description=%s -> %s",
+            tracking_id, status_data.get("payment_status_description"), payment_status,
+        )
+    except Exception as e:
+        logger.error("GetTransactionStatus failed for txn=%s: %s", tracking_id, str(e))
 
     if payment_status == "completed":
-        # Try boost activation first via transaction_id, then subscription via payment_reference
         boost_svc = get_boost_service(supabase)
-        activated = boost_svc.activate_by_reference(merchant_ref, txn_id)
+        activated = boost_svc.activate_by_reference(merchant_ref, tracking_id)
         if activated:
             logger.info("Boost %s activated via Pesapal webhook", activated["id"])
         else:
@@ -120,7 +139,7 @@ async def pesapal_webhook(
             else:
                 result = (
                     supabase.table("payments")
-                    .update({"status": "completed", "transaction_id": txn_id})
+                    .update({"status": "completed", "transaction_id": tracking_id})
                     .eq("transaction_id", merchant_ref)
                     .execute()
                 )
@@ -131,17 +150,13 @@ async def pesapal_webhook(
         boost_service_table = boost_svc.table if hasattr(boost_svc, 'table') else supabase.table("property_boosts")
         boost_service_table.update({"status": "failed"}).eq("transaction_id", merchant_ref).eq("status", "pending").execute()
         sub_svc = get_subscription_service(supabase)
-        sub_svc.supabase.table("manager_subscriptions").update({"status": "failed"}).eq("payment_reference", merchant_ref).eq("status", "pending").execute()
+        sub_svc.supabase.table("manager_subscriptions").update(
+            {"status": "failed", "payment_status": "failed"}
+        ).eq("payment_reference", merchant_ref).eq("status", "pending").execute()
         supabase.table("payments").update({"status": "failed"}).eq("transaction_id", merchant_ref).execute()
-    else:
-        # pending — just record the transaction_id for reference
-        supabase.table("payments").update({"transaction_id": txn_id}).eq("transaction_id", merchant_ref).execute()
 
     response = {"status": "received", "payment_status": payment_status}
-
-    if idempotency_key:
-        _set_idempotency(idempotency_key, response)
-
+    _set_idempotency(idempotency_key, response)
     return response
 
 

@@ -5,6 +5,7 @@ import { Loader2, ExternalLink } from 'lucide-react';
 interface PaymentCountdownProps {
   redirectUrl: string;
   message?: string;
+  phone?: string;
   seconds?: number;
   onComplete: () => void;
   onSkip: () => void;
@@ -13,7 +14,8 @@ interface PaymentCountdownProps {
 export default function PaymentCountdown({
   redirectUrl,
   message = 'Redirecting to Pesapal secure payment page',
-  seconds = 10,
+  phone,
+  seconds = 7,
   onComplete,
   onSkip,
 }: PaymentCountdownProps) {
@@ -41,6 +43,11 @@ export default function PaymentCountdown({
         </div>
         <h3 className="mb-2 text-lg font-semibold">Payment Initiated</h3>
         <p className="mb-1 text-sm text-muted-foreground">{message}</p>
+        {phone && (
+          <p className="mb-2 text-sm text-muted-foreground">
+            Paying from <span className="font-semibold text-foreground">{phone}</span>
+          </p>
+        )}
         <p className="mb-6 text-sm text-muted-foreground">
           You will be redirected in <span className="text-lg font-bold text-primary">{count}</span> second{count !== 1 ? 's' : ''}
         </p>

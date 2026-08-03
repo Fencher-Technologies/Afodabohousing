@@ -1,323 +1,183 @@
-# Welcome to your Rork app
+# Afodabo Housing Mobile App
 
-## Project info
+Native cross-platform mobile app built with Expo Router + React Native.
 
-This is a native cross-platform mobile app created with [Rork](https://rork.com)
+## Platform
+- Native iOS & Android app, exportable to web
+- Framework: Expo Router + React Native
+- Language: TypeScript
 
-**Platform**: Native iOS & Android app, exportable to web
-**Framework**: Expo Router + React Native
-
-## How can I edit this code?
-
-There are several ways of editing your native mobile application.
-
-### **Use Rork**
-
-Simply visit [rork.com](https://rork.com) and prompt to build your app with AI.
-
-Changes made via Rork will be committed automatically to this GitHub repo.
-
-Whenever you make a change in your local code editor and push it to GitHub, it will be also reflected in Rork.
-
-### **Use your preferred code editor**
-
-If you want to work locally using your own code editor, you can clone this repo and push changes. Pushed changes will also be reflected in Rork.
-
-If you are new to coding and unsure which editor to use, we recommend Cursor. If you're familiar with terminals, try Claude Code.
-
-The only requirement is having Node.js & Bun installed - [install Node.js with nvm](https://github.com/nvm-sh/nvm) and [install Bun](https://bun.sh/docs/installation)
-
-> **Repository layout:** Rork projects are workspaces. The repository root contains `rork.json`, which lists each app's folder in `apps[].path`. Run every command below from the folder for this Expo app (usually `expo/`), not from the repository root.
-
-Follow these steps:
+## Quick Start
 
 ```bash
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# 1. Install dependencies
+bun install
 
-# Step 2: Navigate into the project and then the Expo app folder listed in rork.json.
-cd <YOUR_PROJECT_NAME>
-cd expo # Replace "expo" if rork.json lists a different React Native app path.
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your backend URL (see "Backend Connection" below)
 
-# Step 3: Install the necessary dependencies.
-bun i
+# 3. Start development server
+bun run start
 
-# Step 4: Start the instant web preview of your Rork app in your browser, with auto-reloading of your changes
-bun run start-web
-
-# Step 5: Start iOS preview
-# Option A (recommended):
-bun run start  # then press "i" in the terminal to open iOS Simulator
-# Option B (if supported by your environment):
-bun run start -- --ios
+# 4. Open on device
+# iOS: Press "i" in terminal (requires macOS + Xcode)
+# Android: Press "a" in terminal (requires Android Studio)
+# Web: bun run start-web
 ```
 
-### **Edit a file directly in GitHub**
+## Backend Connection
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+The mobile app connects to the Afodabo Housing backend via `EXPO_PUBLIC_API_URL` in `.env`.
 
-## What technologies are used for this project?
+### Local Development (with ngrok)
 
-This project is built with the most popular native mobile cross-platform technical stack:
+When running the backend locally on `localhost:8000`, the mobile app on a physical device cannot reach `localhost`. You need a public tunnel:
 
-- **React Native** - Cross-platform native mobile development framework created by Meta and used for Instagram, Airbnb, and lots of top apps in the App Store
-- **Expo** - Extension of React Native + platform used by Discord, Shopify, Coinbase, Telsa, Starlink, Eightsleep, and more
-- **Expo Router** - File-based routing system for React Native with support for web, server functions and SSR
-- **TypeScript** - Type-safe JavaScript
-- **React Query** - Server state management
-- **Lucide React Native** - Beautiful icons
+1. Start the backend locally:
+   ```bash
+   cd backend
+   .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+   ```
 
-## How can I test my app?
+2. Expose it with ngrok:
+   ```bash
+   ngrok http 8000
+   # Copy the HTTPS URL (e.g. https://spiffy-unsavory-kindred.ngrok-free.dev)
+   ```
 
-### **On your phone (Recommended)**
+3. Update `MobileAppAfodabo_v2/.env`:
+   ```bash
+   EXPO_PUBLIC_API_URL=https://your-ngrok-url.ngrok-free.dev
+   ```
 
-1. **iOS**: Download the [Rork app from the App Store](https://apps.apple.com/app/rork) or [Expo Go](https://apps.apple.com/app/expo-go/id982107779)
-2. **Android**: Download the [Expo Go app from Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent)
-3. Run `bun run start` and scan the QR code from your development server
+4. Restart the mobile dev server:
+   ```bash
+   bun run start
+   ```
 
-### **In your browser**
+**Important**: The ngrok URL must be registered as the Pesapal IPN and callback URL so payments work end-to-end. See "Pesapal Payment Flow" below.
 
-Run `bun start-web` to test in a web browser. Note: The browser preview is great for quick testing, but some native features may not be available.
+### Production (Render)
 
-### **iOS Simulator / Android Emulator**
-
-You can test Rork apps in Expo Go or Rork iOS app. You don't need XCode or Android Studio for most features.
-
-**When do you need Custom Development Builds?**
-
-- Native authentication (Face ID, Touch ID, Apple Sign In)
-- In-app purchases and subscriptions
-- Push notifications
-- Custom native modules
-
-Learn more: [Expo Custom Development Builds Guide](https://docs.expo.dev/develop/development-builds/introduction/)
-
-If you have XCode (iOS) or Android Studio installed:
+For production, point to the deployed Render backend:
 
 ```bash
-# iOS Simulator
-bun run start -- --ios
-
-# Android Emulator
-bun run start -- --android
+EXPO_PUBLIC_API_URL=https://afodabohousing.onrender.com
 ```
 
-## How can I deploy this project?
+No tunnel needed — Render provides a public HTTPS endpoint.
 
-### **Publish to App Store (iOS)**
+## Pesapal Payment Flow
 
-1. **Install EAS CLI**:
+The app uses Pesapal API 3.0 for property boosts and manager subscriptions.
 
-   ```bash
-   bun i -g @expo/eas-cli
-   ```
+### How It Works
 
-2. **Configure your project**:
+1. User selects a boost package and enters their phone number
+2. App calls `POST /boosts/initiate` with `callback_url` = `EXPO_PUBLIC_API_URL`
+3. Backend creates a Pesapal order and returns a `redirect_url`
+4. App opens `redirect_url` in an in-app browser (expo-web-browser)
+5. User completes payment on Pesapal
+6. Pesapal calls the backend IPN (`/payments/webhook/pesapal`) → backend updates payment status
+7. Pesapal redirects user to `callback_url/payment/status` → frontend/mobile polls `/payments/pesapal/status`
 
-   ```bash
-   eas build:configure
-   ```
+### Local Development Wiring
 
-3. **Build for iOS**:
+| Component | Local Value | Render Value |
+|-----------|-------------|--------------|
+| Backend URL | ngrok HTTPS URL | https://afodabohousing.onrender.com |
+| `EXPO_PUBLIC_API_URL` | ngrok URL | Render URL |
+| Pesapal IPN URL | ngrok + `/payments/webhook/pesapal` | Render + `/payments/webhook/pesapal` |
+| Pesapal Callback URL | ngrok + `/payment/status` | Render + `/payment/status` |
 
-   ```bash
-   eas build --platform ios
-   ```
+**Critical**: The ngrok URL must be registered with Pesapal as the IPN endpoint before testing locally.
 
-4. **Submit to App Store**:
-   ```bash
-   eas submit --platform ios
-   ```
+```bash
+# Run from backend directory
+python scripts/register_ipn.py https://YOUR_NGROK_URL/payments/webhook/pesapal
+```
 
-For detailed instructions, visit [Expo's App Store deployment guide](https://docs.expo.dev/submit/ios/).
+This stores the `ipn_id` in the local DB so boost/subscription calls reuse it.
 
-### **Publish to Google Play (Android)**
+### Payment Testing Checklist
 
-Build and submit this Expo app with EAS from the app folder described above:
-
-1. **Build for Android**:
-
-   ```bash
-   eas build --platform android
-   ```
-
-2. **Submit to Google Play**:
-   ```bash
-   eas submit --platform android
-   ```
-
-For detailed instructions, visit [Expo's Google Play deployment guide](https://docs.expo.dev/submit/android/).
-
-### **Publish as a Website**
-
-Your React Native app can also run on the web:
-
-1. **Build for web**:
-
-   ```bash
-   eas build --platform web
-   ```
-
-2. **Deploy with EAS Hosting**:
-   ```bash
-   eas hosting:configure
-   eas hosting:deploy
-   ```
-
-Alternative web deployment options:
-
-- **Vercel**: Deploy directly from your GitHub repository
-- **Netlify**: Connect your GitHub repo to Netlify for automatic deployments
-
-## App Features
-
-This template includes:
-
-- **Cross-platform compatibility** - Works on iOS, Android, and Web
-- **File-based routing** with Expo Router
-- **Tab navigation** with customizable tabs
-- **Modal screens** for overlays and dialogs
-- **TypeScript support** for better development experience
-- **Async storage** for local data persistence
-- **Vector icons** with Lucide React Native
+- [ ] Backend running locally on `:8000`
+- [ ] ngrok tunnel active, URL in `.env`
+- [ ] IPN registered for ngrok URL
+- [ ] `EXPO_PUBLIC_API_URL` in mobile `.env` matches ngrok URL
+- [ ] Pesapal credentials set in backend `.env` (`PESAPAL_CONSUMER_KEY`, `PESAPAL_CONSUMER_SECRET`, `PESAPAL_ENVIRONMENT=live`)
+- [ ] Test subscription/boost initiated → Pesapal page opens in app
 
 ## Project Structure
 
 ```
+MobileAppAfodabo_v2/
 ├── app/                    # App screens (Expo Router)
 │   ├── (tabs)/            # Tab navigation screens
-│   │   ├── _layout.tsx    # Tab layout configuration
-│   │   └── index.tsx      # Home tab screen
-│   ├── _layout.tsx        # Root layout
-│   ├── modal.tsx          # Modal screen example
-│   └── +not-found.tsx     # 404 screen
-├── assets/                # Static assets
-│   └── images/           # App icons and images
-├── constants/            # App constants and configuration
-├── app.json             # Expo configuration
-├── package.json         # Dependencies and scripts
-└── tsconfig.json        # TypeScript configuration
+│   ├── boost-property.tsx # Property boost with Pesapal
+│   └── ...
+├── constants/
+│   ├── config.ts          # API_BASE_URL from env
+│   └── theme.ts           # Design tokens
+├── src/
+│   ├── lib/api-client.ts  # Authenticated fetch wrapper
+│   ├── services/
+│   │   └── boosts.ts      # Boost API calls (sends callback_url)
+│   ├── types.ts           # TypeScript interfaces
+│   └── ...
+├── .env                   # Local config (gitignored)
+├── .env.example           # Template for env vars
+└── package.json
 ```
 
-## Custom Development Builds
+## Key Files
 
-For advanced native features, you'll need to create a Custom Development Build instead of using Expo Go.
+- `constants/config.ts` — Reads `EXPO_PUBLIC_API_URL`, throws if missing
+- `src/services/boosts.ts` — `initiateBoost(propertyId, days, phone, callbackUrl)` — sends `callback_url` so Pesapal redirect returns to a reachable URL
+- `app/boost-property.tsx` — Opens Pesapal `redirect_url` via `expo-web-browser`
 
-### **When do you need a Custom Development Build?**
+## Environment Variables
 
-- **Native Authentication**: Face ID, Touch ID, Apple Sign In, Google Sign In
-- **In-App Purchases**: App Store and Google Play subscriptions
-- **Advanced Native Features**: Third-party SDKs, platform-specifc features (e.g. Widgets on iOS)
-- **Background Processing**: Background tasks, location tracking
-
-### **Creating a Custom Development Build**
-
-```bash
-# Install EAS CLI
-bun i -g @expo/eas-cli
-
-# Configure your project for development builds
-eas build:configure
-
-# Create a development build for your device
-eas build --profile development --platform ios
-eas build --profile development --platform android
-
-# Install the development build on your device and start developing
-bun start --dev-client
-```
-
-**Learn more:**
-
-- [Development Builds Introduction](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Creating Development Builds](https://docs.expo.dev/develop/development-builds/create-a-build/)
-- [Installing Development Builds](https://docs.expo.dev/develop/development-builds/installation/)
-
-## Advanced Features
-
-### **Add a Database**
-
-Integrate with backend services:
-
-- **Supabase** - PostgreSQL database with real-time features
-- **Firebase** - Google's mobile development platform
-- **Custom API** - Connect to your own backend
-
-### **Add Authentication**
-
-Implement user authentication:
-
-**Basic Authentication (works in Expo Go):**
-
-- **Expo AuthSession** - OAuth providers (Google, Facebook, Apple) - [Guide](https://docs.expo.dev/guides/authentication/)
-- **Supabase Auth** - Email/password and social login - [Integration Guide](https://supabase.com/docs/guides/getting-started/tutorials/with-expo-react-native)
-- **Firebase Auth** - Comprehensive authentication solution - [Setup Guide](https://docs.expo.dev/guides/using-firebase/)
-
-**Native Authentication (requires Custom Development Build):**
-
-- **Apple Sign In** - Native Apple authentication - [Implementation Guide](https://docs.expo.dev/versions/latest/sdk/apple-authentication/)
-- **Google Sign In** - Native Google authentication - [Setup Guide](https://docs.expo.dev/guides/google-authentication/)
-
-### **Add Push Notifications**
-
-Send notifications to your users:
-
-- **Expo Notifications** - Cross-platform push notifications
-- **Firebase Cloud Messaging** - Advanced notification features
-
-### **Add Payments**
-
-Monetize your app:
-
-**Web & Credit Card Payments (works in Expo Go):**
-
-- **Stripe** - Credit card payments and subscriptions - [Expo + Stripe Guide](https://docs.expo.dev/guides/using-stripe/)
-- **PayPal** - PayPal payments integration - [Setup Guide](https://developer.paypal.com/docs/checkout/mobile/react-native/)
-
-**Native In-App Purchases (requires Custom Development Build):**
-
-- **RevenueCat** - Cross-platform in-app purchases and subscriptions - [Expo Integration Guide](https://www.revenuecat.com/docs/expo)
-- **Expo In-App Purchases** - Direct App Store/Google Play integration - [Implementation Guide](https://docs.expo.dev/versions/latest/sdk/in-app-purchases/)
-
-**Paywall Optimization:**
-
-- **Superwall** - Paywall A/B testing and optimization - [React Native SDK](https://docs.superwall.com/docs/react-native)
-- **Adapty** - Mobile subscription analytics and paywalls - [Expo Integration](https://docs.adapty.io/docs/expo)
-
-## I want to use a custom domain - is that possible?
-
-For web deployments, you can use custom domains with:
-
-- **EAS Hosting** - Custom domains available on paid plans
-- **Netlify** - Free custom domain support
-- **Vercel** - Custom domains with automatic SSL
-
-For mobile apps, you'll configure your app's deep linking scheme in `app.json`.
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `EXPO_PUBLIC_API_URL` | Yes | Backend base URL (ngrok for local, Render for prod) |
+| `EXPO_PUBLIC_PESAPAL_CALLBACK_URL` | No | Override callback URL for Pesapal (defaults to `EXPO_PUBLIC_API_URL`) |
 
 ## Troubleshooting
 
-### **App not loading on device?**
+### App can't reach backend
+- Verify ngrok tunnel is running: `curl https://YOUR_NGROK_URL/health/ready`
+- Check `.env` has the correct `EXPO_PUBLIC_API_URL`
+- Restart Metro bundler: `bun run start --clear`
 
-1. Make sure your phone and computer are on the same WiFi network
-2. Disable VPNs that prevent devices from reaching each other over the local network
-3. Check if your firewall is blocking the connection
+### Payment doesn't complete
+- Verify IPN registered: `python backend/scripts/register_ipn.py https://NGROK_URL/payments/webhook/pesapal`
+- Check backend logs for Pesapal webhook hits
+- Ensure `PESAPAL_IPN_URL` in backend `.env` matches the registered ngrok URL
 
-### **Build failing?**
+### Phone number format
+The app expects Ugandan numbers as `07XXXXXXXXX` or `2567XXXXXXXXX`. Backend normalizes to `+2567XXXXXXXXX` (exactly 9 digits after country code).
 
-1. Clear your cache: `bunx expo start --clear`
-2. Delete `node_modules` and reinstall: `rm -rf node_modules && bun install`
-3. Check [Expo's troubleshooting guide](https://docs.expo.dev/troubleshooting/build-errors/)
+## Deployment
 
-### **Need help with native features?**
+```bash
+# Build for app stores
+bun i -g @expo/eas-cli
+eas build:configure
+eas build --platform ios
+eas build --platform android
 
-- Check [Expo's documentation](https://docs.expo.dev/) for native APIs
-- Browse [React Native's documentation](https://reactnative.dev/docs/getting-started) for core components
-- Visit [Rork's FAQ](https://rork.com/faq) for platform-specific questions
+# Submit
+eas submit --platform ios
+eas submit --platform android
+```
 
-## About Rork
+## Tech Stack
 
-Rork builds fully native mobile apps using React Native and Expo - the same technology stack used by Discord, Shopify, Coinbase, Instagram, and nearly 30% of the top 100 apps on the App Store.
-
-Your Rork app is production-ready and can be published to both the App Store and Google Play Store. You can also export your app to run on the web, making it truly cross-platform.
+- Expo Router (file-based routing)
+- React Native 0.81 / Expo 54
+- TypeScript
+- TanStack Query (server state)
+- expo-web-browser (Pesapal payments)
+- Lucide React Native (icons)

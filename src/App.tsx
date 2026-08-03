@@ -42,6 +42,7 @@ import ManagerReports from "./pages/ManagerReports";
 import TenantPayments from "./pages/TenantPayments";
 import TenantPaymentDetail from "./pages/TenantPaymentDetail";
 import ManagerSubscription from "./pages/ManagerSubscription";
+import PaymentStatus from "./pages/PaymentStatus";
 import AgreementView from "./pages/AgreementView";
 import AgreementHistory from "./pages/AgreementHistory";
 import Notifications from "./pages/Notifications";
@@ -145,6 +146,7 @@ const App = () => (
                 <Route path="/dashboard/manager/agreements/summary/:leaseId" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><AgreementSummary /></ProtectedRoute>} />
                 <Route path="/dashboard/manager/reports" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerReports /></ProtectedRoute>} />
                 <Route path="/subscription" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerSubscription /></ProtectedRoute>} />
+                <Route path="/payment/status" element={<ProtectedRoute><PaymentStatus /></ProtectedRoute>} />
                 <Route path="/dashboard/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
                 <Route path="/dashboard/tenant/payments" element={<ProtectedRoute allowedRoles={['tenant']}><TenantPayments /></ProtectedRoute>} />
                 <Route path="/dashboard/tenant/payments/submit" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSubmitPayment /></ProtectedRoute>} />

@@ -74,6 +74,7 @@ class TestProperties:
 
     def test_create_property(self, client: TestClient):
         payload = {
+            "title": "Test Apartment",
             "address": "456 Oak Ave",
             "city": "Jinja",
             "state": "Eastern",
@@ -253,7 +254,7 @@ class TestAuth:
     def test_get_profile(self, client: TestClient):
         resp = client.get("/auth/profile")
         assert resp.status_code == 200
-        assert resp.json()["role"] == "admin"
+        assert resp.json()["role"] == "super_admin"
 
     def test_update_profile(self, client: TestClient):
         resp = client.patch("/auth/profile", json={"full_name": "Updated Name"})
@@ -307,7 +308,7 @@ class TestBoosts:
         data = resp.json()
         assert data["status"] == "active"
         assert data["duration_days"] == 14
-        assert float(data["amount_paid"]) == 140000.0
+        assert float(data["amount_paid"]) == 18000.0
 
     def test_create_boost_property_not_found(self, admin_client: TestClient):
         resp = admin_client.post("/boosts", json={

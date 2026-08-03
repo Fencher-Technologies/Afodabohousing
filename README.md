@@ -117,4 +117,18 @@ Two mobile codebases exist:
 - `MobileAppAfodabo_v2/` — Rork (Expo Router + React Native) app
 - `afodabo-housing-mobile/` — React Native app
 
-See `docs/mobile-implementation.md` for the mobile API integration guide.
+See `MobileAppAfodabo_v2/README.md` for Pesapal local vs Render wiring and `.env.example`.
+
+## Pesapal Payment Integration
+
+Backend uses Pesapal API 3.0 for property boosts and manager subscriptions.
+
+**Local development:** Use ngrok to expose `localhost:8000`, then register the tunnel URL as the Pesapal IPN/callback:
+```bash
+cd backend
+python scripts/register_ipn.py https://YOUR_NGROK_URL/payments/webhook/pesapal
+```
+
+**Production (Render):** Set `PESAPAL_IPN_URL=https://afodabohousing.onrender.com/payments/webhook/pesapal` in backend `.env`. The deployed URL is already public.
+
+See `docs/pesapal-setup.md` for full setup guide.

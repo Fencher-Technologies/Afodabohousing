@@ -13,7 +13,9 @@ from dependencies import (
     require_super_admin,
     require_super_admin_or_manager,
 )
+from phone import normalize_phone
 from services.crud import _enrich_leases
+from services.pesapal import register_ipn_for_url
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,10 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 # ── Models ──
+
+
+class PesapalRegisterIpnRequest(BaseModel):
+    ipn_url: str
 
 
 class CreateManagerRequest(BaseModel):
@@ -112,6 +118,25 @@ def _count(supabase: Client, table: str, **filters) -> int:
 # ── Endpoints ──
 
 
+@router.post("/pesapal/register-ipn")
+async def register_pesapal_ipn(
+    data: PesapalRegisterIpnRequest,
+    current_user: CurrentUser = Depends(require_super_admin),
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    """Register (or reuse) the Pesapal IPN webhook URL and persist the ipn_id.
+
+    IPN registration is API-based — there is no Pesapal dashboard form. The
+    URL changes on every ngrok restart locally and on first deploy, so call
+    this with the current public webhook URL: /payments/webhook/pesapal.
+    """
+    try:
+        result = await register_ipn_for_url(supabase, data.ipn_url.strip())
+    except RuntimeError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+    return {"message": f"IPN {result['status']} successfully", **result}
+
+
 @router.post("/create-manager")
 def create_manager(
     data: CreateManagerRequest,
@@ -122,9 +147,7 @@ def create_manager(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Full name is required")
 
     email = data.email.strip() if data.email else None
-    phone = data.phone.strip()
-
-    # Normalise phone to a safe slug for placeholder email
+    phone = normalize_phone(data.phone) if data.phone else ""
     phone_slug = phone.replace("+", "").replace(" ", "").replace("-", "")
     effective_email = email or f"manager-{phone_slug}@afodabo.internal"
 
@@ -226,11 +249,13 @@ def create_tenant(
     user = auth_result.user
     user_id = user.id
 
+    tenant_phone = normalize_phone(data.phone) if data.phone else ""
+
     supabase.table("profiles").upsert({
         "user_id": user_id,
         "email": data.email,
         "full_name": data.full_name,
-        "phone": data.phone or "",
+        "phone": tenant_phone,
         "role": "tenant",
         "status": "active",
     }, on_conflict="user_id").execute()
@@ -242,7 +267,7 @@ def create_tenant(
         "first_name": name_parts[0] if name_parts else data.full_name,
         "last_name": name_parts[1] if len(name_parts) > 1 else "",
         "email": data.email,
-        "phone": data.phone or "",
+        "phone": tenant_phone,
         "status": "active",
     }).execute()
     tenant_id = tenant_result.data[0]["id"] if tenant_result.data else None

@@ -20,6 +20,7 @@ from models.boost import (
     InitiateBoostRequest,
     InitiateBoostResponse,
 )
+from phone import normalize_phone
 from services.boost import (
     BoostService,
     calculate_boost_price,
@@ -28,7 +29,7 @@ from services.boost import (
 )
 from services.pesapal import (
     get_auth_token,
-    register_ipn,
+    get_ipn_id,
     submit_order,
 )
 
@@ -218,7 +219,7 @@ def expire_old_boosts(
     return {"message": f"{count} boost(s) expired", "expired_count": count}
 
 
-BOOST_CALLBACK_URL = "/dashboard/manager"
+BOOST_CALLBACK_URL = "/payment/status"
 
 
 @router.post("/initiate", response_model=InitiateBoostResponse)
@@ -253,7 +254,10 @@ async def initiate_boost(
         first_name = full_name[0] if full_name else current_user.email
         last_name = full_name[1] if len(full_name) > 1 else ""
         customer_email = profile.data.get("email") or current_user.email
-        customer_phone = profile.data.get("phone") or ""
+        entered_phone = (data.phone_number or "").strip()
+        customer_phone = normalize_phone(entered_phone) if entered_phone else (
+            normalize_phone(profile.data.get("phone")) if profile.data.get("phone") else ""
+        )
     except Exception:
         first_name = current_user.email
         last_name = ""
@@ -262,14 +266,10 @@ async def initiate_boost(
 
     base_url = str(data.callback_url or "").rstrip("/")
     callback_url = f"{base_url}{BOOST_CALLBACK_URL}"
-    # Use the configured IPN URL or default to the backend callback
-    from config import get_settings as _gs
-    s = _gs()
-    ipn_url = s.pesapal_ipn_url or f"{base_url}/payments/webhook/pesapal"
 
     try:
         token = await get_auth_token()
-        ipn_id = await register_ipn(token, ipn_url)
+        ipn_id = get_ipn_id(supabase)
         order_id = reference
         pay_resp = await submit_order(
             token=token,

@@ -37,7 +37,6 @@ def generate_agreement_pdf(content: dict) -> bytes:
     title_s = _style("AgreementTitle", parent=styles["Title"], fontSize=20, leading=26, textColor=colors.HexColor("#0F766E"), spaceAfter=4)
     subtitle_s = _style("Subtitle", parent=styles["Normal"], fontSize=8, leading=10, textColor=colors.HexColor("#627D98"), spaceAfter=10)
     h2_s = _style("H2", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=12, leading=16, textColor=colors.HexColor("#334E68"), spaceBefore=14, spaceAfter=4)
-    h3_s = _style("H3", fontName="Helvetica-Bold", fontSize=10, leading=14, textColor=colors.HexColor("#334E68"), spaceBefore=8, spaceAfter=2)
     body_s = _style("Body", fontSize=10, leading=16, spaceAfter=6)
     clause_title_s = _style("ClauseTitle", fontName="Helvetica-Bold", fontSize=10, leading=14, spaceBefore=6, spaceAfter=1)
     clause_body_s = _style("ClauseBody", fontSize=10, leading=15, spaceAfter=6, leftIndent=10)

@@ -286,7 +286,7 @@ def signup(
         profile_payload = {
             "email": data.email,
             "full_name": data.full_name,
-            "phone": data.phone,
+            "phone": normalize_phone(data.phone) if data.phone else None,
             "user_id": user_id,
             "role": data.role,
             "accepted_terms": True,
@@ -497,7 +497,7 @@ def accept_invite(
 
         profile_payload = {
             "user_id": user_id,
-            "email": internal_email,
+            "email": "",
             "full_name": data.full_name,
             "phone": phone,
             "role": invitation["role"],
@@ -567,7 +567,7 @@ def accept_invite(
             "user_id": existing_user_id,
             "email": invite_email,
             "full_name": data.full_name,
-            "phone": data.phone or "",
+            "phone": normalize_phone(data.phone) if data.phone else "",
             "role": invitation["role"],
             "created_by": invitation["invited_by"],
             "status": "active",
@@ -631,7 +631,7 @@ def accept_invite(
         "user_id": user_id,
         "email": invite_email,
         "full_name": data.full_name,
-        "phone": data.phone or "",
+        "phone": normalize_phone(data.phone) if data.phone else "",
         "role": invitation["role"],
         "created_by": invitation["invited_by"],
         "status": "active",
@@ -939,7 +939,7 @@ def register_phone(
     try:
         supabase.table("profiles").upsert({
             "user_id": user_id,
-            "email": internal_email,
+            "email": "",
             "full_name": data.full_name,
             "phone": phone,
             "role": data.role,
@@ -1356,6 +1356,8 @@ def update_profile(
     supabase: Client = Depends(get_supabase_client),
 ) -> ProfileResponse:
     payload = data.model_dump(exclude_none=True, mode="json")
+    if payload.get("phone"):
+        payload["phone"] = normalize_phone(payload["phone"])
     response = supabase.table("profiles").update(payload).eq("user_id", current_user.id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Profile not found")
