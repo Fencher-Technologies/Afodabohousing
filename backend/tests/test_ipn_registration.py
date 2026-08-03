@@ -78,8 +78,9 @@ async def test_register_propagates_failure_and_stores_nothing():
 
 
 def test_register_ipn_endpoint_requires_super_admin(client: TestClient):
-    from dependencies import require_super_admin
     from fastapi import HTTPException
+
+    from dependencies import require_super_admin
     app.dependency_overrides[require_super_admin] = lambda: (_ for _ in ()).throw(
         HTTPException(status_code=403)
     )
