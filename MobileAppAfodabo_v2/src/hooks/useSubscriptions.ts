@@ -19,8 +19,8 @@ export function useCurrentSubscription() {
 export function useCreateSubscription() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ plan_id, phone_number }: { plan_id: string; phone_number?: string }) =>
-      subscriptionsService.create(plan_id, phone_number),
+    mutationFn: ({ plan_id, phone_number, callback_url }: { plan_id: string; phone_number?: string; callback_url?: string }) =>
+      subscriptionsService.create(plan_id, phone_number, callback_url),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
     },
