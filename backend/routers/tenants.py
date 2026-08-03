@@ -8,7 +8,7 @@ from supabase import Client
 
 from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client
 from models import TenantCreate, TenantResponse, TenantUpdate
-from phone import normalize_phone
+from phone import is_synthetic_email, normalize_phone
 from services import TenantService, get_tenant_service
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
@@ -153,9 +153,13 @@ def resolve_tenant_by_phone(
         first_name = "Phone"
         last_name = "Tenant"
 
+    profile_email = profile.get("email") if profile else None
+    if is_synthetic_email(profile_email):
+        profile_email = None
+
     tenant = service.create(
         TenantCreate(
-            email=profile.get("email") if profile else None,
+            email=profile_email,
             first_name=first_name,
             last_name=last_name,
             phone=normalized_phone,
