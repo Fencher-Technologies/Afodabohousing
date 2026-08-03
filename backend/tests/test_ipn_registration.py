@@ -78,8 +78,16 @@ async def test_register_propagates_failure_and_stores_nothing():
 
 
 def test_register_ipn_endpoint_requires_super_admin(client: TestClient):
-    resp = client.post("/admin/pesapal/register-ipn", json={"ipn_url": IPN_URL})
-    assert resp.status_code == 403
+    from dependencies import require_super_admin
+    from fastapi import HTTPException
+    app.dependency_overrides[require_super_admin] = lambda: (_ for _ in ()).throw(
+        HTTPException(status_code=403)
+    )
+    try:
+        resp = client.post("/admin/pesapal/register-ipn", json={"ipn_url": IPN_URL})
+        assert resp.status_code == 403
+    finally:
+        app.dependency_overrides.pop(require_super_admin, None)
 
 
 def test_register_ipn_endpoint_reuses(client: TestClient):
