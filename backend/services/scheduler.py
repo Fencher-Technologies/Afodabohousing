@@ -6,6 +6,7 @@ import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
 
 from config import get_settings
+from services.crud import _compute_rent_financials
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
@@ -17,38 +18,64 @@ def _get_supabase_for_scheduler():
     return get_service_client()
 
 
-async def check_rent_reminders():
-    """Check for upcoming rent due dates and send reminders."""
-    try:
-        supabase = _get_supabase_for_scheduler()
-        dispatcher = NotificationDispatcher(supabase)
-        today = date.today()
-        tomorrow = (today + timedelta(days=1)).isoformat()
-        three_days = (today + timedelta(days=3)).isoformat()
+async def check_rent_reminders(supabase=None, today: date | None = None, dispatcher=None):
+    """Money-ledger rent reminders.
 
-        payments = (
-            supabase.table("payments")
-            .select("id, lease_id, tenant_id, amount, due_date")
-            .in_("status", ["pending", "failed"])
-            .gte("due_date", tomorrow)
-            .lte("due_date", three_days)
+    The billing calendar is the rent effective date (anchor): rent is due at
+    each 30-day boundary (next_payment_due_date). Tenants are reminded only
+    when they are in arrears (money owed) AND the next boundary falls within
+    the reminder window (1-3 days away). Reminders are idempotent per
+    lease/milestone/channel.
+    """
+    try:
+        supabase = supabase or _get_supabase_for_scheduler()
+        today = today or date.today()
+        dispatcher = dispatcher or NotificationDispatcher(supabase)
+
+        leases = (
+            supabase.table("leases")
+            .select("id, owner_id, property_id, tenant_id, monthly_rent, status, start_date, end_date, rent_effective_date")
+            .eq("status", "active")
             .execute()
         )
 
-        for payment in (payments.data or []):
-            payment_id = payment["id"]
-            amount = payment.get("amount", 0)
-            due_date = payment.get("due_date", "")
-            lease_id = payment.get("lease_id")
-            tenant_id = payment.get("tenant_id")
+        tracked = [l for l in (leases.data or []) if l.get("rent_effective_date")]
+        if not tracked:
+            return
 
-            if not lease_id or not tenant_id:
+        lease_ids = [l["id"] for l in tracked]
+        payments = (
+            supabase.table("payments")
+            .select("lease_id, payment_type, status, amount")
+            .in_("lease_id", lease_ids)
+            .execute()
+        )
+        payments_by_lease: dict[str, list[dict[str, Any]]] = {}
+        for p in payments.data or []:
+            payments_by_lease.setdefault(p.get("lease_id"), []).append(p)
+
+        for lease in tracked:
+            lease_id = lease["id"]
+            tenant_id = lease.get("tenant_id")
+            if not tenant_id:
                 continue
 
-            days_until_due = _days_until(due_date, today)
+            fin = _compute_rent_financials(
+                lease.get("rent_effective_date"),
+                payments_by_lease.get(lease_id, []),
+                lease.get("monthly_rent"),
+                start_date=lease.get("start_date"),
+                end_date=lease.get("end_date"),
+                today=today,
+            )
 
-            lease = _fetch_single(supabase, "leases", lease_id)
-            if not lease:
+            next_due = fin.get("next_payment_due_date")
+            arrears = fin.get("arrears_amount") or 0
+            if not next_due or arrears <= 0:
+                continue
+
+            days_until_due = _days_until(next_due, today)
+            if not (1 <= days_until_due <= 3):
                 continue
 
             prop = _fetch_single(supabase, "properties", lease.get("property_id"))
@@ -59,17 +86,18 @@ async def check_rent_reminders():
             recipient_id = tenant.get("user_id")
             to_email = tenant.get("email")
             property_title = prop.get("title") if prop else None
+            amount = arrears
 
             if days_until_due == 1:
                 title = "Rent due tomorrow"
                 body = (
-                    f"Your rent of UGX {amount:,.0f} is due tomorrow ({due_date}). "
+                    f"Your rent of UGX {amount:,.0f} is due tomorrow ({next_due}). "
                     "Please make your payment to avoid any inconvenience."
                 )
             else:
                 title = f"Rent due in {days_until_due} days"
                 body = (
-                    f"Your rent of UGX {amount:,.0f} is due on {due_date} "
+                    f"Your rent of UGX {amount:,.0f} is due on {next_due} "
                     f"({days_until_due} days away). "
                     "Please make your payment on time."
                 )
@@ -77,13 +105,12 @@ async def check_rent_reminders():
             property_suffix = f" for {property_title}" if property_title else ""
             body += property_suffix
 
-            event_key = f"rent_reminder:{payment_id}:{days_until_due}"
+            event_key = f"rent_reminder:{lease_id}:{days_until_due}"
             metadata = {
-                "payment_id": payment_id,
                 "lease_id": lease_id,
                 "property_id": lease.get("property_id"),
                 "amount": amount,
-                "due_date": due_date,
+                "next_payment_due_date": next_due,
                 "days_until_due": days_until_due,
             }
 

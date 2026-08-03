@@ -87,6 +87,12 @@ export function daysUntil(dateStr: string | null | undefined): number {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+export function formatDays(days: number | null | undefined): string {
+  if (days === null || days === undefined) return "—";
+  if (days === 1) return "1 day";
+  return `${days} days`;
+}
+
 export function daysSince(dateStr: string | null | undefined): number {
   if (!dateStr) return 0;
   const d = new Date(dateStr);

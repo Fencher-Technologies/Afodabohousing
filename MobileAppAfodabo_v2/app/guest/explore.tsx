@@ -329,6 +329,7 @@ export default function ExploreScreen() {
                 property={item as Property}
                 onPress={() => router.push(`/property-detail?id=${item.id}&role=guest`)}
                 featured={(item as { is_boosted?: boolean }).is_boosted ?? false}
+                showStatus
               />
             )}
             scrollEnabled={false}

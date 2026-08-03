@@ -32,6 +32,7 @@ COLUMNS = {
     "payments": [
         "id", "lease_id", "tenant_id", "amount", "status",
         "payment_type", "due_date", "paid_date", "notes", "created_at",
+        "coverage_days", "frozen_monthly_rent",
     ],
     "boosts": [
         "id", "property_id", "manager_id", "amount_paid",

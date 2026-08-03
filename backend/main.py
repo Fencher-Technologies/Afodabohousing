@@ -273,6 +273,11 @@ async def lifespan(app: FastAPI):
             _scheduler_started = True
         except Exception as e:
             logger.warning("Failed to start background scheduler: %s", str(e))
+    try:
+        from services.crud import sync_all_property_occupancy
+        sync_all_property_occupancy(get_service_client())
+    except Exception as e:
+        logger.warning("Failed to backfill property occupancy: %s", str(e))
     yield
     if _scheduler_started:
         try:
@@ -353,6 +358,15 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     request_id = getattr(request.state, "request_id", "unknown")
+    logger.error(
+        dumps({
+            "request_id": request_id,
+            "path": str(request.url),
+            "method": request.method,
+            "errors": exc.errors(),
+        }),
+        exc_info=False,
+    )
     return _error_response(
         request_id=request_id,
         status_code=422,

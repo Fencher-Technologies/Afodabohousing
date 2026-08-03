@@ -9,21 +9,26 @@ function esc(s: string): string {
 }
 
 function formatDate(d: string): string {
-  if (!d) return "—";
+  if (!d) return "";
   try {
-    return new Date(d).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+    return new Date(d).toLocaleDateString();
   } catch {
     return d.slice(0, 10);
   }
 }
 
+function formatDateTime(d: string): string {
+  if (!d) return "";
+  try {
+    return new Date(d).toLocaleString();
+  } catch {
+    return d;
+  }
+}
+
 function formatMoney(v: string | number): string {
   const n = typeof v === "string" ? parseInt(v, 10) : v;
-  return `UGX ${n.toLocaleString("en-UG")}`;
+  return `UGX ${n.toLocaleString()}`;
 }
 
 export function buildAgreementHtml(content: AgreementContent): string {
@@ -47,9 +52,9 @@ export function buildAgreementHtml(content: AgreementContent): string {
   // ── Custom clauses ────────────────────────────────────────────────
   const customClausesHtml = (custom_clauses || [])
     .map(
-      (c, i) => `
+      (c) => `
     <div class="clause">
-      <div class="clause-title">${i + 1}. ${esc(c.title)}</div>
+      <div class="clause-title">${esc(c.title)}</div>
       <div class="clause-body">${esc(c.content)}</div>
     </div>`
     )
@@ -58,14 +63,14 @@ export function buildAgreementHtml(content: AgreementContent): string {
   // ── Signature blocks ──────────────────────────────────────────────
   const tenantSigHtml = tenantSig?.signed_name
     ? `<div class="sig-name">${esc(tenantSig.signed_name)}</div>
-       <div class="sig-meta">Signed: ${formatDate(tenantSig.signed_at || "")}</div>
+       <div class="sig-meta">Signed: ${formatDateTime(tenantSig.signed_at || "")}</div>
        <div class="sig-meta">Consent v${tenantSig.consent_version || 0} | Agreement v${content.version}</div>`
     : `<div class="sig-line">__________________________</div>
        <div class="sig-pending">Awaiting signature</div>`;
 
   const managerSigHtml = managerSig?.signed_name
     ? `<div class="sig-name">${esc(managerSig.signed_name)}</div>
-       <div class="sig-meta">Signed: ${formatDate(managerSig.signed_at || "")}</div>
+       <div class="sig-meta">Signed: ${formatDateTime(managerSig.signed_at || "")}</div>
        <div class="sig-meta">Consent v${managerSig.consent_version || 0} | Agreement v${content.version}</div>`
     : `<div class="sig-line">__________________________</div>
        <div class="sig-pending">Awaiting signature</div>`;
@@ -93,9 +98,9 @@ export function buildAgreementHtml(content: AgreementContent): string {
     /* ── Header ─────────────────────────────────────────────────── */
     .header {
       text-align: center;
-      padding-bottom: 14px;
+      padding-bottom: 16px;
       border-bottom: 2px solid #1A1F1C;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
     .header h1 {
       font-size: 22px;
@@ -104,34 +109,34 @@ export function buildAgreementHtml(content: AgreementContent): string {
       margin: 0 0 4px;
     }
     .header .meta {
-      font-size: 11px;
+      font-size: 13px;
       color: #8A9089;
     }
     .header .meta + .meta { margin-top: 0; }
+    .header .meta-strong { font-weight: 600; }
+    .header .meta-sm { font-size: 11px; }
 
     /* ── Sections ───────────────────────────────────────────────── */
     .section { margin-bottom: 14px; }
     .section-title {
       font-size: 15px;
       font-weight: 700;
-      color: #236048;
+      color: #D4783C;
       text-transform: uppercase;
       letter-spacing: 0.03em;
       margin-bottom: 6px;
     }
     .subheading {
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 700;
       color: #5A635E;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
       margin-top: 6px;
       margin-bottom: 2px;
     }
     .body-text {
       font-size: 13px;
       color: #1A1F1C;
-      line-height: 1.5;
+      line-height: 18px;
     }
 
     /* ── Terms table ────────────────────────────────────────────── */
@@ -161,18 +166,24 @@ export function buildAgreementHtml(content: AgreementContent): string {
     .clause-body {
       font-size: 13px;
       color: #1A1F1C;
-      line-height: 1.5;
+      line-height: 18px;
     }
 
     /* ── Signatures ─────────────────────────────────────────────── */
     .sig-section { margin-top: 20px; }
+    .sig-row {
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+      margin-top: 20px;
+    }
     .sig-block {
-      padding-top: 12px;
+      flex: 1;
+      padding-top: 16px;
       border-top: 1px solid #E5E1DA;
-      margin-bottom: 16px;
     }
     .sig-label {
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 700;
       color: #5A635E;
       text-transform: uppercase;
@@ -183,11 +194,11 @@ export function buildAgreementHtml(content: AgreementContent): string {
       font-weight: 700;
       color: #1A1F1C;
       text-transform: lowercase;
-      font-variant: small-caps;
+      letter-spacing: 1.2px;
       padding: 6px 0;
     }
     .sig-meta {
-      font-size: 10px;
+      font-size: 11px;
       color: #8A9089;
     }
     .sig-line {
@@ -197,24 +208,15 @@ export function buildAgreementHtml(content: AgreementContent): string {
       padding: 6px 0;
     }
     .sig-pending {
-      font-size: 11px;
+      font-size: 13px;
       color: #8A9089;
       font-style: italic;
     }
     .sig-intro {
       font-size: 13px;
       color: #1A1F1C;
-      line-height: 1.5;
+      line-height: 18px;
       margin-bottom: 12px;
-    }
-
-    .footer {
-      text-align: center;
-      font-size: 9px;
-      color: #8A9089;
-      margin-top: 24px;
-      border-top: 1px solid #E5E1DA;
-      padding-top: 8px;
     }
   </style>
 </head>
@@ -223,9 +225,9 @@ export function buildAgreementHtml(content: AgreementContent): string {
   <!-- ═══ Header ═══ -->
   <div class="header">
     <h1>TENANCY AGREEMENT</h1>
-    ${content.agreement_number ? `<div class="meta">No. ${esc(content.agreement_number)}</div>` : ""}
+    ${content.agreement_number ? `<div class="meta meta-strong">No. ${esc(content.agreement_number)}</div>` : ""}
     <div class="meta">Version ${content.version}</div>
-    ${content.generated_at ? `<div class="meta">Generated: ${formatDate(content.generated_at)}</div>` : ""}
+    ${content.generated_at ? `<div class="meta meta-sm">Generated: ${formatDate(content.generated_at)}</div>` : ""}
   </div>
 
   <!-- ═══ Section 1: Parties and Property ═══ -->
@@ -254,11 +256,11 @@ export function buildAgreementHtml(content: AgreementContent): string {
   <div class="section">
     <div class="section-title">2. Tenancy Terms</div>
     <table class="terms">
-      <tr><td>Monthly Rent</td><td>${formatMoney(tenancy?.monthly_rent)}</td></tr>
-      <tr><td>Security Deposit</td><td>${formatMoney(tenancy?.security_deposit)}</td></tr>
-      <tr><td>Payment Frequency</td><td>${esc(tenancy?.payment_frequency || "monthly")}</td></tr>
-      <tr><td>Start Date</td><td>${formatDate(tenancy?.start_date || "")}</td></tr>
-      <tr><td>End Date</td><td>${formatDate(tenancy?.end_date || "")}</td></tr>
+      <tr><td>Monthly Rent:</td><td>${formatMoney(tenancy?.monthly_rent)}</td></tr>
+      <tr><td>Security Deposit:</td><td>${formatMoney(tenancy?.security_deposit)}</td></tr>
+      <tr><td>Payment Frequency:</td><td>${esc(tenancy?.payment_frequency || "monthly")}</td></tr>
+      <tr><td>Start Date:</td><td>${esc(tenancy?.start_date || "")}</td></tr>
+      <tr><td>End Date:</td><td>${esc(tenancy?.end_date || "")}</td></tr>
     </table>
   </div>
 
@@ -283,19 +285,17 @@ export function buildAgreementHtml(content: AgreementContent): string {
       By signing below, the parties acknowledge that they have read and agree to the terms of this tenancy agreement.
     </div>
 
-    <div class="sig-block">
-      <div class="sig-label">Tenant</div>
-      ${tenantSigHtml}
-    </div>
+    <div class="sig-row">
+      <div class="sig-block">
+        <div class="sig-label">TENANT</div>
+        ${tenantSigHtml}
+      </div>
 
-    <div class="sig-block">
-      <div class="sig-label">Landlord / Manager</div>
-      ${managerSigHtml}
+      <div class="sig-block">
+        <div class="sig-label">LANDLORD / MANAGER</div>
+        ${managerSigHtml}
+      </div>
     </div>
-  </div>
-
-  <div class="footer">
-    Generated digitally by Afodabo Housing &mdash; ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
   </div>
 
 </body>

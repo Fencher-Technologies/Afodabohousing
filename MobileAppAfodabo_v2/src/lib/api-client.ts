@@ -25,6 +25,26 @@ async function setStoredToken(token: string): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY_TOKEN, token);
 }
 
+function buildErrorMessage(errorData: unknown): string | null {
+  if (!errorData || typeof errorData !== "object") return null;
+  const data = errorData as { detail?: unknown; extra?: { errors?: unknown } };
+  const errors = data.extra?.errors;
+  if (Array.isArray(errors) && errors.length > 0) {
+    const parts = errors.map((e) => {
+      const entry = e as { loc?: unknown[]; msg?: string };
+      const loc = (entry.loc ?? [])
+        .filter((s) => s !== "body")
+        .map(String)
+        .join(".");
+      const msg = entry.msg ?? "invalid value";
+      return loc ? `${loc}: ${msg}` : msg;
+    });
+    return `Validation error: ${parts.join("; ")}`;
+  }
+  if (typeof data.detail === "string" && data.detail) return data.detail;
+  return null;
+}
+
 const _tokenListeners = new Set<() => void>();
 
 export function onTokensCleared(listener: () => void) {
@@ -119,8 +139,7 @@ async function request<T>(
       errorData = null;
     }
     const message =
-      (errorData as Record<string, unknown>)?.detail as string ??
-      `Request failed with status ${response.status}`;
+      buildErrorMessage(errorData) ?? `Request failed with status ${response.status}`;
     console.log("[DEBUG_AUTH] API response —", endpoint, "status:", response.status, "error:", message);
     throw new ApiError(message, response.status, errorData);
   }

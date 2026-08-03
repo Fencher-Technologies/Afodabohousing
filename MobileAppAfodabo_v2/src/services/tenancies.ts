@@ -7,6 +7,7 @@ interface LeaseResponse {
   tenant_id: string;
   monthly_rent: number;
   status: string;
+  effective_status?: string | null;
   start_date: string;
   end_date: string;
   unit_label?: string | null;
@@ -20,6 +21,15 @@ interface LeaseResponse {
   property_image?: string | null;
   balance_due?: number | null;
   total_paid?: number | null;
+  is_overdue?: boolean | null;
+  // Coverage-first money fields (server-enriched; `balance_due`,
+  // `expected_rent` and `tenant_credit` are deprecated aliases).
+  rent_accrued?: number | null;
+  arrears_amount?: number | null;
+  advance_amount?: number | null;
+  contract_rent?: number | null;
+  expected_rent?: number | null;
+  tenant_credit?: number | null;
   last_payment_date?: string | null;
   last_payment_amount?: number | null;
   last_payment_method?: string | null;
@@ -27,6 +37,12 @@ interface LeaseResponse {
   manager_name?: string | null;
   manager_phone?: string | null;
   manager_email?: string | null;
+  // Rent coverage tracking (server-enriched)
+  rent_effective_date?: string | null;
+  paid_until_date?: string | null;
+  rent_days_remaining?: number | null;
+  rent_days_in_arrears?: number | null;
+  next_payment_due_date?: string | null;
 }
 
 interface PaginatedResponse<T> {
@@ -52,6 +68,17 @@ interface RenewalRequestResponse {
   message: string;
 }
 
+export interface RenewalHistoryItem {
+  id: string;
+  previous_end_date?: string | null;
+  new_end_date: string;
+  monthly_rent?: number | null;
+  notes?: string | null;
+  renewed_by?: string | null;
+  renewed_by_name?: string | null;
+  renewed_at?: string | null;
+}
+
 export const tenanciesService = {
   list: (skip = 0, limit = 100) =>
     api.get<PaginatedResponse<LeaseResponse>>(`/leases?skip=${skip}&limit=${limit}`),
@@ -71,6 +98,15 @@ export const tenanciesService = {
   requestRenewal: (leaseId: string, notes?: string) =>
     api.post<RenewalRequestResponse>(`/leases/${leaseId}/renewal-request`, { notes }),
 
-  renew: (leaseId: string, payload: { new_end_date: string; monthly_rent?: number; notes?: string }) =>
+  renew: (leaseId: string, payload: { new_end_date: string; notes?: string }) =>
     api.post<LeaseResponse>(`/leases/${leaseId}/renew`, payload),
+
+  renewalHistory: (leaseId: string) =>
+    api.get<RenewalHistoryItem[]>(`/leases/${leaseId}/renewal-history`),
+
+  terminate: (leaseId: string, reason?: string) =>
+    api.post<LeaseResponse>(`/leases/${leaseId}/terminate`, { reason }),
+
+  setEffectiveDate: (leaseId: string, rentEffectiveDate: string) =>
+    api.patch<LeaseResponse>(`/leases/${leaseId}/effective-date`, { rent_effective_date: rentEffectiveDate }),
 };

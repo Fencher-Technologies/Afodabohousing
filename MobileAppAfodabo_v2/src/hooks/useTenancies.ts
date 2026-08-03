@@ -23,6 +23,8 @@ export function useCreateTenancy() {
     mutationFn: tenanciesService.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tenancies"] });
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
@@ -62,17 +64,43 @@ export function useRequestRenewal() {
 export function useRenewTenancy() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      leaseId,
-      newEndDate,
-      monthlyRent,
-      notes,
-    }: {
-      leaseId: string;
-      newEndDate: string;
-      monthlyRent?: number;
-      notes?: string;
-    }) => tenanciesService.renew(leaseId, { new_end_date: newEndDate, monthly_rent: monthlyRent, notes }),
+    mutationFn: ({ leaseId, newEndDate, notes }: { leaseId: string; newEndDate: string; notes?: string }) =>
+      tenanciesService.renew(leaseId, { new_end_date: newEndDate, notes }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tenancies"] });
+      queryClient.invalidateQueries({ queryKey: ["tenancies", variables.leaseId] });
+      queryClient.invalidateQueries({ queryKey: ["renewal-history", variables.leaseId] });
+    },
+  });
+}
+
+export function useRenewalHistory(leaseId: string) {
+  return useQuery({
+    queryKey: ["renewal-history", leaseId],
+    queryFn: () => tenanciesService.renewalHistory(leaseId),
+    enabled: !!leaseId,
+  });
+}
+
+export function useTerminateTenancy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ leaseId, reason }: { leaseId: string; reason?: string }) =>
+      tenanciesService.terminate(leaseId, reason),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tenancies"] });
+      queryClient.invalidateQueries({ queryKey: ["tenancies", variables.leaseId] });
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useSetEffectiveDate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ leaseId, rentEffectiveDate }: { leaseId: string; rentEffectiveDate: string }) =>
+      tenanciesService.setEffectiveDate(leaseId, rentEffectiveDate),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tenancies"] });
       queryClient.invalidateQueries({ queryKey: ["tenancies", variables.leaseId] });

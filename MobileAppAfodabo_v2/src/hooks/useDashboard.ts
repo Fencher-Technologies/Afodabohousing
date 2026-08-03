@@ -26,9 +26,15 @@ export function useDashboardStats() {
 
       const tenanciesList = tenanciesRes.items;
 
+      const activeTenants = tenanciesList.filter(
+        (t) => (t.effective_status ?? t.status) === "active"
+      ).length;
+
       const overdue = tenanciesList.filter((t) => {
-        const endDate = new Date(t.end_date);
-        return t.status === "active" && endDate < new Date();
+        const status = t.effective_status ?? t.status;
+        // Overdue is a money-ledger signal: arrears exist (not a coverage-days
+        // display field).
+        return status !== "terminated" && ((t.arrears_amount ?? 0) > 0 || t.is_overdue === true);
       }).length;
 
       const now = new Date();
@@ -42,7 +48,7 @@ export function useDashboardStats() {
       return {
         total_properties: propertiesRes.total,
         total_tenancies: tenanciesRes.total,
-        active_tenants: tenanciesRes.total,
+        active_tenants: activeTenants,
         overdue_count: overdue,
         collected_this_month: collected,
         collected_total: totalCollected,

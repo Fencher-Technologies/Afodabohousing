@@ -133,6 +133,12 @@ export interface Tenancy {
   is_overdue: boolean;
   expected_rent: number;
   tenant_credit: number;
+  // Coverage-first money fields (server-enriched; `balance_due`/`expected_rent`/
+  // `tenant_credit` above are deprecated aliases retained for one release).
+  rent_accrued: number;
+  arrears_amount: number;
+  advance_amount: number;
+  contract_rent: number;
   effective_status: TenancyStatus;
   total_paid: number;
   last_payment_date: string | null;
@@ -145,6 +151,13 @@ export interface Tenancy {
   manager_phone: string | null;
   manager_email: string | null;
   days_remaining: number;
+  // Rent coverage tracking — independent of tenancy duration (`days_remaining`
+  // is until the tenancy end; these are about rent coverage).
+  rent_effective_date: string | null;
+  paid_until_date: string | null;
+  rent_days_remaining: number | null;
+  rent_days_in_arrears: number | null;
+  next_payment_due_date: string | null;
 }
 
 // ─── Agreement Types ────────────────────────────────────────────────────
@@ -321,8 +334,9 @@ export interface Payment {
   notes: string | null;
   transaction_id: string | null;
   recorded_by: string;
-  balance_after: number;
   created_at: string;
+  coverage_days?: number | null;
+  frozen_monthly_rent?: number | null;
 }
 
 export interface BoostPackage {
@@ -571,6 +585,13 @@ export interface PaymentVerification {
   rejection_reason: string | null;
   created_at: string;
   updated_at: string;
+  tenants?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
+  properties?: { title?: string | null } | null;
 }
 
 export interface PaymentVerificationCreate {

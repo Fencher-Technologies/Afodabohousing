@@ -241,6 +241,7 @@ class MockTableBuilder:
                     "security_deposit": 1500000,
                     "status": "active",
                     "terms": None,
+                    "rent_effective_date": "2026-01-01",
                     "created_at": "2026-01-01T00:00:00Z",
                     "updated_at": "2026-01-01T00:00:00Z",
                 }

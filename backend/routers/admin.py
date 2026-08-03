@@ -13,6 +13,7 @@ from dependencies import (
     require_super_admin,
     require_super_admin_or_manager,
 )
+from services.crud import _enrich_leases
 
 logger = logging.getLogger(__name__)
 
@@ -316,12 +317,22 @@ def list_users(
                 cnt = supabase.table("properties").select("id", count="exact").eq("owner_id", u["user_id"]).execute()
                 prop_count = cnt.count if hasattr(cnt, "count") else 0
 
-                owner_leases = supabase.table("leases").select("id, tenant_id, balance_due, monthly_rent").eq("owner_id", u["user_id"]).execute()
-                for lease in owner_leases.data or []:
-                    bal = float(lease.get("balance_due", 0) or 0)
-                    if bal > 0:
+                owner_leases = (
+                    supabase.table("leases")
+                    .select(
+                        "id, tenant_id, owner_id, property_id, monthly_rent, "
+                        "status, start_date, end_date, rent_effective_date"
+                    )
+                    .eq("owner_id", u["user_id"])
+                    .execute()
+                )
+                enriched = _enrich_leases(owner_leases.data or [], supabase)
+                for lease in enriched:
+                    if lease.get("effective_status") == "terminated":
+                        continue
+                    if lease.get("is_overdue"):
                         overdue += 1
-                        total_outstanding += bal
+                        total_outstanding += float(lease.get("arrears_amount") or 0)
             except Exception:
                 pass
 

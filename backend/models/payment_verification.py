@@ -26,6 +26,19 @@ class PaymentVerification(BaseModel):
     updated_at: datetime
 
 
+class PaymentVerificationTenant(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    first_name: str | None = None
+    last_name: str | None = None
+    phone: str | None = None
+    email: str | None = None
+
+
+class PaymentVerificationProperty(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    title: str | None = None
+
+
 class PaymentVerificationCreate(BaseModel):
     amount: Decimal = Field(..., gt=0)
     payment_method: str
@@ -54,6 +67,8 @@ class PaymentVerificationResponse(BaseModel):
     rejection_reason: str | None = None
     created_at: datetime
     updated_at: datetime
+    tenants: PaymentVerificationTenant | None = None
+    properties: PaymentVerificationProperty | None = None
 
 
 class PaymentVerificationReject(BaseModel):

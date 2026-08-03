@@ -1,16 +1,21 @@
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from supabase import Client
 
+logger = logging.getLogger(__name__)
+
 from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client
 from models import (
     LeaseCreate,
     LeaseResponse,
     LeaseUpdate,
+    RenewalHistoryItem,
     RenewalRequestCreate,
     RenewLease,
+    SetRentEffectiveDate,
 )
 from services import LeaseService, PaymentService, get_lease_service, get_payment_service
 from services.notifications import notify
@@ -27,6 +32,8 @@ class PaginatedResponse(BaseModel):
 
 class OverdueListResponse(BaseModel):
     total_overdue: int
+    total_arrears: float
+    # Deprecated alias — kept for one release
     total_balance_due: float
     items: list
 
@@ -46,10 +53,11 @@ def list_overdue_leases(
     payment_svc: PaymentService = Depends(get_payment_owner_svc),
 ) -> OverdueListResponse:
     overdue, total_overdue = payment_svc.get_overdue(current_user.id, 0, 10000)
-    total_balance = sum(float(l.get("balance_due", 0)) for l in overdue)
+    total_arrears = sum(float(l.get("arrears_amount") or 0) for l in overdue)
     return OverdueListResponse(
         total_overdue=total_overdue,
-        total_balance_due=round(total_balance, 2),
+        total_arrears=round(total_arrears, 2),
+        total_balance_due=round(total_arrears, 2),
         items=[LeaseResponse(**l) for l in overdue],
     )
 
@@ -180,6 +188,29 @@ def update_lease(
     return LeaseResponse(**lease)
 
 
+@router.patch("/{lease_id}/effective-date", response_model=LeaseResponse)
+def set_lease_rent_effective_date(
+    lease_id: UUID,
+    data: SetRentEffectiveDate,
+    current_user: CurrentUser = Depends(get_current_user),
+    service: LeaseService = Depends(get_lease_svc),
+) -> LeaseResponse:
+    if current_user.role == "tenant":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the house manager can set the rent effective date",
+        )
+    try:
+        lease = service.set_rent_effective_date(
+            lease_id, current_user.id, data.rent_effective_date
+        )
+    except PermissionError:
+        raise HTTPException(status_code=404, detail="Lease not found")
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return LeaseResponse(**lease)
+
+
 @router.delete("/{lease_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_lease(
     lease_id: UUID,
@@ -194,6 +225,52 @@ def delete_lease(
 class RenewalRequestCreateResponse(BaseModel):
     success: bool
     message: str
+
+
+class TerminateLeaseRequest(BaseModel):
+    reason: str | None = None
+
+
+@router.post("/{lease_id}/terminate", response_model=LeaseResponse)
+def terminate_lease(
+    lease_id: UUID,
+    data: TerminateLeaseRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+    service: LeaseService = Depends(get_lease_svc),
+) -> LeaseResponse:
+    try:
+        lease = service.terminate(lease_id, current_user.id, data.reason)
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to terminate this lease",
+        )
+    if not lease:
+        raise HTTPException(status_code=404, detail="Lease not found")
+
+    tenant_user = (
+        supabase.table("tenants")
+        .select("user_id")
+        .eq("id", str(lease["tenant_id"]))
+        .execute()
+    )
+    tenant_user_id = tenant_user.data[0].get("user_id") if tenant_user.data else None
+    if tenant_user_id:
+        property_title = lease.get("property_title") or "Property"
+        try:
+            notify(
+                supabase,
+                recipient_id=tenant_user_id,
+                type="tenancy_terminated",
+                title="Tenancy terminated",
+                body=f"Your tenancy at {property_title} has been terminated by your house manager. Your tenancy history is still available.",
+                metadata={"lease_id": str(lease_id), "property_id": str(lease.get("property_id"))},
+            )
+        except Exception as e:
+            logger.warning("Failed to notify tenant of termination: %s", str(e))
+
+    return LeaseResponse(**lease)
 
 
 @router.post("/{lease_id}/renewal-request", response_model=RenewalRequestCreateResponse)
@@ -251,7 +328,6 @@ def renew_lease(
             lease_id,
             current_user.id,
             data.new_end_date,
-            monthly_rent=data.monthly_rent,
             notes=data.notes,
         )
     except PermissionError:
@@ -260,7 +336,23 @@ def renew_lease(
             detail="Not authorized to renew this lease",
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
     if not lease:
         raise HTTPException(status_code=404, detail="Lease not found")
     return LeaseResponse(**lease)
+
+
+@router.get("/{lease_id}/renewal-history", response_model=list[RenewalHistoryItem])
+def get_renewal_history(
+    lease_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    service: LeaseService = Depends(get_lease_svc),
+) -> list[RenewalHistoryItem]:
+    try:
+        history = service.renewal_history(lease_id, current_user.id)
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view this lease's renewal history",
+        )
+    return [RenewalHistoryItem(**h) for h in history]

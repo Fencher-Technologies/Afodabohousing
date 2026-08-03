@@ -2,7 +2,7 @@
  * MyTenancyScreen — simplified tenant home: single scrollable screen.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, Text, View, Pressable, Alert, Linking } from "react-native";
 import { router } from "expo-router";
 import { Image } from "expo-image";
@@ -14,6 +14,7 @@ import {
   Calendar,
   MapPin,
   ChevronRight,
+  Info,
 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -23,6 +24,7 @@ import { Badge } from "@/src/components/Badge";
 import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
 import { AgreementFlow } from "@/src/components/AgreementFlow";
+import { TermHelpSheet } from "@/src/components/TermHelpSheet";
 import { useAuth } from "@/src/context/auth-context";
 import { LoadingState } from "@/src/components/LoadingState";
 import { useTenancyList } from "@/src/hooks/useTenancies";
@@ -35,16 +37,24 @@ import { openWhatsApp } from "@/src/utils/whatsapp";
 
 export default function MyTenancyScreen() {
   const { user } = useAuth();
+  const [showHelp, setShowHelp] = useState(false);
   const { data: tenanciesData, isLoading: tenanciesLoading, refetch: refetchTenancies } = useTenancyList();
   const { data: paymentsData, isLoading: paymentsLoading, refetch: refetchPayments } = usePaymentList();
   const { refreshing, onRefresh } = useRefresh({ refetches: [refetchTenancies, refetchPayments] });
 
-  const lease = useMemo(() => {
-    if (!tenanciesData?.items) return undefined;
-    const active = tenanciesData.items.find((l) => l.status === "active");
-    return active ?? tenanciesData.items[0];
-  }, [tenanciesData]);
+  const leases = tenanciesData?.items ?? [];
 
+  const activeLease = useMemo(
+    () => leases.find((l) => l.effective_status === "active" || l.status === "active"),
+    [leases],
+  );
+
+  const previousLeases = useMemo(
+    () => leases.filter((l) => l.effective_status !== "active" && l.status !== "active"),
+    [leases],
+  );
+
+  const lease = activeLease;
   const leaseId = lease?.id ?? "";
 
   const tenancy = useMemo(() => {
@@ -67,17 +77,45 @@ export default function MyTenancyScreen() {
 
   if (!tenancy) {
     return (
-      <Screen scroll>
+      <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
         <View style={styles.header}>
           <Text style={styles.title}>My Tenancy</Text>
         </View>
         <EmptyState
           icon={<Home size={32} color={Colors.primary} />}
-          title="No active tenancy"
-          description="You don't have an active tenancy right now. Browse available homes to find your next place."
-          actionLabel="Browse Homes"
+          title="You currently do not have an active tenancy."
+          description="Browse available homes to find your next place. Your previous tenancies remain available in your history below."
+          actionLabel="Browse Properties"
           onAction={() => router.push("/guest/explore")}
         />
+        {previousLeases.length > 0 && (
+          <View style={styles.historySection}>
+            <Text style={styles.sectionLabel}>Previous Tenancy / Tenancy History</Text>
+            {previousLeases.map((l) => {
+              const prev = fromBackendLease(l as never);
+              return (
+                <Pressable
+                  key={prev.id}
+                  style={styles.historyCard}
+                  onPress={() => router.push(`/tenancy-detail?id=${prev.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View previous tenancy at ${prev.property_title}`}
+                >
+                  <View style={styles.historyInfo}>
+                    <Text style={styles.historyTitle} numberOfLines={1}>{prev.property_title}</Text>
+                    <Text style={styles.historyMeta}>Unit {prev.unit_label}</Text>
+                  </View>
+                  <Badge
+                    label={prev.effective_status === "terminated" ? "Terminated" : "Expired"}
+                    tone="muted"
+                    size="sm"
+                  />
+                  <ChevronRight size={18} color={Colors.textMuted} />
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
       </Screen>
     );
   }
@@ -197,9 +235,20 @@ export default function MyTenancyScreen() {
 
         {/* Tenancy Summary */}
         <Card padding="lg" style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Tenancy Summary</Text>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.summaryTitle}>Tenancy Summary</Text>
+            <Pressable
+              onPress={() => setShowHelp(true)}
+              hitSlop={8}
+              style={styles.summaryHelpBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Explain summary terms"
+            >
+              <Info size={17} color={Colors.textMuted} />
+            </Pressable>
+          </View>
           <View style={styles.summaryGrid}>
-            <SummaryItem label="Expected Rent" value={formatUGX(tenancy.expected_rent)} />
+            <SummaryItem label="Expected Rent So Far" value={formatUGX(tenancy.expected_rent)} />
             <SummaryItem label="Total Paid" value={formatUGX(tenancy.total_paid)} tone="success" />
             <SummaryItem label="Outstanding" value={formatUGX(tenancy.balance_due)} tone={tenancy.balance_due > 0 ? "danger" : undefined} />
             {tenancy.tenant_credit > 0 ? (
@@ -222,10 +271,19 @@ export default function MyTenancyScreen() {
             {formatUGX(tenancy.balance_due)}
           </Text>
           {hasBalance && (
-            <Text style={styles.balanceDueDate}>Due immediately</Text>
+            <Text style={styles.balanceDueDate}>
+              {tenancy.rent_days_in_arrears && tenancy.rent_days_in_arrears > 0
+                ? `You're ${tenancy.rent_days_in_arrears} day${tenancy.rent_days_in_arrears === 1 ? "" : "s"} behind on rent`
+                : "Due immediately"}
+            </Text>
           )}
-          {!hasBalance && (
-            <Text style={styles.balanceClear}>You're all caught up 🎉</Text>
+          {!hasBalance && tenancy.rent_effective_date && (
+            <Text style={styles.balanceCovered}>
+              Rent covered until {formatDate(tenancy.paid_until_date)}
+            </Text>
+          )}
+          {!hasBalance && !tenancy.rent_effective_date && (
+            <Text style={styles.balanceClear}>You&apos;re all caught up</Text>
           )}
           <Pressable
             onPress={() => router.push(`/payment-history?tenancyId=${tenancy.id}`)}
@@ -286,9 +344,40 @@ export default function MyTenancyScreen() {
             </Pressable>
           </View>
         </Card>
+
+        {previousLeases.length > 0 && (
+          <View style={styles.historySection}>
+            <Text style={styles.sectionLabel}>Previous Tenancy / Tenancy History</Text>
+            {previousLeases.map((l) => {
+              const prev = fromBackendLease(l as never);
+              return (
+                <Pressable
+                  key={prev.id}
+                  style={styles.historyCard}
+                  onPress={() => router.push(`/tenancy-detail?id=${prev.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View previous tenancy at ${prev.property_title}`}
+                >
+                  <View style={styles.historyInfo}>
+                    <Text style={styles.historyTitle} numberOfLines={1}>{prev.property_title}</Text>
+                    <Text style={styles.historyMeta}>Unit {prev.unit_label}</Text>
+                  </View>
+                  <Badge
+                    label={prev.effective_status === "terminated" ? "Terminated" : "Expired"}
+                    tone="muted"
+                    size="sm"
+                  />
+                  <ChevronRight size={18} color={Colors.textMuted} />
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
       </View>
 
       <View style={{ height: 100 }} />
+
+      <TermHelpSheet visible={showHelp} role="tenant" onClose={() => setShowHelp(false)} />
     </Screen>
   );
 }
@@ -323,6 +412,19 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     gap: Spacing.sm,
+  },
+  summaryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  summaryHelpBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
   },
   summaryTitle: {
     fontSize: FontSize.body,
@@ -455,6 +557,11 @@ const styles = StyleSheet.create({
     color: Colors.success,
     fontWeight: FontWeight.medium,
   },
+  balanceCovered: {
+    fontSize: FontSize.caption,
+    color: Colors.success,
+    fontWeight: FontWeight.medium,
+  },
   viewHistory: {
     flexDirection: "row",
     alignItems: "center",
@@ -473,6 +580,32 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     color: Colors.textMuted,
     fontWeight: FontWeight.medium,
+  },
+  historySection: {
+    gap: Spacing.sm,
+  },
+  historyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+  },
+  historyInfo: {
+    flex: 1,
+  },
+  historyTitle: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
+  },
+  historyMeta: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
   managerName: {
     fontSize: FontSize.h3,

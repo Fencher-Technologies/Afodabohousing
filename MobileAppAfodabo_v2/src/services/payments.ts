@@ -17,7 +17,8 @@ interface PaymentResponse {
   notes: string | null;
   transaction_id: string | null;
   recorded_by?: string;
-  balance_after: number;
+  coverage_days?: number | null;
+  frozen_monthly_rent?: number | null;
   created_at: string;
 }
 

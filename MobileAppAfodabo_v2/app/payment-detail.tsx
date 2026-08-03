@@ -205,7 +205,12 @@ export default function PaymentDetailScreen() {
               <DetailRow label="Method" value={formatMethod(payment.method)} />
               <DetailRow label="Due Date" value={formatDate(payment.due_date)} />
               <DetailRow label="Paid Date" value={formatDate(payment.paid_date)} />
-              <DetailRow label="Balance After" value={formatUGX(payment.balance_after)} />
+              {typeof payment.coverage_days === "number" && (
+                <DetailRow label="Days Covered" value={`${payment.coverage_days} days`} />
+              )}
+              {payment.frozen_monthly_rent ? (
+                <DetailRow label="Rent Rate Used" value={formatUGX(payment.frozen_monthly_rent)} />
+              ) : null}
               <DetailRow label="Recorded" value={formatDate(payment.created_at)} />
               {payment.notes ? <DetailRow label="Notes" value={payment.notes} /> : null}
             </Card>

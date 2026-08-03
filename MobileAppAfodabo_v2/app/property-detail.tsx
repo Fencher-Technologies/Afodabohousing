@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Share, StyleSheet, Text, View, Pressable, Alert, Linking } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Share, StyleSheet, Text, View, Pressable, Alert, Linking, ScrollView, useWindowDimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import {
@@ -49,6 +49,13 @@ export default function PropertyDetailScreen() {
   const refetch = isManager ? authQuery.refetch : publicQuery.refetch;
   const [bookmarked, setBookmarked] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const imageScrollRef = useRef<ScrollView>(null);
+  const { width } = useWindowDimensions();
+
+  useEffect(() => {
+    setCurrentImageIndex(0);
+    imageScrollRef.current?.scrollTo({ x: 0, animated: false });
+  }, [id]);
 
   const requireAuth = (action: string) => {
     if (user) return true;
@@ -211,24 +218,49 @@ export default function PropertyDetailScreen() {
       <View style={styles.imageWrap}>
         {hasImage ? (
           <>
-            <Image
-              source={{ uri: property.images[currentImageIndex] }}
+            <ScrollView
+              ref={imageScrollRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e) => {
+                const index = Math.round(e.nativeEvent.contentOffset.x / width);
+                setCurrentImageIndex(Math.max(0, Math.min(index, property.images.length - 1)));
+              }}
               style={styles.image}
-              contentFit="cover"
-              recyclingKey={property.images[currentImageIndex]}
-            />
+            >
+              {property.images.map((uri, i) => (
+                <Image
+                  key={i}
+                  source={{ uri }}
+                  style={[styles.image, { width }]}
+                  contentFit="cover"
+                  recyclingKey={uri}
+                />
+              ))}
+            </ScrollView>
             {property.images.length > 1 && (
-              <View style={styles.imageDots}>
-                {property.images.map((_, i) => (
-                  <Pressable
-                    key={i}
-                    onPress={() => setCurrentImageIndex(i)}
-                    style={[styles.imageDot, i === currentImageIndex && styles.imageDotActive]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Image ${i + 1} of ${property.images.length}`}
-                  />
-                ))}
-              </View>
+              <>
+                <View style={styles.imageDots}>
+                  {property.images.map((_, i) => (
+                    <Pressable
+                      key={i}
+                      onPress={() => {
+                        setCurrentImageIndex(i);
+                        imageScrollRef.current?.scrollTo({ x: i * width, animated: true });
+                      }}
+                      style={[styles.imageDot, i === currentImageIndex && styles.imageDotActive]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Image ${i + 1} of ${property.images.length}`}
+                    />
+                  ))}
+                </View>
+                <View style={styles.imageCounter}>
+                  <Text style={styles.imageCounterText}>
+                    {currentImageIndex + 1} / {property.images.length}
+                  </Text>
+                </View>
+              </>
             )}
           </>
         ) : (
@@ -563,6 +595,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 6,
+  },
+  imageCounter: {
+    position: "absolute",
+    top: Spacing.md,
+    right: Spacing.md,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+  },
+  imageCounterText: {
+    fontSize: FontSize.micro,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textOnPrimary,
   },
   imageDot: {
     width: 8,

@@ -31,8 +31,15 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
   if (!tenancy) return null;
 
   const numericAmount = parseInt(amount.replace(/[^0-9]/g, ""), 10) || 0;
-  const newBalance = Math.max(0, tenancy.balance_due - numericAmount);
-  const exceedsBalance = numericAmount > tenancy.balance_due && tenancy.balance_due > 0;
+  // Money ledger preview: the tenant's position is a single balance
+  // (advance − arrears) plus this payment.
+  const arrears = tenancy.arrears_amount;
+  const advance = tenancy.advance_amount;
+  const netBalance = advance - arrears + numericAmount;
+  const newArrears = Math.max(0, -netBalance);
+  const newAdvance = Math.max(0, netBalance);
+  const dailyRate = tenancy.rent_amount > 0 ? tenancy.rent_amount / 30 : 0;
+  const coverageDays = dailyRate > 0 ? Math.floor(numericAmount / dailyRate) : 0;
 
   const handleRecord = async () => {
     if (numericAmount <= 0) {
@@ -66,7 +73,7 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
         `Payment for ${tenancy.tenant_name} of ${formatUGX(numericAmount)} has been recorded successfully.`
       );
     } catch (e) {
-      setError("Failed to record payment. Please try again.");
+      setError(e instanceof Error ? e.message : "Failed to record payment. Please try again.");
     }
   };
 
@@ -97,8 +104,12 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.balanceRow}>
               <View style={styles.balanceItem}>
-                <Text style={styles.balanceLabel}>Current Balance</Text>
+                <Text style={styles.balanceLabel}>Balance Due</Text>
                 <Text style={styles.balanceValue}>{formatUGX(tenancy.balance_due)}</Text>
+              </View>
+              <View style={[styles.balanceItem, { borderLeftWidth: 1, borderLeftColor: Colors.border, paddingLeft: Spacing.md }]}>
+                <Text style={styles.balanceLabel}>In Advance</Text>
+                <Text style={[styles.balanceValue, { color: Colors.success }]}>{formatUGX(tenancy.advance_amount)}</Text>
               </View>
             </View>
 
@@ -146,13 +157,18 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
             />
 
             <View style={styles.preview}>
-              <Text style={styles.previewLabel}>New Balance After Payment</Text>
-              <Text style={[styles.previewValue, newBalance === 0 && styles.previewZero]}>
-                {formatUGX(newBalance)}
+              <Text style={styles.previewLabel}>New Arrears After Payment</Text>
+              <Text style={[styles.previewValue, newArrears === 0 && styles.previewZero]}>
+                {formatUGX(newArrears)}
               </Text>
-              {exceedsBalance && (
-                <Text style={styles.warnText}>
-                  ⚠️ Amount exceeds balance due — this will create a credit.
+              {newArrears === 0 && newAdvance > 0 && (
+                <Text style={styles.previewNote}>
+                  Paid up — {formatUGX(newAdvance)} in advance for future rent.
+                </Text>
+              )}
+              {coverageDays > 0 && (
+                <Text style={styles.previewNote}>
+                  This payment covers about {coverageDays} day{coverageDays === 1 ? "" : "s"} of rent (30-day months).
                 </Text>
               )}
             </View>
@@ -255,9 +271,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   previewZero: { color: Colors.success },
-  warnText: {
-    fontSize: FontSize.caption,
-    color: Colors.warning,
+  previewNote: {
+    fontSize: FontSize.micro,
+    color: Colors.textMuted,
     marginTop: Spacing.xs,
     textAlign: "center",
   },

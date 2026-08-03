@@ -92,7 +92,9 @@ export default function TenantDetailScreen() {
   const displayPhone = tenant.phone ?? "—";
   const displayEmail = tenant.email ?? "—";
 
-  const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  // Money ledger truth: confirmed rent paid comes from the server-enriched
+  // lease (the payments list below includes pending/rejected entries too).
+  const totalPaid = tenancy ? tenancy.total_paid : 0;
 
   return (
     <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
@@ -216,7 +218,9 @@ export default function TenantDetailScreen() {
                       <Text style={styles.paymentMethod}>{formatMethod(payment.method)}</Text>
                     </View>
                     <Text style={styles.paymentAmount}>{formatUGX(payment.amount)}</Text>
-                    <Text style={styles.paymentBalance}>{formatUGX(payment.balance_after)}</Text>
+                    {typeof payment.coverage_days === "number" && payment.coverage_days > 0 && (
+                      <Text style={styles.paymentBalance}>{payment.coverage_days} days</Text>
+                    )}
                   </View>
                   {i < payments.length - 1 && <View style={styles.paymentDivider} />}
                 </Pressable>

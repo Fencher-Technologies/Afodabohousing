@@ -29,6 +29,7 @@ type Role = "tenant" | "manager";
 interface AgreementFlowProps {
   leaseId: string;
   role: Role;
+  readOnly?: boolean;
 }
 
 const STATUS_LABEL: Record<string, { label: string; tone: "info" | "warning" | "success" | "muted" | "danger" }> = {
@@ -45,6 +46,7 @@ const SMALL_CAPS = { letterSpacing: 1.2, textTransform: "lowercase" as const };
 export function AgreementFlow({
   leaseId,
   role,
+  readOnly = false,
 }: AgreementFlowProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -107,6 +109,24 @@ export function AgreementFlow({
     );
   };
 
+  const handleCancelAndCreateNew = () => {
+    Alert.alert(
+      "Cancel Agreement",
+      "This will cancel the current agreement and reset all consent statuses. This action cannot be undone.",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: () =>
+            cancelAgreement.mutate(leaseId, {
+              onSuccess: () => router.push(`/create-agreement?leaseId=${leaseId}`),
+            }),
+        },
+      ],
+    );
+  };
+
   const isLoading = consentState.isLoading;
 
   if (isLoading) {
@@ -144,14 +164,12 @@ export function AgreementFlow({
                 ? "Create a digital agreement for this tenancy using the in-app builder."
                 : "The manager has not yet created an agreement for this tenancy."}
           </Text>
-          {role === "manager" && (
+          {role === "manager" && !readOnly && (
             <Button
               label={hasDoc && !hasContent ? "Cancel & Create New" : "Create Agreement"}
               onPress={() => {
                 if (hasDoc && !hasContent) {
-                  cancelAgreement.mutate(leaseId, {
-                    onSuccess: () => router.push(`/create-agreement?leaseId=${leaseId}`),
-                  });
+                  handleCancelAndCreateNew();
                 } else {
                   router.push(`/create-agreement?leaseId=${leaseId}`);
                 }
@@ -238,30 +256,36 @@ export function AgreementFlow({
             </View>
           ) : (
             <View style={styles.consentActions}>
-              <Text style={styles.consentPending}>Not yet signed</Text>
-              <Pressable
-                onPress={() => setAgreed((v) => !v)}
-                style={styles.checkboxRow}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: agreed }}
-              >
-                {agreed ? (
-                  <CheckSquare size={18} color={Colors.primary} />
-                ) : (
-                  <Square size={18} color={Colors.textMuted} />
-                )}
-                <Text style={styles.checkboxLabel}>
-                  I have read and agree to the terms of this tenancy agreement
-                </Text>
-              </Pressable>
-              <Button
-                label="Agree & Sign"
-                onPress={handleGeneratedConsent}
-                size="sm"
-                disabled={!agreed || consentAgreement.isPending}
-                loading={consentAgreement.isPending}
-                leftIcon={<FileSignature size={16} color={Colors.textOnPrimary} />}
-              />
+              {readOnly ? (
+                <Text style={styles.consentPending}>Not signed — consent is disabled for ended tenancies</Text>
+              ) : (
+                <>
+                  <Text style={styles.consentPending}>Not yet signed</Text>
+                  <Pressable
+                    onPress={() => setAgreed((v) => !v)}
+                    style={styles.checkboxRow}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: agreed }}
+                  >
+                    {agreed ? (
+                      <CheckSquare size={18} color={Colors.primary} />
+                    ) : (
+                      <Square size={18} color={Colors.textMuted} />
+                    )}
+                    <Text style={styles.checkboxLabel}>
+                      I have read and agree to the terms of this tenancy agreement
+                    </Text>
+                  </Pressable>
+                  <Button
+                    label="Agree & Sign"
+                    onPress={handleGeneratedConsent}
+                    size="sm"
+                    disabled={!agreed || consentAgreement.isPending}
+                    loading={consentAgreement.isPending}
+                    leftIcon={<FileSignature size={16} color={Colors.textOnPrimary} />}
+                  />
+                </>
+              )}
             </View>
           )}
         </View>
@@ -302,7 +326,7 @@ export function AgreementFlow({
           onPress={() => router.push(`/agreement-history?leaseId=${leaseId}`)}
           leftIcon={<History size={16} color={Colors.primary} />}
         />
-        {role === "manager" && (
+        {role === "manager" && !readOnly && (
           <Button
             label="Edit"
             variant="outline"
@@ -311,7 +335,7 @@ export function AgreementFlow({
             leftIcon={<FileText size={16} color={Colors.primary} />}
           />
         )}
-        {role === "manager" && (
+        {role === "manager" && !readOnly && (
           <Button
             label="Cancel"
             onPress={handleCancel}

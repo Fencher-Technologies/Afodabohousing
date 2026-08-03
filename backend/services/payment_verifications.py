@@ -246,20 +246,26 @@ class PaymentVerificationService:
                 detail=f"Cannot approve a {submission['status']} verification request.",
             )
 
-        payment = payment_service.create(
-            PaymentCreate(
-                lease_id=submission["lease_id"],
-                tenant_id=submission["tenant_id"],
-                amount=Decimal(str(submission["amount"])),
-                payment_type="rent",
-                payment_method=submission["payment_method"],
-                status="confirmed",
-                paid_date=submission["payment_date"],
-                transaction_id=submission["transaction_reference"] or None,
-                proof_url=submission.get("screenshot_url") or None,
-                notes=f"Verified payment. Original verification ID: {submission['id']}",
+        try:
+            payment = payment_service.create(
+                PaymentCreate(
+                    lease_id=submission["lease_id"],
+                    tenant_id=submission["tenant_id"],
+                    amount=Decimal(str(submission["amount"])),
+                    payment_type="rent",
+                    payment_method=submission["payment_method"],
+                    status="confirmed",
+                    paid_date=submission["payment_date"],
+                    transaction_id=submission["transaction_reference"] or None,
+                    proof_url=submission.get("screenshot_url") or None,
+                    notes=f"Verified payment. Original verification ID: {submission['id']}",
+                )
             )
-        )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
 
         now = datetime.now(UTC)
         update_payload = {

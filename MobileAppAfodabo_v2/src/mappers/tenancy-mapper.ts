@@ -23,6 +23,11 @@ interface BackendLease {
   is_overdue?: boolean | null;
   expected_rent?: number | null;
   tenant_credit?: number | null;
+  // Coverage-first money fields (server-enriched)
+  rent_accrued?: number | null;
+  arrears_amount?: number | null;
+  advance_amount?: number | null;
+  contract_rent?: number | null;
   effective_status?: string | null;
   total_paid?: number | null;
   last_payment_date?: string | null;
@@ -31,6 +36,12 @@ interface BackendLease {
   manager_name?: string | null;
   manager_phone?: string | null;
   manager_email?: string | null;
+  // Rent coverage tracking (server-enriched)
+  rent_effective_date?: string | null;
+  paid_until_date?: string | null;
+  rent_days_remaining?: number | null;
+  rent_days_in_arrears?: number | null;
+  next_payment_due_date?: string | null;
 }
 
 const METHOD_MAP: Record<string, PaymentMethod> = {
@@ -55,7 +66,13 @@ function mapPaymentMethod(method?: string | null): PaymentMethod | null {
 export function fromBackendLease(l: BackendLease): Tenancy {
   const status = (l.status as TenancyStatus) ?? "active";
   const effectiveStatus = (l.effective_status as TenancyStatus) ?? status;
-  const balanceDue = l.balance_due ?? 0;
+  // Money ledger is the source of truth: `expected_rent` is the server alias
+  // for `rent_accrued` (money accrued since the effective date), `contract_rent`
+  // is informational only (contract months).
+  const balanceDue = l.arrears_amount ?? l.balance_due ?? 0;
+  const expectedRent = l.expected_rent ?? l.rent_accrued ?? 0;
+  const tenantCredit = l.advance_amount ?? l.tenant_credit ?? 0;
+  const contractRent = l.contract_rent ?? 0;
   const rentEndDate = l.end_date;
   const lastPaymentDate = l.last_payment_date ?? null;
 
@@ -83,8 +100,12 @@ export function fromBackendLease(l: BackendLease): Tenancy {
     status,
     balance_due: balanceDue,
     is_overdue: l.is_overdue ?? false,
-    expected_rent: l.expected_rent ?? 0,
-    tenant_credit: l.tenant_credit ?? 0,
+    expected_rent: expectedRent,
+    tenant_credit: tenantCredit,
+    rent_accrued: expectedRent,
+    arrears_amount: balanceDue,
+    advance_amount: tenantCredit,
+    contract_rent: contractRent,
     effective_status: effectiveStatus,
     total_paid: l.total_paid ?? 0,
     last_payment_date: lastPaymentDate,
@@ -97,6 +118,11 @@ export function fromBackendLease(l: BackendLease): Tenancy {
     manager_phone: l.manager_phone ?? null,
     manager_email: l.manager_email ?? null,
     days_remaining: daysLeft(rentEndDate) ?? 0,
+    rent_effective_date: l.rent_effective_date ?? null,
+    paid_until_date: l.paid_until_date ?? null,
+    rent_days_remaining: l.rent_days_remaining ?? null,
+    rent_days_in_arrears: l.rent_days_in_arrears ?? null,
+    next_payment_due_date: l.next_payment_due_date ?? null,
   };
 }
 

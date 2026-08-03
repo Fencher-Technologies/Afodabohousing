@@ -1,6 +1,6 @@
 import logging
-from datetime import date
-from decimal import Decimal
+from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
 
@@ -163,22 +163,147 @@ def _normalize_lease_status(value: str | None) -> str:
 def _normalize_lease(l: dict[str, Any]) -> dict[str, Any]:
     l = _normalize_row(l, LEASE_OLD_TO_NEW)
     l.setdefault("security_deposit", 0)
+    l.setdefault("rent_effective_date", None)
     l["status"] = _normalize_lease_status(l.get("status"))
     return l
 
 
-def _months_between(start, end) -> int:
-    try:
-        from datetime import date as _date
+def _rent_coverage_days(amount, monthly_rent) -> int:
+    """Coverage (in 30-day months) a payment buys at the given rent.
 
-        if not isinstance(start, _date):
-            start = _date.fromisoformat(str(start)[:10])
-        if not isinstance(end, _date):
-            end = _date.fromisoformat(str(end)[:10])
+    coverage_days = FLOOR(amount * 30 / monthly_rent). Uses the lease's
+    monthly_rent at write time so later rent edits never change a payment's
+    frozen coverage. Returns 0 for missing/invalid/non-positive inputs.
+    """
+    try:
+        amount = Decimal(str(amount))
+        rent = Decimal(str(monthly_rent))
+    except (TypeError, ValueError, InvalidOperation):
+        return 0
+    if amount <= 0 or rent <= 0:
+        return 0
+    return int((amount * 30) // rent)
+
+
+def _compute_rent_financials(
+    rent_effective_date: Any,
+    payments: list[dict[str, Any]],
+    monthly_rent: Any,
+    start_date: Any = None,
+    end_date: Any = None,
+    today: date | None = None,
+) -> dict[str, Any]:
+    """Money-ledger rent position (billing anchor + money) — source of truth.
+
+    rent_effective_date is the PERMANENT billing anchor: from that day the
+    system accrues rent every day (daily rate = monthly_rent / 30) forever,
+    whether or not the tenant has paid. Payments buy coverage; they never
+    move the billing calendar.
+
+      * rent_accrued   = daily rate * elapsed days since the anchor (money
+                         due by the billing schedule up to today).
+      * total_paid     = sum of confirmed/completed RENT payments only.
+      * advance_amount = max(0, total_paid - rent_accrued)   (credit, UGX).
+      * arrears_amount = max(0, rent_accrued - total_paid)   (UGX).
+      * is_overdue     = arrears_amount > 0.
+
+    Day fields (paid_until_date, rent_days_remaining, rent_days_in_arrears)
+    are DERIVED DISPLAY VALUES ONLY — never a second source of truth:
+
+      * paid_until_date      = anchor + floor(total_paid / daily) ("covered until").
+      * rent_days_in_arrears = max(0, elapsed - covered_days).
+      * rent_days_remaining  = max(0, covered_days - elapsed).
+
+    next_payment_due_date = the next 30-day billing boundary from the anchor
+    (anchor + 30 * ceil(elapsed / 30)) — payment-independent.
+
+    coverage_days remains computed and stored per payment (see
+    _rent_coverage_days / PaymentService) and is displayed to users to explain
+    what each payment purchased, but it NEVER drives arrears/advance/overdue.
+
+    contract_rent = monthly_rent * round(term_days / 30) — informational ONLY,
+    never used in arrears or coverage math. Returns an all-None position when
+    no anchor exists.
+    """
+    result: dict[str, Any] = {
+        "rent_effective_date": None,
+        "paid_until_date": None,
+        "rent_days_remaining": None,
+        "rent_days_in_arrears": None,
+        "next_payment_due_date": None,
+        "total_paid": 0.0,
+        "rent_accrued": None,
+        "arrears_amount": None,
+        "advance_amount": None,
+        "contract_rent": None,
+        "is_overdue": None,
+    }
+
+    try:
+        monthly_rent_f = float(monthly_rent or 0)
     except (TypeError, ValueError):
-        return 1
-    months = (end.year - start.year) * 12 + (end.month - start.month)
-    return max(1, months)
+        monthly_rent_f = 0.0
+
+    # Money actually received is anchor-independent; only the position fields
+    # (accrued, arrears, advance, overdue, day displays) need an anchor.
+    rent_payments = [
+        p
+        for p in payments
+        if p.get("payment_type") in (None, "rent")
+        and p.get("status") in (None, "confirmed", "completed")
+    ]
+    total_paid = sum(float(p.get("amount") or 0) for p in rent_payments)
+    result["total_paid"] = round(total_paid, 2)
+
+    if start_date and end_date:
+        try:
+            s = start_date if isinstance(start_date, date) else date.fromisoformat(str(start_date)[:10])
+            e = end_date if isinstance(end_date, date) else date.fromisoformat(str(end_date)[:10])
+            term_days = (e - s).days
+            if term_days > 0:
+                result["contract_rent"] = round(monthly_rent_f * round(term_days / 30), 2)
+        except (TypeError, ValueError):
+            pass
+
+    try:
+        if isinstance(rent_effective_date, date):
+            eff = rent_effective_date
+        else:
+            eff = date.fromisoformat(str(rent_effective_date)[:10])
+    except (TypeError, ValueError):
+        return result
+
+    today = today or date.today()
+    elapsed = max(0, (today - eff).days)
+
+    rent_accrued = round(monthly_rent_f * elapsed / 30.0, 2)
+    balance = round(total_paid - rent_accrued, 2)
+    arrears_amount = round(max(0.0, -balance), 2)
+    advance_amount = round(max(0.0, balance), 2)
+
+    result["rent_effective_date"] = eff.isoformat()
+    result["rent_accrued"] = rent_accrued
+    result["arrears_amount"] = arrears_amount
+    result["advance_amount"] = advance_amount
+    result["is_overdue"] = arrears_amount > 0
+
+    # Derived display days ("covered until") — from the MONEY position.
+    if monthly_rent_f > 0:
+        covered_days = _rent_coverage_days(total_paid, monthly_rent_f)
+        result["paid_until_date"] = (eff + timedelta(days=covered_days)).isoformat()
+        result["rent_days_remaining"] = max(0, covered_days - elapsed)
+        result["rent_days_in_arrears"] = max(0, elapsed - covered_days)
+    else:
+        result["paid_until_date"] = eff.isoformat()
+        result["rent_days_remaining"] = 0
+        result["rent_days_in_arrears"] = 0
+
+    # Next 30-day billing boundary from the anchor — calendar, not coverage.
+    next_due = eff + timedelta(days=30 * ((elapsed + 29) // 30))
+    result["next_payment_due_date"] = next_due.isoformat()
+
+    return result
+
 
 
 def _enrich_leases(
@@ -248,7 +373,10 @@ def _enrich_leases(
     if lease_ids:
         resp = (
             supabase.table("payments")
-            .select("lease_id, amount, status, paid_date, payment_method")
+            .select(
+                "lease_id, amount, status, paid_date, payment_method, "
+                "payment_type, coverage_days, frozen_monthly_rent, created_at"
+            )
             .in_("lease_id", list(lease_ids))
             .in_("status", ["confirmed", "completed"])
             .execute()
@@ -285,20 +413,11 @@ def _enrich_leases(
         l["manager_email"] = prop_email or profile.get("manager_email") or None
 
         lease_payments = payments_by_lease.get(lid, [])
-        total_paid = sum(float(p["amount"]) for p in lease_payments)
-        l["total_paid"] = total_paid
 
         try:
             monthly_rent = float(l.get("monthly_rent") or 0)
         except (TypeError, ValueError):
             monthly_rent = 0.0
-
-        months = _months_between(l.get("start_date"), l.get("end_date"))
-        expected_rent = monthly_rent * months
-        l["expected_rent"] = expected_rent
-
-        l["balance_due"] = max(0.0, expected_rent - total_paid)
-        l["tenant_credit"] = max(0.0, total_paid - expected_rent)
 
         stored_status = str(l.get("status") or "active")
         if stored_status == "terminated":
@@ -311,8 +430,6 @@ def _enrich_leases(
             else:
                 effective_status = stored_status if stored_status in ("active", "expired", "terminated") else "active"
         l["effective_status"] = effective_status
-
-        l["is_overdue"] = l["balance_due"] > 0
 
         today = date.today()
         start = l.get("start_date")
@@ -346,6 +463,22 @@ def _enrich_leases(
         l["last_payment_method"] = (
             last_payment.get("payment_method") if last_payment else None
         )
+
+        l.update(
+            _compute_rent_financials(
+                l.get("rent_effective_date"),
+                lease_payments,
+                monthly_rent,
+                start_date=l.get("start_date"),
+                end_date=l.get("end_date"),
+            )
+        )
+        # Deprecated aliases — kept for one release. The money-ledger
+        # canonical fields (rent_accrued/arrears_amount/advance_amount) are
+        # the source of truth; these exist only for old API consumers.
+        l["expected_rent"] = l.get("rent_accrued")
+        l["balance_due"] = l.get("arrears_amount")
+        l["tenant_credit"] = l.get("advance_amount")
 
     return leases
 
@@ -756,7 +889,11 @@ class LeaseService(BaseService):
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
         response = self.table.insert(payload).execute()
-        return _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]
+        raw = response.data[0]
+        lease = _enrich_leases([_normalize_lease(raw)], self.supabase)[0]
+        if raw.get("status") == "active":
+            self._sync_property_status(raw.get("property_id"))
+        return lease
 
     @with_retry
     def update(
@@ -773,17 +910,90 @@ class LeaseService(BaseService):
         )
         if not response.data:
             return None
-        return _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]
+        lease = _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]
+        self._sync_property_status(lease.get("property_id"))
+        return lease
 
     @with_retry
     def delete(self, lease_id: UUID, owner_id: UUID) -> bool:
+        row = (
+            self.supabase.table(self._table)
+            .select("property_id")
+            .eq("id", str(lease_id))
+            .eq("owner_id", str(owner_id))
+            .execute()
+        )
         response = (
             self.table.delete()
             .eq("id", str(lease_id))
             .eq("owner_id", str(owner_id))
             .execute()
         )
-        return bool(response.data)
+        if not response.data:
+            return False
+        if row.data:
+            self._sync_property_status(row.data[0].get("property_id"))
+        return True
+
+    @with_retry
+    def terminate(
+        self,
+        lease_id: UUID,
+        owner_id: UUID,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """Terminate a lease: mark it terminated, record the date, and release the property."""
+        today = date.today().isoformat()
+        response = (
+            self.table.update(
+                {
+                    "status": "terminated",
+                    "termination_date": today,
+                    "termination_reason": reason,
+                }
+            )
+            .eq("id", str(lease_id))
+            .eq("owner_id", str(owner_id))
+            .execute()
+        )
+        if not response.data:
+            raise PermissionError("Lease not found or not authorized")
+        lease = _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]
+        self._sync_property_status(lease.get("property_id"))
+        return lease
+
+    def _sync_property_status(self, property_id: Any) -> None:
+        """Mark the property occupied while a tenant is assigned, else available."""
+        if not property_id:
+            return
+        try:
+            current = (
+                self.supabase.table("properties")
+                .select("status")
+                .eq("id", str(property_id))
+                .execute()
+            )
+            if not current.data:
+                return
+            if current.data[0].get("status") == "inactive":
+                return
+            assigned = (
+                self.supabase.table("leases")
+                .select("id")
+                .eq("property_id", str(property_id))
+                .neq("status", "terminated")
+                .limit(1)
+                .execute()
+            )
+            new_status = "occupied" if assigned.data else "available"
+            if current.data[0].get("status") != new_status:
+                self.supabase.table("properties").update({"status": new_status}).eq(
+                    "id", str(property_id)
+                ).execute()
+        except Exception:
+            logger.warning(
+                "Failed to sync occupancy status for property %s", property_id, exc_info=True
+            )
 
     @with_retry
     def request_renewal(self, lease_id: UUID, tenant_id: UUID, notes: str | None = None) -> dict[str, Any]:
@@ -814,9 +1024,16 @@ class LeaseService(BaseService):
         lease_id: UUID,
         owner_id: UUID,
         new_end_date: date,
-        monthly_rent: Decimal | None = None,
         notes: str | None = None,
     ) -> dict[str, Any]:
+        """Extend a tenancy in place.
+
+        Renewal keeps the same lease record (same ID and start date), updates
+        only the end date, and restores the status to active. It never changes
+        the monthly rent and never touches rent accounting (effective date,
+        payments, credit, or arrears). Each renewal is recorded in the
+        renewal_history audit trail.
+        """
         lease = self.get_by_id(lease_id, owner_id)
         if not lease:
             raise PermissionError("Lease not found or not authorized")
@@ -836,15 +1053,13 @@ class LeaseService(BaseService):
                     "New end date must be later than the current lease end date"
                 )
 
-        update_payload: dict[str, Any] = {
-            "end_date": new_end_date.isoformat(),
-            "status": "active",
-        }
-        if monthly_rent is not None:
-            update_payload["monthly_rent"] = float(monthly_rent)
-
         response = (
-            self.table.update(update_payload)
+            self.table.update(
+                {
+                    "end_date": new_end_date.isoformat(),
+                    "status": "active",
+                }
+            )
             .eq("id", str(lease_id))
             .eq("owner_id", str(owner_id))
             .execute()
@@ -862,15 +1077,116 @@ class LeaseService(BaseService):
                 else None
             ),
             "new_end_date": new_end_date.isoformat(),
-            "monthly_rent": float(monthly_rent) if monthly_rent is not None else None,
+            "monthly_rent": (
+                float(lease.get("monthly_rent") or 0)
+                if lease.get("monthly_rent") is not None
+                else None
+            ),
             "notes": notes,
             "renewed_by": str(owner_id),
         }
         try:
             self.supabase.table("renewal_history").insert(renewal_record).execute()
         except Exception:
-            pass
+            logger.warning(
+                "Failed to record renewal history for lease %s", lease_id, exc_info=True
+            )
 
+        return _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]
+
+    @with_retry
+    def renewal_history(
+        self, lease_id: UUID, user_id: UUID
+    ) -> list[dict[str, Any]]:
+        """List the renewal audit trail for a lease, newest first.
+
+        Authorized for the lease owner/manager or the tenant of the lease.
+        Resolves the renewing user's full name from profiles when available.
+        """
+        lease = self.get_by_id(lease_id, user_id)
+        if not lease:
+            lease = self.get_by_id_for_tenant(lease_id, user_id)
+        if not lease:
+            raise PermissionError("Lease not found or not authorized")
+
+        response = (
+            self.supabase.table("renewal_history")
+            .select("*")
+            .eq("lease_id", str(lease_id))
+            .order("created_at", desc=True)
+            .execute()
+        )
+        rows = response.data or []
+        if not rows:
+            return []
+
+        renewed_by_ids = {
+            str(r.get("renewed_by")) for r in rows if r.get("renewed_by")
+        }
+        name_map: dict[str, str | None] = {}
+        if renewed_by_ids:
+            try:
+                prof_resp = (
+                    self.supabase.table("profiles")
+                    .select("user_id, full_name")
+                    .in_("user_id", list(renewed_by_ids))
+                    .execute()
+                )
+                name_map = {
+                    str(p.get("user_id")): (p.get("full_name") or "").strip() or None
+                    for p in (prof_resp.data or [])
+                }
+            except Exception:
+                pass
+
+        result: list[dict[str, Any]] = []
+        for r in rows:
+            renewed_by = str(r.get("renewed_by")) if r.get("renewed_by") else None
+            result.append(
+                {
+                    "id": str(r.get("id")) if r.get("id") else None,
+                    "previous_end_date": r.get("previous_end_date"),
+                    "new_end_date": r.get("new_end_date"),
+                    "monthly_rent": r.get("monthly_rent"),
+                    "notes": r.get("notes"),
+                    "renewed_by": renewed_by,
+                    "renewed_by_name": (
+                        name_map.get(renewed_by) if renewed_by else None
+                    ),
+                    "renewed_at": r.get("created_at"),
+                }
+            )
+        return result
+
+    @with_retry
+    def set_rent_effective_date(
+        self,
+        lease_id: UUID,
+        owner_id: UUID,
+        effective_date: date,
+    ) -> dict[str, Any]:
+        """Set the rent coverage billing anchor for a lease (once, owner-scoped).
+
+        rent_effective_date is the permanent billing anchor: set once at any
+        time (including after rent payments exist, e.g. for legacy leases),
+        never changeable afterwards. Raises ValueError if already set so
+        callers can return a 400 for a second attempt.
+        """
+        lease = self.get_by_id(lease_id, owner_id)
+        if not lease:
+            raise PermissionError("Lease not found or not authorized")
+        if lease.get("rent_effective_date"):
+            raise ValueError("Rent effective date has already been set")
+        response = (
+            self.table.update(
+                {"rent_effective_date": effective_date.isoformat()}
+            )
+            .eq("id", str(lease_id))
+            .eq("owner_id", str(owner_id))
+            .execute()
+        )
+        if not response.data:
+            raise PermissionError("Lease not found or not authorized")
         return _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]
 
 
@@ -956,8 +1272,19 @@ class PaymentService(BaseService):
     def get_overdue(
         self, owner_id: UUID, skip: int = 0, limit: int = 100
     ) -> tuple[list[dict[str, Any]], int]:
-        all_leases, total = self.get_all(owner_id, skip=0, limit=10000)
-        overdue = [l for l in all_leases if l.get("is_overdue")]
+        resp = (
+            self.supabase.table("leases")
+            .select("*")
+            .eq("owner_id", str(owner_id))
+            .execute()
+        )
+        leases = _enrich_leases(resp.data or [], self.supabase)
+        overdue = [
+            l
+            for l in leases
+            if l.get("is_overdue")
+            and l.get("effective_status") != "terminated"
+        ]
         paginated = overdue[skip:skip + limit]
         return paginated, len(overdue)
 
@@ -999,11 +1326,61 @@ class PaymentService(BaseService):
         )
         return response.data[0] if response.data else None
 
+    def _coverage_for(self, lease_id: Any, amount: Any) -> tuple[int | None, int | None]:
+        """Compute (coverage_days, frozen_monthly_rent) for a lease+amount.
+
+        Returns (None, None) when the lease or rate is unknown. frozen
+        monthly rent is captured at write time so later rent edits never
+        revalue a payment's historical coverage.
+        """
+        if not lease_id or amount is None:
+            return None, None
+        lease = (
+            self.supabase.table("leases")
+            .select("monthly_rent")
+            .eq("id", str(lease_id))
+            .execute()
+        )
+        if not lease.data:
+            return None, None
+        monthly_rent = lease.data[0].get("monthly_rent")
+        if monthly_rent is None:
+            return None, None
+        try:
+            frozen = int(monthly_rent)
+        except (TypeError, ValueError, InvalidOperation):
+            return None, None
+        return _rent_coverage_days(amount, monthly_rent), frozen
+
     @with_retry
     def create(self, data: PaymentCreate) -> dict[str, Any]:
         payload = data.model_dump(exclude_none=True, mode="json")
         if not payload.get("due_date"):
             payload["due_date"] = date.today().isoformat()
+        is_rent = payload.get("payment_type") == "rent"
+        is_confirm = payload.get("status") in ("confirmed", "completed")
+        if is_rent and is_confirm:
+            # Confirmed rent payments require the permanent billing anchor:
+            # without rent_effective_date the money ledger cannot accrue.
+            lease = (
+                self.supabase.table("leases")
+                .select("rent_effective_date")
+                .eq("id", str(data.lease_id))
+                .execute()
+            )
+            anchor = (lease.data[0].get("rent_effective_date") if lease.data else None)
+            if not anchor:
+                raise ValueError(
+                    "Set the rent effective date before recording rent payments."
+                )
+            if "coverage_days" not in payload:
+                coverage, frozen = self._coverage_for(data.lease_id, payload.get("amount"))
+                if coverage is not None:
+                    payload["coverage_days"] = coverage
+                    payload["frozen_monthly_rent"] = frozen
+        elif not is_rent or not is_confirm:
+            payload["coverage_days"] = None
+            payload["frozen_monthly_rent"] = None
         response = self.table.insert(payload).execute()
         return response.data[0]
 
@@ -1016,12 +1393,29 @@ class PaymentService(BaseService):
         payload = data.model_dump(exclude_none=True, mode="json")
         if not payload:
             return self.get_by_id(payment_id)
+        existing = self.get_by_id(payment_id)
         response = (
             self.table.update(payload)
             .eq("id", str(payment_id))
             .execute()
         )
-        return response.data[0] if response.data else None
+        row = response.data[0] if response.data else None
+        if not row:
+            return None
+        is_rent = row.get("payment_type") == "rent"
+        is_confirm = row.get("status") in ("confirmed", "completed")
+        if is_rent and is_confirm:
+            lease_id = existing.get("lease_id") if existing else row.get("lease_id")
+            coverage, frozen = self._coverage_for(lease_id, row.get("amount"))
+            if coverage is not None:
+                patch = {"coverage_days": coverage, "frozen_monthly_rent": frozen}
+                self.table.update(patch).eq("id", str(payment_id)).execute()
+                row = {**row, **patch}
+        else:
+            patch = {"coverage_days": None, "frozen_monthly_rent": None}
+            self.table.update(patch).eq("id", str(payment_id)).execute()
+            row = {**row, **patch}
+        return row
 
 
 class MaintenanceRequestService(BaseService):
@@ -1086,6 +1480,44 @@ class MaintenanceRequestService(BaseService):
             .execute()
         )
         return bool(response.data)
+
+
+def sync_all_property_occupancy(supabase: Client) -> None:
+    """Backfill occupancy status for all properties based on existing leases.
+
+    A property is considered occupied if any non-terminated lease references it.
+    Only runs on startup so pre-existing assignments get labelled correctly.
+    """
+    try:
+        leases = (
+            supabase.table("leases")
+            .select("property_id")
+            .neq("status", "terminated")
+            .execute()
+        )
+        occupied_ids = {str(r["property_id"]) for r in (leases.data or []) if r.get("property_id")}
+        properties = (
+            supabase.table("properties")
+            .select("id, status")
+            .in_("status", ["available", "occupied"])
+            .execute()
+        )
+        for prop in properties.data or []:
+            want = "occupied" if str(prop["id"]) in occupied_ids else "available"
+            if prop.get("status") != want:
+                (
+                    supabase.table("properties")
+                    .update({"status": want})
+                    .eq("id", str(prop["id"]))
+                    .execute()
+                )
+        logger.info(
+            "Property occupancy backfill complete: %d occupied, %d available",
+            len(occupied_ids),
+            len(properties.data or []) - len(occupied_ids),
+        )
+    except Exception:
+        logger.warning("Property occupancy backfill failed", exc_info=True)
 
 
 def get_property_service(supabase: Client) -> PropertyService:

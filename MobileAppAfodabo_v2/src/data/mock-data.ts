@@ -386,7 +386,6 @@ export const mockPayments: Payment[] = [
     notes: "MTN Mobile Money",
     transaction_id: "TXN-8842",
     recorded_by: "mgr-001",
-    balance_after: 300000,
     created_at: "2025-06-28T14:00:00Z",
   },
   {
@@ -406,7 +405,6 @@ export const mockPayments: Payment[] = [
     notes: null,
     transaction_id: "TXN-8521",
     recorded_by: "mgr-001",
-    balance_after: 850000,
     created_at: "2025-05-29T10:00:00Z",
   },
   {
@@ -426,7 +424,6 @@ export const mockPayments: Payment[] = [
     notes: "Stanbic Bank transfer",
     transaction_id: "TXN-8201",
     recorded_by: "mgr-001",
-    balance_after: 1700000,
     created_at: "2025-04-02T10:00:00Z",
   },
   {
@@ -446,7 +443,6 @@ export const mockPayments: Payment[] = [
     notes: "Standing order",
     transaction_id: "TXN-9101",
     recorded_by: "mgr-001",
-    balance_after: 0,
     created_at: "2025-07-01T09:00:00Z",
   },
   {
@@ -466,7 +462,6 @@ export const mockPayments: Payment[] = [
     notes: "Partial payment",
     transaction_id: null,
     recorded_by: "mgr-001",
-    balance_after: 1800000,
     created_at: "2025-05-15T14:00:00Z",
   },
   {
@@ -486,7 +481,6 @@ export const mockPayments: Payment[] = [
     notes: "Airtel Money",
     transaction_id: "TXN-9215",
     recorded_by: "mgr-001",
-    balance_after: 0,
     created_at: "2025-07-02T10:00:00Z",
   },
   {
@@ -506,7 +500,6 @@ export const mockPayments: Payment[] = [
     notes: null,
     transaction_id: "TXN-8800",
     recorded_by: "mgr-001",
-    balance_after: 600000,
     created_at: "2025-06-15T10:00:00Z",
   },
 ];
