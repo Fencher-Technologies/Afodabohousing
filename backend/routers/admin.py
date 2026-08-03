@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 from dateutil.parser import isoparse
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, EmailStr
-from phone import normalize_phone
 from supabase import Client
 
 from dependencies import (
@@ -14,6 +13,7 @@ from dependencies import (
     require_super_admin,
     require_super_admin_or_manager,
 )
+from phone import normalize_phone
 from services.pesapal import register_ipn_for_url
 
 logger = logging.getLogger(__name__)
