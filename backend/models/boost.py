@@ -63,7 +63,7 @@ class BoostPriceResponse(BaseModel):
 class InitiateBoostRequest(BaseModel):
     property_id: UUID
     duration_days: int = 7
-    phone_number: str
+    phone_number: str | None = None
     callback_url: str | None = None
 
 

@@ -5,12 +5,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from supabase import Client
 
-from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client
-from models import PaymentCreate, PaymentResponse, PaymentUpdate
-from services import PaymentService, get_payment_service
-from services import pesapal
-from services.notifications import notify
 from config import get_settings
+from dependencies import (
+    CurrentUser,
+    get_current_user,
+    get_service_client,
+    get_supabase_client,
+    require_active_user,
+)
+from models import PaymentCreate, PaymentResponse, PaymentUpdate
+from services import PaymentService, get_payment_service, pesapal
+from services.notifications import notify
 
 logger = logging.getLogger(__name__)
 
@@ -290,6 +295,46 @@ async def initiate_pesapal_payment(
         )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+@router.get("/pesapal/status")
+def pesapal_payment_status(
+    reference: str = Query(..., description="OrderMerchantReference / payment reference from the Pesapal callback"),
+    current_user: CurrentUser = Depends(require_active_user),
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    """Poll the outcome of a Pesapal payment by its merchant reference.
+
+    Checks manager_subscriptions (by payment_reference) then property_boosts
+    (by transaction_id), since both flows redirect to /payment/status.
+    """
+    sub = (
+        supabase.table("manager_subscriptions")
+        .select("*")
+        .eq("payment_reference", reference)
+        .limit(1)
+        .execute()
+    )
+    if sub.data:
+        row = sub.data[0]
+        return {
+            "type": "subscription",
+            "status": row.get("status"),
+            "payment_status": row.get("payment_status", "pending"),
+        }
+
+    boost = (
+        supabase.table("property_boosts")
+        .select("*")
+        .eq("transaction_id", reference)
+        .limit(1)
+        .execute()
+    )
+    if boost.data:
+        row = boost.data[0]
+        return {"type": "boost", "status": row.get("status")}
+
+    return {"type": "unknown", "status": "pending"}
 
 
 

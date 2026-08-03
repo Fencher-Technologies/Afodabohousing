@@ -44,7 +44,8 @@ async def get_auth_token() -> str:
         payload = resp.json()
     token = payload.get("token")
     if not token:
-        raise RuntimeError("Pesapal authentication failed: no token in response")
+        api_error = (payload.get("error") or {}).get("message") or (payload.get("error") or {}).get("code") or "unknown"
+        raise RuntimeError(f"Pesapal authentication failed: {api_error}")
     return token
 
 
@@ -67,6 +68,75 @@ async def register_ipn(token: str, ipn_url: str) -> str:
     if not ipn_id:
         raise RuntimeError("Pesapal IPN registration failed")
     return ipn_id
+
+
+async def get_ipn_list(token: str) -> list[dict[str, Any]]:
+    """Fetch already-registered IPN URLs. Each entry: {"ipn_id", "url", ...}."""
+    base = _get_base_url()
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.get(
+            f"{base}/URLSetup/GetIpnList",
+            headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
+        )
+        resp.raise_for_status()
+        return resp.json() or []
+
+
+PESAPAL_CONFIG_TABLE = "pesapal_config"
+
+
+def _get_stored_ipn(supabase) -> dict[str, Any] | None:
+    s = get_settings()
+    result = (
+        supabase.table(PESAPAL_CONFIG_TABLE)
+        .select("*")
+        .eq("environment", s.pesapal_environment)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def _store_ipn(supabase, ipn_url: str, ipn_id: str) -> None:
+    s = get_settings()
+    supabase.table(PESAPAL_CONFIG_TABLE).upsert(
+        {
+            "environment": s.pesapal_environment,
+            "ipn_url": ipn_url,
+            "ipn_id": ipn_id,
+        },
+        on_conflict="environment",
+    ).execute()
+
+
+async def register_ipn_for_url(supabase, ipn_url: str) -> dict[str, str]:
+    """Register ipn_url if not already registered; persist ipn_id to pesapal_config.
+
+    Returns {"ipn_id", "ipn_url", "status"} where status is "reused" or "registered".
+    """
+    token = await get_auth_token()
+    for entry in await get_ipn_list(token):
+        if entry.get("url") == ipn_url and entry.get("ipn_id"):
+            ipn_id = entry["ipn_id"]
+            _store_ipn(supabase, ipn_url, ipn_id)
+            logger.info("Pesapal IPN already registered, reusing: url=%s ipn_id=%s", ipn_url, ipn_id)
+            return {"ipn_id": ipn_id, "ipn_url": ipn_url, "status": "reused"}
+    ipn_id = await register_ipn(token, ipn_url)
+    _store_ipn(supabase, ipn_url, ipn_id)
+    logger.info("Pesapal IPN registered: url=%s ipn_id=%s", ipn_url, ipn_id)
+    return {"ipn_id": ipn_id, "ipn_url": ipn_url, "status": "registered"}
+
+
+def get_ipn_id(supabase) -> str:
+    """Return the stored IPN id for submit_order. Raises if not registered yet."""
+    stored = _get_stored_ipn(supabase)
+    if not stored or not stored.get("ipn_id"):
+        raise RuntimeError(
+            "Pesapal IPN not registered. Register it first via "
+            "POST /admin/pesapal/register-ipn or "
+            "`python backend/scripts/register_ipn.py <IPN_URL>`."
+        )
+    return stored["ipn_id"]
 
 
 async def submit_order(
@@ -125,6 +195,24 @@ def verify_webhook(payload: bytes, signature: str | None) -> bool:
         hashlib.sha256,
     ).hexdigest()
     return hmac.compare_digest(expected, signature)
+
+
+async def get_transaction_status(token: str, order_tracking_id: str) -> dict[str, Any]:
+    """Query Pesapal for the authoritative payment status of an order.
+
+    The IPN webhook payload carries no status — this is the source of truth.
+    Returns the payload with keys like payment_status_description, amount,
+    currency, merchant_reference, confirmation_code, etc.
+    """
+    base = _get_base_url()
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.get(
+            f"{base}/Transactions/GetTransactionStatus",
+            params={"orderTrackingId": order_tracking_id},
+            headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
+        )
+        resp.raise_for_status()
+        return resp.json()
 
 
 def make_order_id(prefix: str, unique_id: str) -> str:

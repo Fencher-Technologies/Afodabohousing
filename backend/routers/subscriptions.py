@@ -1,12 +1,9 @@
 import logging
-from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
 
-from config import get_settings
 from dependencies import (
     CurrentUser,
     get_service_client,
@@ -19,9 +16,10 @@ from models.subscription import (
     SubscriptionCreateResponse,
     SubscriptionPlanResponse,
 )
+from phone import normalize_phone
 from services.pesapal import (
     get_auth_token,
-    register_ipn,
+    get_ipn_id,
     submit_order,
 )
 from services.subscriptions import SubscriptionService, get_subscription_service
@@ -35,7 +33,7 @@ def get_sub_svc() -> SubscriptionService:
     return get_subscription_service(get_service_client())
 
 
-SUBSCRIPTION_CALLBACK_URL = "/account"
+SUBSCRIPTION_CALLBACK_URL = "/payment/status"
 
 
 @router.get("/plans", response_model=list[SubscriptionPlanResponse])
@@ -93,7 +91,7 @@ async def create_subscription(
     profile = profile or {}
     first_name = (profile.get("full_name") or "").split()[0] or current_user.email
     last_name = " ".join((profile.get("full_name") or "").split()[1:]) or ""
-    customer_phone = data.phone_number or profile.get("phone") or ""
+    customer_phone = normalize_phone(data.phone_number) if data.phone_number else (normalize_phone(profile.get("phone")) if (profile or {}).get("phone") else "")
     customer_email = profile.get("email") or current_user.email
 
     sub_payload = {
@@ -108,12 +106,10 @@ async def create_subscription(
 
     base_url = (data.callback_url or "").rstrip("/")
     callback_url = f"{base_url}{SUBSCRIPTION_CALLBACK_URL}"
-    s = get_settings()
-    ipn_url = s.pesapal_ipn_url or f"{base_url}/payments/webhook/pesapal"
 
     try:
         token = await get_auth_token()
-        ipn_id = await register_ipn(token, ipn_url)
+        ipn_id = get_ipn_id(supabase)
         order_id = reference
         pay_resp = await submit_order(
             token=token,

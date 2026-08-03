@@ -42,6 +42,7 @@ class MockTableBuilder:
         self._order_desc = False
         self._range_start = 0
         self._range_end = 0
+        self._limit = 0
         self._select_cols = "*"
         self._count = None
         self._maybe_single = False
@@ -63,6 +64,10 @@ class MockTableBuilder:
     def range(self, start, end):
         self._range_start = start
         self._range_end = end
+        return self
+
+    def limit(self, n):
+        self._limit = n
         return self
 
     def insert(self, payload):
@@ -144,6 +149,8 @@ class MockTableBuilder:
         end = self._range_end
         if end:
             data = data[start:end + 1]
+        if self._limit:
+            data = data[:self._limit]
         return MockResponse(data=data, count=count)
 
     def _seed_data(self):
