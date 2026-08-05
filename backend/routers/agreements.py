@@ -1,7 +1,7 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 from supabase import Client
 
@@ -386,34 +386,6 @@ def list_agreement_versions(
     active_doc = svc.get_current_document(lease_id)
     active_version = active_doc.get("version") if active_doc else None
     return AgreementVersionHistoryResponse(versions=versions, active_version=active_version)
-
-
-# ─── Download PDF ────────────────────────────────────────────────────────
-
-@router.get("/{lease_id}/download")
-def download_agreement_pdf(
-    lease_id: UUID,
-    current_user: CurrentUser = Depends(get_current_user),
-    svc: AgreementService = Depends(get_agreement_service),
-):
-    """Download the current active agreement as a PDF document."""
-    _authorized_lease(lease_id, current_user, svc)
-    content = svc.get_content(lease_id)
-    if not content:
-        raise HTTPException(status_code=404, detail="No agreement content found")
-
-    pdf_bytes = AgreementPDFGenerator(content).generate()
-    anum = content.get("agreement_number", "agreement")
-    safe_name = f"tenancy-agreement-{anum}.pdf".replace(" ", "-")
-
-    return StreamingResponse(
-        iter([pdf_bytes]),
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="{safe_name}"',
-            "Content-Length": str(len(pdf_bytes)),
-        },
-    )
 
 
 @router.get("/{lease_id}/versions/{version_id}/content")
