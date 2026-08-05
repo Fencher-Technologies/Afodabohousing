@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View, Alert } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { router, useLocalSearchParams } from "expo-router";
-import { Crown, Phone, ShieldCheck, CheckCircle, XCircle, Loader2, X } from "lucide-react-native";
+import { Crown, ShieldCheck, CheckCircle, XCircle, Loader2, X } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { API_BASE_URL } from "@/constants/config";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
 import { Button } from "@/src/components/Button";
-import { InputField } from "@/src/components/InputField";
 import { PageHeader } from "@/src/components/PageHeader";
 import { useSubscriptionPlans, useCreateSubscription } from "@/src/hooks/useSubscriptions";
 import { subscriptionsService } from "@/src/services/subscriptions";
@@ -19,30 +18,11 @@ const POLL_TIMEOUT_MS = 120000;
 
 type PaymentStatus = "idle" | "processing" | "waiting_payment" | "success" | "failed" | "timeout";
 
-interface PaymentMethod {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  recommended: boolean;
-}
-
-const SUPPORTED_PAYMENT_METHODS: PaymentMethod[] = [
-  {
-    id: "pesapal",
-    name: "PesaPal (Recommended)",
-    description: "Card or mobile money — secure payment",
-    icon: "shield",
-    recommended: true,
-  },
-];
-
 export default function SubscriptionPaymentScreen() {
   const { plan } = useLocalSearchParams<{ plan: string }>();
   const { data: plans } = useSubscriptionPlans();
   const createSubscription = useCreateSubscription();
   const selectedPlan = plans?.find((p) => p.id === plan);
-  const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<PaymentStatus>("idle");
   const [responseMessage, setResponseMessage] = useState("");
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
@@ -80,13 +60,9 @@ export default function SubscriptionPaymentScreen() {
   };
 
   const handlePay = async () => {
-    if (!phone.trim()) {
-      Alert.alert("Phone required", "Please enter your phone number to proceed.");
-      return;
-    }
     setStatus("processing");
     try {
-      const result = await createSubscription.mutateAsync({ plan_id: plan, phone_number: phone.trim() || undefined, callback_url: API_BASE_URL });
+      const result = await createSubscription.mutateAsync({ plan_id: plan, callback_url: API_BASE_URL });
       if (result.redirect_url) {
         setResponseMessage(result.message || "Complete your payment in the Pesapal window.");
         setPaymentUrl(result.redirect_url);
@@ -289,39 +265,6 @@ export default function SubscriptionPaymentScreen() {
           ))}
         </View>
 
-        {/* Payment Form */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payment Method</Text>
-          {SUPPORTED_PAYMENT_METHODS.map((method) => (
-            <View
-              key={method.id}
-              style={[
-                styles.methodField,
-                method.recommended && styles.methodFieldRecommended,
-              ]}
-            >
-              <Phone size={18} color={method.recommended ? Colors.accent : Colors.primary} />
-              <Text style={styles.methodText}>{method.name}</Text>
-              {method.recommended && (
-                <View style={styles.methodRecommendedBadge}>
-                  <Text style={styles.methodRecommendedText}>Recommended</Text>
-                </View>
-              )}
-            </View>
-          ))}
-
-          <View style={{ height: Spacing.md }} />
-
-          <InputField
-            label="Phone Number"
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="2567XX XXX XXX"
-            keyboardType="phone-pad"
-            leftIcon={<Phone size={20} color={Colors.textMuted} />}
-          />
-        </View>
-
         {/* Security Note */}
         <View style={styles.securityNote}>
           <ShieldCheck size={16} color={Colors.textMuted} />
@@ -331,7 +274,7 @@ export default function SubscriptionPaymentScreen() {
         </View>
 
         <Button
-          label={status === "processing" ? "Processing…" : "Pay Now"}
+          label={status === "processing" ? "Processing…" : "Proceed to Payment"}
           onPress={handlePay}
           loading={status === "processing"}
           fullWidth
@@ -339,6 +282,9 @@ export default function SubscriptionPaymentScreen() {
           tone="gold"
           leftIcon={status === "processing" ? undefined : <Crown size={20} color={Colors.textOnGold} />}
         />
+        <Text style={styles.payHelper}>
+          You'll be redirected to our secure payment partner where you can choose your preferred payment method.
+        </Text>
       </View>
 
       <View style={{ height: 100 }} />
@@ -426,37 +372,14 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     color: Colors.textSecondary,
   },
-  methodField: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    borderWidth: 1.5,
-    borderColor: Colors.borderStrong,
-    borderRadius: Radii.input,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: Spacing.md,
-    minHeight: 52,
-  },
-  methodFieldRecommended: {
-    borderColor: Colors.accent,
-    backgroundColor: Colors.accentSoft,
-  },
-  methodRecommendedBadge: {
-    marginLeft: "auto",
-    backgroundColor: Colors.accent,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: Radii.pill,
-  },
-  methodRecommendedText: {
-    fontSize: FontSize.micro,
-    fontWeight: FontWeight.bold,
-    color: "#FFFFFF",
-  },
-  methodText: {
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.medium,
-    color: Colors.textPrimary,
+  payHelper: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
   securityNote: {
     flexDirection: "row",

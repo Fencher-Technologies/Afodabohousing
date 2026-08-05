@@ -214,7 +214,7 @@ export default function TenancyDetailScreen() {
               accessibilityRole="button"
               accessibilityLabel="Explain payment standing terms"
             >
-              <Info size={17} color={Colors.textMuted} />
+              <Info size={17} color={Colors.accent} />
             </Pressable>
           </View>
           <View style={styles.statsRow}>
@@ -292,7 +292,7 @@ export default function TenancyDetailScreen() {
         <View style={styles.actionButtons}>
           {!isTerminated && (isManager || balanceDue > 0) && (
             <Button
-              label="Record Payment"
+              label="Update Payment"
               onPress={handleRecordPaymentPress}
               fullWidth
               size="lg"

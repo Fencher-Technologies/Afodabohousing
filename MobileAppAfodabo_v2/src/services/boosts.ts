@@ -5,11 +5,10 @@ import { API_BASE_URL } from "@/constants/config";
 export const boostsService = {
   fetchPackages: () => api.get<BoostPackage[]>("/boosts/packages"),
 
-  initiateBoost: (propertyId: string, durationDays: number, phoneNumber: string, callbackUrl?: string) =>
+  initiateBoost: (propertyId: string, durationDays: number, callbackUrl?: string) =>
     api.post<BoostInitiateResponse>("/boosts/initiate", {
       property_id: propertyId,
       duration_days: durationDays,
-      phone_number: phoneNumber,
       callback_url: callbackUrl || API_BASE_URL,
     }),
 };

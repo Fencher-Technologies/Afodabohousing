@@ -114,9 +114,9 @@ export function TenancyCard({ tenancy, onPress, onRecordPayment, onSendReminder,
               onPress={(e) => { e.stopPropagation(); onRecordPayment(); }}
               style={[styles.actionBtn, styles.recordBtn]}
               accessibilityRole="button"
-              accessibilityLabel="Record payment"
+              accessibilityLabel="Update payment"
             >
-              <Text style={styles.recordBtnText}>Record Payment</Text>
+              <Text style={styles.recordBtnText}>Update Payment</Text>
             </Pressable>
           )}
           {onSendReminder && hasBalance && (

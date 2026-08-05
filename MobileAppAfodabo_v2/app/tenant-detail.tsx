@@ -120,7 +120,7 @@ export default function TenantDetailScreen() {
         {/* Action Buttons */}
         <View style={styles.actions}>
           <Button
-            label="Record Payment"
+            label="Update Payment"
             onPress={handleRecordPayment}
             fullWidth
             size="md"

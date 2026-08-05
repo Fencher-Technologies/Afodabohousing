@@ -2,14 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { Pressable, StyleSheet, Text, View, Alert, Linking, BackHandler } from "react-native";
 import { WebView } from "react-native-webview";
 import { router, useLocalSearchParams } from "expo-router";
-import { Sparkles, Phone, ArrowLeft, X, Loader2 } from "lucide-react-native";
+import { Sparkles, ArrowLeft, X, Loader2 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
 import { Button } from "@/src/components/Button";
 import { Badge } from "@/src/components/Badge";
-import { InputField } from "@/src/components/InputField";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { boostsService } from "@/src/services/boosts";
@@ -20,7 +19,6 @@ export default function BoostPropertyScreen() {
   const { propertyId } = useLocalSearchParams<{ propertyId: string }>();
   const [packages, setPackages] = useState<BoostPackage[]>([]);
   const [selectedDays, setSelectedDays] = useState<number | null>(null);
-  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,13 +41,13 @@ export default function BoostPropertyScreen() {
   }, []);
 
   const handlePurchase = async () => {
-    if (!selectedDays || !phone.trim()) {
-      Alert.alert("Missing info", "Select a package and enter your phone number.");
+    if (!selectedDays) {
+      Alert.alert("Missing info", "Select a package to continue.");
       return;
     }
     setSubmitting(true);
     try {
-      const result = await boostsService.initiateBoost(propertyId, selectedDays, phone.trim(), API_BASE_URL);
+      const result = await boostsService.initiateBoost(propertyId, selectedDays, API_BASE_URL);
       if (result.redirect_url) {
         setPaymentUrl(result.redirect_url);
         setPaymentComplete(false);
@@ -208,21 +206,6 @@ export default function BoostPropertyScreen() {
         </View>
       </View>
 
-      {/* Phone Input */}
-      <View style={styles.phoneSection}>
-        <Text style={styles.sectionTitle}>Mobile Money Number</Text>
-        <InputField
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="e.g. 256788100145"
-          keyboardType="phone-pad"
-          leftIcon={<Phone size={18} color={Colors.textMuted} />}
-        />
-        <Text style={styles.phoneHint}>
-          Enter the phone number where you will receive the payment prompt.
-        </Text>
-      </View>
-
       {/* Total */}
       {selectedPkg && (
         <Card padding="md" style={styles.totalCard}>
@@ -236,16 +219,21 @@ export default function BoostPropertyScreen() {
       )}
 
       {/* Submit */}
-      <Button
-        label="Pay with Mobile Money"
-        onPress={handlePurchase}
-        fullWidth
-        size="lg"
-        tone="primary"
-        loading={submitting}
-        leftIcon={<Sparkles size={20} color={Colors.textOnPrimary} />}
-        disabled={!selectedDays || !phone.trim()}
-      />
+      <View style={styles.paySection}>
+        <Button
+          label="Proceed to Payment"
+          onPress={handlePurchase}
+          fullWidth
+          size="lg"
+          tone="primary"
+          loading={submitting}
+          leftIcon={<Sparkles size={20} color={Colors.textOnPrimary} />}
+          disabled={!selectedDays}
+        />
+        <Text style={styles.payHelper}>
+          You'll be redirected to our secure payment partner where you can choose your preferred payment method.
+        </Text>
+      </View>
 
       <View style={{ height: 100 }} />
     </Screen>
@@ -318,14 +306,17 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
-  phoneSection: {
+  paySection: {
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
-    gap: Spacing.sm,
   },
-  phoneHint: {
+  payHelper: {
+    marginTop: Spacing.md,
     fontSize: FontSize.caption,
     color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: Spacing.md,
   },
   totalCard: {
     marginHorizontal: Spacing.md,

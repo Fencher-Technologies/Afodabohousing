@@ -43,10 +43,9 @@ export const subscriptionsService = {
   getCurrent: () =>
     api.get<ManagerSubscriptionResponse | null>("/subscriptions/current"),
 
-  create: (plan_id: string, phone_number?: string, callback_url?: string) =>
+  create: (plan_id: string, callback_url?: string) =>
     api.post<SubscriptionCreateResponse>("/subscriptions/create", {
       plan_id,
-      phone_number,
       callback_url,
     }),
 };

@@ -244,7 +244,7 @@ export default function MyTenancyScreen() {
               accessibilityRole="button"
               accessibilityLabel="Explain summary terms"
             >
-              <Info size={17} color={Colors.textMuted} />
+              <Info size={17} color={Colors.accent} />
             </Pressable>
           </View>
           <View style={styles.summaryGrid}>

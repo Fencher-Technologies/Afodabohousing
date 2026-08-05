@@ -69,11 +69,11 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
       setNotes("");
       onClose();
       Alert.alert(
-        "Payment Recorded",
-        `Payment for ${tenancy.tenant_name} of ${formatUGX(numericAmount)} has been recorded successfully.`
+        "Payment Updated",
+        `Payment for ${tenancy.tenant_name} of ${formatUGX(numericAmount)} has been updated successfully.`
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to record payment. Please try again.");
+      setError(e instanceof Error ? e.message : "Failed to update payment. Please try again.");
     }
   };
 
@@ -91,7 +91,7 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
           <View style={styles.handle} />
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Record Payment</Text>
+              <Text style={styles.title}>Update Payment</Text>
               <Text style={styles.subtitle}>
                 {tenancy.tenant_name} · {tenancy.property_title} · Unit {tenancy.unit_label}
               </Text>
@@ -175,7 +175,7 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
 
             <View style={styles.actions}>
               <Button label="Cancel" onPress={handleClose} variant="ghost" flex />
-              <Button label="Record Payment" onPress={handleRecord} flex />
+              <Button label="Update Payment" onPress={handleRecord} flex />
             </View>
           </ScrollView>
         </Pressable>
