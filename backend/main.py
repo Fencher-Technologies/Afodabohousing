@@ -9,7 +9,7 @@ from math import ceil
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import get_settings
@@ -439,6 +439,40 @@ def root() -> dict:
         "docs": "/docs",
         "health": "/health",
     }
+
+
+@app.get("/payment/status")
+async def payment_status_page() -> Response:
+    """Callback target that Pesapal redirects to after payment.
+
+    Renders a lightweight page acknowledging the redirect. Native mobile apps
+    detect this URL in a WebView and close it; the real status is obtained by
+    polling /payments/pesapal/status. Web clients hit the Vercel SPA instead.
+    """
+    html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payment Received</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; display: flex;
+           align-items: center; justify-content: center; min-height: 100vh;
+           margin: 0; background: #f7f5ef; color: #1a1a1a; }
+    .card { text-align: center; padding: 2rem; background: #fff;
+            border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    h1 { font-size: 1.4rem; margin: 0 0 0.5rem; }
+    p { color: #666; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Payment received</h1>
+    <p>Your payment is being confirmed. You can close this window.</p>
+  </div>
+</body>
+</html>"""
+    return Response(content=html, media_type="text/html")
 
 
 @app.get("/metrics")
