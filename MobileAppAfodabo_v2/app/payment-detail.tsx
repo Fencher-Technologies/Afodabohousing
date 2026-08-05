@@ -59,7 +59,7 @@ export default function PaymentDetailScreen() {
   };
 
   const handleSave = async () => {
-    const numericAmount = parseInt(amount.replace(/[^0-9]/g, ""), 10) || 0;
+    const numericAmount = parseFloat(amount.replace(/[^0-9.]/g, "")) || 0;
     if (numericAmount <= 0) {
       setError("Amount must be greater than 0");
       return;
@@ -161,7 +161,7 @@ export default function PaymentDetailScreen() {
               value={amount}
               onChangeText={setAmount}
               placeholder="0"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               error={error ?? undefined}
             />
             <InputField

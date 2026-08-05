@@ -13,7 +13,7 @@ interface InputFieldProps {
   onChangeText: (text: string) => void;
   placeholder?: string;
   secureTextEntry?: boolean;
-  keyboardType?: "default" | "email-address" | "phone-pad" | "numeric";
+  keyboardType?: "default" | "email-address" | "phone-pad" | "numeric" | "decimal-pad";
   error?: string | null;
   multiline?: boolean;
   numberOfLines?: number;

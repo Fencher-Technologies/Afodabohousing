@@ -30,7 +30,7 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
 
   if (!tenancy) return null;
 
-  const numericAmount = parseInt(amount.replace(/[^0-9]/g, ""), 10) || 0;
+  const numericAmount = parseFloat(amount.replace(/[^0-9.]/g, "")) || 0;
   // Money ledger preview: the tenant's position is a single balance
   // (advance − arrears) plus this payment.
   const arrears = tenancy.arrears_amount;
@@ -118,7 +118,7 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
               value={amount}
               onChangeText={setAmount}
               placeholder="0"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               error={error}
             />
 
