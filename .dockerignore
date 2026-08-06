@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+backend
+MobileAppAfodabo_v2
+projects
+examples
+docs
+*.log
+.env
+.env.*

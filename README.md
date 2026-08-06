@@ -35,6 +35,22 @@ npm run dev
 # http://localhost:8080
 ```
 
+### Frontend (Docker)
+
+```bash
+# Build
+docker build --build-arg VITE_API_URL=https://afodabohousing.onrender.com -t afodabo-web .
+
+# Run
+docker run -p 8080:8080 afodabo-web
+# http://localhost:8080
+```
+
+`VITE_API_URL` is baked in at build time — point it at your backend (e.g. the
+Render URL above, or `http://localhost:8000` for local dev). Override the
+container port with `docker run -p <host>:8080` or `-e PORT=<port>`.
+
+
 ## Migrations
 
 SQL migrations live in `backend/migrations/` and run in numeric order via Supabase SQL Editor.
