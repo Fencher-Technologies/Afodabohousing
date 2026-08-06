@@ -30,43 +30,37 @@ bun run start
 
 The mobile app connects to the Afodabo Housing backend via `EXPO_PUBLIC_API_URL` in `.env`.
 
-### Local Development (with ngrok)
-
-When running the backend locally on `localhost:8000`, the mobile app on a physical device cannot reach `localhost`. You need a public tunnel:
-
-1. Start the backend locally:
-   ```bash
-   cd backend
-   .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
-   ```
-
-2. Expose it with ngrok:
-   ```bash
-   ngrok http 8000
-   # Copy the HTTPS URL (e.g. https://spiffy-unsavory-kindred.ngrok-free.dev)
-   ```
-
-3. Update `MobileAppAfodabo_v2/.env`:
-   ```bash
-   EXPO_PUBLIC_API_URL=https://your-ngrok-url.ngrok-free.dev
-   ```
-
-4. Restart the mobile dev server:
-   ```bash
-   bun run start
-   ```
-
-**Important**: The ngrok URL must be registered as the Pesapal IPN and callback URL so payments work end-to-end. See "Pesapal Payment Flow" below.
-
-### Production (Render)
-
-For production, point to the deployed Render backend:
+The default — and production — backend is the permanent Render deployment:
 
 ```bash
 EXPO_PUBLIC_API_URL=https://afodabohousing.onrender.com
 ```
 
-No tunnel needed — Render provides a public HTTPS endpoint.
+This is already set in `.env` and shipped config. Render provides a public HTTPS
+endpoint, so no tunnel is needed.
+
+### Optional: Local development with ngrok (not part of the normal workflow)
+
+> Historical/local-dev reference only. Only relevant if you run the backend
+> locally on your machine instead of using the Render deployment. The shipped
+> `.env` always points at Render; do not use ngrok for production.
+
+To test against a local backend, the mobile app on a physical device cannot reach
+`localhost`, so a public tunnel is required:
+
+1. Start the backend locally and expose it:
+   ```bash
+   cd backend
+   .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+   ngrok http 8000
+   ```
+2. Temporarily point `.env` at the tunnel URL:
+   ```bash
+   EXPO_PUBLIC_API_URL=https://your-ngrok-url.ngrok-free.dev
+   ```
+3. Re-register the Pesapal IPN against the tunnel URL (see "Pesapal Payment Flow").
+
+When done, restore `.env` to the Render URL.
 
 ## Pesapal Payment Flow
 
@@ -74,7 +68,7 @@ The app uses Pesapal API 3.0 for property boosts and manager subscriptions.
 
 ### How It Works
 
-1. User selects a boost package and enters their phone number
+1. User selects a boost package and proceeds to payment
 2. App calls `POST /boosts/initiate` with `callback_url` = `EXPO_PUBLIC_API_URL`
 3. Backend creates a Pesapal order and returns a `redirect_url`
 4. App opens `redirect_url` in an in-app browser (expo-web-browser)
@@ -82,30 +76,33 @@ The app uses Pesapal API 3.0 for property boosts and manager subscriptions.
 6. Pesapal calls the backend IPN (`/payments/webhook/pesapal`) → backend updates payment status
 7. Pesapal redirects user to `callback_url/payment/status` → frontend/mobile polls `/payments/pesapal/status`
 
-### Local Development Wiring
+### Production Wiring
 
-| Component | Local Value | Render Value |
-|-----------|-------------|--------------|
-| Backend URL | ngrok HTTPS URL | https://afodabohousing.onrender.com |
-| `EXPO_PUBLIC_API_URL` | ngrok URL | Render URL |
-| Pesapal IPN URL | ngrok + `/payments/webhook/pesapal` | Render + `/payments/webhook/pesapal` |
-| Pesapal Callback URL | ngrok + `/payment/status` | Render + `/payment/status` |
+| Component | Production Value |
+|-----------|------------------|
+| Backend URL | https://afodabohousing.onrender.com |
+| `EXPO_PUBLIC_API_URL` | https://afodabohousing.onrender.com |
+| Pesapal IPN URL | https://afodabohousing.onrender.com/payments/webhook/pesapal |
+| Pesapal Callback URL | https://afodabohousing.onrender.com/payment/status |
 
-**Critical**: The ngrok URL must be registered with Pesapal as the IPN endpoint before testing locally.
+The IPN is registered once with Pesapal against the Render URL:
 
 ```bash
 # Run from backend directory
-python scripts/register_ipn.py https://YOUR_NGROK_URL/payments/webhook/pesapal
+python backend/scripts/register_ipn.py https://afodabohousing.onrender.com/payments/webhook/pesapal
 ```
 
-This stores the `ipn_id` in the local DB so boost/subscription calls reuse it.
+This stores the `ipn_id` in the `pesapal_config` table so boost/subscription calls reuse it.
+
+<!-- Local (ngrok) dev only, optional: the IPN URL must be re-registered every time ngrok restarts.
+python backend/scripts/register_ipn.py https://YOUR_NGROK_URL/payments/webhook/pesapal
+-->
 
 ### Payment Testing Checklist
 
-- [ ] Backend running locally on `:8000`
-- [ ] ngrok tunnel active, URL in `.env`
-- [ ] IPN registered for ngrok URL
-- [ ] `EXPO_PUBLIC_API_URL` in mobile `.env` matches ngrok URL
+- [ ] Backend reachable at https://afodabohousing.onrender.com/health
+- [ ] `EXPO_PUBLIC_API_URL` in mobile `.env` = `https://afodabohousing.onrender.com`
+- [ ] IPN registered against the Render URL (see command above)
 - [ ] Pesapal credentials set in backend `.env` (`PESAPAL_CONSUMER_KEY`, `PESAPAL_CONSUMER_SECRET`, `PESAPAL_ENVIRONMENT=live`)
 - [ ] Test subscription/boost initiated → Pesapal page opens in app
 
@@ -141,20 +138,20 @@ MobileAppAfodabo_v2/
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `EXPO_PUBLIC_API_URL` | Yes | Backend base URL (ngrok for local, Render for prod) |
+| `EXPO_PUBLIC_API_URL` | Yes | Backend base URL (Render deployment by default) |
 | `EXPO_PUBLIC_PESAPAL_CALLBACK_URL` | No | Override callback URL for Pesapal (defaults to `EXPO_PUBLIC_API_URL`) |
 
 ## Troubleshooting
 
 ### App can't reach backend
-- Verify ngrok tunnel is running: `curl https://YOUR_NGROK_URL/health/ready`
-- Check `.env` has the correct `EXPO_PUBLIC_API_URL`
+- Verify backend health: `curl https://afodabohousing.onrender.com/health`
+- Check `.env` has `EXPO_PUBLIC_API_URL=https://afodabohousing.onrender.com`
 - Restart Metro bundler: `bun run start --clear`
 
 ### Payment doesn't complete
-- Verify IPN registered: `python backend/scripts/register_ipn.py https://NGROK_URL/payments/webhook/pesapal`
+- Verify IPN registered: `python backend/scripts/register_ipn.py https://afodabohousing.onrender.com/payments/webhook/pesapal`
 - Check backend logs for Pesapal webhook hits
-- Ensure `PESAPAL_IPN_URL` in backend `.env` matches the registered ngrok URL
+- Ensure `PESAPAL_IPN_URL` in backend `.env` (if set) matches the registered Render URL
 
 ### Phone number format
 The app expects Ugandan numbers as `07XXXXXXXXX` or `2567XXXXXXXXX`. Backend normalizes to `+2567XXXXXXXXX` (exactly 9 digits after country code).

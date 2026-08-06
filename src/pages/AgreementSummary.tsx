@@ -23,7 +23,7 @@ export default function AgreementSummary() {
 
   async function fetchAgreement() {
     try {
-      const res = await fetch(`http://localhost:8000/agreements/${leaseId}/content`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/agreements/${leaseId}/content`);
       if (!res.ok) throw new Error('Failed to load agreement');
       const data = await res.json();
       setAgreement(data);

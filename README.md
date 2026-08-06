@@ -123,12 +123,16 @@ See `MobileAppAfodabo_v2/README.md` for Pesapal local vs Render wiring and `.env
 
 Backend uses Pesapal API 3.0 for property boosts and manager subscriptions.
 
-**Local development:** Use ngrok to expose `localhost:8000`, then register the tunnel URL as the Pesapal IPN/callback:
+**Permanent backend (Render):** Register the IPN once against the deployed URL:
 ```bash
-cd backend
-python scripts/register_ipn.py https://YOUR_NGROK_URL/payments/webhook/pesapal
+python backend/scripts/register_ipn.py https://afodabohousing.onrender.com/payments/webhook/pesapal
 ```
+Set `PESAPAL_IPN_URL=https://afodabohousing.onrender.com/payments/webhook/pesapal`
+in the backend `.env` (used as a fallback only; the stored `ipn_id` is what
+matters). The deployed URL is already public.
 
-**Production (Render):** Set `PESAPAL_IPN_URL=https://afodabohousing.onrender.com/payments/webhook/pesapal` in backend `.env`. The deployed URL is already public.
+<!-- Local development only (ngrok): register the tunnel URL every time ngrok restarts.
+python backend/scripts/register_ipn.py https://YOUR_NGROK_URL/payments/webhook/pesapal
+-->
 
 See `docs/pesapal-setup.md` for full setup guide.
