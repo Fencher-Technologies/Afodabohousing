@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import AgreementFlowCard from '@/components/AgreementFlowCard';
+import RentCoverageCard from '@/components/RentCoverageCard';
 import {
   Home, MapPin, Phone, MessageCircle, Wallet,
   ChevronRight, ArrowLeft, Building2, User, Mail,
@@ -386,6 +387,11 @@ export default function TenantMyTenancy() {
         {/* Agreement Flow Card */}
         {lease && (
           <AgreementFlowCard leaseId={lease.id} />
+        )}
+
+        {/* Rent Coverage Card */}
+        {lease && (
+          <RentCoverageCard leaseId={lease.id} />
         )}
 
         {/* Manager Contact */}
