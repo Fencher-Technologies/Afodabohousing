@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,8 +13,9 @@ import {
   RefreshCcw, Mail, Shield, Plus, DollarSign, Copy, CheckCircle2,
   TrendingUp, AlertTriangle, Home, UserCheck, Calendar, Activity,
   ChevronRight, ArrowUp, ArrowDown, BarChart3, Search, Crown,
-  MoreHorizontal, X, Download, ArrowUpDown, ChevronLeft, ChevronsLeft, ChevronsRight,
+  MoreHorizontal, X, XCircle, Download, ArrowUpDown, ChevronLeft, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
+import { format } from 'date-fns';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
@@ -102,6 +103,18 @@ function formatUGX(amount: number): string {
   return `UGX ${(amount || 0).toLocaleString()}`;
 }
 
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return format(new Date(iso), 'MMM d, yyyy');
+}
+
 function MiniSparkline({ data, color = '#10b981' }: { data: number[]; color?: string }) {
   const w = 60; const h = 28;
   if (!data.length) return null;
@@ -158,13 +171,24 @@ const CenterLabel = ({ total }: { total: number }) => (
 export default function SuperAdminDashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>(() => {
+    const p = location.pathname;
+    if (p.endsWith('/managers')) return 'managers';
+    if (p.endsWith('/approvals')) return 'approvals';
+    if (p.endsWith('/settings')) return 'settings';
+    return 'overview';
+  });
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [boostStats, setBoostStats] = useState<{ total_revenue: number; active_boosts: number } | null>(null);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [pendingManagers, setPendingManagers] = useState<Manager[]>([]);
+  const [chartData, setChartData] = useState<{
+    payments: any[]; properties: any[]; leases: any[]; profiles: any[];
+    invitations: any[]; tenants: any[]; audits: any[]; subs: any[]; plans: any[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -300,97 +324,212 @@ export default function SuperAdminDashboard() {
     setLoading(false);
   };
 
+  // Real Supabase queries backing every chart (super_admin RLS read access)
+  const fetchCharts = async () => {
+    try {
+      const [p, props, leases, profiles, inv, tenants, audits, subs, plans] = await Promise.all([
+        supabase.from('payments').select('amount, status, created_at, lease_id, tenant_id').in('status', ['confirmed', 'completed'] as any),
+        supabase.from('properties').select('id, title'),
+        supabase.from('leases' as any).select('id, property_id, status, created_at'),
+        supabase.from('profiles').select('role, status, created_at, full_name, user_id'),
+        supabase.from('invitations' as any).select('role, status, created_at'),
+        supabase.from('tenants' as any).select('id, first_name, last_name, created_at'),
+        supabase.from('agreement_audit_logs' as any).select('event_type, actor_user_id, created_at').order('created_at', { ascending: false }).limit(50),
+        supabase.from('manager_subscriptions' as any).select('plan_id, status, created_at'),
+        supabase.from('subscription_plans' as any).select('id, price_ugx'),
+      ]);
+      setChartData({
+        payments: p.data ?? [],
+        properties: props.data ?? [],
+        leases: leases.data ?? [],
+        profiles: profiles.data ?? [],
+        invitations: inv.data ?? [],
+        tenants: tenants.data ?? [],
+        audits: audits.data ?? [],
+        subs: subs.data ?? [],
+        plans: plans.data ?? [],
+      });
+    } catch (err: any) {
+      console.error('Failed to fetch chart data:', err);
+    }
+  };
+
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
     fetchData();
+    fetchCharts();
   }, [user]);
 
-  // ─── Derived / Mock Data ────────────────────────────────────
+  useEffect(() => {
+    const p = location.pathname;
+    if (p.endsWith('/managers')) setTab('managers');
+    else if (p.endsWith('/approvals')) setTab('approvals');
+    else if (p.endsWith('/settings')) setTab('settings');
+    else setTab('overview');
+  }, [location.pathname]);
 
-  const now = new Date();
-  const curMonth = now.getMonth();
+  // ─── Derived chart data (real Supabase queries) ──────────────
 
-  // TODO: Replace with real Supabase queries when backend endpoints exist
-  // Stat card trend percentages (mock)
-  const propertyTrend = 12;
-  const managerTrend = -3;
-  const tenantTrend = 8;
-  const rentTrend = 15;
+  const chartDerived = useMemo(() => {
+    const now = new Date();
+    const payments = chartData?.payments ?? [];
+    const properties = chartData?.properties ?? [];
+    const leases = chartData?.leases ?? [];
+    const profiles = chartData?.profiles ?? [];
+    const invitations = chartData?.invitations ?? [];
+    const tenants = chartData?.tenants ?? [];
+    const audits = chartData?.audits ?? [];
+    const subs = chartData?.subs ?? [];
+    const plans = chartData?.plans ?? [];
+    const planPrice = new Map(plans.map((pl: any) => [pl.id, Number(pl.price_ugx) || 0]));
 
-  // Sparkline data for stat cards (mock — last 8 periods)
-  // TODO: query from payments/tenancies tables
-  const propertySparkline = [12, 14, 13, 15, 16, 15, 17, 18];
-  const managerSparkline = [8, 9, 9, 10, 10, 9, 10, 10];
-  const tenantSparkline = [24, 26, 28, 30, 32, 35, 38, 42];
-  const rentSparkline = [18000000, 19500000, 21000000, 20500000, 22000000, 21500000, 23000000, 25000000];
-  const subSparkline = [3, 3, 4, 4, 5, 5, 6, 8];
-  const subRevenueSparkline = [150000, 150000, 200000, 200000, 250000, 250000, 300000, 400000];
+    const monthKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
+    const lastMonths = (n: number) => {
+      const out: string[] = [];
+      for (let i = n - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        out.push(monthKey(d));
+      }
+      return out;
+    };
 
-  // Rent Collection Trend — multi-line per property/manager
-  // TODO: query Supabase for monthly collection grouped by property
-  const rentTrendLines = [
-    { name: 'Ntinda Apts', data: MONTHS.slice(0, curMonth + 1).map((_, i) => 3000000 + Math.random() * 2000000) },
-    { name: 'Bukoto Heights', data: MONTHS.slice(0, curMonth + 1).map((_, i) => 2500000 + Math.random() * 1500000) },
-    { name: 'Muyenga Villas', data: MONTHS.slice(0, curMonth + 1).map((_, i) => 2000000 + Math.random() * 2500000) },
-  ];
-  const collectionTrendData = MONTHS.slice(0, curMonth + 1).map((month, i) => ({
-    month,
-    ...Object.fromEntries(rentTrendLines.map(l => [l.name, l.data[i]])),
-  }));
-  const rangeLabel = `${MONTHS[Math.max(0, curMonth - 5)]} – ${MONTHS[curMonth]} ${now.getFullYear()}`;
+    const series = (items: any[], getDate: (x: any) => string) => {
+      const keys = lastMonths(8);
+      return keys.map(k => items.filter(x => monthKey(new Date(getDate(x))) === k).length);
+    };
+    const sumSeries = (items: any[], getDate: (x: any) => string, getVal: (x: any) => number) => {
+      const keys = lastMonths(8);
+      return keys.map(k => items.filter(x => monthKey(new Date(getDate(x))) === k).reduce((s, x) => s + (getVal(x) || 0), 0));
+    };
 
-  // Revenue Breakdown — donut
-  // TODO: query by property or manager
-  const revenueShares: RevenueShare[] = [
-    { name: 'Ntinda Apts', value: 45000000, color: CHART_COLORS[0] },
-    { name: 'Bukoto Heights', value: 32000000, color: CHART_COLORS[1] },
-    { name: 'Muyenga Villas', value: 28000000, color: CHART_COLORS[2] },
-    { name: 'Kololo Residency', value: 15000000, color: CHART_COLORS[3] },
-    { name: 'Other', value: 8000000, color: CHART_COLORS[4] },
-  ];
-  const totalRevenue = revenueShares.reduce((s, r) => s + r.value, 0);
+    const propertySparkline = series(properties, p => p.created_at);
+    const managerSparkline = series(profiles.filter(p => p.role === 'house_manager'), p => p.created_at);
+    const tenantSparkline = series(profiles.filter(p => p.role === 'tenant'), p => p.created_at);
+    const rentSparkline = sumSeries(payments, p => p.created_at, p => p.amount);
+    const subSparkline = series(subs, s => s.created_at);
+    const subRevenueSparkline = sumSeries(subs, s => s.created_at, s => planPrice.get(s.plan_id) || 0);
 
-  // Bar chart — New Tenant Registrations
-  // TODO: query from tenants table grouped by created_at
-  const genBarData = (len: number) => Array.from({ length: len }, (_, i) => ({
-    label: len <= 7 ? `Day ${i + 1}` : MONTHS[i] || `M${i + 1}`,
-    value: Math.floor(Math.random() * 20 + 5),
-  }));
-  const registrationsData = registrationsFilter === 'today' ? genBarData(7)
-    : registrationsFilter === 'week' ? genBarData(7)
-    : genBarData(curMonth + 1);
+    const trend = (arr: number[]) => {
+      if (arr.length < 2) return 0;
+      const prev = arr[arr.length - 2];
+      const last = arr[arr.length - 1];
+      if (!prev) return last > 0 ? 100 : 0;
+      return Math.round(((last - prev) / prev) * 100);
+    };
+    const propertyTrend = trend(propertySparkline);
+    const managerTrend = trend(managerSparkline);
+    const tenantTrend = trend(tenantSparkline);
+    const rentTrend = trend(rentSparkline);
 
-  // Bar chart — Active Leases
-  // TODO: query from tenancies/leases table
-  const leasesData = leasesFilter === 'today' ? genBarData(7)
-    : leasesFilter === 'week' ? genBarData(7)
-    : genBarData(curMonth + 1);
+    // Rent Collection Trend — last 6 months, per property
+    const propById = new Map(properties.map(p => [p.id, p.title || 'Property']));
+    const leaseToProp = new Map(leases.map(l => [l.id, l.property_id]));
+    const months6 = lastMonths(6);
+    const monthlyByProp: Record<string, number[]> = {};
+    for (const p of payments) {
+      const name = propById.get(leaseToProp.get(p.lease_id)) || 'Other';
+      if (!monthlyByProp[name]) monthlyByProp[name] = months6.map(() => 0);
+      const mi = months6.indexOf(monthKey(new Date(p.created_at)));
+      if (mi >= 0) monthlyByProp[name][mi] += (p.amount || 0);
+    }
+    const propTotals = Object.entries(monthlyByProp)
+      .map(([name, data]) => ({ name, data, total: data.reduce((a, b) => a + b, 0) }))
+      .sort((a, b) => b.total - a.total);
+    const rentTrendLines = propTotals.slice(0, 4).map(t => ({ name: t.name, data: t.data }));
+    if (propTotals.length > 4) {
+      const other = months6.map((_, i) => propTotals.slice(4).reduce((s, o) => s + (o.data[i] || 0), 0));
+      rentTrendLines.push({ name: 'Other', data: other });
+    }
+    const collectionTrendData = months6.map((k, i) => {
+      const row: any = { month: MONTHS[new Date(k).getMonth()] };
+      rentTrendLines.forEach(l => { row[l.name] = l.data[i]; });
+      return row;
+    });
+    const rangeLabel = `${MONTHS[new Date(months6[0]).getMonth()]} – ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 
-  // Pending Manager Invites
-  // TODO: query from invitations table
-  const pendingInvitesData = [{ label: 'Pending', value: 3 }, { label: 'Accepted', value: 7 }, { label: 'Expired', value: 1 }];
+    // Revenue Breakdown — all-time per property
+    const revByProp: Record<string, number> = {};
+    for (const p of payments) {
+      const name = propById.get(leaseToProp.get(p.lease_id)) || 'Other';
+      revByProp[name] = (revByProp[name] || 0) + (p.amount || 0);
+    }
+    const revSorted = Object.entries(revByProp).sort((a, b) => b[1] - a[1]);
+    const revenueShares: RevenueShare[] = revSorted.slice(0, 5).map(([name, value], i) => ({ name, value, color: CHART_COLORS[i] }));
+    const restVal = revSorted.slice(5).reduce((s, [, v]) => s + v, 0);
+    if (restVal > 0) revenueShares.push({ name: 'Other', value: restVal, color: CHART_COLORS[5] });
+    if (!revenueShares.length) revenueShares.push({ name: 'No revenue yet', value: 0, color: CHART_COLORS[0] });
+    const totalRevenue = revenueShares.reduce((s, r) => s + r.value, 0);
 
-  // Recent Activity
-  // TODO: replace with real data from activity_log or events table
-  const recentActivity: ActivityRow[] = [
-    { id: '1', name: 'Sarah Nakato', action: 'Lease Signed — Ntinda Apts', status: 'completed', timestamp: '2 hours ago' },
-    { id: '2', name: 'John Mukasa', action: 'Payment Made — UGX 450,000', status: 'completed', timestamp: '4 hours ago' },
-    { id: '3', name: 'Grace Akello', action: 'Maintenance Request — Plumbing', status: 'pending', timestamp: '1 day ago' },
-    { id: '4', name: 'Peter Ssali', action: 'Rent Overdue — Bukoto Heights', status: 'overdue', timestamp: '2 days ago' },
-    { id: '5', name: 'Amina Wasso', action: 'Lease Renewed — Muyenga Villas', status: 'completed', timestamp: '3 days ago' },
-    { id: '6', name: 'David Okello', action: 'Payment Pending — UGX 320,000', status: 'pending', timestamp: '4 days ago' },
-  ];
+    // Filterable bar charts (real buckets)
+    const bucketCounts = (items: { t: string }[], filter: BarFilter) => {
+      if (filter === 'month') {
+        const keys = lastMonths(12);
+        return keys.map(k => ({ label: MONTHS[new Date(k).getMonth()], value: items.filter(x => monthKey(new Date(x.t)) === k).length }));
+      }
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+        const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i + 1);
+        days.push({ label: format(d, 'EEE'), value: items.filter(x => { const t = new Date(x.t); return t >= d && t < next; }).length });
+      }
+      return days;
+    };
 
-  // Audit Log
-  // TODO: replace with real data from audit_logs table
-  const auditLog: AuditEntry[] = [
-    { id: '1', icon: <Shield className="h-3.5 w-3.5" />, description: 'Role changed: John Mukasa → house_manager', time: '1 hour ago' },
-    { id: '2', icon: <Mail className="h-3.5 w-3.5" />, description: 'Invite sent to grace@example.com', time: '3 hours ago' },
-    { id: '3', icon: <Building2 className="h-3.5 w-3.5" />, description: 'Property added: Kololo Residency by Sarah', time: '1 day ago' },
-    { id: '4', icon: <Users className="h-3.5 w-3.5" />, description: 'Tenant registered: Peter Ssali', time: '1 day ago' },
-    { id: '5', icon: <AlertTriangle className="h-3.5 w-3.5" />, description: 'Account suspended: mike@example.com', time: '2 days ago' },
-    { id: '6', icon: <CheckCircle2 className="h-3.5 w-3.5" />, description: 'Manager approved: Grace Akello', time: '3 days ago' },
-  ];
+    const registrationsData = bucketCounts(profiles.filter(p => p.role === 'tenant').map(p => ({ t: p.created_at })), registrationsFilter);
+    const leasesData = bucketCounts(leases.filter(l => l.status === 'active').map(l => ({ t: l.created_at })), leasesFilter);
+
+    // Pending Manager Invites
+    const inv = { Pending: 0, Accepted: 0, Expired: 0 };
+    for (const i of invitations) {
+      if (i.status === 'pending') inv.Pending++;
+      else if (i.status === 'accepted') inv.Accepted++;
+      else if (i.status === 'expired') inv.Expired++;
+    }
+    const pendingInvitesData = [
+      { label: 'Pending', value: inv.Pending },
+      { label: 'Accepted', value: inv.Accepted },
+      { label: 'Expired', value: inv.Expired },
+    ];
+
+    // Recent Activity — real events: payments, tenant registrations, lease signings
+    const tenantById = new Map(tenants.map(t => [t.id, `${t.first_name} ${t.last_name}`]));
+    const activity: ActivityRow[] = [];
+    for (const p of payments) {
+      activity.push({
+        id: p.id, name: tenantById.get(p.tenant_id) || 'Tenant',
+        action: `Payment made — UGX ${(p.amount || 0).toLocaleString()}`,
+        status: 'completed', timestamp: p.created_at,
+      });
+    }
+    for (const p of profiles) {
+      if (p.role === 'tenant') {
+        activity.push({ id: p.user_id, name: p.full_name || 'Tenant', action: 'Tenant registered', status: 'completed', timestamp: p.created_at });
+      }
+    }
+    for (const l of leases) {
+      activity.push({ id: l.id, name: propById.get(l.property_id) || 'Property', action: 'Lease signed', status: 'completed', timestamp: l.created_at });
+    }
+    activity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const recentActivity = activity.slice(0, 6).map(a => ({ ...a, timestamp: timeAgo(a.timestamp) }));
+
+    // Audit Log — real agreement_audit_logs
+    const profileByName = new Map(profiles.map(p => [p.user_id, p.full_name || '']));
+    const EVENT_LABEL: Record<string, string> = {
+      agreement_uploaded: 'Agreement document uploaded',
+      tenant_consented: 'Tenant consented to agreement',
+      manager_consented: 'Manager consented to agreement',
+    };
+    const auditLog: AuditEntry[] = audits.slice(0, 6).map(a => ({
+      id: a.id,
+      icon: <Shield className="h-3.5 w-3.5" />,
+      description: `${EVENT_LABEL[a.event_type] || a.event_type} by ${profileByName.get(a.actor_user_id) || 'a user'}`,
+      time: timeAgo(a.created_at),
+    }));
+
+    return { propertyTrend, managerTrend, tenantTrend, rentTrend, propertySparkline, managerSparkline, tenantSparkline, rentSparkline, subSparkline, subRevenueSparkline, rentTrendLines, collectionTrendData, rangeLabel, revenueShares, totalRevenue, registrationsData, leasesData, pendingInvitesData, recentActivity, auditLog };
+  }, [chartData, registrationsFilter, leasesFilter]);
+
+  const { propertyTrend, managerTrend, tenantTrend, rentTrend, propertySparkline, managerSparkline, tenantSparkline, rentSparkline, subSparkline, subRevenueSparkline, rentTrendLines, collectionTrendData, rangeLabel, revenueShares, totalRevenue, registrationsData, leasesData, pendingInvitesData, recentActivity, auditLog } = chartDerived;
 
   // ── Manager dialogs ──
 

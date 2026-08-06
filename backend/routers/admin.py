@@ -472,7 +472,7 @@ def get_dashboard_stats(
     collection_rate = 0
 
     try:
-        paid = supabase.table("payments").select("amount", count="exact").eq("status", "completed").execute()
+        paid = supabase.table("payments").select("amount", count="exact").in_("status", ["confirmed", "completed"]).execute()
         if paid.data:
             total_collected = sum(p.get("amount", 0) or 0 for p in paid.data)
             recent_count = paid.count if hasattr(paid, "count") else len(paid.data)
