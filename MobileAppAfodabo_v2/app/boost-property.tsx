@@ -2,31 +2,46 @@ import { useState, useEffect, useRef } from "react";
 import { Pressable, StyleSheet, Text, View, Alert, Linking, BackHandler } from "react-native";
 import { WebView } from "react-native-webview";
 import { router, useLocalSearchParams } from "expo-router";
-import { Sparkles, Phone, ArrowLeft, X, Loader2 } from "lucide-react-native";
+import { Sparkles, ArrowLeft, X, Loader2 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
 import { Button } from "@/src/components/Button";
 import { Badge } from "@/src/components/Badge";
-import { InputField } from "@/src/components/InputField";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { boostsService } from "@/src/services/boosts";
 import type { BoostPackage } from "@/src/types";
+import { api } from "@/src/lib/api-client";
 import { API_BASE_URL } from "@/constants/config";
+
+const POLL_INTERVAL_MS = 5000;
+const POLL_TIMEOUT_MS = 120000;
+
+type PaymentStatus = "idle" | "waiting_payment" | "success" | "failed" | "timeout";
 
 export default function BoostPropertyScreen() {
   const { propertyId } = useLocalSearchParams<{ propertyId: string }>();
   const [packages, setPackages] = useState<BoostPackage[]>([]);
   const [selectedDays, setSelectedDays] = useState<number | null>(null);
-  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [paymentComplete, setPaymentComplete] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("idle");
+  const boostIdRef = useRef<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const webViewRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -42,14 +57,47 @@ export default function BoostPropertyScreen() {
     })();
   }, []);
 
+  const stopPolling = () => {
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+    pollTimerRef.current = null;
+    timeoutTimerRef.current = null;
+  };
+
+  const startPolling = (boostId: string) => {
+    stopPolling();
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const res = await api.get<{ status: string; payment_status?: string }>(
+          `/payments/pesapal/status?reference=${encodeURIComponent(boostId)}`
+        );
+        if (res.status === "active" || res.status === "completed" || res.payment_status === "completed") {
+          stopPolling();
+          setPaymentStatus("success");
+        } else if (res.status === "failed" || res.status === "cancelled" || res.status === "expired") {
+          stopPolling();
+          setPaymentStatus("failed");
+        }
+      } catch {
+        // poll silently; timeout handles the dead end
+      }
+    }, POLL_INTERVAL_MS);
+
+    timeoutTimerRef.current = setTimeout(() => {
+      stopPolling();
+      setPaymentStatus("timeout");
+    }, POLL_TIMEOUT_MS);
+  };
+
   const handlePurchase = async () => {
-    if (!selectedDays || !phone.trim()) {
-      Alert.alert("Missing info", "Select a package and enter your phone number.");
+    if (!selectedDays) {
+      Alert.alert("Missing info", "Select a package to continue.");
       return;
     }
     setSubmitting(true);
     try {
-      const result = await boostsService.initiateBoost(propertyId, selectedDays, phone.trim());
+      const result = await boostsService.initiateBoost(propertyId, selectedDays, API_BASE_URL);
+      boostIdRef.current = result.reference;
       if (result.redirect_url) {
         setPaymentUrl(result.redirect_url);
         setPaymentComplete(false);
@@ -62,8 +110,10 @@ export default function BoostPropertyScreen() {
   };
 
   const handleClosePayment = () => {
+    stopPolling();
     setPaymentUrl(null);
     setPaymentComplete(false);
+    setPaymentStatus("idle");
   };
 
   const handleNavigationStateChange = (navState: any) => {
@@ -71,9 +121,11 @@ export default function BoostPropertyScreen() {
     // Detect when Pesapal redirects back to our callback URL
     if (url.startsWith(API_BASE_URL) && url.includes("/payment/status")) {
       webViewRef.current?.stopLoading();
+      setPaymentUrl(null);
       setPaymentComplete(true);
-      // Poll status after a short delay
-      setTimeout(() => router.back(), 2000);
+      setPaymentStatus("waiting_payment");
+      if (boostIdRef.current) startPolling(boostIdRef.current);
+      else setPaymentStatus("timeout");
     }
   };
 
@@ -125,19 +177,16 @@ export default function BoostPropertyScreen() {
   }
 
   // Show success state
-  if (paymentComplete) {
+  if (paymentStatus === "success") {
     return (
       <Screen scroll style={styles.successScreen}>
         <View style={styles.successContainer}>
           <View style={styles.successIcon}>
             <Sparkles size={48} color={Colors.gold} />
           </View>
-          <Text style={styles.successTitle}>Payment Submitted</Text>
+          <Text style={styles.successTitle}>Payment Successful</Text>
           <Text style={styles.successText}>
-            Your payment is being processed. You will receive a confirmation shortly.
-          </Text>
-          <Text style={styles.successText}>
-            Once confirmed, your property will automatically be boosted.
+            Your payment was confirmed. Your property is now boosted.
           </Text>
           <View style={{ marginTop: Spacing.xl, width: "100%" }}>
             <Button
@@ -147,6 +196,77 @@ export default function BoostPropertyScreen() {
               fullWidth
             />
           </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  // Show failed state
+  if (paymentStatus === "failed") {
+    return (
+      <Screen scroll style={styles.successScreen}>
+        <View style={styles.successContainer}>
+          <View style={[styles.successIcon, styles.failedIcon]}>
+            <X size={48} color={Colors.danger} />
+          </View>
+          <Text style={styles.successTitle}>Payment Failed</Text>
+          <Text style={styles.successText}>
+            Your payment could not be completed. Please try again.
+          </Text>
+          <View style={{ marginTop: Spacing.xl, width: "100%" }}>
+            <Button
+              label="Try Again"
+              onPress={() => setPaymentStatus("idle")}
+              fullWidth
+              tone="primary"
+            />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  // Show timeout state
+  if (paymentStatus === "timeout") {
+    return (
+      <Screen scroll style={styles.successScreen}>
+        <View style={styles.successContainer}>
+          <View style={[styles.successIcon, styles.failedIcon]}>
+            <X size={48} color={Colors.danger} />
+          </View>
+          <Text style={styles.successTitle}>Payment Timed Out</Text>
+          <Text style={styles.successText}>
+            We did not receive a confirmation yet. If you completed the payment, it may take a moment to reflect.
+          </Text>
+          <View style={{ marginTop: Spacing.xl, width: "100%" }}>
+            <Button
+              label="Check Again"
+              onPress={() => {
+                setPaymentStatus("waiting_payment");
+                if (boostIdRef.current) startPolling(boostIdRef.current);
+              }}
+              fullWidth
+              tone="primary"
+            />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  // Show waiting/polling state
+  if (paymentStatus === "waiting_payment") {
+    return (
+      <Screen scroll style={styles.successScreen}>
+        <View style={styles.successContainer}>
+          <View style={styles.successIcon}>
+            <Loader2 size={48} color={Colors.gold} />
+          </View>
+          <Text style={styles.successTitle}>Payment Initiated</Text>
+          <Text style={styles.successText}>
+            Your payment is being confirmed with Pesapal automatically.
+          </Text>
+          <Text style={styles.pollingText}>Waiting for payment confirmation…</Text>
         </View>
       </Screen>
     );
@@ -208,21 +328,6 @@ export default function BoostPropertyScreen() {
         </View>
       </View>
 
-      {/* Phone Input */}
-      <View style={styles.phoneSection}>
-        <Text style={styles.sectionTitle}>Mobile Money Number</Text>
-        <InputField
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="e.g. 256788100145"
-          keyboardType="phone-pad"
-          leftIcon={<Phone size={18} color={Colors.textMuted} />}
-        />
-        <Text style={styles.phoneHint}>
-          Enter the phone number where you will receive the payment prompt.
-        </Text>
-      </View>
-
       {/* Total */}
       {selectedPkg && (
         <Card padding="md" style={styles.totalCard}>
@@ -236,16 +341,21 @@ export default function BoostPropertyScreen() {
       )}
 
       {/* Submit */}
-      <Button
-        label="Pay with Mobile Money"
-        onPress={handlePurchase}
-        fullWidth
-        size="lg"
-        tone="primary"
-        loading={submitting}
-        leftIcon={<Sparkles size={20} color={Colors.textOnPrimary} />}
-        disabled={!selectedDays || !phone.trim()}
-      />
+      <View style={styles.paySection}>
+        <Button
+          label="Proceed to Payment"
+          onPress={handlePurchase}
+          fullWidth
+          size="lg"
+          tone="primary"
+          loading={submitting}
+          leftIcon={<Sparkles size={20} color={Colors.textOnPrimary} />}
+          disabled={!selectedDays}
+        />
+        <Text style={styles.payHelper}>
+          You'll be redirected to our secure payment partner where you can choose your preferred payment method.
+        </Text>
+      </View>
 
       <View style={{ height: 100 }} />
     </Screen>
@@ -318,14 +428,17 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
-  phoneSection: {
+  paySection: {
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
-    gap: Spacing.sm,
   },
-  phoneHint: {
+  payHelper: {
+    marginTop: Spacing.md,
     fontSize: FontSize.caption,
     color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: Spacing.md,
   },
   totalCard: {
     marginHorizontal: Spacing.md,
@@ -404,6 +517,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
+  },
+  failedIcon: {
+    backgroundColor: Colors.dangerSoft,
+  },
+  pollingText: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    fontStyle: "italic",
   },
   successTitle: {
     fontSize: FontSize.title,

@@ -134,7 +134,7 @@ MobileAppAfodabo_v2/
 ## Key Files
 
 - `constants/config.ts` — Reads `EXPO_PUBLIC_API_URL`, throws if missing
-- `src/services/boosts.ts` — `initiateBoost(propertyId, days, phone, callbackUrl)` — sends `callback_url` so Pesapal redirect returns to a reachable URL
+- `src/services/boosts.ts` — `initiateBoost(propertyId, days, callbackUrl)` — sends `callback_url` so Pesapal redirect returns to a reachable URL
 - `app/boost-property.tsx` — Opens Pesapal `redirect_url` via `expo-web-browser`
 
 ## Environment Variables

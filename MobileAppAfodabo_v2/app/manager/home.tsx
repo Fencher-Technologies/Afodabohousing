@@ -58,13 +58,19 @@ export default function ManagerDashboardScreen() {
   const firstName = (user?.full_name || "").toString().trim().split(" ")[0];
   const greeting = greetingForHour(new Date().getHours());
 
-  // Tenants who actually owe money (outstanding balance) — the real "needs
-  // attention" signal, independent of lease end dates.
+  // Tenants who actually owe money (outstanding arrears) — the real "needs
+  // attention" signal, independent of lease end dates. Terminated tenancies
+  // no longer need action, so they are excluded (matches /leases/overdue).
   const needsAttention = useMemo(
     () =>
       tenancies
         .map((t) => fromBackendLease(t as never))
-        .filter((t) => (t.balance_due ?? 0) > 0 || t.is_overdue),
+        .filter(
+          (t) =>
+            t.effective_status !== "terminated" &&
+            t.status !== "terminated" &&
+            ((t.balance_due ?? 0) > 0 || t.is_overdue)
+        ),
     [tenancies]
   );
   const needsAttentionCount = needsAttention.length;
@@ -123,6 +129,7 @@ export default function ManagerDashboardScreen() {
               unit_label: t.unit_label,
               balance_due: t.balance_due,
               status: t.status,
+              effective_status: t.effective_status,
               health: t.health,
             }))
         : [],
@@ -222,8 +229,8 @@ export default function ManagerDashboardScreen() {
                     <Text style={styles.searchBalance}>{formatUGX(item.balance_due)}</Text>
                   )}
                   <Badge
-                    label={item.health === "good" ? "Current" : item.health === "warn" ? "Expiring" : "Expired"}
-                    tone={item.health === "good" ? "success" : item.health === "warn" ? "warning" : "danger"}
+                    label={item.status === "terminated" ? "Terminated" : item.health === "good" ? "Current" : item.health === "warn" ? "Expiring" : "Expired"}
+                    tone={item.status === "terminated" ? "danger" : item.health === "good" ? "success" : item.health === "warn" ? "warning" : "danger"}
                     size="sm"
                   />
                 </View>
@@ -291,7 +298,7 @@ export default function ManagerDashboardScreen() {
             <View style={styles.emptyIconWrap}>
               <Sparkles size={22} color={Colors.success} />
             </View>
-            <Text style={styles.emptyInlineTitle}>You're all caught up</Text>
+            <Text style={styles.emptyInlineTitle}>You&apos;re all caught up</Text>
             <Text style={styles.emptyInlineText}>No tenants currently have outstanding balances.</Text>
           </Card>
         ) : (

@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View, Pressable } from "react-native";
+import { Alert, StyleSheet, Text, View, Pressable, ActivityIndicator } from "react-native";
+import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { FileText, History, CheckCircle, Clock } from "lucide-react-native";
+import { Download, FileText, History, CheckCircle, Clock } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
@@ -10,6 +11,7 @@ import { Badge } from "@/src/components/Badge";
 import { Button } from "@/src/components/Button";
 import { LoadingState } from "@/src/components/LoadingState";
 import { EmptyState } from "@/src/components/EmptyState";
+import { agreementsService } from "@/src/services/agreements";
 import { useAgreementVersionHistory } from "@/src/hooks/useAgreements";
 import type { AgreementStatus, AgreementVersionMinimal } from "@/src/types";
 
@@ -25,10 +27,12 @@ const STATUS_CONFIG: Record<AgreementStatus, { label: string; tone: "success" | 
 function VersionCard({
   version,
   isActive,
+  leaseId,
   onPress,
 }: {
   version: AgreementVersionMinimal;
   isActive: boolean;
+  leaseId: string;
   onPress: () => void;
 }) {
   const statusCfg = STATUS_CONFIG[version.status] || STATUS_CONFIG.draft;
@@ -36,6 +40,17 @@ function VersionCard({
   const cardStyle = isActive
     ? { ...styles.versionCard, ...styles.activeCard }
     : styles.versionCard;
+
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    const ok = await agreementsService.downloadVersionPdf(leaseId, version.id);
+    setIsDownloading(false);
+    if (!ok) Alert.alert("Download failed", "Could not save this version.");
+    else Alert.alert("Saved", "Agreement version has been saved to your device.");
+  };
 
   return (
     <Pressable onPress={onPress}>
@@ -80,9 +95,23 @@ function VersionCard({
           </View>
         </View>
 
-        <Text style={styles.dateText}>
-          Created: {new Date(version.created_at).toLocaleDateString()}
-        </Text>
+        <View style={styles.cardFooter}>
+          <Text style={styles.dateText}>
+            Created: {new Date(version.created_at).toLocaleDateString()}
+          </Text>
+          <Pressable
+            onPress={handleDownload}
+            disabled={isDownloading}
+            hitSlop={8}
+            style={[styles.downloadBtn, isDownloading && styles.downloadBtnDisabled]}
+          >
+            {isDownloading ? (
+              <ActivityIndicator size={14} color={Colors.primary} />
+            ) : (
+              <Download size={16} color={Colors.primary} />
+            )}
+          </Pressable>
+        </View>
       </Card>
     </Pressable>
   );
@@ -150,6 +179,7 @@ export default function AgreementHistoryScreen() {
             key={version.id}
             version={version}
             isActive={version.version === history.active_version}
+            leaseId={leaseId}
             onPress={() =>
               router.push(`/agreement-view?leaseId=${leaseId}`)
             }
@@ -216,5 +246,22 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: FontSize.micro,
     color: Colors.textMuted,
+    flex: 1,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  downloadBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  downloadBtnDisabled: {
+    opacity: 0.5,
   },
 });

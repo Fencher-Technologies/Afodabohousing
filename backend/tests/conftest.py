@@ -282,6 +282,7 @@ class MockTableBuilder:
                     "security_deposit": 1500000,
                     "status": "active",
                     "terms": None,
+                    "rent_effective_date": "2026-01-01",
                     "created_at": "2026-01-01T00:00:00Z",
                     "updated_at": "2026-01-01T00:00:00Z",
                 }
@@ -364,6 +365,17 @@ class MockSupabaseClient:
             user=MagicMock(model_dump=lambda: {"user_metadata": {"full_name": "Test User"}})
         )
         return mock
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _disable_rate_limits():
+    from config import get_settings
+
+    s = get_settings()
+    previous = s.rate_limit_enabled
+    s.rate_limit_enabled = False
+    yield
+    s.rate_limit_enabled = previous
 
 
 @pytest.fixture

@@ -65,3 +65,5 @@ class PaymentResponse(BaseModel):
     proof_url: str | None = None
     created_at: datetime
     updated_at: datetime
+    coverage_days: int | None = None
+    frozen_monthly_rent: int | None = None

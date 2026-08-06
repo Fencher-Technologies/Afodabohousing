@@ -59,7 +59,7 @@ export default function PaymentDetailScreen() {
   };
 
   const handleSave = async () => {
-    const numericAmount = parseInt(amount.replace(/[^0-9]/g, ""), 10) || 0;
+    const numericAmount = parseFloat(amount.replace(/[^0-9.]/g, "")) || 0;
     if (numericAmount <= 0) {
       setError("Amount must be greater than 0");
       return;
@@ -161,7 +161,7 @@ export default function PaymentDetailScreen() {
               value={amount}
               onChangeText={setAmount}
               placeholder="0"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               error={error ?? undefined}
             />
             <InputField
@@ -205,7 +205,12 @@ export default function PaymentDetailScreen() {
               <DetailRow label="Method" value={formatMethod(payment.method)} />
               <DetailRow label="Due Date" value={formatDate(payment.due_date)} />
               <DetailRow label="Paid Date" value={formatDate(payment.paid_date)} />
-              <DetailRow label="Balance After" value={formatUGX(payment.balance_after)} />
+              {typeof payment.coverage_days === "number" && (
+                <DetailRow label="Days Covered" value={`${payment.coverage_days} days`} />
+              )}
+              {payment.frozen_monthly_rent ? (
+                <DetailRow label="Rent Rate Used" value={formatUGX(payment.frozen_monthly_rent)} />
+              ) : null}
               <DetailRow label="Recorded" value={formatDate(payment.created_at)} />
               {payment.notes ? <DetailRow label="Notes" value={payment.notes} /> : null}
             </Card>

@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View, Alert } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { WebView } from "react-native-webview";
 import { router, useLocalSearchParams } from "expo-router";
-import { Crown, Phone, ShieldCheck, CheckCircle, XCircle, Smartphone, Loader } from "lucide-react-native";
+import { Crown, ShieldCheck, CheckCircle, XCircle, Loader2, X } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
+import { API_BASE_URL } from "@/constants/config";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
 import { Button } from "@/src/components/Button";
-import { InputField } from "@/src/components/InputField";
 import { PageHeader } from "@/src/components/PageHeader";
-import { useAuth } from "@/src/context/auth-context";
 import { useSubscriptionPlans, useCreateSubscription } from "@/src/hooks/useSubscriptions";
 import { subscriptionsService } from "@/src/services/subscriptions";
 
@@ -18,33 +18,16 @@ const POLL_TIMEOUT_MS = 120000;
 
 type PaymentStatus = "idle" | "processing" | "waiting_payment" | "success" | "failed" | "timeout";
 
-interface PaymentMethod {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  recommended: boolean;
-}
-
-const SUPPORTED_PAYMENT_METHODS: PaymentMethod[] = [
-  {
-    id: "mobile_money",
-    name: "Mobile Money (Recommended)",
-    description: "MTN or Airtel — instant payment",
-    icon: "phone",
-    recommended: true,
-  },
-];
-
 export default function SubscriptionPaymentScreen() {
-  const { user } = useAuth();
   const { plan } = useLocalSearchParams<{ plan: string }>();
   const { data: plans } = useSubscriptionPlans();
   const createSubscription = useCreateSubscription();
   const selectedPlan = plans?.find((p) => p.id === plan);
-  const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<PaymentStatus>("idle");
   const [responseMessage, setResponseMessage] = useState("");
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [paymentComplete, setPaymentComplete] = useState(false);
+  const webViewRef = useRef<any>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -77,18 +60,38 @@ export default function SubscriptionPaymentScreen() {
   };
 
   const handlePay = async () => {
-    if (!phone.trim()) {
-      Alert.alert("Phone required", "Please enter your phone number to proceed.");
-      return;
-    }
     setStatus("processing");
     try {
-      const result = await createSubscription.mutateAsync({ plan_id: plan, phone_number: phone.trim() || undefined });
-      setResponseMessage(result.message || "Check your phone for the payment prompt.");
-      setStatus("waiting_payment");
-      startPolling();
+      const result = await createSubscription.mutateAsync({ plan_id: plan, callback_url: API_BASE_URL });
+      if (result.redirect_url) {
+        setResponseMessage(result.message || "Complete your payment in the Pesapal window.");
+        setPaymentUrl(result.redirect_url);
+        setPaymentComplete(false);
+      } else {
+        setResponseMessage(result.message || "Check your phone for the payment prompt.");
+        setStatus("waiting_payment");
+        startPolling();
+      }
     } catch {
       setStatus("failed");
+    }
+  };
+
+  const handleClosePayment = () => {
+    setPaymentUrl(null);
+    setPaymentComplete(false);
+    setStatus("idle");
+  };
+
+  const handleNavigationStateChange = (navState: any) => {
+    const url = navState.url || "";
+    // Detect when Pesapal redirects back to our callback URL
+    if (url.startsWith(API_BASE_URL) && url.includes("/payment/status")) {
+      webViewRef.current?.stopLoading();
+      setPaymentUrl(null);
+      setPaymentComplete(true);
+      setStatus("waiting_payment");
+      startPolling();
     }
   };
 
@@ -97,6 +100,41 @@ export default function SubscriptionPaymentScreen() {
       <Screen scroll>
         <PageHeader title="Payment" onBack={() => router.back()} />
         <Text style={styles.errorText}>No plan selected. Please go back and select a plan.</Text>
+      </Screen>
+    );
+  }
+
+  // Show payment WebView overlay
+  if (paymentUrl && !paymentComplete) {
+    return (
+      <Screen style={styles.paymentOverlay}>
+        <View style={styles.paymentHeader}>
+          <Text style={styles.paymentTitle}>Complete Payment</Text>
+          <Button
+            variant="ghost"
+            size="sm"
+            label=""
+            onPress={handleClosePayment}
+            leftIcon={<X size={20} color={Colors.textPrimary} />}
+          />
+        </View>
+        <View style={styles.webViewContainer}>
+          <WebView
+            ref={webViewRef}
+            source={{ uri: paymentUrl }}
+            style={styles.webView}
+            onNavigationStateChange={handleNavigationStateChange}
+            startInLoadingState={true}
+            renderLoading={() => (
+              <View style={styles.loadingOverlay}>
+                <Loader2 size={32} color={Colors.gold} />
+                <Text style={styles.loadingText}>Loading Pesapal…</Text>
+              </View>
+            )}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+          />
+        </View>
       </Screen>
     );
   }
@@ -149,8 +187,8 @@ export default function SubscriptionPaymentScreen() {
           </View>
           <Text style={styles.resultTitle}>Payment Timed Out</Text>
           <Text style={styles.resultDescription}>
-            We didn't receive a payment confirmation.{"\n"}
-            If you already entered your PIN, please wait — it may take a moment.
+            We did not receive a payment confirmation.{"\n"}
+            If you completed the payment, please check again — it may take a moment.
           </Text>
           <View style={{ height: Spacing.lg }} />
           <Button label="Check Status" onPress={() => { setStatus("waiting_payment"); startPolling(); }} fullWidth size="lg" tone="primary" />
@@ -167,18 +205,16 @@ export default function SubscriptionPaymentScreen() {
         <PageHeader title="" onBack={() => router.back()} />
         <View style={styles.resultWrap}>
           <View style={styles.spinnerIcon}>
-            <Loader size={48} color={Colors.primary} />
+            <Loader2 size={48} color={Colors.primary} />
           </View>
           <Text style={styles.resultTitle}>Payment Initiated</Text>
           <Text style={styles.resultDescription}>
             {responseMessage}
           </Text>
           <View style={styles.phoneHint}>
-            <Smartphone size={20} color={Colors.primary} />
+            <ShieldCheck size={20} color={Colors.primary} />
             <Text style={styles.phoneHintText}>
-              1. Check your phone for a payment prompt{"\n"}
-              2. Enter your Mobile Money PIN{"\n"}
-              3. Wait for confirmation
+              Once you complete payment, we will confirm it with PesaPal automatically.
             </Text>
           </View>
           <Text style={styles.pollingText}>Waiting for payment confirmation…</Text>
@@ -229,49 +265,16 @@ export default function SubscriptionPaymentScreen() {
           ))}
         </View>
 
-        {/* Payment Form */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payment Method</Text>
-          {SUPPORTED_PAYMENT_METHODS.map((method) => (
-            <View
-              key={method.id}
-              style={[
-                styles.methodField,
-                method.recommended && styles.methodFieldRecommended,
-              ]}
-            >
-              <Phone size={18} color={method.recommended ? Colors.accent : Colors.primary} />
-              <Text style={styles.methodText}>{method.name}</Text>
-              {method.recommended && (
-                <View style={styles.methodRecommendedBadge}>
-                  <Text style={styles.methodRecommendedText}>Recommended</Text>
-                </View>
-              )}
-            </View>
-          ))}
-
-          <View style={{ height: Spacing.md }} />
-
-          <InputField
-            label="Phone Number"
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="2567XX XXX XXX"
-            keyboardType="phone-pad"
-            leftIcon={<Phone size={20} color={Colors.textMuted} />}
-          />
-        </View>
-
         {/* Security Note */}
         <View style={styles.securityNote}>
           <ShieldCheck size={16} color={Colors.textMuted} />
           <Text style={styles.securityText}>
-            Your payment is processed securely by PesaPal. We don't store your financial details.
+            Your payment is processed securely by PesaPal. We do not store your financial details.
           </Text>
         </View>
 
         <Button
-          label={status === "processing" ? "Processing…" : "Pay Now"}
+          label={status === "processing" ? "Processing…" : "Proceed to Payment"}
           onPress={handlePay}
           loading={status === "processing"}
           fullWidth
@@ -279,6 +282,9 @@ export default function SubscriptionPaymentScreen() {
           tone="gold"
           leftIcon={status === "processing" ? undefined : <Crown size={20} color={Colors.textOnGold} />}
         />
+        <Text style={styles.payHelper}>
+          You'll be redirected to our secure payment partner where you can choose your preferred payment method.
+        </Text>
       </View>
 
       <View style={{ height: 100 }} />
@@ -366,37 +372,14 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     color: Colors.textSecondary,
   },
-  methodField: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    borderWidth: 1.5,
-    borderColor: Colors.borderStrong,
-    borderRadius: Radii.input,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: Spacing.md,
-    minHeight: 52,
-  },
-  methodFieldRecommended: {
-    borderColor: Colors.accent,
-    backgroundColor: Colors.accentSoft,
-  },
-  methodRecommendedBadge: {
-    marginLeft: "auto",
-    backgroundColor: Colors.accent,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: Radii.pill,
-  },
-  methodRecommendedText: {
-    fontSize: FontSize.micro,
-    fontWeight: FontWeight.bold,
-    color: "#FFFFFF",
-  },
-  methodText: {
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.medium,
-    color: Colors.textPrimary,
+  payHelper: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
   securityNote: {
     flexDirection: "row",
@@ -474,5 +457,45 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: FontWeight.semibold,
     marginTop: Spacing.sm,
+  },
+  paymentOverlay: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+  },
+  paymentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  paymentTitle: {
+    fontSize: FontSize.h2,
+    fontWeight: FontWeight.bold,
+    color: Colors.textPrimary,
+  },
+  webViewContainer: {
+    flex: 1,
+  },
+  webView: {
+    flex: 1,
+  },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    zIndex: 100,
+  },
+  loadingText: {
+    marginTop: Spacing.md,
+    fontSize: FontSize.body,
+    color: Colors.textSecondary,
   },
 });

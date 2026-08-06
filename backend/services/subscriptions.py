@@ -89,6 +89,11 @@ class SubscriptionService:
             return None
 
         sub = result.data[0]
+
+        # Idempotency: a replayed webhook must not re-extend the subscription.
+        if sub.get("status") == "active":
+            return self.get_current_subscription(sub["manager_id"])
+
         plan = self.get_plan(sub["plan_id"])
         if not plan:
             return None
@@ -106,7 +111,7 @@ class SubscriptionService:
 
         self.supabase.table("manager_subscriptions").update(sub_payload).eq(
             "id", sub["id"]
-        ).execute()
+        ).eq("status", "pending").execute()
 
         return self.get_current_subscription(sub["manager_id"])
 

@@ -11,7 +11,7 @@ import { authService } from "@/src/services/auth";
 const RESEND_DELAY = 30;
 
 export default function OtpVerificationScreen() {
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { phone, role } = useLocalSearchParams<{ phone: string; role: string }>();
   const [otp, setOtp] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,7 +41,7 @@ export default function OtpVerificationScreen() {
         setError(result.message || "Verification failed");
         return;
       }
-      router.push(`/phone-pin-setup?phone=${encodeURIComponent(phone!)}&verifyToken=${encodeURIComponent(result.verify_token)}`);
+      router.push(`/phone-pin-setup?phone=${encodeURIComponent(phone!)}&verifyToken=${encodeURIComponent(result.verify_token)}&role=${role}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid code");
     } finally {

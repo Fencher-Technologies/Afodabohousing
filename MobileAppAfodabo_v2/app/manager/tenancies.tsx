@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
-import { StyleSheet, Text, TextInput, View, Pressable, ScrollView, Modal } from "react-native";
+import { Alert, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Modal } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Plus, Users, Search, AlertTriangle, CheckCircle2, Clock, Wallet, Filter, X, ChevronDown } from "lucide-react-native";
+import { Plus, Users, Search, AlertTriangle, CheckCircle2, Clock, Wallet, Filter, X, ChevronDown, XCircle } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing, Shadows } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
@@ -19,7 +19,7 @@ import { MessageTemplates, openWhatsApp } from "@/src/utils/whatsapp";
 import { daysLeft } from "@/src/utils/tenancy-health";
 import type { Tenancy } from "@/src/types";
 
-type FilterTab = "all" | "current" | "expiring" | "expired" | "outstanding";
+type FilterTab = "all" | "current" | "expiring" | "expired" | "outstanding" | "terminated";
 
 export default function ManagerTenanciesScreen() {
   const params = useLocalSearchParams<{ filter?: string }>();
@@ -46,8 +46,12 @@ export default function ManagerTenanciesScreen() {
     () => tenancies.filter((t) => { const d = daysLeft(t.rent_end_date); return d !== null && d < 30 && d > 0; }).length,
     [tenancies]
   );
-  const expiredCount = useMemo(() => tenancies.filter((t) => t.health === "bad").length, [tenancies]);
-  const outstandingCount = useMemo(() => tenancies.filter((t) => (t.balance_due ?? 0) > 0 || t.is_overdue).length, [tenancies]);
+  const expiredCount = useMemo(() => tenancies.filter((t) => t.health === "bad" && t.status !== "terminated").length, [tenancies]);
+  const terminatedCount = useMemo(() => tenancies.filter((t) => t.status === "terminated").length, [tenancies]);
+  const outstandingCount = useMemo(
+    () => tenancies.filter((t) => t.status !== "terminated" && ((t.balance_due ?? 0) > 0 || t.is_overdue)).length,
+    [tenancies]
+  );
   const currentCount = useMemo(() => tenancies.filter((t) => t.health === "good").length, [tenancies]);
 
   const filtered = useMemo(() => {
@@ -66,9 +70,11 @@ export default function ManagerTenanciesScreen() {
     }
     switch (filter) {
       case "expired":
-        return result.filter((t) => t.health === "bad");
+        return result.filter((t) => t.health === "bad" && t.status !== "terminated");
+      case "terminated":
+        return result.filter((t) => t.status === "terminated");
       case "outstanding":
-        return result.filter((t) => (t.balance_due ?? 0) > 0 || t.is_overdue);
+        return result.filter((t) => t.status !== "terminated" && ((t.balance_due ?? 0) > 0 || t.is_overdue));
       case "current":
         return result.filter((t) => t.health === "good");
       case "expiring":
@@ -84,8 +90,31 @@ export default function ManagerTenanciesScreen() {
   const handleReminder = useCallback((tenancy: Tenancy) => {
     openWhatsApp(
       tenancy.tenant_phone,
-      MessageTemplates.reminder(tenancy.tenant_name, tenancy.property_title, tenancy.balance_due, tenancy.rent_end_date)
+      MessageTemplates.reminder(
+        tenancy.tenant_name,
+        tenancy.property_title,
+        tenancy.balance_due,
+        tenancy.next_payment_due_date ?? tenancy.rent_end_date
+      )
     );
+  }, []);
+
+  // The effective date is set-once (locked after the first rent payment), so a
+  // manager must set it before recording rent — otherwise rent coverage
+  // tracking would be permanently unavailable for this lease.
+  const handleRecordPayment = useCallback((tenancy: Tenancy) => {
+    if (!tenancy.rent_effective_date) {
+      Alert.alert(
+        "Enable Rent Tracking",
+        "Set an effective date before recording the first rent payment. The date anchors rent coverage (paid until, days remaining, days in arrears) and can only be set once.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Set Date", onPress: () => router.push(`/tenancy-detail?id=${tenancy.id}`) },
+        ],
+      );
+      return;
+    }
+    setPaymentModalTenancyId(tenancy.id);
   }, []);
 
   const filterTabs: { label: string; value: FilterTab; count: number; icon: React.ReactNode }[] = [
@@ -93,6 +122,7 @@ export default function ManagerTenanciesScreen() {
     { label: "Current", value: "current", count: currentCount, icon: <CheckCircle2 size={15} color={filter === "current" ? Colors.textOnPrimary : Colors.success} /> },
     { label: "Expiring", value: "expiring", count: expiringCount, icon: <Clock size={15} color={filter === "expiring" ? Colors.textOnPrimary : Colors.warning} /> },
     { label: "Expired", value: "expired", count: expiredCount, icon: <AlertTriangle size={15} color={filter === "expired" ? Colors.textOnPrimary : Colors.danger} /> },
+    { label: "Terminated", value: "terminated", count: terminatedCount, icon: <XCircle size={15} color={filter === "terminated" ? Colors.textOnPrimary : Colors.danger} /> },
     { label: "Outstanding", value: "outstanding", count: outstandingCount, icon: <Wallet size={15} color={filter === "outstanding" ? Colors.textOnPrimary : Colors.accent} /> },
   ];
 
@@ -221,7 +251,7 @@ export default function ManagerTenanciesScreen() {
                 key={tenancy.id}
                 tenancy={tenancy}
                 onPress={() => router.push(`/tenancy-detail?id=${tenancy.id}`)}
-                onRecordPayment={() => setPaymentModalTenancyId(tenancy.id)}
+                onRecordPayment={() => handleRecordPayment(tenancy)}
                 onSendReminder={() => handleReminder(tenancy)}
               />
             ))}
@@ -263,7 +293,7 @@ export default function ManagerTenanciesScreen() {
               />
 
               <Text style={styles.sheetHint}>
-                Status filters (Current, Expiring, Expired, Outstanding) are available as the pills above. Current, Expiring and Expired describe the tenancy's validity period; Outstanding describes unpaid rent.
+                Status filters (Current, Expiring, Expired, Outstanding) are available as the pills above. Current, Expiring and Expired describe the tenancy&apos;s validity period; Outstanding describes tenants with unpaid rent arrears.
               </Text>
             </View>
 

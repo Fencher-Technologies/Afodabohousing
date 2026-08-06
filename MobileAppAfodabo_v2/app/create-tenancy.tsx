@@ -14,6 +14,7 @@ import { usePropertyList } from "@/src/hooks/useProperties";
 import { useCreateTenancy } from "@/src/hooks/useTenancies";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { useResolveTenantByEmail, useResolveTenantByPhone } from "@/src/hooks/useTenants";
+import { formatUGX } from "@/src/utils/format";
 
 const MONTHS = [
   { label: "January", value: "01" },
@@ -34,6 +35,21 @@ function pad2(n: string): string {
   return n.length === 1 ? "0" + n : n;
 }
 
+function isValidDate(iso: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return false;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return (
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() === mo - 1 &&
+    dt.getUTCDate() === d
+  );
+}
+
 export default function CreateTenancyScreen() {
   const { subscription } = useAuth();
   const { data: propertiesData } = usePropertyList();
@@ -42,6 +58,7 @@ export default function CreateTenancyScreen() {
   const resolveTenantByPhone = useResolveTenantByPhone();
 
   const [showGate, setShowGate] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [contactMethod, setContactMethod] = useState("email");
   const [tenantContact, setTenantContact] = useState("");
   const [propertyId, setPropertyId] = useState("");
@@ -58,6 +75,11 @@ export default function CreateTenancyScreen() {
   const properties = propertiesData?.items || [];
   const isExpired = subscription?.status !== "active";
 
+  const selectedProperty = useMemo(
+    () => properties.find((p) => p.id === propertyId) ?? null,
+    [properties, propertyId]
+  );
+
   const startDate = useMemo(() => {
     if (startDay && startMonth && startYear) {
       return `${startYear}-${startMonth}-${pad2(startDay)}`;
@@ -72,6 +94,15 @@ export default function CreateTenancyScreen() {
     return "";
   }, [endDay, endMonth, endYear]);
 
+  const handleSelectProperty = (id: string) => {
+    setPropertyId(id);
+    const prop = properties.find((p) => p.id === id);
+    if (prop) {
+      setRentAmount(prop.rent_amount ? String(prop.rent_amount) : "");
+      setInitialBalance(prop.security_deposit ? String(prop.security_deposit) : "");
+    }
+  };
+
   const handleSubmit = async () => {
     if (isExpired) {
       setShowGate(true);
@@ -82,7 +113,20 @@ export default function CreateTenancyScreen() {
       return;
     }
 
+    const start = startDate || new Date().toISOString().split("T")[0];
+    const end =
+      endDate ||
+      new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    if (!isValidDate(start) || !isValidDate(end)) {
+      Alert.alert(
+        "Invalid date",
+        "Please check the start and end dates you entered. Some months have fewer than 31 days.",
+      );
+      return;
+    }
+
     try {
+      setSubmitting(true);
       const resolve =
         contactMethod === "email" ? resolveTenantByEmail : resolveTenantByPhone;
       const tenant = await resolve.mutateAsync(tenantContact.trim());
@@ -91,16 +135,22 @@ export default function CreateTenancyScreen() {
         property_id: propertyId,
         tenant_id: tenant.id,
         monthly_rent: parseInt(rentAmount, 10) || 0,
-        start_date: startDate || new Date().toISOString().split("T")[0],
-        end_date: endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        start_date: start,
+        end_date: end,
         unit_label: unitLabel || undefined,
         security_deposit: parseInt(initialBalance, 10) || 0,
         status: "active",
       });
 
       Alert.alert("Success", "Tenancy created successfully!", [{ text: "OK", onPress: () => router.back() }]);
-    } catch {
-      Alert.alert("Error", "Could not create tenancy. Make sure the tenant is registered.");
+    } catch (err) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : "Could not create tenancy. Make sure the tenant is registered.";
+      Alert.alert("Error", msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -137,7 +187,7 @@ export default function CreateTenancyScreen() {
           label="Property"
           value={propertyId}
           options={properties.map((p) => ({ label: p.title, value: p.id }))}
-          onSelect={setPropertyId}
+          onSelect={handleSelectProperty}
           placeholder="Select property"
         />
 
@@ -147,6 +197,11 @@ export default function CreateTenancyScreen() {
         <View style={{ height: Spacing.lg }} />
         <Text style={styles.sectionLabel}>Lease Terms</Text>
         <InputField label="Rent Amount (UGX)" value={rentAmount} onChangeText={setRentAmount} placeholder="0" keyboardType="numeric" />
+        {selectedProperty && (
+          <Text style={styles.hint}>
+            Auto-filled from {selectedProperty.title} ({formatUGX(selectedProperty.rent_amount)}/month). You can adjust it.
+          </Text>
+        )}
 
         <View style={{ height: Spacing.md }} />
         <Text style={styles.dateSectionLabel}>Start Date</Text>
@@ -182,9 +237,20 @@ export default function CreateTenancyScreen() {
 
         <View style={{ height: Spacing.md }} />
         <InputField label="Initial Balance / Deposit (UGX)" value={initialBalance} onChangeText={setInitialBalance} placeholder="0" keyboardType="numeric" />
+        {selectedProperty && (
+          <Text style={styles.hint}>
+            Auto-filled with {selectedProperty.title}'s security deposit ({formatUGX(selectedProperty.security_deposit ?? 0)}). You can adjust it.
+          </Text>
+        )}
 
         <View style={{ height: Spacing.xl }} />
-        <Button label="Create Tenancy" onPress={handleSubmit} fullWidth size="lg" />
+        <Button
+          label={submitting ? "Creating Tenancy…" : "Create Tenancy"}
+          onPress={handleSubmit}
+          fullWidth
+          size="lg"
+          loading={submitting}
+        />
       </View>
 
       <View style={{ height: 100 }} />

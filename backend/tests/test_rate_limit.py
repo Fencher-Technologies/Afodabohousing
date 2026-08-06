@@ -1,9 +1,21 @@
 import logging
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from main import RateLimitMiddleware
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _force_rate_limits_enabled():
+    from config import get_settings
+
+    s = get_settings()
+    previous = s.rate_limit_enabled
+    s.rate_limit_enabled = True
+    yield
+    s.rate_limit_enabled = previous
 
 
 def build_rate_limited_client() -> TestClient:

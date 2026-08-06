@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Lock, Square, CheckSquare } from "lucide-react-native";
 
-import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
+import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { authService } from "@/src/services/auth";
@@ -13,7 +13,7 @@ import { setStoredToken } from "@/src/lib/api-client";
 import { useAuth } from "@/src/context/auth-context";
 
 export default function PinSetupScreen() {
-  const { phone, verifyToken } = useLocalSearchParams<{ phone: string; verifyToken: string }>();
+  const { phone, verifyToken, role } = useLocalSearchParams<{ phone: string; verifyToken: string; role: string }>();
   const [fullName, setFullName] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -21,6 +21,10 @@ export default function PinSetupScreen() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const isManager = role === "manager" || role === "house_manager";
+  const roleLabel = isManager ? "Property Manager" : "Tenant";
+  const normalizedRole = isManager ? "house_manager" : "tenant";
 
   const handleCreateAccount = async () => {
     if (!fullName.trim()) {
@@ -43,6 +47,7 @@ export default function PinSetupScreen() {
         full_name: fullName.trim(),
         pin,
         verify_token: verifyToken,
+        role: normalizedRole,
         accepted_terms: true,
         terms_version: "1.0",
         privacy_version: "1.0",
@@ -71,6 +76,15 @@ export default function PinSetupScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.formWrap}
       >
+        <View style={styles.roleBanner}>
+          <Text style={styles.roleBannerText}>
+            Registering as: <Text style={styles.roleBannerHighlight}>{roleLabel}</Text>
+          </Text>
+          <Text style={styles.roleChangeLink} onPress={() => router.replace(`/phone-auth?phone=${encodeURIComponent(phone!)}`)}>
+            Change
+          </Text>
+        </View>
+
         <View style={styles.form}>
           <InputField
             label="Full Name"
@@ -188,6 +202,30 @@ const styles = StyleSheet.create({
   },
   checkboxLink: {
     color: Colors.accent,
+    fontWeight: FontWeight.semibold,
+  },
+  roleBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radii.button,
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  roleBannerText: {
+    fontSize: FontSize.body,
+    color: Colors.textSecondary,
+  },
+  roleBannerHighlight: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.bold,
+    color: Colors.textPrimary,
+  },
+  roleChangeLink: {
+    fontSize: FontSize.caption,
+    color: Colors.primary,
     fontWeight: FontWeight.semibold,
   },
 });

@@ -82,6 +82,7 @@ class TokenResponse(BaseModel):
     role: str | None = None
     token_type: str = "bearer"
     user: dict
+    user_id: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -119,6 +120,7 @@ class PhoneRegisterRequest(BaseModel):
     verify_token: str
     full_name: str
     pin: str
+    role: str
     accepted_terms: bool = False
     terms_version: str | None = None
     privacy_version: str | None = None
@@ -175,9 +177,10 @@ class PhoneVerifyOtpResponse(BaseModel):
 class PhoneRegisterResponse(BaseModel):
     access_token: str
     refresh_token: str | None = None
-    role: str = "tenant"
+    role: str
     token_type: str = "bearer"
     user: dict
+    user_id: str | None = None
 
 
 PhoneSignInResponse = TokenResponse
@@ -227,10 +230,10 @@ def signup(
     service: AuthService = Depends(get_auth_svc),
     service_supabase: Client = Depends(get_service_client),
 ) -> TokenResponse:
-    if data.role not in ("tenant", "free"):
+    if data.role not in ("tenant", "free", "house_manager"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Public signup is only available for tenant or free roles",
+            detail="Public signup is only available for tenant, free, or house_manager roles",
         )
 
     if not data.accepted_terms:
@@ -285,13 +288,13 @@ def signup(
             "full_name": data.full_name,
             "phone": normalize_phone(data.phone) if data.phone else None,
             "user_id": user_id,
+            "role": data.role,
             "accepted_terms": True,
             "accepted_terms_at": datetime.now(UTC).isoformat(),
             "terms_version": data.terms_version or "1.0",
             "privacy_version": data.privacy_version or "1.0",
         }
         service_supabase.table("profiles").upsert(profile_payload, on_conflict="user_id").execute()
-        service_supabase.table("profiles").update({"role": data.role}).eq("user_id", user_id).execute()
     except Exception as e:
         logger.warning("Failed to upsert profile after signup: %s", str(e))
 
@@ -300,6 +303,7 @@ def signup(
         refresh_token=getattr(result["session"], "refresh_token", None),
         role=data.role,
         user=user_data,
+        user_id=user_id,
     )
 
 
@@ -704,13 +708,14 @@ def signin(
             detail=f"Account is {profile['status']}. Please contact your administrator.",
         )
 
-    role = (profile or {}).get("role", _resolve_role(supabase, user_id) or "tenant")
+    role = (profile or {}).get("role") or _resolve_role(supabase, user_id) or "tenant"
 
     return TokenResponse(
         access_token=result["session"].access_token,
         refresh_token=getattr(result["session"], "refresh_token", None),
         role=role,
         user=user_data,
+        user_id=user_id,
     )
 
 
@@ -865,6 +870,14 @@ def register_phone(
     if pin_error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=pin_error)
 
+    if data.role not in ("tenant", "house_manager", "manager"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Role must be 'tenant' or 'house_manager'",
+        )
+    if data.role == "manager":
+        data.role = "house_manager"
+
     if not data.accepted_terms:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -929,7 +942,7 @@ def register_phone(
             "email": "",
             "full_name": data.full_name,
             "phone": phone,
-            "role": "tenant",
+            "role": data.role,
             "status": "active",
             "pin_hash": pin_hash_val,
             "auth_password_enc": encrypted_password,
@@ -967,7 +980,8 @@ def register_phone(
         access_token=session.access_token,
         refresh_token=getattr(session, "refresh_token", None),
         user=user_data,
-        role="tenant",
+        role=data.role,
+        user_id=user_id,
     )
 
 
@@ -1135,7 +1149,7 @@ def signin_phone(
     return TokenResponse(
         access_token=result.session.access_token,
         refresh_token=getattr(result.session, "refresh_token", None),
-        role=profile.get("role", "tenant"),
+        role=profile.get("role") or "tenant",
         user=user_data_dict,
     )
 
@@ -1319,7 +1333,7 @@ def get_current_user_info(
     return UserResponse(
         id=current_user.id,
         email=current_user.email,
-        role=profile.get("role", current_user.role),
+        role=profile.get("role") or current_user.role,
         user_metadata=profile.get("user_metadata"),
     )
 

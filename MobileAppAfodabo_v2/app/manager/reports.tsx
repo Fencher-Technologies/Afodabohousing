@@ -142,7 +142,7 @@ export default function ReportsScreen() {
       return {
         title: "All Tenants Report",
         prefix: "all-tenants",
-        headers: ["Tenant", "Phone", "Email", "Property", "Unit", "Start", "End", "Status", "Expected", "Paid", "Balance", "Credit"],
+        headers: ["Tenant", "Phone", "Email", "Property", "Unit", "Start", "End", "Status", "Expected Rent So Far", "Paid", "Arrears", "Credit"],
         rows: tenants.data.items.map((t) => [
           t.tenant_name, t.tenant_phone, t.tenant_email, t.property_title, t.unit_label,
           t.start_date, t.end_date, t.status, t.expected_rent, t.total_paid, t.balance_due, t.tenant_credit,
@@ -153,7 +153,7 @@ export default function ReportsScreen() {
       return {
         title: "Outstanding Report",
         prefix: "outstanding",
-        headers: ["Tenant", "Phone", "Property", "Unit", "Status", "Expected", "Paid", "Balance", "Last Paid", "Method"],
+        headers: ["Tenant", "Phone", "Property", "Unit", "Status", "Expected Rent So Far", "Paid", "Arrears", "Last Paid", "Method"],
         rows: outstanding.data.items.map((t) => [
           t.tenant_name, t.tenant_phone, t.property_title, t.unit_label, t.status,
           t.expected_rent, t.total_paid, t.balance_due, t.last_payment_date, t.last_payment_method,
@@ -221,9 +221,9 @@ export default function ReportsScreen() {
           ["Start Date", s.start_date],
           ["End Date", s.end_date],
           ["Monthly Rent", s.monthly_rent],
-          ["Expected Rent", s.expected_rent],
+          ["Expected Rent So Far", s.expected_rent],
           ["Total Paid", s.total_paid],
-          ["Balance Due", s.balance_due],
+          ["Arrears", s.balance_due],
           ["Tenant Credit", s.tenant_credit],
           ["Is Overdue", s.is_overdue ? "Yes" : "No"],
           [],
@@ -598,7 +598,7 @@ function RentCollectionReport({ data }: { data: import("@/src/types").RentCollec
   return (
     <View style={styles.gap}>
       <View style={styles.kpiGrid}>
-        <KpiCard label="Expected" value={formatUGX(data.total_expected)} />
+        <KpiCard label="Expected Rent So Far" value={formatUGX(data.total_expected)} />
         <KpiCard label="Collected" value={formatUGX(data.total_collected)} tone="success" />
         <KpiCard label="Outstanding" value={formatUGX(data.total_outstanding)} tone="danger" />
         <KpiCard label="Tenant Credit" value={formatUGX(data.total_tenant_credit)} />
@@ -618,10 +618,10 @@ function SummaryReport({ data }: { data: import("@/src/types").FinancialSummary 
   return (
     <View style={styles.gap}>
       <View style={styles.kpiGrid}>
-        <KpiCard label="Expected Rent" value={formatUGX(data.total_expected)} />
+        <KpiCard label="Expected Rent So Far" value={formatUGX(data.total_expected)} />
         <KpiCard label="Collected" value={formatUGX(data.total_collected)} tone="success" />
         <KpiCard label="Outstanding" value={formatUGX(data.total_outstanding)} tone="danger" />
-        <KpiCard label="Tenant Credits" value={formatUGX(data.total_tenant_credit)} />
+        <KpiCard label="Tenant Credit" value={formatUGX(data.total_tenant_credit)} />
         <KpiCard label="Active" value={String(data.active_tenancies)} />
         <KpiCard label="Expired" value={String(data.expired_tenancies)} />
         <KpiCard label="Terminated" value={String(data.terminated_tenancies)} />
@@ -718,9 +718,9 @@ function StatementSheet({
               {data.unit_label ? ` · Unit ${data.unit_label}` : ""}
             </Text>
             <View style={styles.kpiGrid}>
-              <KpiCard label="Expected" value={formatUGX(data.expected_rent)} />
+              <KpiCard label="Expected Rent So Far" value={formatUGX(data.expected_rent)} />
               <KpiCard label="Paid" value={formatUGX(data.total_paid)} tone="success" />
-              <KpiCard label="Balance" value={formatUGX(data.balance_due)} tone="danger" />
+              <KpiCard label="Arrears" value={formatUGX(data.balance_due)} tone="danger" />
               <KpiCard label="Credit" value={formatUGX(data.tenant_credit)} />
             </View>
             <Text style={styles.sheetSection}>Tenancy</Text>

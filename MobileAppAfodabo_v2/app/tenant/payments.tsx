@@ -31,6 +31,7 @@ import { useTenancyList } from "@/src/hooks/useTenancies";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { useMySubmissions } from "@/src/hooks/usePaymentVerifications";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
+import { RentCoverageCard } from "@/src/components/RentCoverageCard";
 import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
 
 export default function TenantPaymentsScreen() {
@@ -47,7 +48,7 @@ export default function TenantPaymentsScreen() {
   const lease = useMemo(() => {
     if (!tenanciesData?.items?.length) return undefined;
     return (
-      tenanciesData.items.find((l) => l.status === "active") ?? tenanciesData.items[0]
+      tenanciesData.items.find((l) => l.effective_status === "active" || l.status === "active") ?? undefined
     );
   }, [tenanciesData]);
 
@@ -62,9 +63,7 @@ export default function TenantPaymentsScreen() {
     });
   }, [paymentsData]);
 
-  const totalPaid = payments
-    .filter((p) => p.status === "confirmed")
-    .reduce((sum, p) => sum + Number(p.amount), 0);
+  const totalPaid = tenancy?.total_paid ?? 0;
 
   if (isLoading) return <LoadingState message="Loading payments…" />;
 
@@ -93,7 +92,7 @@ export default function TenantPaymentsScreen() {
             </Text>
           </Card>
           <Card padding="md" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Expected Rent</Text>
+            <Text style={styles.kpiLabel}>Expected Rent So Far</Text>
             <Text style={styles.kpiValue}>{formatUGX(tenancy?.expected_rent ?? 0)}</Text>
           </Card>
           <Card padding="md" style={styles.kpiCard}>
@@ -110,6 +109,8 @@ export default function TenantPaymentsScreen() {
             </Text>
           </View>
         )}
+
+        {tenancy && <RentCoverageCard tenancy={tenancy} />}
 
         {/* History */}
         <Text style={styles.sectionLabel}>Payment History</Text>
@@ -142,6 +143,9 @@ export default function TenantPaymentsScreen() {
                         {formatDate(payment.paid_date || payment.created_at)}
                         {payment.method ? ` · ${formatMethod(payment.method)}` : ""}
                       </Text>
+                      {typeof payment.coverage_days === "number" && payment.coverage_days > 0 && (
+                        <Text style={styles.paymentMeta}>Covers {payment.coverage_days} days</Text>
+                      )}
                     </View>
                     <View style={styles.rowRight}>
                       <Badge
@@ -162,15 +166,25 @@ export default function TenantPaymentsScreen() {
       </View>
 
       {/* Submit Payment — full-width button */}
-      <Button
-        label="Submit Payment for Verification"
-        variant="primary"
-        tone="accent"
-        size="lg"
-        leftIcon={<ShieldCheck size={20} color={Colors.textOnPrimary} />}
-        onPress={() => router.push("/submit-payment")}
-        style={styles.submitBtn}
-      />
+      {tenancy ? (
+        <View style={styles.submitWrap}>
+          <Button
+            label="Submit Payment for Verification"
+            tone="accent"
+            size="lg"
+            fullWidth
+            leftIcon={<ShieldCheck size={20} color={Colors.textOnPrimary} />}
+            onPress={() => router.push("/submit-payment")}
+          />
+        </View>
+      ) : (
+        <View style={styles.noActiveBanner}>
+          <AlertTriangle size={18} color={Colors.textMuted} />
+          <Text style={styles.noActiveText}>
+            You currently do not have an active tenancy. Submit payment is only available with an active tenancy.
+          </Text>
+        </View>
+      )}
 
       {/* Payment Submissions */}
       {submissions && submissions.length > 0 && (
@@ -322,8 +336,27 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 2,
   },
-  submitBtn: {
+  submitWrap: {
     marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
+  },
+  noActiveBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radii.card,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  noActiveText: {
+    flex: 1,
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    fontWeight: FontWeight.medium,
+    lineHeight: 18,
   },
 });

@@ -63,16 +63,14 @@ export default function OnboardingScreen() {
   }, []);
 
   const startAutoSlide = useCallback(() => {
-    if (isLast) return;
     stopAutoSlide();
     autoTimer.current = setInterval(() => {
       if (userInteracted.current) return;
-      const next = index + 1;
-      if (next >= slides.length) return;
+      const next = (index + 1) % slides.length;
       setIndex(next);
       scrollRef.current?.scrollTo({ x: next * width, animated: true });
     }, AUTO_SLIDE_MS);
-  }, [isLast, index, stopAutoSlide]);
+  }, [index, stopAutoSlide]);
 
   useEffect(() => {
     startAutoSlide();

@@ -2,7 +2,7 @@
  * Root Layout — wraps app in providers and conditionally routes by auth state.
  */
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
@@ -25,23 +25,38 @@ const queryClient = new QueryClient({
 
 function RootLayoutNav() {
   const { user, isLoading, hasSeenOnboarding } = useAuth();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (isLoading) return;
+    console.log("[DEBUG_AUTH] layout effect — isLoading:", isLoading, "user:", user?.id, "role:", user?.role, "onboarding:", hasSeenOnboarding);
+
+    if (!user) {
+      console.log("[DEBUG_AUTH] layout — user is null, clearing React Query cache");
+      // TODO: Replace queryClient.clear() with targeted cache invalidation
+      // once query keys are structured for user-specific data.
+      queryClient.clear();
+    }
+
     SplashScreen.hideAsync();
 
     if (!hasSeenOnboarding) {
+      console.log("[DEBUG_AUTH] layout — redirecting to /onboarding");
       router.replace("/onboarding");
     } else if (!user) {
+      console.log("[DEBUG_AUTH] layout — redirecting to /guest/explore");
       router.replace("/guest/explore");
     } else if (user.role === "manager") {
+      console.log("[DEBUG_AUTH] layout — redirecting to /manager/home");
       router.replace("/manager/home");
     } else if (user.role === "tenant") {
+      console.log("[DEBUG_AUTH] layout — redirecting to /tenant/my-tenancy");
       router.replace("/tenant/my-tenancy");
     } else {
+      console.log("[DEBUG_AUTH] layout — unknown role:", user.role, "redirecting to /guest/explore");
       router.replace("/guest/explore");
     }
-  }, [user, isLoading, hasSeenOnboarding]);
+  }, [user, isLoading, hasSeenOnboarding, queryClient]);
 
   if (isLoading) {
     return <LoadingState message="Loading…" />;
@@ -78,7 +93,7 @@ function RootLayoutNav() {
       <Stack.Screen name="submit-payment" />
       <Stack.Screen name="payment-verification" />
       <Stack.Screen name="create-agreement" />
-      <Stack.Screen name="edit-agreement" />
+
       <Stack.Screen name="agreement-summary" />
       <Stack.Screen name="agreement-preview" />
       <Stack.Screen name="agreement-view" />

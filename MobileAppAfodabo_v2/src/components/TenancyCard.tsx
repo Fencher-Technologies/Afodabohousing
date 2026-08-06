@@ -28,9 +28,20 @@ const STATUS_META: Record<TenancyStatus, { label: string; tone: "success" | "war
 export function TenancyCard({ tenancy, onPress, onRecordPayment, onSendReminder, showActions = true }: TenancyCardProps) {
   const borderColor = HealthBorder[tenancy.health];
   const hasBalance = tenancy.balance_due > 0;
+  const inAdvance = !hasBalance && tenancy.advance_amount > 0;
   const remaining = daysLeft(tenancy.rent_end_date);
   const progress = leaseProgress(tenancy.rent_start_date, tenancy.rent_end_date);
-  const statusMeta = STATUS_META[tenancy.status] ?? { label: tenancy.status, tone: "muted" as const };
+  const isTerminated =
+    tenancy.status === "terminated" || tenancy.effective_status === "terminated";
+  const effectiveStatus: TenancyStatus =
+    tenancy.effective_status === "expired" || tenancy.effective_status === "terminated"
+      ? tenancy.effective_status
+      : tenancy.status === "terminated"
+      ? "terminated"
+      : tenancy.status === "expired"
+      ? "expired"
+      : "active";
+  const statusMeta = STATUS_META[effectiveStatus] ?? { label: effectiveStatus, tone: "muted" as const };
 
   const progressColor =
     tenancy.health === "good" ? Colors.healthGood : tenancy.health === "warn" ? Colors.healthWarn : Colors.healthBad;
@@ -50,7 +61,11 @@ export function TenancyCard({ tenancy, onPress, onRecordPayment, onSendReminder,
             {tenancy.unit_label ? ` · ${tenancy.unit_label}` : ""}
           </Text>
         </View>
-        <Badge label={HealthLabel[tenancy.health]} tone={tenancy.health === "good" ? "success" : tenancy.health === "warn" ? "warning" : "danger"} dot />
+        <Badge
+          label={isTerminated ? "Terminated" : HealthLabel[tenancy.health]}
+          tone={isTerminated ? "danger" : tenancy.health === "good" ? "success" : tenancy.health === "warn" ? "warning" : "danger"}
+          dot
+        />
       </View>
 
       <View style={styles.metaRow}>
@@ -67,8 +82,10 @@ export function TenancyCard({ tenancy, onPress, onRecordPayment, onSendReminder,
         </View>
         <View style={styles.statDivider} />
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>Balance</Text>
-          <Text style={[styles.statValue, hasBalance && styles.balanceDue]}>{formatUGX(tenancy.balance_due)}</Text>
+          <Text style={styles.statLabel}>{inAdvance ? "In Advance" : "Balance"}</Text>
+          <Text style={[styles.statValue, inAdvance ? styles.advanceText : hasBalance && styles.balanceDue]}>
+            {formatUGX(inAdvance ? tenancy.advance_amount : tenancy.balance_due)}
+          </Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.stat}>
@@ -90,19 +107,19 @@ export function TenancyCard({ tenancy, onPress, onRecordPayment, onSendReminder,
         </View>
       )}
 
-      {showActions && hasBalance && (
+      {showActions && !isTerminated && (
         <View style={styles.actions}>
           {onRecordPayment && (
             <Pressable
               onPress={(e) => { e.stopPropagation(); onRecordPayment(); }}
               style={[styles.actionBtn, styles.recordBtn]}
               accessibilityRole="button"
-              accessibilityLabel="Record payment"
+              accessibilityLabel="Update payment"
             >
-              <Text style={styles.recordBtnText}>Record Payment</Text>
+              <Text style={styles.recordBtnText}>Update Payment</Text>
             </Pressable>
           )}
-          {onSendReminder && (
+          {onSendReminder && hasBalance && (
             <Pressable
               onPress={(e) => { e.stopPropagation(); onSendReminder?.(); }}
               style={styles.actionBtn}
@@ -113,15 +130,12 @@ export function TenancyCard({ tenancy, onPress, onRecordPayment, onSendReminder,
               <Text style={styles.actionBtnText}>Remind</Text>
             </Pressable>
           )}
-        </View>
-      )}
-
-      {showActions && !hasBalance && (
-        <View style={styles.actions}>
-          <View style={styles.paidBadge}>
-            <AlarmClock size={14} color={Colors.success} />
-            <Text style={styles.paidText}>Paid Up</Text>
-          </View>
+          {!hasBalance && (
+            <View style={styles.paidBadge}>
+              <AlarmClock size={14} color={Colors.success} />
+              <Text style={styles.paidText}>Paid Up</Text>
+            </View>
+          )}
         </View>
       )}
     </Pressable>
@@ -188,6 +202,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   balanceDue: { color: Colors.danger },
+  advanceText: { color: Colors.success },
   daysRow: {
     flexDirection: "row",
     alignItems: "center",

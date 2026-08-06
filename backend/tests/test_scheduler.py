@@ -32,6 +32,10 @@ class MockQuery:
         self.filters.append(("lte", column, value))
         return self
 
+    def in_(self, column, values):
+        self.filters.append(("in", column, list(values)))
+        return self
+
     def insert(self, payload):
         self.inserted = payload
         return self
@@ -46,6 +50,8 @@ class MockQuery:
         for op, column, value in self.filters:
             if op == "eq":
                 data = [item for item in data if item.get(column) == value]
+            elif op == "in":
+                data = [item for item in data if item.get(column) in value]
             elif op == "gte":
                 data = [item for item in data if item.get(column) >= value]
             elif op == "lte":
@@ -82,12 +88,13 @@ class FakeDispatcher:
             "error": error,
         })
 
-    async def send_in_app(self, *, recipient_id, title, body, metadata):
+    async def send_in_app(self, *, recipient_id, title, body, metadata, type=None):
         self.in_app.append({
             "recipient_id": recipient_id,
             "title": title,
             "body": body,
             "metadata": metadata,
+            "type": type,
         })
 
     async def send_email(self, *, to_email, subject, body):
@@ -204,3 +211,90 @@ async def test_tenancy_expiry_reminders_are_idempotent_per_channel():
     assert dispatcher.in_app == []
     assert dispatcher.emails == []
     assert dispatcher.pushes == []
+
+
+@pytest.mark.asyncio
+async def test_rent_reminders_fire_on_money_ledger_due_dates():
+    from services.scheduler import check_rent_reminders
+
+    today = date(2026, 7, 29)
+    anchor = "2026-07-01"  # 28 days elapsed → next billing boundary 2026-07-31 (2 days away)
+    far_anchor = "2026-07-03"  # 26 days elapsed → next boundary 2026-08-02 (4 days away, out of window)
+
+    supabase = MockSupabase({
+        "leases": [
+            {
+                "id": "lease-arrears",
+                "owner_id": "owner-1",
+                "property_id": "property-1",
+                "tenant_id": "tenant-1",
+                "monthly_rent": 500000,
+                "status": "active",
+                "start_date": (today - timedelta(days=100)).isoformat(),
+                "end_date": (today + timedelta(days=200)).isoformat(),
+                "rent_effective_date": anchor,
+            },
+            {
+                "id": "lease-paid-up",
+                "owner_id": "owner-1",
+                "property_id": "property-1",
+                "tenant_id": "tenant-1",
+                "monthly_rent": 500000,
+                "status": "active",
+                "start_date": (today - timedelta(days=100)).isoformat(),
+                "end_date": (today + timedelta(days=200)).isoformat(),
+                "rent_effective_date": anchor,
+            },
+            {
+                "id": "lease-no-anchor",
+                "owner_id": "owner-1",
+                "property_id": "property-1",
+                "tenant_id": "tenant-1",
+                "monthly_rent": 500000,
+                "status": "active",
+                "start_date": (today - timedelta(days=100)).isoformat(),
+                "end_date": (today + timedelta(days=200)).isoformat(),
+                "rent_effective_date": None,
+            },
+            {
+                "id": "lease-far",
+                "owner_id": "owner-1",
+                "property_id": "property-1",
+                "tenant_id": "tenant-1",
+                "monthly_rent": 500000,
+                "status": "active",
+                "start_date": (today - timedelta(days=100)).isoformat(),
+                "end_date": (today + timedelta(days=200)).isoformat(),
+                "rent_effective_date": far_anchor,
+            },
+        ],
+        "payments": [
+            {"lease_id": "lease-arrears", "payment_type": "rent", "status": "confirmed", "amount": 100000},
+            {"lease_id": "lease-paid-up", "payment_type": "rent", "status": "confirmed", "amount": 1000000},
+            {"lease_id": "lease-paid-up", "payment_type": "rent", "status": "pending", "amount": 9999999},
+        ],
+        "tenants": [
+            {"id": "tenant-1", "user_id": "user-tenant-1", "email": "tenant@example.com"}
+        ],
+        "properties": [{"id": "property-1", "title": "Ntinda Apartment"}],
+        "notifications": [],
+        "notification_deliveries": [],
+    })
+    dispatcher = FakeDispatcher()
+
+    await check_rent_reminders(supabase, today=today, dispatcher=dispatcher)
+
+    # Only the arrears lease within the 1-3 day window is reminded.
+    assert len(dispatcher.in_app) == 1
+    assert len(dispatcher.emails) == 1
+    assert len(dispatcher.pushes) == 1
+    message = dispatcher.in_app[0]
+    assert message["title"] == "Rent due in 2 days"
+    assert message["metadata"]["lease_id"] == "lease-arrears"
+    assert message["metadata"]["next_payment_due_date"] == "2026-07-31"
+    assert message["metadata"]["days_until_due"] == 2
+    # Money owed = accrued (466,666.67) minus 100,000 confirmed.
+    assert round(message["metadata"]["amount"], 2) == round(366666.67, 2)
+    assert "UGX 366,667" in message["body"]
+    assert {d["event_key"] for d in dispatcher.deliveries} == {"rent_reminder:lease-arrears:2"}
+    assert {d["channel"] for d in dispatcher.deliveries} == {"in_app", "email", "push"}

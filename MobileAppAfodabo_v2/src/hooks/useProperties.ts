@@ -43,18 +43,20 @@ export function usePublicProperties(params?: { state?: string; property_type?: s
         limit: res.limit,
       };
     },
+    staleTime: 60_000,
+    placeholderData: (prev) => prev,
   });
 }
 
 /** Public property detail (no auth required) — used by guest detail view */
-export function usePublicProperty(id: string) {
+export function usePublicProperty(id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["properties", "public", id],
     queryFn: async () => {
       const res = await propertiesService.getByIdPublic(id);
       return fromBackendProperty(res);
     },
-    enabled: !!id,
+    enabled: !!id && (options?.enabled ?? true),
   });
 }
 

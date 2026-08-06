@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { CheckCircle, Clock, XCircle } from "lucide-react-native";
+import { CheckCircle, Clock, Download } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
@@ -11,6 +11,7 @@ import { Button } from "@/src/components/Button";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { AgreementRenderer } from "@/src/components/AgreementRenderer";
+import { agreementsService } from "@/src/services/agreements";
 import {
   useAgreementContent,
   useConsentState,
@@ -142,7 +143,19 @@ export default function AgreementViewScreen() {
         <Text style={styles.docTitle}>Agreement Document</Text>
         <AgreementRenderer content={displayContent} mode="view" />
 
-        <View style={styles.historyLink}>
+        <View style={styles.buttonGroup}>
+          <Button
+            label="Download PDF"
+            variant="primary"
+            icon={<Download size={16} color={Colors.white} />}
+            onPress={async () => {
+              if (!displayContent) return;
+              const ok = await agreementsService.downloadPdf(displayContent);
+              if (!ok) Alert.alert("Download failed", "Could not save the agreement PDF.");
+              else Alert.alert("Saved", "Agreement has been saved to your device.");
+            }}
+            fullWidth
+          />
           <Button
             label="View Version History"
             variant="outline"
@@ -237,7 +250,8 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  historyLink: {
+  buttonGroup: {
     paddingTop: Spacing.sm,
+    gap: Spacing.sm,
   },
 });

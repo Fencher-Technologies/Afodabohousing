@@ -25,6 +25,26 @@ async function setStoredToken(token: string): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY_TOKEN, token);
 }
 
+function buildErrorMessage(errorData: unknown): string | null {
+  if (!errorData || typeof errorData !== "object") return null;
+  const data = errorData as { detail?: unknown; extra?: { errors?: unknown } };
+  const errors = data.extra?.errors;
+  if (Array.isArray(errors) && errors.length > 0) {
+    const parts = errors.map((e) => {
+      const entry = e as { loc?: unknown[]; msg?: string };
+      const loc = (entry.loc ?? [])
+        .filter((s) => s !== "body")
+        .map(String)
+        .join(".");
+      const msg = entry.msg ?? "invalid value";
+      return loc ? `${loc}: ${msg}` : msg;
+    });
+    return `Validation error: ${parts.join("; ")}`;
+  }
+  if (typeof data.detail === "string" && data.detail) return data.detail;
+  return null;
+}
+
 const _tokenListeners = new Set<() => void>();
 
 export function onTokensCleared(listener: () => void) {
@@ -80,6 +100,7 @@ async function request<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const token = await getStoredToken();
+  console.log("[DEBUG_AUTH] API request —", endpoint, "hasToken:", !!token);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
@@ -95,14 +116,17 @@ async function request<T>(
   });
 
   if (response.status === 401 && token) {
+    console.log("[DEBUG_AUTH] API request — 401, attempting token refresh for:", endpoint);
     const newToken = await refreshAccessToken();
     if (newToken) {
+      console.log("[DEBUG_AUTH] API request — token refreshed, retrying:", endpoint);
       headers["Authorization"] = `Bearer ${newToken}`;
       response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers,
       });
     } else {
+      console.log("[DEBUG_AUTH] API request — token refresh failed, throwing 401");
       throw new ApiError("Your session has expired. Please sign in again.", 401);
     }
   }
@@ -115,20 +139,23 @@ async function request<T>(
       errorData = null;
     }
     const message =
-      (errorData as Record<string, unknown>)?.detail as string ??
-      `Request failed with status ${response.status}`;
+      buildErrorMessage(errorData) ?? `Request failed with status ${response.status}`;
+    console.log("[DEBUG_AUTH] API response —", endpoint, "status:", response.status, "error:", message);
     throw new ApiError(message, response.status, errorData);
   }
 
   if (response.status === 204) {
+    console.log("[DEBUG_AUTH] API response —", endpoint, "status: 204 (no content)");
     return undefined as T;
   }
 
   const contentType = response.headers.get("content-type");
   if (contentType?.includes("application/json")) {
+    console.log("[DEBUG_AUTH] API response —", endpoint, "status:", response.status, "content-type: json");
     return response.json() as Promise<T>;
   }
 
+  console.log("[DEBUG_AUTH] API response —", endpoint, "status:", response.status, "content-type: non-json");
   return undefined as T;
 }
 

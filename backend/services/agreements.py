@@ -404,6 +404,15 @@ class AgreementService:
             return doc.get("content")
         return None
 
+    @with_retry
+    def get_content_by_version(self, lease_id: UUID, version_id: str) -> dict[str, Any] | None:
+        doc = self.get_document_by_id(version_id)
+        if not doc:
+            return None
+        if str(doc.get("lease_id")) != str(lease_id):
+            return None
+        return doc.get("content")
+
     # ─── Consent ───────────────────────────────────────────────────────────
 
     @with_retry

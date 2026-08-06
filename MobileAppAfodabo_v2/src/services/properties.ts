@@ -74,11 +74,14 @@ export const propertiesService = {
   listPublic: (params?: { state?: string; property_type?: string; min_price?: number; max_price?: number; skip?: number; limit?: number }) => {
     const query = new URLSearchParams();
     if (params?.state) query.set("state", params.state);
-    if (params?.property_type) query.set("property_type", params.property_type);
+    if (params?.property_type) {
+      const mapped = mapPropertyTypeToBackend(params.property_type as any);
+      if (mapped) query.set("property_type", mapped);
+    }
     if (params?.min_price !== undefined) query.set("min_price", String(params.min_price));
     if (params?.max_price !== undefined) query.set("max_price", String(params.max_price));
-    if (params?.skip) query.set("skip", String(params.skip));
-    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.skip !== undefined) query.set("skip", String(params.skip));
+    if (params?.limit !== undefined) query.set("limit", String(params.limit));
     const qs = query.toString();
     return api.get<PaginatedResponse<BackendProperty>>(`/properties/public${qs ? `?${qs}` : ""}`);
   },

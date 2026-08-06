@@ -312,7 +312,7 @@ export default function ExploreScreen() {
       <View style={styles.list}>
         {isLoading ? (
           <LoadingState message="Finding properties…" />
-        ) : error ? (
+        ) : error && filtered.length === 0 ? (
           <ErrorState title="Could not load properties" description="Check your connection and try again." onRetry={() => refetch()} />
         ) : filtered.length === 0 ? (
           <EmptyState
@@ -328,7 +328,8 @@ export default function ExploreScreen() {
               <PropertyCard
                 property={item as Property}
                 onPress={() => router.push(`/property-detail?id=${item.id}&role=guest`)}
-                featured={(item as { isBoosted?: boolean }).isBoosted ?? false}
+                featured={(item as { is_boosted?: boolean }).is_boosted ?? false}
+                showStatus
               />
             )}
             scrollEnabled={false}

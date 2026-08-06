@@ -33,6 +33,7 @@ interface SubscriptionCreateResponse {
   currency: string;
   payment_reference: string;
   message: string;
+  redirect_url: string | null;
 }
 
 export const subscriptionsService = {
@@ -42,6 +43,9 @@ export const subscriptionsService = {
   getCurrent: () =>
     api.get<ManagerSubscriptionResponse | null>("/subscriptions/current"),
 
-  create: (plan_id: string, phone_number?: string) =>
-    api.post<SubscriptionCreateResponse>("/subscriptions/create", { plan_id, phone_number }),
+  create: (plan_id: string, callback_url?: string) =>
+    api.post<SubscriptionCreateResponse>("/subscriptions/create", {
+      plan_id,
+      callback_url,
+    }),
 };

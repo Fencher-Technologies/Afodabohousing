@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -25,6 +25,8 @@ import { InputField } from "@/src/components/InputField";
 import { SelectField } from "@/src/components/SelectField";
 import { Button } from "@/src/components/Button";
 import { Card } from "@/src/components/Card";
+import { EmptyState } from "@/src/components/EmptyState";
+import { useTenancyList } from "@/src/hooks/useTenancies";
 import { useCreateVerification } from "@/src/hooks/usePaymentVerifications";
 import { paymentVerificationsService } from "@/src/services/payment-verifications";
 import { formatUGX } from "@/src/utils/format";
@@ -53,6 +55,21 @@ export default function SubmitPaymentScreen() {
   const [submitted, setSubmitted] = useState(false);
 
   const createVerification = useCreateVerification();
+  const { data: tenanciesData, isLoading: tenanciesLoading } = useTenancyList();
+
+  const activeLease = useMemo(() => {
+    const items = tenanciesData?.items ?? [];
+    return items.find((l) => l.effective_status === "active" || l.status === "active");
+  }, [tenanciesData]);
+
+  const hasActiveTenancy = !!activeLease;
+
+  const numAmount = parseFloat(amount);
+  const monthlyRent = activeLease?.monthly_rent ?? 0;
+  const approxDays =
+    monthlyRent > 0 && !isNaN(numAmount) && numAmount > 0
+      ? Math.floor((numAmount / monthlyRent) * 30)
+      : 0;
 
   const handlePickScreenshot = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -155,7 +172,6 @@ export default function SubmitPaymentScreen() {
           </Card>
           <Button
             label="Back to Payments"
-            variant="primary"
             tone="accent"
             onPress={() => router.back()}
           />
@@ -178,6 +194,21 @@ export default function SubmitPaymentScreen() {
     );
   }
 
+  if (!tenanciesLoading && !hasActiveTenancy) {
+    return (
+      <Screen>
+        <PageHeader title="Submit Payment" />
+        <EmptyState
+          icon={<Wallet size={32} color={Colors.primary} />}
+          title="You currently do not have an active tenancy"
+          description="Submit payment is only available when you have an active tenancy. Browse available homes to find your next place."
+          actionLabel="Browse Properties"
+          onAction={() => router.push("/guest/explore")}
+        />
+      </Screen>
+    );
+  }
+
   return (
     <Screen scroll keyboardShouldAdjust="resize">
       <PageHeader title="Submit Payment" />
@@ -194,6 +225,16 @@ export default function SubmitPaymentScreen() {
           placeholder="e.g. 500000"
           keyboardType="numeric"
         />
+
+        {approxDays > 0 && (
+          <View style={styles.coveragePreview}>
+            <Wallet size={16} color={Colors.accent} />
+            <Text style={styles.coverageText}>
+              This amount covers about {approxDays} day{approxDays === 1 ? "" : "s"} of rent (30-day months),
+              pending manager approval.
+            </Text>
+          </View>
+        )}
 
         <SelectField
           label="Payment Method"
@@ -256,7 +297,6 @@ export default function SubmitPaymentScreen() {
                 ? "Submitting…"
                 : "Submit Payment for Verification"
             }
-            variant="primary"
             tone="accent"
             onPress={handleSubmit}
             disabled={createVerification.isPending || uploading}
@@ -334,6 +374,23 @@ const styles = StyleSheet.create({
     fontSize: FontSize.micro,
     color: Colors.textMuted,
     textAlign: "center",
+  },
+  coveragePreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.accentSoft,
+    borderRadius: Radii.card,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    padding: Spacing.md,
+  },
+  coverageText: {
+    flex: 1,
+    fontSize: FontSize.caption,
+    color: Colors.accent,
+    fontWeight: FontWeight.medium,
+    lineHeight: 18,
   },
   submitSection: {
     gap: Spacing.sm,

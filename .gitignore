@@ -33,6 +33,9 @@ Afodabo_Housing_Backend_Documentation.docx
 mobile/.expo/
 mobile/android/
 mobile/ios/
+afodabo-housing-mobile/.expo/
+afodabo-housing-mobile/android/
+afodabo-housing-mobile/ios/
 .opencode
 .gitignore
 backend/.coverage

@@ -132,7 +132,10 @@ def create_payment(
         payload["tenant_id"] = tenant.data[0]["id"]
         if not payload.get("due_date"):
             payload["due_date"] = payload.get("paid_date")
-        payment = service.create(PaymentCreate(**payload))
+        try:
+            payment = service.create(PaymentCreate(**payload))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     else:
         lease = (
             supabase
@@ -147,7 +150,10 @@ def create_payment(
         payload.setdefault("tenant_id", lease.data[0]["tenant_id"])
         if not payload.get("due_date"):
             payload["due_date"] = payload.get("paid_date")
-        payment = service.create(PaymentCreate(**payload))
+        try:
+            payment = service.create(PaymentCreate(**payload))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     return PaymentResponse(**payment)
 
 

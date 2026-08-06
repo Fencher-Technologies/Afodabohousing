@@ -31,6 +31,7 @@ export function useApproveVerification() {
     mutationFn: (id: string) => paymentVerificationsService.approve(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["owner-payment-verifications"] });
+      qc.invalidateQueries({ queryKey: ["my-payment-verifications"] });
       qc.invalidateQueries({ queryKey: ["payments"] });
       qc.invalidateQueries({ queryKey: ["tenancies"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -45,6 +46,7 @@ export function useRejectVerification() {
       paymentVerificationsService.reject(id, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["owner-payment-verifications"] });
+      qc.invalidateQueries({ queryKey: ["my-payment-verifications"] });
     },
   });
 }

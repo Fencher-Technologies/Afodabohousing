@@ -2,7 +2,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from supabase import Client
 
 from dependencies.auth import CurrentUser, get_current_user
@@ -22,6 +22,7 @@ from models.agreements import (
     PartyConsentState,
 )
 from services.agreement_generator import generate_agreement_pdf
+from services.agreement_pdf import AgreementPDFGenerator
 from services.agreements import AgreementService, get_agreement_service
 from services.notifications import notify
 
@@ -385,6 +386,49 @@ def list_agreement_versions(
     active_doc = svc.get_current_document(lease_id)
     active_version = active_doc.get("version") if active_doc else None
     return AgreementVersionHistoryResponse(versions=versions, active_version=active_version)
+
+
+@router.get("/{lease_id}/versions/{version_id}/content")
+def get_agreement_version_content(
+    lease_id: UUID,
+    version_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    svc: AgreementService = Depends(get_agreement_service),
+):
+    """Get the full agreement content JSON for a specific version."""
+    _authorized_lease(lease_id, current_user, svc)
+    content = svc.get_content_by_version(lease_id, str(version_id))
+    if not content:
+        raise HTTPException(status_code=404, detail="Agreement version not found")
+    return content
+
+
+@router.get("/{lease_id}/versions/{version_id}/download")
+def download_agreement_version_pdf(
+    lease_id: UUID,
+    version_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    svc: AgreementService = Depends(get_agreement_service),
+):
+    """Download a specific version of the agreement as a PDF document."""
+    _authorized_lease(lease_id, current_user, svc)
+    content = svc.get_content_by_version(lease_id, str(version_id))
+    if not content:
+        raise HTTPException(status_code=404, detail="Agreement version not found")
+
+    pdf_bytes = AgreementPDFGenerator(content).generate()
+    anum = content.get("agreement_number", "agreement")
+    version = content.get("version", 1)
+    safe_name = f"tenancy-agreement-{anum}-v{version}.pdf".replace(" ", "-")
+
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_name}"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )
 
 
 # ─── Legacy endpoints (keep for existing upload flow) ────────────────────

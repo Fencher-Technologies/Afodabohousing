@@ -58,15 +58,10 @@ export default function PaymentVerificationScreen() {
 
   const handleApprove = useCallback(
     (item: PaymentVerification) => {
-      const tenantName =
-        (item as Record<string, unknown>)["tenants"] &&
-        typeof (item as Record<string, unknown>)["tenants"] === "object"
-          ? ((item as Record<string, unknown>)["tenants"] as Record<string, unknown>)["first_name"] ??
-            "Tenant"
-          : "Tenant";
+      const tenantName = item.tenants?.first_name ?? "Tenant";
       Alert.alert(
         "Approve Payment",
-        `This will create an official payment of ${formatUGX(item.amount)} and notify the tenant. The payment will appear in reports, balances, and payment history.\n\nContinue?`,
+        `This will record an official rent payment of ${formatUGX(item.amount)} and notify the tenant. It will count toward their rent coverage (paid until / days in arrears) and appear in reports, balances, and payment history.\n\nContinue?`,
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -176,14 +171,11 @@ export default function PaymentVerificationScreen() {
       ) : (
         <View style={styles.list}>
           {submissions.map((item) => {
-            const raw = item as Record<string, unknown>;
-            const tenantData = raw["tenants"] as Record<string, unknown> | undefined;
-            const propertyData = raw["properties"] as Record<string, unknown> | undefined;
             const tenantName =
-              tenantData
-                ? `${tenantData["first_name"] ?? ""} ${tenantData["last_name"] ?? ""}`.trim()
+              item.tenants
+                ? `${item.tenants.first_name ?? ""} ${item.tenants.last_name ?? ""}`.trim()
                 : "Tenant";
-            const propertyTitle = (propertyData?.["title"] as string) ?? "Property";
+            const propertyTitle = item.properties?.title ?? "Property";
 
             return (
               <Card key={item.id} padding="md" style={styles.card}>
@@ -286,7 +278,6 @@ export default function PaymentVerificationScreen() {
                   <View style={styles.actions}>
                     <Button
                       label="Approve"
-                      variant="primary"
                       tone="success"
                       size="sm"
                       leftIcon={
@@ -297,7 +288,6 @@ export default function PaymentVerificationScreen() {
                     />
                     <Button
                       label="Reject"
-                      variant="primary"
                       tone="danger"
                       size="sm"
                       leftIcon={
@@ -358,7 +348,6 @@ export default function PaymentVerificationScreen() {
               />
               <Button
                 label="Confirm Rejection"
-                variant="primary"
                 tone="danger"
                 onPress={handleReject}
                 disabled={rejectMutation.isPending || !rejectReason.trim()}

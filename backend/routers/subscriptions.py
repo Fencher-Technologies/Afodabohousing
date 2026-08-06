@@ -7,7 +7,6 @@ from supabase import Client
 from dependencies import (
     CurrentUser,
     get_service_client,
-    get_supabase_client,
     require_active_user,
 )
 from models.subscription import (
@@ -47,11 +46,11 @@ def list_plans(
 def get_current_subscription(
     current_user: CurrentUser = Depends(require_active_user),
     service: SubscriptionService = Depends(get_sub_svc),
-    supabase: Client = Depends(get_supabase_client),
+    supabase: Client = Depends(get_service_client),
 ) -> ManagerSubscriptionResponse | None:
     role = current_user.role
     try:
-        result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+        result = supabase.table("profiles").select("role").eq("user_id", current_user.id).limit(1).execute()
         if result.data:
             role = result.data[0].get("role", role)
     except Exception:

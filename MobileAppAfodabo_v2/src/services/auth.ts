@@ -75,7 +75,7 @@ export const authService = {
   verifyOtp: (phone: string, otp: string) =>
     api.post<{ valid: boolean; message: string; verify_token?: string | null }>("/auth/phone/verify-otp", { phone, otp }),
 
-  registerWithPhone: (data: { phone: string; full_name: string; pin: string; verify_token: string; accepted_terms?: boolean; terms_version?: string; privacy_version?: string }) =>
+  registerWithPhone: (data: { phone: string; full_name: string; pin: string; verify_token: string; role: string; accepted_terms?: boolean; terms_version?: string; privacy_version?: string }) =>
     api.post<SignInResponse>("/auth/phone/register", data),
 
   signInWithPhone: (phone: string, pin: string) =>

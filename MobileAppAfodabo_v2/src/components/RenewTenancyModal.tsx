@@ -31,16 +31,14 @@ function toIso(day: string, month: string, year: string): string {
 
 interface RenewTenancyModalProps {
   currentEndDate: string;
-  currentRent?: number;
   tenantName?: string;
   visible: boolean;
   onClose: () => void;
-  onRenew: (values: { newEndDate: string; monthlyRent?: number; notes?: string }) => Promise<void> | void;
+  onRenew: (values: { newEndDate: string; notes?: string }) => Promise<void> | void;
 }
 
 export function RenewTenancyModal({
   currentEndDate,
-  currentRent,
   tenantName,
   visible,
   onClose,
@@ -49,7 +47,6 @@ export function RenewTenancyModal({
   const [day, setDay] = useState("");
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
-  const [rent, setRent] = useState(currentRent != null ? String(currentRent) : "");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -70,10 +67,8 @@ export function RenewTenancyModal({
     setBusy(true);
     setError(null);
     try {
-      const parsedRent = rent.trim() ? Number(rent) : undefined;
       await onRenew({
         newEndDate,
-        monthlyRent: parsedRent != null && !Number.isNaN(parsedRent) ? parsedRent : undefined,
         notes: notes.trim() || undefined,
       });
       onClose();
@@ -112,13 +107,10 @@ export function RenewTenancyModal({
             </View>
           </View>
 
-          <InputField
-            label="Monthly rent (optional — leave blank to keep current)"
-            value={rent}
-            onChangeText={setRent}
-            placeholder="0"
-            keyboardType="numeric"
-          />
+          <Text style={styles.unchangedNote}>
+            Renewing extends this tenancy only. The tenancy record, start date, monthly rent, payments, and rent calculations stay unchanged.
+          </Text>
+
           <InputField label="Notes (optional)" value={notes} onChangeText={setNotes} placeholder="Any renewal notes" />
 
           {error && <Text style={styles.error}>{error}</Text>}
@@ -170,6 +162,14 @@ const styles = StyleSheet.create({
   dateRow: {
     flexDirection: "row",
     alignItems: "flex-start",
+  },
+  unchangedNote: {
+    fontSize: FontSize.caption,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radii.card,
+    padding: Spacing.md,
   },
   error: {
     fontSize: FontSize.caption,

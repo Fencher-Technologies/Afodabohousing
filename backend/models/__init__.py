@@ -8,7 +8,15 @@ from .agreements import (
 )
 from .bookmark import Bookmark, BookmarkResponse
 from .boost import Boost, BoostCreate, BoostPriceResponse, BoostResponse, BoostStats
-from .lease import Lease, LeaseCreate, LeaseResponse, LeaseUpdate, RenewLease
+from .lease import (
+    Lease,
+    LeaseCreate,
+    LeaseResponse,
+    LeaseUpdate,
+    RenewalHistoryItem,
+    RenewLease,
+    SetRentEffectiveDate,
+)
 from .maintenance_request import (
     MaintenanceRequest,
     MaintenanceRequestCreate,
@@ -57,6 +65,8 @@ __all__ = [
     "LeaseUpdate",
     "LeaseResponse",
     "RenewLease",
+    "RenewalHistoryItem",
+    "SetRentEffectiveDate",
     "Payment",
     "PaymentCreate",
     "PaymentUpdate",
