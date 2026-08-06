@@ -38,17 +38,25 @@ npm run dev
 ### Frontend (Docker)
 
 ```bash
-# Build
-docker build --build-arg VITE_API_URL=https://afodabohousing.onrender.com -t afodabo-web .
+# Build — loads VITE_* vars from .env, then builds the image.
+# Override VITE_API_URL to point at your backend (Render URL or http://localhost:8000).
+set -a && . ./.env && set +a
+docker build \
+  --build-arg VITE_API_URL=https://afodabohousing.onrender.com \
+  --build-arg VITE_SUPABASE_URL \
+  --build-arg VITE_SUPABASE_PUBLISHABLE_KEY \
+  --build-arg VITE_MOBILE_APK_URL \
+  -t afodabo-web .
 
 # Run
 docker run -p 8080:8080 afodabo-web
 # http://localhost:8080
 ```
 
-`VITE_API_URL` is baked in at build time — point it at your backend (e.g. the
-Render URL above, or `http://localhost:8000` for local dev). Override the
-container port with `docker run -p <host>:8080` or `-e PORT=<port>`.
+The Supabase URL + publishable key and `VITE_API_URL` are baked in at build
+time (Vite embeds `VITE_*` vars), so the `VITE_SUPABASE_URL` /
+`VITE_SUPABASE_PUBLISHABLE_KEY` build args must be set or the app white-screens.
+Override the container port with `docker run -p <host>:8080` or `-e PORT=<port>`.
 
 
 ## Migrations
