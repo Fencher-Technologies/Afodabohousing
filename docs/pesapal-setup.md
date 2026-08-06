@@ -14,7 +14,24 @@ submits orders (`submit_order` → `notification_id`), the registration is:
    `environment`, `ipn_url`, `ipn_id`, `registered_at`) so it survives server
    restarts. The value is generated at runtime, not typed into an env var.
 
-## Local development workflow (ngrok)
+## Production workflow (Render) — permanent default
+
+The backend is deployed permanently at https://afodabohousing.onrender.com.
+Register the real Render URL **once**:
+
+```bash
+python backend/scripts/register_ipn.py https://afodabohousing.onrender.com/payments/webhook/pesapal
+```
+
+(or call `POST /admin/pesapal/register-ipn` with `{"ipn_url": "..."}` while
+authenticated as a super admin — the endpoint does exactly the same thing).
+
+This generally never needs to change again unless the domain changes.
+
+## Local development workflow (ngrok) — optional, local-only
+
+> Kept for reference only. The mobile app now points at the Render backend,
+> so this is only needed when running the backend locally via a tunnel.
 
 Every time ngrok restarts, the public URL changes, so the IPN must be
 re-registered:
@@ -42,19 +59,6 @@ SUCCESS (registered):
 Running it twice with the same URL prints `SUCCESS (reused)` and reuses the
 existing `ipn_id` (checked via `GetIPNList`) instead of creating a duplicate
 registration.
-
-## Production workflow (Render)
-
-After the first deploy to Render, register the real Render URL **once**:
-
-```bash
-python backend/scripts/register_ipn.py https://afodabohousing.onrender.com/payments/webhook/pesapal
-```
-
-(or call `POST /admin/pesapal/register-ipn` with `{"ipn_url": "..."}` while
-authenticated as a super admin — the endpoint does exactly the same thing).
-
-This generally never needs to change again unless the domain changes.
 
 ## How it works
 

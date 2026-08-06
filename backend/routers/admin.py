@@ -127,8 +127,9 @@ async def register_pesapal_ipn(
     """Register (or reuse) the Pesapal IPN webhook URL and persist the ipn_id.
 
     IPN registration is API-based — there is no Pesapal dashboard form. The
-    URL changes on every ngrok restart locally and on first deploy, so call
-    this with the current public webhook URL: /payments/webhook/pesapal.
+    URL changes only when the domain changes (e.g. on first deploy to Render),
+    so call this with the current public webhook URL:
+    https://afodabohousing.onrender.com/payments/webhook/pesapal.
     """
     try:
         result = await register_ipn_for_url(supabase, data.ipn_url.strip())

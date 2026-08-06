@@ -15,12 +15,13 @@ from services.pesapal import register_ipn_for_url
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Register/re-register the Pesapal IPN webhook URL. "
-        "Run after every ngrok restart or first deploy, because the public URL changes. "
+        "For production use the permanent Render URL; re-run only if the domain changes. "
+        "For local development, re-run after every ngrok restart, because the tunnel URL changes. "
         "The ipn_id is persisted in the pesapal_config table and reused by boosts/subscriptions."
     )
     parser.add_argument(
         "ipn_url",
-        help="Public webhook URL, e.g. https://abc123.ngrok-free.app/payments/webhook/pesapal",
+        help="Public webhook URL, e.g. https://afodabohousing.onrender.com/payments/webhook/pesapal",
     )
     return parser
 
