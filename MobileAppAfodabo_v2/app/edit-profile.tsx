@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { StyleSheet, Text, View, Alert } from "react-native";
 import { router } from "expo-router";
-import { Phone, Lock, Link } from "lucide-react-native";
+// Phone/Lock/Link icons were only used by the hidden "Phone Sign-In" section. Kept for restore.
+// import { Phone, Lock, Link } from "lucide-react-native";
 
 import { ApiError } from "@/src/lib/api-client";
 import { Colors, FontSize, FontWeight, Spacing, Radii } from "@/constants/theme";
@@ -119,6 +120,10 @@ export default function EditProfileScreen() {
         <View style={{ height: Spacing.xl }} />
         <Button label="Save Changes" onPress={handleSave} fullWidth size="lg" loading={loading} />
 
+        {/* PHONE-AUTH HIDDEN: "Phone Sign-In" section (link phone, OTP, Change PIN)
+            temporarily removed from UI. Kept commented for restore.
+            See edit-profile handlers (handleLinkSendOtp/handleLinkVerifyOtp), src/services/auth.ts,
+            and the phone-auth screens.
         <View style={styles.sectionDivider} />
 
         <Text style={styles.sectionTitle}>Phone Sign-In</Text>
@@ -184,6 +189,7 @@ export default function EditProfileScreen() {
             size="lg"
           />
         )}
+        */}
       </View>
       <View style={{ height: 100 }} />
     </Screen>

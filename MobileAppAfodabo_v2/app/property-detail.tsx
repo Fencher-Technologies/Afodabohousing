@@ -31,6 +31,7 @@ import { Button } from "@/src/components/Button";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { useAuth } from "@/src/context/auth-context";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import { useProperty, usePublicProperty, useDeleteProperty, useUpdateProperty } from "@/src/hooks/useProperties";
 import { formatUGX, formatPropertyType, formatAmenity, formatDate } from "@/src/utils/format";
 import { MessageTemplates, openWhatsApp } from "@/src/utils/whatsapp";
@@ -39,7 +40,8 @@ export default function PropertyDetailScreen() {
   const { id, role } = useLocalSearchParams<{ id: string; role: string }>();
   const isManager = role === "manager";
 
-  const { user } = useAuth();
+  const { user, subscription } = useAuth();
+  const isExpired = isManager && subscription?.status !== "active";
   const authQuery = useProperty(id ?? "", { enabled: isManager });
   const publicQuery = usePublicProperty(id ?? "", { enabled: !isManager });
   const { data: property, isLoading, error } = isManager ? authQuery : publicQuery;
@@ -47,6 +49,7 @@ export default function PropertyDetailScreen() {
   const deleteMutation = useDeleteProperty();
   const updateMutation = useUpdateProperty();
   const refetch = isManager ? authQuery.refetch : publicQuery.refetch;
+  const [showGate, setShowGate] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const imageScrollRef = useRef<ScrollView>(null);
@@ -153,6 +156,10 @@ export default function PropertyDetailScreen() {
   };
 
   const handleDelete = () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     Alert.alert("Delete Property", "Are you sure? This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
@@ -171,6 +178,10 @@ export default function PropertyDetailScreen() {
   };
 
   const handleToggleOccupancy = () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     const willBeOccupied = property.occupancy_status !== "occupied";
     Alert.alert(
       willBeOccupied ? "Mark as Occupied" : "Mark as Available",
@@ -192,6 +203,10 @@ export default function PropertyDetailScreen() {
   };
 
   const handleToggleStatus = () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     const willBeActive = property.status !== "active";
     Alert.alert(
       willBeActive ? "Activate Property" : "Deactivate Property",
@@ -556,6 +571,16 @@ export default function PropertyDetailScreen() {
       </View>
 
       <View style={{ height: 100 }} />
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="managing this property"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
     </Screen>
   );
 }

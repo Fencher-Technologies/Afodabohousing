@@ -14,7 +14,8 @@ import {
   FileText,
   Headphones,
   Mail,
-  Phone,
+  // Phone icon only served the "Change PIN" row (hidden). Kept for restore.
+  // Phone,
 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -67,15 +68,17 @@ export default function TenantAccountScreen() {
             <ActionRow icon={<User size={20} color={Colors.textSecondary} />} label="Edit Profile" onPress={() => router.push("/edit-profile")} />
             <Divider />
             <ActionRow icon={<Lock size={20} color={Colors.textSecondary} />} label="Change Password" onPress={() => router.push("/change-password")} />
+            {/* PHONE-AUTH HIDDEN: "Change PIN" (phone sign-in PIN) removed. Kept for restore.
             <Divider />
             <ActionRow icon={<Phone size={20} color={Colors.textSecondary} />} label="Change PIN" onPress={() => router.push("/change-pin")} />
+            */}
           </Card>
         </View>
 
         {/* Support & Policies */}
         <View style={styles.section}>
           <CollapsibleSection title="Support & Policies">
-            <ActionRow icon={<Info size={20} color={Colors.textSecondary} />} label="About Afodabo" onPress={() => router.push("/legal?type=about")} />
+            <ActionRow icon={<Info size={20} color={Colors.textSecondary} />} label="About Axis" onPress={() => router.push("/legal?type=about")} />
             <Divider />
             <ActionRow icon={<Headphones size={20} color={Colors.textSecondary} />} label="Contact Support" onPress={() => router.push("/legal?type=contact")} />
             <Divider />
@@ -98,7 +101,7 @@ export default function TenantAccountScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.version}>Afodabo Housing v1.0.0</Text>
+        <Text style={styles.version}>Axis v1.0.0</Text>
       </View>
 
       <View style={{ height: 100 }} />

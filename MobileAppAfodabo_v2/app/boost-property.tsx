@@ -12,11 +12,16 @@ import { Badge } from "@/src/components/Badge";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { boostsService } from "@/src/services/boosts";
+import { useAuth } from "@/src/context/auth-context";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import type { BoostPackage } from "@/src/types";
 import { API_BASE_URL } from "@/constants/config";
 
 export default function BoostPropertyScreen() {
   const { propertyId } = useLocalSearchParams<{ propertyId: string }>();
+  const { subscription } = useAuth();
+  const isExpired = subscription?.status !== "active";
+  const [showGate, setShowGate] = useState(false);
   const [packages, setPackages] = useState<BoostPackage[]>([]);
   const [selectedDays, setSelectedDays] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +46,10 @@ export default function BoostPropertyScreen() {
   }, []);
 
   const handlePurchase = async () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     if (!selectedDays) {
       Alert.alert("Missing info", "Select a package to continue.");
       return;
@@ -236,6 +245,16 @@ export default function BoostPropertyScreen() {
       </View>
 
       <View style={{ height: 100 }} />
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="boosting properties"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
     </Screen>
   );
 }

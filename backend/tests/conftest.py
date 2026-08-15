@@ -32,8 +32,9 @@ class MockResponse:
 
 
 class MockTableBuilder:
-    def __init__(self, name):
+    def __init__(self, name, seeds=None):
         self._name = name
+        self._seeds = seeds or {}
         self._filters = {}
         self._inserted = None
         self._updated = None
@@ -188,6 +189,8 @@ class MockTableBuilder:
         return MockResponse(data=data, count=count)
 
     def _seed_data(self):
+        if self._name in self._seeds:
+            return self._seeds[self._name]
         if self._name == "properties":
             return [
                 {
@@ -333,19 +336,149 @@ class MockTableBuilder:
                     "full_name": "Test User",
                     "created_at": "2026-01-01T00:00:00Z",
                     "updated_at": "2026-01-01T00:00:00Z",
-                }
+                },
+                {
+                    "id": "00000000-0000-0000-0000-000000000061",
+                    "user_id": UID_TENANT_USER,
+                    "email": "tenant@test.com",
+                    "role": "tenant",
+                    "full_name": "Tenant User",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                },
+                {
+                    "id": "00000000-0000-0000-0000-000000000062",
+                    "user_id": UID_ADMIN,
+                    "email": "admin@test.com",
+                    "role": "super_admin",
+                    "full_name": "Admin User",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                },
             ]
+        if self._name == "subscription_plans":
+            return [
+                {
+                    "id": "1mo",
+                    "name": "1 Month",
+                    "duration_days": 30,
+                    "price_usd": 5.0,
+                    "price_ugx": 20000.0,
+                    "benefits": [],
+                    "is_active": True,
+                    "sort_order": 0,
+                    "popular": False,
+                    "created_at": "2026-01-01T00:00:00Z",
+                },
+                {
+                    "id": "3mo",
+                    "name": "3 Months",
+                    "duration_days": 90,
+                    "price_usd": 10.0,
+                    "price_ugx": 40000.0,
+                    "benefits": [],
+                    "is_active": True,
+                    "sort_order": 1,
+                    "popular": False,
+                    "created_at": "2026-01-01T00:00:00Z",
+                },
+                {
+                    "id": "6mo",
+                    "name": "6 Months",
+                    "duration_days": 180,
+                    "price_usd": 20.0,
+                    "price_ugx": 80000.0,
+                    "benefits": [],
+                    "is_active": True,
+                    "sort_order": 2,
+                    "popular": True,
+                    "created_at": "2026-01-01T00:00:00Z",
+                },
+                {
+                    "id": "12mo",
+                    "name": "1 Year",
+                    "duration_days": 365,
+                    "price_usd": 25.0,
+                    "price_ugx": 100000.0,
+                    "benefits": [],
+                    "is_active": True,
+                    "sort_order": 3,
+                    "popular": False,
+                    "created_at": "2026-01-01T00:00:00Z",
+                },
+            ]
+        if self._name == "boost_packages":
+            return [
+                {
+                    "id": "7d",
+                    "days": 7,
+                    "price_ugx": 10000.0,
+                    "label": "7 Days",
+                    "is_active": True,
+                    "sort_order": 1,
+                },
+                {
+                    "id": "14d",
+                    "days": 14,
+                    "price_ugx": 20000.0,
+                    "label": "14 Days",
+                    "is_active": True,
+                    "sort_order": 2,
+                },
+                {
+                    "id": "30d",
+                    "days": 30,
+                    "price_ugx": 40000.0,
+                    "label": "30 Days",
+                    "is_active": True,
+                    "sort_order": 3,
+                },
+                {
+                    "id": "60d",
+                    "days": 60,
+                    "price_ugx": 90000.0,
+                    "label": "60 Days",
+                    "is_active": False,
+                    "sort_order": 4,
+                },
+            ]
+        if self._name == "manager_subscriptions":
+            def _sub(uid, status="active", expires_at="2126-07-08T00:00:00Z"):
+                return {
+                    "id": f"sub-{uid}",
+                    "manager_id": uid,
+                    "plan_id": "12mo",
+                    "status": status,
+                    "started_at": "2026-01-01T00:00:00Z",
+                    "expires_at": expires_at,
+                    "auto_renew": True,
+                    "payment_reference": None,
+                    "payment_status": "completed",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                }
+
+            return [_sub(UID_OWNER), _sub(UID_ADMIN)]
         return []
 
 
 class MockSupabaseClient:
+    def __init__(self, seeds=None):
+        self._seeds = seeds or {}
+
     def table(self, name):
-        return MockTableBuilder(name)
+        return MockTableBuilder(name, self._seeds)
 
     def rpc(self, name, params=None):
         mock = MagicMock()
         if name == "get_user_role":
-            mock.execute.return_value = MockResponse(data=["super_admin"])
+            uid = (params or {}).get("_user_id")
+            role = "super_admin"
+            for profile in MockTableBuilder("profiles", self._seeds)._seed_data():
+                if str(profile.get("user_id")) == str(uid):
+                    role = profile.get("role", role)
+                    break
+            mock.execute.return_value = MockResponse(data=[role])
         else:
             mock.execute.return_value = MockResponse(data=[])
         return mock
@@ -405,4 +538,25 @@ def client(mock_supabase, test_user) -> TestClient:
     with patch("dependencies.database.create_client", return_value=mock_supabase):
         yield TestClient(app)
 
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def seeded_client(test_user):
+    """Factory for a TestClient with a configurable mock supabase and user.
+
+    `seeds` overrides the default fixture data for specific tables (e.g.
+    ``manager_subscriptions``) so subscription-expiry behavior can be tested.
+    """
+    from dependencies.database import _get_cached_client
+
+    def _build(*, user: CurrentUser | None = None, seeds: dict | None = None) -> TestClient:
+        _get_cached_client.cache_clear()
+        mock = MockSupabaseClient(seeds=seeds)
+        app.dependency_overrides[get_supabase_client] = lambda: mock
+        app.dependency_overrides[get_service_client] = lambda: mock
+        app.dependency_overrides[get_current_user] = lambda: user or test_user
+        return TestClient(app, raise_server_exceptions=False)
+
+    yield _build
     app.dependency_overrides.clear()

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, View, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 
@@ -9,8 +9,10 @@ import { Button } from "@/src/components/Button";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { AgreementRenderer } from "@/src/components/AgreementRenderer";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import { useAgreementTemplate, useBuildAgreement, useEditAgreement } from "@/src/hooks/useAgreements";
 import { useTenancy } from "@/src/hooks/useTenancies";
+import { useAuth } from "@/src/context/auth-context";
 import type {
   AgreementContent,
   AgreementTenantInfo,
@@ -29,6 +31,9 @@ export default function AgreementPreviewScreen() {
     customClauses?: string;
   }>();
   const isEdit = mode === "edit";
+  const { subscription } = useAuth();
+  const isExpired = subscription?.status !== "active";
+  const [showGate, setShowGate] = useState(false);
 
   const {
     data: template,
@@ -118,6 +123,10 @@ export default function AgreementPreviewScreen() {
   }, [template, lease, draftStandardClauses, draftCustomClauses]);
 
   const handleGenerate = async () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     if (!leaseId || !template) return;
     try {
       const standardClauses = template.standard_clauses
@@ -144,6 +153,10 @@ export default function AgreementPreviewScreen() {
   };
 
   const handleSaveChanges = async () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     if (!leaseId || !draftStandardClauses) return;
     try {
       await editAgreement.mutateAsync({
@@ -218,6 +231,16 @@ export default function AgreementPreviewScreen() {
       </View>
 
       <View style={{ height: Spacing.xxl }} />
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="saving agreements"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
     </Screen>
   );
 }

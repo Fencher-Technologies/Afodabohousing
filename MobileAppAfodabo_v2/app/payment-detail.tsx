@@ -20,6 +20,7 @@ import { ErrorState } from "@/src/components/ErrorState";
 import { PageHeader } from "@/src/components/PageHeader";
 import { usePayment, useUpdatePayment, useDeletePayment } from "@/src/hooks/usePayments";
 import { useAuth } from "@/src/context/auth-context";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
 import type { PaymentMethod } from "@/src/types";
 
@@ -28,10 +29,12 @@ export default function PaymentDetailScreen() {
   const { data: payment, isLoading } = usePayment(id || "");
   const updatePayment = useUpdatePayment();
   const deletePayment = useDeletePayment();
-  const { user } = useAuth();
+  const { user, subscription } = useAuth();
   const isManager = user?.role === "manager";
+  const isExpired = isManager && subscription?.status !== "active";
 
   const [editing, setEditing] = useState(false);
+  const [showGate, setShowGate] = useState(false);
   const [amount, setAmount] = useState("");
   const [paidDate, setPaidDate] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("mobile_money");
@@ -50,6 +53,10 @@ export default function PaymentDetailScreen() {
   }
 
   const startEdit = () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     setAmount(String(payment.amount));
     setPaidDate(payment.paid_date ?? payment.due_date ?? "");
     setMethod((payment.method as PaymentMethod) ?? "mobile_money");
@@ -86,6 +93,10 @@ export default function PaymentDetailScreen() {
   };
 
   const handleDelete = () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     Alert.alert(
       "Delete Payment",
       "This will permanently remove the payment record. This cannot be undone.",
@@ -230,6 +241,16 @@ export default function PaymentDetailScreen() {
           </>
         )}
       </View>
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="editing payments"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
     </Screen>
   );
 }

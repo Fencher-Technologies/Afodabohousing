@@ -10,6 +10,7 @@ import {
   Home,
   Wallet,
   Phone,
+  Mail,
   MessageCircle,
   Calendar,
   MapPin,
@@ -314,12 +315,12 @@ export default function MyTenancyScreen() {
                 {managerPhone || "No phone number available"}
               </Text>
             </View>
-            {managerEmail ? (
-              <View style={styles.contactInfoRow}>
-                <MessageCircle size={16} color={Colors.textMuted} />
-                <Text style={styles.contactInfoText}>{managerEmail}</Text>
-              </View>
-            ) : null}
+            <View style={styles.contactInfoRow}>
+              <Mail size={16} color={Colors.textMuted} />
+              <Text style={styles.contactInfoText}>
+                {managerEmail || "No email available"}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.contactActions}>

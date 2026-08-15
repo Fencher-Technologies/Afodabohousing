@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from supabase import Client
 
-from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client
+from dependencies import (
+    CurrentUser,
+    get_current_user,
+    get_service_client,
+    get_supabase_client,
+    require_active_subscription,
+)
 from models import TenantCreate, TenantResponse, TenantUpdate
 from phone import is_synthetic_email, normalize_phone
 from services import TenantService, get_tenant_service
@@ -187,6 +193,7 @@ def get_tenant(
 def create_tenant(
     data: TenantCreate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: TenantService = Depends(get_tenant_svc),
 ) -> TenantResponse:
     tenant = service.create(data, current_user.id)
@@ -198,6 +205,7 @@ def update_tenant(
     tenant_id: UUID,
     data: TenantUpdate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: TenantService = Depends(get_tenant_svc),
 ) -> TenantResponse:
     tenant = service.update(tenant_id, data, current_user.id)
@@ -210,6 +218,7 @@ def update_tenant(
 def delete_tenant(
     tenant_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: TenantService = Depends(get_tenant_svc),
 ) -> None:
     success = service.delete(tenant_id, current_user.id)

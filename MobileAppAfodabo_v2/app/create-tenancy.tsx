@@ -163,7 +163,8 @@ export default function CreateTenancyScreen() {
         <SegmentedControl
           segments={[
             { label: "Email", value: "email" },
-            { label: "Phone", value: "phone" },
+            // PHONE-AUTH HIDDEN: adding tenant by phone temporarily removed from UI. Kept for restore.
+            // { label: "Phone", value: "phone" },
           ]}
           value={contactMethod}
           onChange={setContactMethod}

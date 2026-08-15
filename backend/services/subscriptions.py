@@ -55,12 +55,26 @@ class SubscriptionService:
         plan = self.get_plan(sub["plan_id"])
         plan_name = plan["name"] if plan else sub["plan_id"]
 
+        now = datetime.now(UTC)
+        expires_dt = None
+        raw_expires = sub.get("expires_at")
+        if raw_expires:
+            try:
+                expires_dt = (
+                    raw_expires
+                    if isinstance(raw_expires, datetime)
+                    else datetime.fromisoformat(str(raw_expires).replace("Z", "+00:00"))
+                )
+            except (TypeError, ValueError):
+                expires_dt = None
+
+        status = sub["status"]
+        if status == "active" and expires_dt and expires_dt <= now:
+            status = "expired"
+
         days_remaining = 0
-        if sub.get("expires_at") and sub["status"] == "active":
-            expires = sub["expires_at"]
-            if isinstance(expires, str):
-                expires = datetime.fromisoformat(expires.replace("Z", "+00:00"))
-            remaining = expires - datetime.now(UTC)
+        if status == "active" and expires_dt:
+            remaining = expires_dt - now
             days_remaining = max(0, remaining.days)
 
         return ManagerSubscriptionResponse(
@@ -68,7 +82,7 @@ class SubscriptionService:
             manager_id=str(sub["manager_id"]),
             plan_id=sub["plan_id"],
             plan_name=plan_name,
-            status=sub["status"],
+            status=status,
             started_at=sub.get("started_at"),
             expires_at=sub.get("expires_at"),
             auto_renew=sub.get("auto_renew", True),

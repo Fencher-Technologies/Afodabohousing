@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from supabase import Client
 
-from dependencies import CurrentUser, get_current_user, get_service_client
+from dependencies import CurrentUser, get_current_user, get_service_client, require_active_subscription
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
@@ -87,6 +87,7 @@ async def upload_voice_note(
 async def upload_property_image(
     file: UploadFile = File(...),
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_service_client),
 ) -> UploadResponse:
     file_bytes = await file.read()

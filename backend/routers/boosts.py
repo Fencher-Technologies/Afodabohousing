@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -8,6 +9,7 @@ from supabase import Client
 from dependencies import (
     CurrentUser,
     get_service_client,
+    require_active_subscription,
     require_super_admin,
     require_super_admin_or_manager,
 )
@@ -24,6 +26,7 @@ from phone import normalize_phone
 from services.boost import (
     BoostService,
     calculate_boost_price,
+    get_boost_package,
     get_boost_packages,
     get_boost_service,
 )
@@ -64,9 +67,12 @@ class BoostCancelResponse(BaseModel):
 
 
 @router.get("/packages", response_model=list[BoostPackage])
-def list_boost_packages() -> list[BoostPackage]:
+def list_boost_packages(supabase: Client = Depends(get_service_client)) -> list[BoostPackage]:
     """Get available boost packages. Public endpoint."""
-    return [BoostPackage(**pkg) for pkg in get_boost_packages()]
+    return [
+        BoostPackage(days=pkg["days"], price=int(pkg["price_ugx"]), label=pkg["label"])
+        for pkg in get_boost_packages(supabase)
+    ]
 
 
 # ── Super Admin: Boost Management ──
@@ -86,7 +92,7 @@ def create_boost(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found")
 
     manager_id = prop.data.get("owner_id")
-    amount = calculate_boost_price(data.duration_days)
+    amount = calculate_boost_price(supabase, data.duration_days)
 
     boost_data = BoostCreate(
         property_id=data.property_id,
@@ -226,6 +232,7 @@ BOOST_CALLBACK_URL = "/payment/status"
 async def initiate_boost(
     data: InitiateBoostRequest,
     current_user: CurrentUser = Depends(require_super_admin_or_manager),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_service_client),
     service: BoostService = Depends(get_boost_svc),
 ) -> InitiateBoostResponse:
@@ -236,14 +243,17 @@ async def initiate_boost(
     if str(prop.data.get("owner_id")) != str(current_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only boost your own properties")
 
-    amount = int(calculate_boost_price(data.duration_days))
+    pkg = get_boost_package(supabase, data.duration_days)
+    if not pkg:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid boost package")
+    amount = int(pkg["price_ugx"])
     reference = str(uuid4())
     prop_title = prop.data.get("title", "Property")
 
     boost_data = BoostCreate(
         property_id=data.property_id,
         duration_days=data.duration_days,
-        amount_paid=calculate_boost_price(data.duration_days),
+        amount_paid=Decimal(str(pkg["price_ugx"])),
     )
 
     result = service.create_pending(boost_data, UUID(current_user.id), reference, "pesapal")
@@ -311,10 +321,10 @@ async def initiate_boost(
 
 
 @router.get("/price/default")
-def default_boost_price() -> BoostPriceResponse:
+def default_boost_price(supabase: Client = Depends(get_service_client)) -> BoostPriceResponse:
     """Get the default boost pricing. Public endpoint."""
     return BoostPriceResponse(
         duration_days=7,
-        amount=float(calculate_boost_price(7)),
+        amount=float(calculate_boost_price(supabase, 7)),
         currency="UGX",
     )
