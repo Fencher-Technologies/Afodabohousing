@@ -63,6 +63,7 @@ import ManagerTenantDetail from "./pages/ManagerTenantDetail";
 import AgreementPreview from "./pages/AgreementPreview";
 import AgreementSummary from "./pages/AgreementSummary";
 import DashboardLayout from "./components/DashboardLayout";
+import MobileAppBanner from "./components/MobileAppBanner";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -166,6 +167,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <MobileAppBanner />
           </ErrorBoundary>
         </BrowserRouter>
       </AuthProvider>

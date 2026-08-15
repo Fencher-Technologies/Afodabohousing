@@ -15,7 +15,6 @@ import { useToast } from '@/hooks/use-toast';
 import { listPayments, updatePayment, PaymentData } from '@/services/payments';
 import { getCurrentSubscription } from '@/services/subscriptions';
 import AvatarUpload from '@/components/AvatarUpload';
-import MobileAppBanner from '@/components/MobileAppBanner';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload,
@@ -474,7 +473,6 @@ export default function ManagerDashboard() {
 
   return (
     <div>
-      <MobileAppBanner />
       <div className="p-4 lg:p-6 space-y-6">
             {showTenantForm ? (
               <div className="max-w-2xl mx-auto">

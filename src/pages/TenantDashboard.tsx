@@ -14,7 +14,6 @@ import {
   X, Download, Upload, ThumbsUp, ThumbsDown, FileUp, Sidebar, Camera
 } from 'lucide-react';
 import { format, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from 'date-fns';
-import MobileAppBanner from '@/components/MobileAppBanner';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -403,7 +402,6 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
 
   return (
     <div>
-      <MobileAppBanner />
       <div className="p-4 lg:p-6">
           {/* ==================== HOME TAB ==================== */}
           {tab === 'home' && (

@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { X, Download, Smartphone } from 'lucide-react';
 
 const APK_URL = import.meta.env.VITE_MOBILE_APK_URL || '';
-const STORAGE_KEY = 'axis-app-banner-dismissed';
+const STORAGE_KEY = 'axis-app-download-dismissed';
 
-function isMobileBrowser(): boolean {
-  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+function isIOsBrowser(): boolean {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
 export default function MobileAppBanner() {
@@ -13,30 +13,42 @@ export default function MobileAppBanner() {
 
   useEffect(() => {
     if (!APK_URL) return;
-    if (sessionStorage.getItem(STORAGE_KEY)) return;
-    if (isMobileBrowser()) setVisible(true);
+    if (localStorage.getItem(STORAGE_KEY)) return;
+    if (isIOsBrowser()) return;
+    setVisible(true);
   }, []);
 
   if (!visible) return null;
 
   return (
-    <div className="sticky top-16 z-40 bg-gradient-to-r from-primary/95 to-primary/90 backdrop-blur-sm text-primary-foreground border-b border-primary-foreground/10">
-      <div className="flex items-center gap-3 px-4 py-2.5 max-w-7xl mx-auto">
-        <div className="h-9 w-9 rounded-xl bg-primary-foreground/15 flex items-center justify-center shrink-0">
-          <Smartphone className="h-5 w-5" />
+    <div className="fixed bottom-4 right-4 z-40 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card shadow-lg">
+      <div className="flex items-center gap-3 px-4 pt-3">
+        <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
+          <Smartphone className="h-5 w-5 text-primary-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate">Get the Axis app</p>
-          <p className="text-xs text-primary-foreground/70 truncate">Install for easy access on your phone</p>
+          <p className="text-sm font-semibold text-foreground truncate">Get the Axis app</p>
+          <p className="text-xs text-muted-foreground truncate">Android APK</p>
         </div>
-        <a href={APK_URL} download
-          className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-primary-foreground text-primary text-xs font-bold hover:bg-primary-foreground/90 transition-colors shrink-0">
-          <Download className="h-3.5 w-3.5" /> Install
-        </a>
-        <button onClick={() => { setVisible(false); sessionStorage.setItem(STORAGE_KEY, '1'); }}
-          className="p-1 rounded-lg hover:bg-primary-foreground/10 transition-colors shrink-0">
+        <button
+          onClick={() => { setVisible(false); localStorage.setItem(STORAGE_KEY, '1'); }}
+          className="p-1 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+          aria-label="Dismiss"
+        >
           <X className="h-4 w-4" />
         </button>
+      </div>
+      <div className="px-4 pb-3.5 pt-2">
+        <a
+          href={APK_URL}
+          download
+          className="flex items-center justify-center gap-2 h-9 w-full rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors"
+        >
+          <Download className="h-4 w-4" /> Download & Install
+        </a>
+        <p className="text-[11px] text-muted-foreground mt-1.5 text-center">
+          Allow "install unknown apps" in your browser settings
+        </p>
       </div>
     </div>
   );
