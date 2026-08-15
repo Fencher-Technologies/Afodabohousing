@@ -1,5 +1,5 @@
 /**
- * Afodabo Housing — Type Definitions
+ * Axis — Type Definitions
  */
 
 export type UserRole = "guest" | "tenant" | "manager" | "admin";

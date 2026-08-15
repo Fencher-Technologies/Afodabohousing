@@ -150,7 +150,7 @@ class PhoneAuthService:
             "expires_at": expires_at.isoformat(),
         }).execute()
 
-        sent = await send_sms_esms(phone, f"Your Afodabo verification code is: {otp}. It expires in 5 minutes.")
+        sent = await send_sms_esms(phone, f"Your Axis verification code is: {otp}. It expires in 5 minutes.")
 
         return {
             "status": "sent" if sent else "simulated",

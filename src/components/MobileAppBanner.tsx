@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Download, Smartphone } from 'lucide-react';
 
 const APK_URL = import.meta.env.VITE_MOBILE_APK_URL || '';
-const STORAGE_KEY = 'afodabo-app-banner-dismissed';
+const STORAGE_KEY = 'axis-app-banner-dismissed';
 
 function isMobileBrowser(): boolean {
   return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -26,7 +26,7 @@ export default function MobileAppBanner() {
           <Smartphone className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate">Get the Afodabo Housing app</p>
+          <p className="text-sm font-semibold truncate">Get the Axis app</p>
           <p className="text-xs text-primary-foreground/70 truncate">Install for easy access on your phone</p>
         </div>
         <a href={APK_URL} download

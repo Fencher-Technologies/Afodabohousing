@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from supabase import Client
 
+logger = logging.getLogger(__name__)
+
 from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client
 from models import (
     LeaseCreate,
@@ -17,8 +19,6 @@ from models import (
 )
 from services import LeaseService, PaymentService, get_lease_service, get_payment_service
 from services.notifications import notify
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/leases", tags=["leases"])
 

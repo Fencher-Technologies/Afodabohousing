@@ -8,7 +8,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: mockUseAuth,
 }));
 
-vi.mock("@/assets/logo.png", () => ({ default: "logo.png" }));
+vi.mock("@/assets/axis-logo.png", () => ({ default: "logo.png" }));
 
 const defaultAuthState = {
   user: null,
@@ -32,8 +32,8 @@ describe("Navbar", () => {
 
   it("renders logo and brand name", () => {
     renderNavbar();
-    expect(screen.getByText("Afodabo Housing")).toBeDefined();
-    expect(screen.getByText("Uganda's Housing Platform")).toBeDefined();
+    expect(screen.getByText("Axis")).toBeDefined();
+    expect(screen.getByText("Housing Made Easy")).toBeDefined();
   });
 
   it("shows Sign In and Get Started when logged out", () => {

@@ -22,7 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--message",
-        default="This is a test SMS from Afodabo. If you receive this, EgoSMS integration is working.",
+        default="This is a test SMS from Axis. If you receive this, EgoSMS integration is working.",
         help="SMS message body (default: standard test message)",
     )
     return parser

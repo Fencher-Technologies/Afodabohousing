@@ -1,6 +1,6 @@
-# Afodabo Housing API
+# Axis API
 
-FastAPI backend for the Afodabo Housing rental management platform.
+FastAPI backend for the Axis rental management platform.
 
 ## Architecture
 

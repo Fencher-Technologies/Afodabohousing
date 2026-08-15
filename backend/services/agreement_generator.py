@@ -132,6 +132,6 @@ def generate_agreement_pdf(content: dict) -> bytes:
     ]))
     story.append(sig_table)
     story.append(Spacer(1, 6 * mm))
-    story.append(Paragraph("Generated digitally by Afodabo Housing.", _style("Footer", fontSize=8, leading=10, textColor=colors.HexColor("#BCCCDC"))))
+    story.append(Paragraph("Generated digitally by Axis.", _style("Footer", fontSize=8, leading=10, textColor=colors.HexColor("#BCCCDC"))))
     doc.build(story)
     return buffer.getvalue()

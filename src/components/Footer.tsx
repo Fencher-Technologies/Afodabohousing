@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import logoImg from '@/assets/logo.png';
+import logoImg from '@/assets/axis-logo.png';
 import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 
 const LINKS = {
@@ -51,19 +51,19 @@ export default function Footer() {
           {/* Brand column */}
           <div className="lg:col-span-2">
             <ScrollLink to="/" className="flex items-center gap-3 mb-5">
-              <img src={logoImg} alt="Afodabo Housing" className="h-12 w-12 object-contain rounded-lg" />
+              <img src={logoImg} alt="Axis" className="h-12 w-12 object-contain rounded-lg" />
               <div>
-                <div className="font-display font-bold text-xl text-primary-foreground leading-tight">Afodabo Housing</div>
-                <div className="text-primary-foreground/60 text-xs">Uganda's Number One District Relocation App</div>
+                <div className="font-display font-bold text-xl text-primary-foreground leading-tight">Axis</div>
+                <div className="text-primary-foreground/60 text-xs">Housing Made Easy</div>
               </div>
             </ScrollLink>
             <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6 max-w-xs">
-              Connecting tenants with verified house managers across all states of Uganda. Find your perfect home, generate agreements, and manage rent in one platform.
+              Connecting tenants with verified house managers across Uganda. Find your perfect home, generate agreements, and manage rent in one platform.
             </p>
             <div className="space-y-2.5 text-sm">
-              <a href="mailto:info@afodabohousing.com" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <a href="mailto:info@axishousing.com" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <Mail className="h-4 w-4 text-accent shrink-0" />
-                info@afodabohousing.com
+                info@axishousing.com
               </a>
               <a href="tel:+256788100145" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <Phone className="h-4 w-4 text-accent shrink-0" />
@@ -76,10 +76,10 @@ export default function Footer() {
             </div>
             <div className="flex items-center gap-3 mt-6">
               {[
-                { Icon: Facebook, href: 'https://facebook.com/afodabohousing', label: 'Facebook' },
-                { Icon: Twitter, href: 'https://twitter.com/afodabohousing', label: 'Twitter' },
-                { Icon: Instagram, href: 'https://instagram.com/afodabohousing', label: 'Instagram' },
-                { Icon: Youtube, href: 'https://youtube.com/@afodabohousing', label: 'YouTube' },
+                { Icon: Facebook, href: 'https://facebook.com/axishousing', label: 'Facebook' },
+                { Icon: Twitter, href: 'https://twitter.com/axishousing', label: 'Twitter' },
+                { Icon: Instagram, href: 'https://instagram.com/axishousing', label: 'Instagram' },
+                { Icon: Youtube, href: 'https://youtube.com/@axishousing', label: 'YouTube' },
               ].map(({ Icon, href, label }) => (
                 <a
                   key={label}
@@ -160,7 +160,7 @@ export default function Footer() {
       {/* Bottom bar */}
       <div className="border-t border-primary-foreground/15 bg-primary/80">
         <div className="container flex flex-col sm:flex-row items-center justify-between gap-3 py-4 text-xs text-primary-foreground/55">
-          <span>&copy; {new Date().getFullYear()} Afodabohousing Ltd. All rights reserved. Registered in Uganda.</span>
+          <span>&copy; {new Date().getFullYear()} Axis Ltd. All rights reserved.</span>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-accent inline-block animate-pulse" />
@@ -171,8 +171,8 @@ export default function Footer() {
             <span>·</span>
             <ScrollLink to="/terms" className="hover:text-primary-foreground transition-colors">Terms</ScrollLink>
             <span>·</span>
-            <a href="mailto:info@afodabohousing.com" className="hover:text-primary-foreground transition-colors">
-              info@afodabohousing.com
+              <a href="mailto:info@axishousing.com" className="hover:text-primary-foreground transition-colors">
+              info@axishousing.com
             </a>
           </div>
         </div>

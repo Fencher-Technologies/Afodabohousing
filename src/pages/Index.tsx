@@ -19,14 +19,6 @@ interface Property {
   area: string | null; images: string[] | null; monthly_rent?: number;
 }
 
-const DEMO_ACCOUNTS = [
-  { email: 'admin@afodabo.ug', role: 'Super Admin', badge: 'bg-accent/20 text-accent border-accent/30', desc: 'Full platform control' },
-  { email: 'john@afodabo.ug', role: 'Manager (John)', badge: 'bg-primary/10 text-primary border-primary/30', desc: '3 properties listed' },
-  { email: 'grace@afodabo.ug', role: 'Manager (Grace)', badge: 'bg-primary/10 text-primary border-primary/30', desc: 'Wakiso properties' },
-  { email: 'sarah@afodabo.ug', role: 'Tenant (Sarah)', badge: 'bg-secondary text-secondary-foreground border-border', desc: 'Active tenancy' },
-  { email: 'david@afodabo.ug', role: 'Tenant (David)', badge: 'bg-gold/20 text-foreground border-gold/30', desc: 'Rent due soon' },
-];
-
 const FEATURES = [
   {
     icon: <Shield className="h-6 w-6" />,
@@ -117,7 +109,7 @@ export default function HomePage() {
         <div className="absolute inset-0 gradient-hero" />
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto pt-8 md:pt-0">
           <Badge className="bg-accent text-accent-foreground mb-4 text-xs font-semibold tracking-widest uppercase px-3 py-1.5 whitespace-normal text-center leading-snug max-w-xs sm:max-w-none mx-auto block sm:inline-block">
-            Uganda's Number One District Relocation Housing App
+            Housing Made Easy
           </Badge>
           <h1 className="font-display text-5xl md:text-7xl font-bold text-primary-foreground mb-6 leading-tight tracking-tight">
             Find Your Perfect<br />
@@ -191,34 +183,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* DEMO ACCOUNTS */}
-      <section className="bg-secondary/60 border-b border-border py-10" id="demo">
-        <div className="container">
-          <div className="text-center mb-6">
-            <h2 className="font-display text-xl font-bold text-foreground">Explore the Platform with Demo Accounts</h2>
-            <p className="text-muted-foreground text-sm mt-1.5">
-              Click any account below, then sign in with password:{' '}
-              <code className="bg-card px-2.5 py-1 rounded-lg border border-border font-mono font-bold text-primary">
-                Demo@1234
-              </code>
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-3">
-            {DEMO_ACCOUNTS.map(a => (
-              <button
-                key={a.email}
-                onClick={() => navigate('/login')}
-                className={`border rounded-2xl px-5 py-3.5 text-left hover:shadow-md transition-all group min-w-[180px] ${a.badge}`}
-              >
-                <div className="font-bold text-sm">{a.role}</div>
-                <div className="font-mono text-xs opacity-70 mt-0.5">{a.email}</div>
-                <div className="text-xs mt-1 opacity-60 group-hover:opacity-90 transition-opacity">{a.desc}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* PROPERTIES */}
       <section className="container py-16">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
@@ -259,7 +223,7 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* WHY AFODABO HOUSING */}
+      {/* WHY AXIS */}
       <section className="bg-secondary py-20" id="why">
         <div className="container">
           <div className="text-center mb-14">
@@ -268,7 +232,7 @@ export default function HomePage() {
               Built for Every Ugandan
             </h2>
             <p className="text-muted-foreground mt-3 max-w-xl mx-auto text-lg">
-              Whether you are looking for a home or managing properties, Afodabo Housing gives you the tools to succeed.
+              Whether you are looking for a home or managing properties, Axis gives you the tools to succeed.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -294,7 +258,7 @@ export default function HomePage() {
           <div className="text-center mb-12">
             <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Tailored for You</p>
             <h2 className="font-display text-4xl font-bold text-foreground">Get Started in Minutes</h2>
-            <p className="text-muted-foreground mt-3 max-w-xl mx-auto">Whether you're renting or managing, Afodabo Housing gives you the right tools from day one.</p>
+            <p className="text-muted-foreground mt-3 max-w-xl mx-auto">              Whether you're renting or managing, Axis gives you the right tools from day one.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             <div className="rounded-2xl p-8 bg-gradient-to-br from-accent/5 to-accent/10 border border-accent/20 text-center">
@@ -399,7 +363,7 @@ export default function HomePage() {
           {[
             { name: 'Namukasa Grace', role: 'House Manager, Wakiso', quote: 'I listed my 3 properties in under 10 minutes. Tenants contact me directly and I confirm payments instantly. Excellent platform.', rating: 5 },
             { name: 'Ssekandi James', role: 'Tenant, Kampala', quote: 'Found my apartment in Bukoto within two days. The map feature made it easy to check the location before visiting. Very convenient.', rating: 5 },
-            { name: 'Auma Christine', role: 'Tenant, Gulu', quote: 'Even in Gulu we have listings! I was relocating from Kampala and Afodabo Housing made the search stress-free. Highly recommend.', rating: 5 },
+            { name: 'Auma Christine', role: 'Tenant, Gulu', quote: 'Even in Gulu we have listings! I was relocating from Kampala and Axis made the search stress-free. Highly recommend.', rating: 5 },
           ].map(t => (
             <div key={t.name} className="bg-card border border-border rounded-2xl p-7 shadow-card">
               <div className="flex gap-1 mb-4">
@@ -423,7 +387,7 @@ export default function HomePage() {
               <Smartphone className="h-12 w-12" />
             </div>
             <div className="flex-1 text-center md:text-left">
-              <h2 className="font-display text-2xl font-bold text-foreground mb-2">Get the Afodabo App</h2>
+              <h2 className="font-display text-2xl font-bold text-foreground mb-2">Get the Axis App</h2>
               <p className="text-muted-foreground text-sm max-w-lg">
                 Download our Android app for a faster experience. Browse properties, pay rent, message managers, and manage your tenancy on the go.
               </p>
@@ -441,7 +405,7 @@ export default function HomePage() {
         <div className="gradient-primary rounded-3xl p-12 text-center text-primary-foreground">
           <h2 className="font-display text-4xl font-bold mb-4">Ready to Find Your Home?</h2>
           <p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">
-            Join thousands of Ugandans who have found their perfect home through Afodabo Housing.
+            Join thousands of people who have found their perfect home through Axis.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button

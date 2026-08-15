@@ -44,14 +44,14 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={["#1B4A38", "#236048"]}
+        colors={["#1A2332", "#15202B"]}
         style={styles.header}
       >
         <View style={styles.logoWrap}>
           <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
-        <Text style={styles.appName}>Afodabo</Text>
-        <Text style={styles.tagline}>Housing</Text>
+        <Text style={styles.appName}>Axis</Text>
+        <Text style={styles.tagline}>Housing Made Easy</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView

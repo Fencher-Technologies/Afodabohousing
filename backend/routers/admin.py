@@ -129,7 +129,7 @@ async def register_pesapal_ipn(
     IPN registration is API-based — there is no Pesapal dashboard form. The
     URL changes only when the domain changes (e.g. on first deploy to Render),
     so call this with the current public webhook URL:
-    https://afodabohousing.onrender.com/payments/webhook/pesapal.
+    https://axishousing.onrender.com/payments/webhook/pesapal.
     """
     try:
         result = await register_ipn_for_url(supabase, data.ipn_url.strip())
@@ -150,7 +150,7 @@ def create_manager(
     email = data.email.strip() if data.email else None
     phone = normalize_phone(data.phone) if data.phone else ""
     phone_slug = phone.replace("+", "").replace(" ", "").replace("-", "")
-    effective_email = email or f"manager-{phone_slug}@afodabo.internal"
+    effective_email = email or f"manager-{phone_slug}@axis.internal"
 
     if email:
         existing = supabase.table("profiles").select("user_id").eq("email", email).execute()
@@ -472,7 +472,7 @@ def get_dashboard_stats(
     collection_rate = 0
 
     try:
-        paid = supabase.table("payments").select("amount", count="exact").in_("status", ["confirmed", "completed"]).execute()
+        paid = supabase.table("payments").select("amount", count="exact").eq("status", "completed").execute()
         if paid.data:
             total_collected = sum(p.get("amount", 0) or 0 for p in paid.data)
             recent_count = paid.count if hasattr(paid, "count") else len(paid.data)

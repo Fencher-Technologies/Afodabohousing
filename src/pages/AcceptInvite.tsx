@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import logoImg from '@/assets/logo.png';
+import logoImg from '@/assets/axis-logo.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { User, Lock, Phone, Eye, EyeOff, ArrowRight, CheckCircle } from 'lucide-react';
 
@@ -117,16 +117,16 @@ export default function AcceptInvitePage() {
       <div className="flex-1 flex flex-col justify-center px-6 py-12 bg-background max-w-[560px] overflow-y-auto">
         <div className="mx-auto w-full max-w-sm">
           <Link to="/" className="flex items-center gap-3 mb-8">
-            <img src={logoImg} alt="Afodabo Housing" className="h-11 w-11 rounded-xl" />
+            <img src={logoImg} alt="Axis" className="h-11 w-11 rounded-xl" />
             <div>
-              <div className="font-display font-bold text-lg text-primary leading-tight">Afodabo Housing</div>
-              <div className="text-muted-foreground text-xs">Uganda's Housing Platform</div>
+              <div className="font-display font-bold text-lg text-primary leading-tight">Axis</div>
+              <div className="text-muted-foreground text-xs">Housing Made Easy</div>
             </div>
           </Link>
 
           <h1 className="text-3xl font-display font-bold text-foreground mb-1.5">Accept Invitation</h1>
           <p className="text-muted-foreground mb-6">
-            You've been invited to join Afodabo Housing. Set up your account below.
+            You've been invited to join Axis. Set up your account below.
           </p>
 
           <form onSubmit={handleAccept} className="space-y-4">
@@ -209,7 +209,7 @@ export default function AcceptInvitePage() {
           <div className="max-w-sm">
             <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Uganda's #1 Housing App</p>
             <h2 className="font-display text-5xl font-bold mb-4 leading-tight">
-              Welcome to Afodabo Housing
+              Welcome to Axis
             </h2>
             <p className="text-primary-foreground/80 text-lg leading-relaxed">
               Your account has been set up by your property manager. Fill in your details to get started.

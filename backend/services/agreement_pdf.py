@@ -1,13 +1,13 @@
 # mypy: ignore-errors
 from __future__ import annotations
 
-from datetime import datetime
-from decimal import ROUND_HALF_UP, Decimal
+from datetime import UTC, datetime
+from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
 from typing import Any
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
@@ -195,7 +195,7 @@ class AgreementPDFGenerator:
             topMargin=18 * mm,
             bottomMargin=18 * mm,
             title=f"Tenancy Agreement {self.content.get('agreement_number', '')}",
-            author="Afodabo Housing",
+            author="Axis",
         )
 
         sty = self._init_styles()
@@ -375,7 +375,7 @@ class AgreementPDFGenerator:
         story.append(self._spacer(20))
         story.append(self._hr())
         story.append(Paragraph(
-            "Generated digitally by Afodabo Housing. This document is electronically signed.",
+            "Generated digitally by Axis. This document is electronically signed.",
             sty["footer"],
         ))
 

@@ -2,7 +2,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import logoImg from '@/assets/logo.png';
+import logoImg from '@/assets/axis-logo.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Shield, Users, MapPin, Star, CheckCircle, Award, Building2, HeartHandshake } from 'lucide-react';
 
@@ -10,7 +10,7 @@ const VALUES = [
   {
     icon: <Shield className="h-7 w-7" />,
     title: 'Trust and Transparency',
-    desc: 'Every listing on Afodabo Housing is reviewed before going live. We believe every Ugandan deserves to know exactly what they are renting before committing.',
+    desc: 'Every listing on Axis is reviewed before going live. We believe every Ugandan deserves to know exactly what they are renting before committing.',
   },
   {
     icon: <HeartHandshake className="h-7 w-7" />,
@@ -30,7 +30,7 @@ const VALUES = [
 ];
 
 const TEAM = [
-  { name: 'Afodabo Team', role: 'Founders', initials: 'AT', bg: 'bg-primary' },
+  { name: 'Axis Team', role: 'Founders', initials: 'AX', bg: 'bg-primary' },
   { name: 'Support Desk', role: 'Customer Care', initials: 'SD', bg: 'bg-accent' },
   { name: 'Tech Team', role: 'Engineering', initials: 'TT', bg: 'bg-primary' },
   { name: 'Field Agents', role: 'Property Verification', initials: 'FA', bg: 'bg-accent' },
@@ -54,7 +54,7 @@ export default function AboutPage() {
             Built for Every Ugandan
           </h1>
           <p className="text-primary-foreground/85 text-xl max-w-2xl mx-auto leading-relaxed">
-            Afodabo Housing was founded with a single mission: make finding and managing a home in Uganda as simple, safe and dignified as possible.
+            Axis was founded with a single mission: make finding and managing a home as simple, safe and dignified as possible.
           </p>
         </div>
       </section>
@@ -68,7 +68,7 @@ export default function AboutPage() {
               Connecting Tenants with Trusted House Managers
             </h2>
             <p className="text-muted-foreground text-lg leading-relaxed mb-5">
-              Millions of Ugandans relocate for work, education and family every year. Finding safe, verified and fairly priced accommodation should not be a struggle. We created Afodabo Housing to solve exactly that.
+              Millions of people relocate for work, education and family every year. Finding safe, verified and fairly priced accommodation should not be a struggle. We created Axis to solve exactly that.
             </p>
             <p className="text-muted-foreground text-lg leading-relaxed mb-8">
               Our platform connects tenants directly with verified house managers across all states of Uganda. No middlemen. No inflated fees. Just honest, transparent housing.
@@ -83,7 +83,7 @@ export default function AboutPage() {
             </div>
           </div>
           <div className="bg-card border border-border rounded-3xl p-8 shadow-card">
-            <img src={logoImg} alt="Afodabo Housing" className="h-24 w-24 mx-auto mb-6 rounded-2xl" />
+            <img src={logoImg} alt="Axis" className="h-24 w-24 mx-auto mb-6 rounded-2xl" />
             <div className="grid grid-cols-2 gap-5">
               {[
                 { val: '135+', label: 'Districts' },
@@ -147,10 +147,10 @@ export default function AboutPage() {
       {/* CTA */}
       <section className="container pb-20">
         <div className="gradient-primary rounded-3xl p-12 text-center text-primary-foreground">
-          <h2 className="font-display text-4xl font-bold mb-4">Join Uganda's Trusted Housing Community</h2>
-          <p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">
-            Whether you are looking for a home or managing properties, Afodabo Housing is the platform for you.
-          </p>
+            <h2 className="font-display text-4xl font-bold mb-4">Join Our Trusted Housing Community</h2>
+            <p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">
+              Whether you are looking for a home or managing properties, Axis is the platform for you.
+            </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="bg-gold text-gold-foreground hover:bg-gold/90 font-semibold px-10" onClick={() => navigate('/register')}>
               Get Started Free

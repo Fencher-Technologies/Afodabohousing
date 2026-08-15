@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080", "http://localhost:3000", "http://localhost:8081", "https://afodabohousing.vercel.app", "https://afodabohousing.onrender.com"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080", "http://localhost:3000", "http://localhost:8081", "https://axishousing.vercel.app", "https://axishousing.onrender.com"]
     environment: str = "development"
 
     rate_limit_enabled: bool = True
@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     # EgoSMS (Comms API v1 JSON — for OTP delivery)
     egosms_username: str = ""
     egosms_password: str = ""
-    egosms_sender_id: str = "Afodabo"
+    egosms_sender_id: str = "Axis"
     egosms_url: str = "https://comms.egosms.co/api/v1/json/"
 
     # OTP
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     # Notifications
     email_provider_api_key: str = ""
     email_provider_url: str = ""
-    email_from_address: str = "no-reply@afodabohousing.com"
+    email_from_address: str = "no-reply@axishousing.com"
     push_provider_api_key: str = ""
     push_provider_url: str = ""
 

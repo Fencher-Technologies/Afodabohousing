@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Afodabo Housing",
+    "name": "Axis",
     "slug": "f40vwt2jqz6u76jdi0j1n",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -39,8 +39,8 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Afodabo Housing to use your location to pinpoint the property on the map.",
-          "locationWhenInUsePermission": "Allow Afodabo Housing to use your location to pinpoint the property on the map."
+          "locationAlwaysAndWhenInUsePermission": "Allow Axis to use your location to pinpoint the property on the map.",
+          "locationWhenInUsePermission": "Allow Axis to use your location to pinpoint the property on the map."
         }
       ]
     ],

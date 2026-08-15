@@ -123,8 +123,8 @@ export default function GettingStarted() {
                 <span className="text-primary-foreground font-bold text-lg">A</span>
               </div>
               <div className="text-left">
-                <div className="font-display font-bold text-lg text-primary leading-tight">Afodabo Housing</div>
-                <div className="text-muted-foreground text-xs">Uganda's Housing Platform</div>
+                <div className="font-display font-bold text-lg text-primary leading-tight">Axis</div>
+                <div className="text-muted-foreground text-xs">Housing Made Easy</div>
               </div>
             </Link>
             <Card className="border-0 shadow-card">
@@ -171,8 +171,8 @@ export default function GettingStarted() {
               <span className="text-primary-foreground font-bold text-lg">A</span>
             </div>
             <div>
-              <div className="font-display font-bold text-lg text-primary leading-tight">Afodabo Housing</div>
-              <div className="text-muted-foreground text-xs">Uganda's Housing Platform</div>
+                <div className="font-display font-bold text-lg text-primary leading-tight">Axis</div>
+                <div className="text-muted-foreground text-xs">Housing Made Easy</div>
             </div>
           </Link>
 
@@ -279,7 +279,7 @@ export default function GettingStarted() {
             <p className="text-muted-foreground text-lg leading-relaxed">
               {step === 'otp'
                 ? 'Enter the 6-digit code sent to your phone number.'
-                : 'Register as a house manager to list and manage properties on Afodabo Housing.'}
+                : 'Register as a house manager to list and manage properties on Axis.'}
             </p>
           </div>
         </div>

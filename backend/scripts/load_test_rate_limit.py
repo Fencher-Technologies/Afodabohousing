@@ -37,7 +37,7 @@ def run_probe(base_url: str, method: str, path: str, requests: int, json_body: d
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Probe Afodabo API rate-limit enforcement.")
+    parser = argparse.ArgumentParser(description="Probe Axis API rate-limit enforcement.")
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--requests", type=int, default=40)
     args = parser.parse_args()

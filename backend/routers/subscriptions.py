@@ -115,7 +115,7 @@ async def create_subscription(
             order_id=order_id,
             amount=float(amount),
             currency="UGX",
-            description=f"Afodabo Housing - {plan['name']} Subscription",
+            description=f"Axis - {plan['name']} Subscription",
             callback_url=callback_url,
             ipn_id=ipn_id,
             first_name=first_name,

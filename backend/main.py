@@ -290,7 +290,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Rental Management API",
-    description="FastAPI backend for Afodabo Housing rental management application",
+    description="FastAPI backend for Axis rental management application",
     version="0.2.0",
     docs_url="/docs" if settings.environment != "production" else None,
     redoc_url="/redoc" if settings.environment != "production" else None,
@@ -434,7 +434,7 @@ async def readiness_check() -> dict[str, str] | JSONResponse:
 @app.get("/")
 def root() -> dict:
     return {
-        "message": "Afodabo Housing API",
+        "message": "Axis API",
         "version": "0.2.0",
         "docs": "/docs",
         "health": "/health",

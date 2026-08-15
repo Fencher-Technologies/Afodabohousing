@@ -92,8 +92,5 @@ function getPageTitle(path: string, role: string | null): string {
   if (path.startsWith('/dashboard/tenant/agreement/')) return 'Agreement';
   if (path === '/dashboard/tenant/browse') return 'Browse Properties';
   if (path === '/dashboard/super-admin') return 'Super Admin';
-  if (path === '/dashboard/super-admin/managers') return 'Managers';
-  if (path === '/dashboard/super-admin/approvals') return 'Approvals';
-  if (path === '/dashboard/super-admin/settings') return 'Settings';
   return 'Dashboard';
 }

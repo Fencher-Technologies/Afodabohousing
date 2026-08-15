@@ -75,8 +75,8 @@ export default function PhoneSignin() {
               <span className="text-primary-foreground font-bold text-lg">A</span>
             </div>
             <div>
-              <div className="font-display font-bold text-lg text-primary leading-tight">Afodabo Housing</div>
-              <div className="text-muted-foreground text-xs">Uganda's Housing Platform</div>
+              <div className="font-display font-bold text-lg text-primary leading-tight">Axis</div>
+              <div className="text-muted-foreground text-xs">Housing Made Easy</div>
             </div>
           </Link>
 

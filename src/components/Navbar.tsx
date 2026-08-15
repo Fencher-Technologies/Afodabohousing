@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import logoImg from '@/assets/logo.png';
+import logoImg from '@/assets/axis-logo.png';
 import {
   LogOut, LayoutDashboard, Menu, X, Shield, ChevronDown,
   Home, MapPin, Building2, Users, Info, Phone, FileText, Lock
@@ -59,11 +59,11 @@ export default function Navbar() {
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <img src={logoImg} alt="Afodabo Housing" className="h-9 w-9 object-contain rounded-lg" />
-          <div>
-            <div className="font-display font-bold text-sm sm:text-base text-primary leading-tight">Afodabo Housing</div>
-            <div className="hidden sm:block text-muted-foreground text-xs leading-tight">Uganda's Housing Platform</div>
-          </div>
+            <img src={logoImg} alt="Axis" className="h-9 w-9 object-contain rounded-lg" />
+            <div>
+              <div className="font-display font-bold text-sm sm:text-base text-primary leading-tight">Axis</div>
+              <div className="hidden sm:block text-muted-foreground text-xs leading-tight">Housing Made Easy</div>
+            </div>
         </Link>
 
         {/* Desktop Nav */}

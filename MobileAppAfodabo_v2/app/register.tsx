@@ -57,12 +57,12 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={["#1B4A38", "#236048"]} style={styles.header}>
+      <LinearGradient colors={["#1A2332", "#15202B"]} style={styles.header}>
         <View style={styles.logoWrap}>
           <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
         <Text style={styles.appName}>Create Account</Text>
-        <Text style={styles.tagline}>Join Afodabo in under a minute</Text>
+        <Text style={styles.tagline}>Join Axis in under a minute</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView

@@ -395,7 +395,7 @@ export default function ManagerDashboard() {
     try {
       await updatePayment(payment.id!, { status: 'confirmed', paid_date: new Date().toISOString().split('T')[0] });
       const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-      if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! UGX ${(payment.amount || 0).toLocaleString()} has been confirmed. - Afodabo Housing`);
+      if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! UGX ${(payment.amount || 0).toLocaleString()} has been confirmed. - Axis`);
       toast({ title: 'Payment confirmed', description: 'Tenant notified via SMS.' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -408,7 +408,7 @@ export default function ManagerDashboard() {
     try {
       await updatePayment(payment.id!, { status: 'rejected' });
       const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-      if (profile?.phone) await sendSMS(profile.phone, `Your rent payment (UGX ${(payment.amount || 0).toLocaleString()}) was rejected. - Afodabo Housing`);
+      if (profile?.phone) await sendSMS(profile.phone, `Your rent payment (UGX ${(payment.amount || 0).toLocaleString()}) was rejected. - Axis`);
       toast({ title: 'Payment rejected', description: 'Tenant notified via SMS.', variant: 'destructive' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -448,7 +448,7 @@ export default function ManagerDashboard() {
     if (!lease.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
     setSendingAction(`remind-${lease.id}`);
     const days = differenceInDays(new Date(lease.end_date), new Date());
-    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${(lease.monthly_rent || 0).toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Afodabo Housing. Contact: ${user?.email}`);
+    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${(lease.monthly_rent || 0).toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Axis. Contact: ${user?.email}`);
     toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${lease.tenant_name}` });
     setSendingAction('');
   };
@@ -1254,7 +1254,7 @@ export default function ManagerDashboard() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-xl">{editingProperty ? 'Edit Property' : 'List New Property'}</DialogTitle>
-            <DialogDescription>{editingProperty ? 'Update your listing details below.' : 'Fill in the details to publish your listing on Afodabohousing.'}</DialogDescription>
+            <DialogDescription>{editingProperty ? 'Update your listing details below.' : 'Fill in the details to publish your listing on Axis.'}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddProperty} className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">

@@ -251,7 +251,7 @@ def export_report_pdf(
     h2 = ParagraphStyle("H2", parent=styles["Heading2"], fontSize=13, spaceAfter=6, spaceBefore=14)
     body = styles["Normal"]
 
-    story = [Paragraph("Afodabo Housing", styles["Normal"]), Paragraph("Portfolio Report", title_s), Spacer(1, 6*mm)]
+    story = [Paragraph("Axis", styles["Normal"]), Paragraph("Portfolio Report", title_s), Spacer(1, 6*mm)]
 
     p_rows = [[r.get("title",""), r.get("property_type",""), str(r.get("bedrooms","")), f"UGX {r['monthly_rent']:,.0f}" if r.get("monthly_rent") else "", r.get("status",""), f"{r.get('city','')}, {r.get('state','')}"] for r in (props.data or [])]
     if p_rows:
