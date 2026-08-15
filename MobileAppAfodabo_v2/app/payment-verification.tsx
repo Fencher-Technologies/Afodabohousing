@@ -31,6 +31,8 @@ import { LoadingState } from "@/src/components/LoadingState";
 import { EmptyState } from "@/src/components/EmptyState";
 import { SearchInput } from "@/src/components/SearchInput";
 import { useOwnerSubmissions, useApproveVerification, useRejectVerification } from "@/src/hooks/usePaymentVerifications";
+import { useAuth } from "@/src/context/auth-context";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
 import type { PaymentVerification } from "@/src/types";
 
@@ -43,6 +45,9 @@ const FILTER_TABS: { label: string; value: FilterTab }[] = [
 ];
 
 export default function PaymentVerificationScreen() {
+  const { subscription } = useAuth();
+  const isExpired = subscription?.status !== "active";
+  const [showGate, setShowGate] = useState(false);
   const [filterTab, setFilterTab] = useState<FilterTab>("pending");
   const [search, setSearch] = useState("");
   const [rejectModal, setRejectModal] = useState<PaymentVerification | null>(null);
@@ -58,6 +63,10 @@ export default function PaymentVerificationScreen() {
 
   const handleApprove = useCallback(
     (item: PaymentVerification) => {
+      if (isExpired) {
+        setShowGate(true);
+        return;
+      }
       const tenantName = item.tenants?.first_name ?? "Tenant";
       Alert.alert(
         "Approve Payment",
@@ -82,7 +91,7 @@ export default function PaymentVerificationScreen() {
         ]
       );
     },
-    [approveMutation]
+    [approveMutation, isExpired]
   );
 
   const handleReject = useCallback(() => {
@@ -293,7 +302,13 @@ export default function PaymentVerificationScreen() {
                       leftIcon={
                         <XCircle size={16} color={Colors.textOnPrimary} />
                       }
-                      onPress={() => setRejectModal(item)}
+                      onPress={() => {
+                        if (isExpired) {
+                          setShowGate(true);
+                          return;
+                        }
+                        setRejectModal(item);
+                      }}
                       disabled={rejectMutation.isPending}
                     />
                   </View>
@@ -382,6 +397,16 @@ export default function PaymentVerificationScreen() {
       </Modal>
 
       <View style={{ height: 100 }} />
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="verifying payments"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
     </Screen>
   );
 }

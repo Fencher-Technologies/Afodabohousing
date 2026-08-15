@@ -13,6 +13,8 @@ import { PageHeader } from "@/src/components/PageHeader";
 import { ErrorState } from "@/src/components/ErrorState";
 import { LoadingState } from "@/src/components/LoadingState";
 import { LocationPicker } from "@/src/components/LocationPicker";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
+import { useAuth } from "@/src/context/auth-context";
 import { useProperty, useUpdateProperty } from "@/src/hooks/useProperties";
 import { ensureImagesUploaded } from "@/src/services/properties";
 import type { Amenity } from "@/src/types";
@@ -38,8 +40,10 @@ const DISTRICTS = [
 export default function EditPropertyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: property, isLoading } = useProperty(id);
+  const { subscription } = useAuth();
   const updateMutation = useUpdateProperty();
 
+  const [showGate, setShowGate] = useState(false);
   const [title, setTitle] = useState("");
   const [district, setDistrict] = useState("");
   const [city, setCity] = useState("");
@@ -110,6 +114,10 @@ export default function EditPropertyScreen() {
   };
 
   const handleSave = async () => {
+    if (subscription?.status !== "active") {
+      setShowGate(true);
+      return;
+    }
     if (!title.trim() || !district.trim() || !rent.trim()) {
       Alert.alert("Missing fields", "Title, district, and rent are required.");
       return;
@@ -276,6 +284,16 @@ export default function EditPropertyScreen() {
         <Button label="Save Changes" onPress={handleSave} fullWidth size="lg" loading={updateMutation.isPending} />
       </View>
       <View style={{ height: 100 }} />
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="updating properties"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
     </Screen>
   );
 }

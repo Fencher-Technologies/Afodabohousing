@@ -10,22 +10,37 @@ from services.base import BaseService, with_retry
 
 logger = logging.getLogger(__name__)
 
-BOOST_PACKAGES = [
-    {"days": 7, "price": 10000, "label": "7 Days"},
-    {"days": 14, "price": 18000, "label": "14 Days"},
-    {"days": 30, "price": 35000, "label": "30 Days"},
-]
+def get_boost_packages(supabase: Client) -> list[dict]:
+    """Return active boost packages from the database, ordered for display."""
+    result = (
+        supabase.table("boost_packages")
+        .select("*")
+        .eq("is_active", True)
+        .order("sort_order")
+        .execute()
+    )
+    return result.data or []
 
 
-def get_boost_packages() -> list[dict]:
-    return list(BOOST_PACKAGES)
+def get_boost_package(supabase: Client, duration_days: int) -> dict | None:
+    """Return the active package matching a duration, or None if it does not exist."""
+    result = (
+        supabase.table("boost_packages")
+        .select("*")
+        .eq("days", duration_days)
+        .eq("is_active", True)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
 
 
-def calculate_boost_price(duration_days: int) -> Decimal:
-    for pkg in BOOST_PACKAGES:
-        if pkg["days"] == duration_days:
-            return Decimal(str(pkg["price"]))
-    raise ValueError(f"Invalid boost duration: {duration_days}. Available packages: {[p['days'] for p in BOOST_PACKAGES]}")
+def calculate_boost_price(supabase: Client, duration_days: int) -> Decimal:
+    """Return the authoritative UGX price for a boost duration from the database."""
+    pkg = get_boost_package(supabase, duration_days)
+    if not pkg:
+        raise ValueError(f"Invalid boost duration: {duration_days}")
+    return Decimal(str(pkg["price_ugx"]))
 
 
 class BoostService(BaseService):
@@ -160,7 +175,7 @@ class BoostService(BaseService):
     # ── Packages ──
 
     def get_packages(self) -> list[dict]:
-        return get_boost_packages()
+        return get_boost_packages(self.supabase)
 
     # ── Ranking ──
 

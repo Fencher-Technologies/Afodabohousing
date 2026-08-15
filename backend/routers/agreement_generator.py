@@ -9,6 +9,7 @@ from supabase import Client
 from dependencies import (
     CurrentUser,
     get_service_client,
+    require_active_subscription,
     require_super_admin_or_manager,
 )
 from services.agreement_generator import generate_agreement_pdf
@@ -27,6 +28,7 @@ class AgreementGenerateRequest(BaseModel):
 def generate_agreement(
     data: AgreementGenerateRequest,
     current_user: CurrentUser = Depends(require_super_admin_or_manager),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_service_client),
 ):
     lease_svc = get_lease_service(supabase)

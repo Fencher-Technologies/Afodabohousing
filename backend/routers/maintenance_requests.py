@@ -5,7 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from supabase import Client
 
-from dependencies import CurrentUser, get_current_user, get_supabase_client
+from dependencies import (
+    CurrentUser,
+    get_current_user,
+    get_supabase_client,
+    require_active_subscription,
+)
 from models import (
     MaintenanceRequestCreate,
     MaintenanceRequestResponse,
@@ -62,6 +67,7 @@ def get_request(
 def create_request(
     data: MaintenanceRequestCreate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: MaintenanceRequestService = Depends(get_request_svc),
 ) -> MaintenanceRequestResponse:
     req = service.create(data)
@@ -73,6 +79,7 @@ def update_request(
     request_id: UUID,
     data: MaintenanceRequestUpdate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: MaintenanceRequestService = Depends(get_request_svc),
 ) -> MaintenanceRequestResponse:
     req = service.update(request_id, data)
@@ -85,6 +92,7 @@ def update_request(
 def delete_request(
     request_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: MaintenanceRequestService = Depends(get_request_svc),
 ) -> None:
     success = service.delete(request_id)

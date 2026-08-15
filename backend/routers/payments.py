@@ -11,6 +11,7 @@ from dependencies import (
     get_current_user,
     get_service_client,
     get_supabase_client,
+    require_active_subscription,
     require_active_user,
 )
 from models import PaymentCreate, PaymentResponse, PaymentUpdate
@@ -117,6 +118,7 @@ def get_payment(
 def create_payment(
     data: PaymentCreate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_supabase_client),
     service: PaymentService = Depends(get_payment_svc),
 ) -> PaymentResponse:
@@ -162,6 +164,7 @@ def update_payment(
     payment_id: UUID,
     data: PaymentUpdate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_supabase_client),
     service: PaymentService = Depends(get_payment_svc),
 ) -> PaymentResponse:
@@ -235,6 +238,7 @@ def update_payment(
 def delete_payment(
     payment_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_supabase_client),
     service: PaymentService = Depends(get_payment_svc),
 ):

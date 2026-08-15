@@ -16,6 +16,8 @@ import {
   useEditAgreement,
 } from "@/src/hooks/useAgreements";
 import { useTenancy } from "@/src/hooks/useTenancies";
+import { useAuth } from "@/src/context/auth-context";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import type { AgreementStandardClause, AgreementCustomClause } from "@/src/types";
 
 export default function AgreementSummaryScreen() {
@@ -27,12 +29,15 @@ export default function AgreementSummaryScreen() {
   }>();
   const { data: template, isLoading: templateLoading, isError: templateError } = useAgreementTemplate();
   const { data: lease, isLoading: leaseLoading, isError: leaseError } = useTenancy(leaseId || "");
+  const { subscription } = useAuth();
   const buildAgreement = useBuildAgreement();
   const editAgreement = useEditAgreement();
 
   const isEdit = mode === "edit";
+  const isExpired = subscription?.status !== "active";
 
   const [successState, setSuccessState] = useState<{ agreementNumber: string } | null>(null);
+  const [showGate, setShowGate] = useState(false);
 
   const isLoading = templateLoading || leaseLoading;
   const isError = templateError || leaseError;
@@ -55,6 +60,10 @@ export default function AgreementSummaryScreen() {
   const mutation = isEdit ? editAgreement : buildAgreement;
 
   const handleGenerate = async () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     if (!leaseId) return;
     try {
       const result = await mutation.mutateAsync({
@@ -222,6 +231,16 @@ export default function AgreementSummaryScreen() {
       </View>
 
       <View style={{ height: Spacing.xxl }} />
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="saving agreements"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
     </Screen>
   );
 }

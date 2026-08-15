@@ -15,6 +15,7 @@ import { usePropertyList } from "@/src/hooks/useProperties";
 import { useResolveTenantByEmail } from "@/src/hooks/useTenants";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 
 const MONTHS = [
   { label: "January", value: "01" },
@@ -48,11 +49,13 @@ function splitDate(iso?: string): { day: string; month: string; year: string } {
 
 export default function EditTenancyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, subscription } = useAuth();
   const { data: lease, isLoading } = useTenancy(id || "");
   const { data: propertiesData } = usePropertyList();
   const updateTenancy = useUpdateTenancy();
   const resolveTenant = useResolveTenantByEmail();
+
+  const [showGate, setShowGate] = useState(false);
 
   const initial = useMemo(() => {
     if (!lease) return null;
@@ -125,6 +128,10 @@ export default function EditTenancyScreen() {
   }
 
   const handleSubmit = async () => {
+    if (subscription?.status !== "active") {
+      setShowGate(true);
+      return;
+    }
     if (!tenantEmail.trim() || !propertyId || !rentAmount.trim()) {
       Alert.alert("Missing fields", "Please fill in tenant email, property, and rent amount.");
       return;
@@ -244,6 +251,16 @@ export default function EditTenancyScreen() {
       </View>
 
       <View style={{ height: 100 }} />
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="updating tenancies"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
     </Screen>
   );
 }

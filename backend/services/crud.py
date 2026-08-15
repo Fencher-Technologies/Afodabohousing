@@ -306,6 +306,14 @@ def _compute_rent_financials(
 
 
 
+def _clean_contact(value: Any) -> str | None:
+    """Normalize a contact field: strip whitespace, treat empties as missing."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s or None
+
+
 def _enrich_leases(
     leases: list[dict[str, Any]], supabase: Client
 ) -> list[dict[str, Any]]:
@@ -364,9 +372,9 @@ def _enrich_leases(
         for m in resp.data or []:
             mid = str(m["user_id"])
             managers_by_id[mid] = {
-                "manager_name": (m.get("full_name") or "").strip() or None,
-                "manager_phone": m.get("phone"),
-                "manager_email": m.get("email"),
+                "manager_name": _clean_contact(m.get("full_name")),
+                "manager_phone": _clean_contact(m.get("phone")),
+                "manager_email": _clean_contact(m.get("email")),
             }
 
     payments_by_lease: dict[str, list[dict[str, Any]]] = {}
@@ -400,17 +408,17 @@ def _enrich_leases(
         l["property_title"] = prop.get("title")
         l["property_image"] = prop.get("image")
 
-        prop_phone = prop.get("manager_phone")
-        prop_email = prop.get("manager_email")
+        prop_phone = _clean_contact(prop.get("manager_phone"))
+        prop_email = _clean_contact(prop.get("manager_email"))
         oid = str(l.get("owner_id", ""))
         profile = managers_by_id.get(oid) or {}
         l["manager_name"] = (
-            profile.get("manager_name")
-            or l.get("manager_name")
+            _clean_contact(profile.get("manager_name"))
+            or _clean_contact(l.get("manager_name"))
             or None
         )
-        l["manager_phone"] = prop_phone or profile.get("manager_phone") or None
-        l["manager_email"] = prop_email or profile.get("manager_email") or None
+        l["manager_phone"] = prop_phone or _clean_contact(profile.get("manager_phone")) or None
+        l["manager_email"] = prop_email or _clean_contact(profile.get("manager_email")) or None
 
         lease_payments = payments_by_lease.get(lid, [])
 

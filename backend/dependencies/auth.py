@@ -229,6 +229,47 @@ def require_super_admin_or_manager(
     return current_user
 
 
+def require_active_subscription(
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
+) -> CurrentUser:
+    """Enforce an active subscription for managers performing data mutations.
+
+    Tenants and non-manager roles pass through untouched. A manager is
+    blocked (403) when they have no subscription row, when the subscription
+    status is not active, or when the subscription has expired by time
+    (status still active but expires_at is in the past — resolved lazily).
+    """
+    role = None
+    try:
+        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
+        data = result.data if hasattr(result, "data") else result
+        role = data[0] if isinstance(data, list) and data else data
+    except Exception:
+        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
+
+    if role not in ("super_admin", "house_manager"):
+        try:
+            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
+            if result.data:
+                role = result.data[0].get("role")
+        except Exception:
+            logger.error("Failed to check role from profiles table", exc_info=True)
+
+    if role not in ("super_admin", "house_manager"):
+        return current_user
+
+    from services.subscriptions import get_subscription_service
+
+    sub = get_subscription_service(supabase).get_current_subscription(current_user.id)
+    if not sub or sub.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Active subscription required. Renew your subscription to continue.",
+        )
+    return current_user
+
+
 def require_tenant(
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_service_client),

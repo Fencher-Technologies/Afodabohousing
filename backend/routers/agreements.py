@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response, StreamingResponse
 from supabase import Client
 
-from dependencies.auth import CurrentUser, get_current_user
+from dependencies.auth import CurrentUser, get_current_user, require_active_subscription
 from dependencies.database import get_service_client
 from models.agreements import (
     AgreementConsentRecordResponse,
@@ -157,6 +157,7 @@ def build_agreement(
     lease_id: UUID,
     data: BuildAgreementRequest,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     svc: AgreementService = Depends(get_agreement_service),
     supabase: Client = Depends(get_service_client),
 ):
@@ -203,6 +204,7 @@ def edit_agreement(
     lease_id: UUID,
     data: EditAgreementRequest,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     svc: AgreementService = Depends(get_agreement_service),
     supabase: Client = Depends(get_service_client),
 ):
@@ -252,6 +254,7 @@ def record_consent(
     data: ConsentRequest,
     request: Request,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     svc: AgreementService = Depends(get_agreement_service),
     supabase: Client = Depends(get_service_client),
 ):
@@ -348,6 +351,7 @@ def record_consent(
 def cancel_agreement(
     lease_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     svc: AgreementService = Depends(get_agreement_service),
     supabase: Client = Depends(get_service_client),
 ):

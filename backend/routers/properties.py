@@ -4,7 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from supabase import Client
 
-from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client
+from dependencies import (
+    CurrentUser,
+    get_current_user,
+    get_service_client,
+    get_supabase_client,
+    require_active_subscription,
+)
 from models import PropertyCreate, PropertyResponse, PropertyUpdate
 from services import PropertyService, get_property_service
 
@@ -94,6 +100,7 @@ def get_public_property(
 def create_property(
     data: PropertyCreate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: PropertyService = Depends(get_property_svc),
 ) -> PropertyResponse:
     property_data = service.create(data, current_user.id)
@@ -105,6 +112,7 @@ def update_property(
     property_id: UUID,
     data: PropertyUpdate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: PropertyService = Depends(get_property_svc),
 ) -> PropertyResponse:
     property_data = service.update(property_id, data, current_user.id)
@@ -120,6 +128,7 @@ def update_property(
 def delete_property(
     property_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: PropertyService = Depends(get_property_svc),
 ) -> None:
     success = service.delete(property_id, current_user.id)

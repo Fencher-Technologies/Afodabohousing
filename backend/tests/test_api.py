@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -9,6 +11,7 @@ PID_PAYMENT = "00000000-0000-0000-0000-000000000040"
 PID_MAINT = "00000000-0000-0000-0000-000000000050"
 PID_BOOST = "00000000-0000-0000-0000-000000000070"
 UID_ADMIN = "00000000-0000-0000-0000-000000000003"
+UID_OWNER = "00000000-0000-0000-0000-000000000001"
 
 
 @pytest.fixture
@@ -277,8 +280,22 @@ class TestBoosts:
         assert resp.status_code == 200
         data = resp.json()
         assert data["duration_days"] == 7
-        assert data["amount"] > 0
+        assert data["amount"] == 10000.0
         assert data["currency"] == "UGX"
+
+    def test_boost_packages(self, client: TestClient):
+        resp = client.get("/boosts/packages")
+        assert resp.status_code == 200
+        packages = resp.json()
+        assert [p["days"] for p in packages] == [7, 14, 30]
+        assert [p["price"] for p in packages] == [10000, 20000, 40000]
+        assert [p["label"] for p in packages] == ["7 Days", "14 Days", "30 Days"]
+        assert all(p["currency"] == "UGX" for p in packages)
+
+    def test_boost_packages_excludes_inactive(self, client: TestClient):
+        resp = client.get("/boosts/packages")
+        packages = resp.json()
+        assert all(p["days"] != 60 for p in packages)
 
     def test_list_boosts(self, admin_client: TestClient):
         resp = admin_client.get("/boosts")
@@ -308,7 +325,7 @@ class TestBoosts:
         data = resp.json()
         assert data["status"] == "active"
         assert data["duration_days"] == 14
-        assert float(data["amount_paid"]) == 18000.0
+        assert float(data["amount_paid"]) == 20000.0
 
     def test_create_boost_property_not_found(self, admin_client: TestClient):
         resp = admin_client.post("/boosts", json={
@@ -351,3 +368,70 @@ class TestBoosts:
             f"Boosted property {PID_PROP_2} at index {idx_boosted} must come "
             f"before non-boosted {PID_PROP} at index {idx_normal}"
         )
+
+
+class TestSubscriptionPlans:
+    def test_list_plans_final_pricing(self, client: TestClient):
+        resp = client.get("/subscriptions/plans")
+        assert resp.status_code == 200
+        plans = resp.json()
+        expected = {
+            "1mo": (30, 20000, 5.0),
+            "3mo": (90, 40000, 10.0),
+            "6mo": (180, 80000, 20.0),
+            "12mo": (365, 100000, 25.0),
+        }
+        assert [p["id"] for p in plans] == list(expected.keys())
+        for plan in plans:
+            days, ugx, usd = expected[plan["id"]]
+            assert plan["duration_days"] == days
+            assert float(plan["price_ugx"]) == ugx
+            assert float(plan["price_usd"]) == usd
+        popular = [p["id"] for p in plans if p["popular"]]
+        assert popular == ["6mo"]
+
+
+class TestBoostInitiate:
+    def test_initiate_passes_db_price_to_pesapal(self, client: TestClient):
+        from dependencies import CurrentUser, get_current_user
+        from main import app
+
+        manager = CurrentUser(id=UID_OWNER, email="owner@test.com", role="house_manager", status="active")
+        app.dependency_overrides[get_current_user] = lambda: manager
+
+        fake_submit = AsyncMock(return_value={"redirect_url": "https://pay.pesapal.com/checkout/x"})
+        with (
+            patch("routers.boosts.get_auth_token", new=AsyncMock(return_value="token")),
+            patch("routers.boosts.get_ipn_id", return_value="ipn-123"),
+            patch("routers.boosts.submit_order", new=fake_submit),
+        ):
+            resp = client.post("/boosts/initiate", json={
+                "property_id": PID_PROP,
+                "duration_days": 14,
+                "callback_url": "https://afodabohousing.onrender.com",
+            })
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "pending"
+        assert data["redirect_url"] == "https://pay.pesapal.com/checkout/x"
+        assert "20,000" in data["message"]
+
+        kwargs = fake_submit.call_args.kwargs
+        assert kwargs["amount"] == float(20000)
+        assert kwargs["currency"] == "UGX"
+        assert kwargs["order_id"] == data["reference"]
+
+    def test_initiate_rejects_invalid_package(self, client: TestClient):
+        from dependencies import CurrentUser, get_current_user
+        from main import app
+
+        manager = CurrentUser(id=UID_OWNER, email="owner@test.com", role="house_manager", status="active")
+        app.dependency_overrides[get_current_user] = lambda: manager
+
+        resp = client.post("/boosts/initiate", json={
+            "property_id": PID_PROP,
+            "duration_days": 60,
+            "callback_url": "https://afodabohousing.onrender.com",
+        })
+        assert resp.status_code == 400

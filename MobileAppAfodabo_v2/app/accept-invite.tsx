@@ -119,7 +119,8 @@ export default function AcceptInviteScreen() {
         <SegmentedControl
           segments={[
             { label: "Email", value: "email" },
-            { label: "Phone", value: "phone" },
+            // PHONE-AUTH HIDDEN: phone acceptance temporarily removed from UI. Kept for restore.
+            // { label: "Phone", value: "phone" },
           ]}
           value={method}
           onChange={(v) => { setMethod(v as "email" | "phone"); setStep("form"); setError(null); }}

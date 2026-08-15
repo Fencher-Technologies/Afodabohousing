@@ -6,6 +6,7 @@ from supabase import Client
 
 from dependencies.auth import (
     CurrentUser,
+    require_active_subscription,
     require_super_admin_or_manager,
     require_tenant,
 )
@@ -77,6 +78,7 @@ def get_owner_verifications(
 def approve_verification(
     verification_id: UUID,
     current_user: CurrentUser = Depends(require_super_admin_or_manager),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     svc: PaymentVerificationService = Depends(get_payment_verification_svc),
     payment_svc: PaymentService = Depends(get_payment_svc),
 ):
@@ -98,6 +100,7 @@ def reject_verification(
     verification_id: UUID,
     data: PaymentVerificationReject,
     current_user: CurrentUser = Depends(require_super_admin_or_manager),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     svc: PaymentVerificationService = Depends(get_payment_verification_svc),
 ):
     """

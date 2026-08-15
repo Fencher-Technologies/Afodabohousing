@@ -354,7 +354,7 @@ export interface BoostInitiateResponse {
   redirect_url: string;
 }
 
-export type SubscriptionPlanId = "3mo" | "6mo" | "12mo";
+export type SubscriptionPlanId = "1mo" | "3mo" | "6mo" | "12mo";
 
 export interface SubscriptionPlan {
   id: SubscriptionPlanId;

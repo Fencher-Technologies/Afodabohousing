@@ -451,16 +451,36 @@ async def check_boost_expiry():
         logger.error("Boost expiry check failed: %s", str(e), exc_info=True)
 
 
+async def expire_subscriptions():
+    """Flip manager subscriptions to 'expired' once their expiry date passes.
+
+    The lazy time check in get_current_subscription enforces expiry on read;
+    this sweep keeps the stored status converged so dashboards and reports
+    stay consistent.
+    """
+    try:
+        supabase = _get_supabase_for_scheduler()
+        from services.subscriptions import SubscriptionService
+        svc = SubscriptionService(supabase)
+        count = svc.expire_subscriptions()
+        if count > 0:
+            logger.info("Expired %d subscription(s)", count)
+    except Exception as e:
+        logger.error("Subscription expiry check failed: %s", str(e), exc_info=True)
+
+
 def start_scheduler():
     settings = get_settings()
     if settings.environment == "production":
         scheduler.add_job(check_rent_reminders, "cron", hour=8, minute=0)
         scheduler.add_job(check_tenancy_expiry, "cron", hour=6, minute=0)
         scheduler.add_job(check_boost_expiry, "cron", hour=6, minute=30)
+        scheduler.add_job(expire_subscriptions, "cron", hour=0, minute=15)
     else:
         scheduler.add_job(check_rent_reminders, "interval", hours=6)
         scheduler.add_job(check_tenancy_expiry, "interval", hours=12)
         scheduler.add_job(check_boost_expiry, "interval", hours=12)
+        scheduler.add_job(expire_subscriptions, "interval", hours=12)
     scheduler.start()
     logger.info("Background scheduler started")
 

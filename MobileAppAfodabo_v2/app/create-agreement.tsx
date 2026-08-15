@@ -13,6 +13,8 @@ import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { useAgreementTemplate, useAgreementContent, useEditAgreement } from "@/src/hooks/useAgreements";
 import { useTenancy } from "@/src/hooks/useTenancies";
+import { useAuth } from "@/src/context/auth-context";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import type {
   AgreementCustomClause,
   AgreementStandardClause,
@@ -41,12 +43,15 @@ function capitalize(label: string): string {
 export default function CreateAgreementScreen() {
   const { leaseId, mode } = useLocalSearchParams<{ leaseId: string; mode?: string }>();
   const isEdit = mode === "edit";
+  const { subscription } = useAuth();
+  const isExpired = subscription?.status !== "active";
 
   const { data: template, isLoading: templateLoading, isError: templateError } = useAgreementTemplate();
   const { data: lease, isLoading: leaseLoading, isError: leaseError } = useTenancy(leaseId || "");
   const { data: existingContent, isLoading: contentLoading } = useAgreementContent(isEdit ? leaseId : undefined);
   const editAgreement = useEditAgreement();
 
+  const [showGate, setShowGate] = useState(false);
   const [standardClauses, setStandardClauses] = useState<AgreementStandardClause[]>([]);
   const [customClauses, setCustomClauses] = useState<AgreementCustomClause[]>([]);
   const [initialized, setInitialized] = useState(false);
@@ -125,6 +130,10 @@ export default function CreateAgreementScreen() {
   );
 
   const handlePreview = useCallback(() => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     if (!leaseId) {
       Alert.alert("Error", "No lease ID provided.");
       return;
@@ -145,9 +154,13 @@ export default function CreateAgreementScreen() {
         customClauses: JSON.stringify(customClauses),
       },
     });
-  }, [leaseId, standardClauses, customClauses, isEdit]);
+  }, [leaseId, standardClauses, customClauses, isEdit, isExpired]);
 
   const handleSaveChanges = useCallback(async () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     if (!leaseId) return;
     const enabledClauses = standardClauses.filter((c) => c.enabled);
     if (enabledClauses.length === 0 && customClauses.length === 0) {
@@ -176,7 +189,7 @@ export default function CreateAgreementScreen() {
     } catch {
       // handled by mutation
     }
-  }, [leaseId, standardClauses, customClauses, editAgreement]);
+  }, [leaseId, standardClauses, customClauses, editAgreement, isExpired]);
 
   const isLoading = templateLoading || leaseLoading;
 
@@ -349,6 +362,16 @@ export default function CreateAgreementScreen() {
       </View>
 
       <View style={{ height: 100 }} />
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="creating agreements"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
     </Screen>
   );
 }

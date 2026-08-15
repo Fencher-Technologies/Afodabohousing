@@ -23,6 +23,7 @@ import {
   useCancelAgreement,
 } from "@/src/hooks/useAgreements";
 import { useAuth } from "@/src/context/auth-context";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 
 type Role = "tenant" | "manager";
 
@@ -49,14 +50,16 @@ export function AgreementFlow({
   readOnly = false,
 }: AgreementFlowProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, subscription } = useAuth();
 
   const consentState = useConsentState(leaseId);
   const consentAgreement = useConsentAgreement();
   const cancelAgreement = useCancelAgreement();
 
+  const isExpired = role === "manager" && subscription?.status !== "active";
   const [agreed, setAgreed] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showGate, setShowGate] = useState(false);
 
   const consentDoc = consentState.data?.current_document ?? null;
   const consentContent = consentState.data?.content ?? null;
@@ -74,6 +77,10 @@ export function AgreementFlow({
   const otherHasConsented = otherConsentState?.consent_status === "approved";
 
   const handleGeneratedConsent = async () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     if (!agreed) {
       Alert.alert("Review Required", "Please read and agree to the terms before signing.");
       return;
@@ -95,6 +102,10 @@ export function AgreementFlow({
   };
 
   const handleCancel = () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     Alert.alert(
       "Cancel Agreement",
       "This will cancel the current agreement and reset all consent statuses. This action cannot be undone.",
@@ -110,6 +121,10 @@ export function AgreementFlow({
   };
 
   const handleCancelAndCreateNew = () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     Alert.alert(
       "Cancel Agreement",
       "This will cancel the current agreement and reset all consent statuses. This action cannot be undone.",
@@ -143,43 +158,54 @@ export function AgreementFlow({
   // ── No agreement yet ──────────────────────────────────────────────
   if (!hasDoc || !hasContent) {
     return (
-      <Card padding="md">
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={styles.iconWrap}>
-              <FileText size={18} color={Colors.info} />
+      <>
+        <Card padding="md">
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <View style={styles.iconWrap}>
+                <FileText size={18} color={Colors.info} />
+              </View>
+              <Text style={styles.title}>Tenancy Agreement</Text>
             </View>
-            <Text style={styles.title}>Tenancy Agreement</Text>
           </View>
-        </View>
-        <View style={styles.emptyState}>
-          <FileText size={32} color={Colors.textMuted} />
-          <Text style={styles.emptyTitle}>
-            {hasDoc && !hasContent ? "Incomplete Agreement" : "No Agreement Yet"}
-          </Text>
-          <Text style={styles.emptyBody}>
-            {hasDoc && !hasContent
-              ? "This agreement was created but the content is missing. Please cancel it and create a new one."
-              : role === "manager"
-                ? "Create a digital agreement for this tenancy using the in-app builder."
-                : "The manager has not yet created an agreement for this tenancy."}
-          </Text>
-          {role === "manager" && !readOnly && (
-            <Button
-              label={hasDoc && !hasContent ? "Cancel & Create New" : "Create Agreement"}
-              onPress={() => {
-                if (hasDoc && !hasContent) {
-                  handleCancelAndCreateNew();
-                } else {
-                  router.push(`/create-agreement?leaseId=${leaseId}`);
-                }
-              }}
-              leftIcon={<Plus size={16} color={Colors.textOnPrimary} />}
-              loading={cancelAgreement.isPending}
-            />
-          )}
-        </View>
-      </Card>
+          <View style={styles.emptyState}>
+            <FileText size={32} color={Colors.textMuted} />
+            <Text style={styles.emptyTitle}>
+              {hasDoc && !hasContent ? "Incomplete Agreement" : "No Agreement Yet"}
+            </Text>
+            <Text style={styles.emptyBody}>
+              {hasDoc && !hasContent
+                ? "This agreement was created but the content is missing. Please cancel it and create a new one."
+                : role === "manager"
+                  ? "Create a digital agreement for this tenancy using the in-app builder."
+                  : "The manager has not yet created an agreement for this tenancy."}
+            </Text>
+            {role === "manager" && !readOnly && (
+              <Button
+                label={hasDoc && !hasContent ? "Cancel & Create New" : "Create Agreement"}
+                onPress={() => {
+                  if (hasDoc && !hasContent) {
+                    handleCancelAndCreateNew();
+                  } else {
+                    router.push(`/create-agreement?leaseId=${leaseId}`);
+                  }
+                }}
+                leftIcon={<Plus size={16} color={Colors.textOnPrimary} />}
+                loading={cancelAgreement.isPending}
+              />
+            )}
+          </View>
+        </Card>
+        <SubscriptionGate
+          visible={showGate}
+          actionLabel="managing agreements"
+          onClose={() => setShowGate(false)}
+          onRenew={() => {
+            setShowGate(false);
+            router.push("/subscription");
+          }}
+        />
+      </>
     );
   }
 
@@ -193,9 +219,10 @@ export function AgreementFlow({
   const genVersion = consentDoc?.version ?? content?.version ?? 1;
 
   return (
-    <Card padding="md">
-      {/* Header */}
-      <View style={styles.header}>
+    <>
+      <Card padding="md">
+        {/* Header */}
+        <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.iconWrap}>
             <FileSignature size={18} color={Colors.info} />
@@ -387,7 +414,18 @@ export function AgreementFlow({
           </View>
         </View>
       </Modal>
-    </Card>
+      </Card>
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="managing agreements"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
+    </>
   );
 }
 

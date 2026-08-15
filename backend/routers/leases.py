@@ -7,7 +7,13 @@ from supabase import Client
 
 logger = logging.getLogger(__name__)
 
-from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client
+from dependencies import (
+    CurrentUser,
+    get_current_user,
+    get_service_client,
+    get_supabase_client,
+    require_active_subscription,
+)
 from models import (
     LeaseCreate,
     LeaseResponse,
@@ -21,6 +27,14 @@ from services import LeaseService, PaymentService, get_lease_service, get_paymen
 from services.notifications import notify
 
 router = APIRouter(prefix="/leases", tags=["leases"])
+
+
+def _clean_contact(value) -> str | None:
+    """Strip whitespace; treat empties as missing."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s or None
 
 
 class PaginatedResponse(BaseModel):
@@ -109,11 +123,11 @@ def list_leases(
         if not l.get("property_image"):
             l["property_image"] = prop.get("image")
         if not l.get("manager_name"):
-            l["manager_name"] = prof.get("name")
+            l["manager_name"] = _clean_contact(prof.get("name"))
         if not l.get("manager_phone"):
-            l["manager_phone"] = prop.get("mgr_phone") or prof.get("phone")
+            l["manager_phone"] = _clean_contact(prop.get("mgr_phone")) or _clean_contact(prof.get("phone"))
         if not l.get("manager_email"):
-            l["manager_email"] = prop.get("mgr_email") or prof.get("email")
+            l["manager_email"] = _clean_contact(prop.get("mgr_email")) or _clean_contact(prof.get("email"))
 
     return PaginatedResponse(
         items=[LeaseResponse(**lease) for lease in leases],
@@ -142,6 +156,7 @@ def get_lease(
 def create_lease(
     data: LeaseCreate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_supabase_client),
     service: LeaseService = Depends(get_lease_svc),
 ) -> LeaseResponse:
@@ -180,6 +195,7 @@ def update_lease(
     lease_id: UUID,
     data: LeaseUpdate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: LeaseService = Depends(get_lease_svc),
 ) -> LeaseResponse:
     lease = service.update(lease_id, data, current_user.id)
@@ -193,6 +209,7 @@ def set_lease_rent_effective_date(
     lease_id: UUID,
     data: SetRentEffectiveDate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: LeaseService = Depends(get_lease_svc),
 ) -> LeaseResponse:
     if current_user.role == "tenant":
@@ -215,6 +232,7 @@ def set_lease_rent_effective_date(
 def delete_lease(
     lease_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: LeaseService = Depends(get_lease_svc),
 ) -> None:
     success = service.delete(lease_id, current_user.id)
@@ -236,6 +254,7 @@ def terminate_lease(
     lease_id: UUID,
     data: TerminateLeaseRequest,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_supabase_client),
     service: LeaseService = Depends(get_lease_svc),
 ) -> LeaseResponse:
@@ -321,6 +340,7 @@ def renew_lease(
     lease_id: UUID,
     data: RenewLease,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: LeaseService = Depends(get_lease_svc),
 ) -> LeaseResponse:
     try:

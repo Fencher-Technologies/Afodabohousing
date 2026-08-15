@@ -34,6 +34,7 @@ import { usePaymentList } from "@/src/hooks/usePayments";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { useAuth } from "@/src/context/auth-context";
 import { AgreementFlow } from "@/src/components/AgreementFlow";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
 import { formatUGX, formatDate, formatMethod, formatPeriod } from "@/src/utils/format";
 import { MessageTemplates, openWhatsApp } from "@/src/utils/whatsapp";
@@ -41,11 +42,12 @@ import type { Tenancy } from "@/src/types";
 
 export default function TenancyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, subscription } = useAuth();
   const { data: lease, isLoading, refetch: refetchTenancy } = useTenancy(id || "");
   const { data: paymentsData, refetch: refetchPayments } = usePaymentList();
   const { refreshing, onRefresh } = useRefresh({ refetches: [refetchTenancy, refetchPayments] });
 
+  const [showGate, setShowGate] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showRenewModal, setShowRenewModal] = useState(false);
   const [showEffectiveDateModal, setShowEffectiveDateModal] = useState(false);
@@ -62,6 +64,7 @@ export default function TenancyDetailScreen() {
   }, [lease]);
 
   const isManager = user?.role === "manager";
+  const isExpired = isManager && subscription?.status !== "active";
   const isTerminated =
     tenancy?.effective_status === "terminated" || tenancy?.status === "terminated";
 
@@ -80,6 +83,10 @@ export default function TenancyDetailScreen() {
   }
 
   const handleTerminate = () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     Alert.alert(
       "Terminate Tenancy",
       `This will immediately end ${tenancy.tenant_name}'s tenancy at ${tenancy.property_title}. The property will be released and marked available, and the tenant will no longer have an active tenancy. Their tenancy history will be preserved. This cannot be undone.`,
@@ -121,6 +128,10 @@ export default function TenancyDetailScreen() {
   // manager must set it before recording rent. Without it, rent coverage
   // tracking would be permanently unavailable for this lease.
   const handleRecordPaymentPress = () => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     if (!tenancy.rent_effective_date) {
       Alert.alert(
         "Enable Rent Tracking",
@@ -201,7 +212,13 @@ export default function TenancyDetailScreen() {
         <RentCoverageCard
           tenancy={tenancy}
           canSetDate={isManager && !isTerminated}
-          onSetDate={() => setShowEffectiveDateModal(true)}
+          onSetDate={() => {
+            if (isExpired) {
+              setShowGate(true);
+              return;
+            }
+            setShowEffectiveDateModal(true);
+          }}
         />
 
         <Card padding="md">
@@ -410,6 +427,10 @@ export default function TenancyDetailScreen() {
         tenantName={tenancy.tenant_name}
         onClose={() => setShowRenewModal(false)}
         onRenew={async ({ newEndDate, notes }) => {
+          if (isExpired) {
+            setShowGate(true);
+            return;
+          }
           if (!id) return;
           await renewTenancy.mutateAsync({ leaseId: id, newEndDate, notes });
           Alert.alert("Tenancy renewed", `The tenancy now ends ${newEndDate}. Rent and payment history are unchanged.`);
@@ -417,6 +438,16 @@ export default function TenancyDetailScreen() {
       />
 
       <TermHelpSheet visible={showHelp} role="manager" onClose={() => setShowHelp(false)} />
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="managing tenancies"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
     </Screen>
   );
 }

@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from supabase import Client
 
-from dependencies import CurrentUser, get_current_user, get_supabase_client
+from dependencies import (
+    CurrentUser,
+    get_current_user,
+    get_supabase_client,
+    require_active_subscription,
+)
 from models import RentalUnitCreate, RentalUnitResponse, RentalUnitUpdate
 
 logger = logging.getLogger(__name__)
@@ -66,6 +71,7 @@ def get_unit(
 def create_unit(
     data: RentalUnitCreate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_supabase_client),
 ) -> RentalUnitResponse:
     prop = supabase.table("properties").select("owner_id").eq("id", str(data.property_id)).execute()
@@ -83,6 +89,7 @@ def update_unit(
     unit_id: UUID,
     data: RentalUnitUpdate,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_supabase_client),
 ) -> RentalUnitResponse:
     existing = supabase.table("rental_units").select("*").eq("id", str(unit_id)).execute()
@@ -103,6 +110,7 @@ def update_unit(
 def delete_unit(
     unit_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_supabase_client),
 ) -> None:
     existing = supabase.table("rental_units").select("owner_id").eq("id", str(unit_id)).execute()

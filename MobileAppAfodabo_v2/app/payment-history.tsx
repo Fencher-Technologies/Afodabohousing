@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, Text, View, Pressable, Alert } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Receipt, ChevronRight, Pencil, Trash2 } from "lucide-react-native";
@@ -12,6 +12,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { LoadingState } from "@/src/components/LoadingState";
 import { usePaymentList, useDeletePayment } from "@/src/hooks/usePayments";
 import { useAuth } from "@/src/context/auth-context";
+import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
 
@@ -20,9 +21,12 @@ export default function PaymentHistoryScreen() {
   const leaseId = id || tenancyId || "";
   const { data, isLoading, refetch } = usePaymentList();
   const deletePayment = useDeletePayment();
-  const { user } = useAuth();
+  const { user, subscription } = useAuth();
   const isManager = user?.role === "manager";
+  const isExpired = isManager && subscription?.status !== "active";
   const { refreshing, onRefresh } = useRefresh({ refetches: [refetch] });
+
+  const [showGate, setShowGate] = useState(false);
 
   const payments = useMemo(() => {
     if (!data?.items || !leaseId) return [];
@@ -32,6 +36,10 @@ export default function PaymentHistoryScreen() {
   const totalPaid = payments.filter((p) => p.status === "confirmed").reduce((sum, p) => sum + Number(p.amount), 0);
 
   const handleDelete = (payment: { id: string; amount: number }) => {
+    if (isExpired) {
+      setShowGate(true);
+      return;
+    }
     Alert.alert(
       "Delete Payment",
       `Delete this ${formatUGX(payment.amount)} payment record? This cannot be undone.`,
@@ -137,6 +145,16 @@ export default function PaymentHistoryScreen() {
       </View>
 
       <View style={{ height: 100 }} />
+
+      <SubscriptionGate
+        visible={showGate}
+        actionLabel="managing payment records"
+        onClose={() => setShowGate(false)}
+        onRenew={() => {
+          setShowGate(false);
+          router.push("/subscription");
+        }}
+      />
     </Screen>
   );
 }

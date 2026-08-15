@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { StyleSheet, Text, View, TextInput, Platform } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
@@ -64,9 +63,6 @@ export default function OtpVerificationScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#1B4A38", "#236048"]} style={styles.header}>
-        <View style={styles.logoWrap}>
-          <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
-        </View>
         <Text style={styles.appName}>Verify Code</Text>
         <Text style={styles.tagline}>Enter the code sent to {phone}</Text>
       </LinearGradient>
@@ -121,19 +117,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
   },
-  logoWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: Spacing.xs,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
-    overflow: "hidden",
-  },
-  logoIcon: { width: 56, height: 56 },
   appName: { fontSize: 28, fontWeight: FontWeight.bold, color: "#FFFFFF" },
   tagline: { fontSize: FontSize.body, color: "rgba(255,255,255,0.7)" },
   formWrap: {

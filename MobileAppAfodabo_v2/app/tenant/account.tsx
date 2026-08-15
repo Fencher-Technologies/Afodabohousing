@@ -14,7 +14,8 @@ import {
   FileText,
   Headphones,
   Mail,
-  Phone,
+  // Phone icon only served the "Change PIN" row (hidden). Kept for restore.
+  // Phone,
 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -67,8 +68,10 @@ export default function TenantAccountScreen() {
             <ActionRow icon={<User size={20} color={Colors.textSecondary} />} label="Edit Profile" onPress={() => router.push("/edit-profile")} />
             <Divider />
             <ActionRow icon={<Lock size={20} color={Colors.textSecondary} />} label="Change Password" onPress={() => router.push("/change-password")} />
+            {/* PHONE-AUTH HIDDEN: "Change PIN" (phone sign-in PIN) removed. Kept for restore.
             <Divider />
             <ActionRow icon={<Phone size={20} color={Colors.textSecondary} />} label="Change PIN" onPress={() => router.push("/change-pin")} />
+            */}
           </Card>
         </View>
 
