@@ -14,7 +14,7 @@ import {
   TrendingUp, AlertTriangle, Home, UserCheck, Calendar, Activity,
   ChevronRight, ArrowUp, ArrowDown, BarChart3, Search, Crown,
   MoreHorizontal, X, Download, ArrowUpDown, ChevronLeft, ChevronsLeft, ChevronsRight,
-  KeyRound, Trash2, Sparkles,
+  KeyRound, Trash2, Sparkles, XCircle,
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,

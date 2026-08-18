@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, User, ShieldCheck, ArrowRight } from 'lucide-react';
+import { PasswordInput } from '@/components/ui/password-input';
 
 const API = import.meta.env.VITE_API_URL || '';
 

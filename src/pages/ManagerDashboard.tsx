@@ -22,7 +22,7 @@ import {
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload,
   TrendingUp, AlertTriangle, Layers, ChevronRight, LayoutDashboard,
   Pencil, Trash2, LogOut, Menu, X, ArrowUpRight, BarChart2, Settings,
-  Wrench, MessageCircle, ArrowLeft, KeyRound, Ban, Copy, Crown
+  Wrench, MessageCircle, ArrowLeft, KeyRound, Ban, Copy, Crown, Sparkles, CheckCircle2
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
