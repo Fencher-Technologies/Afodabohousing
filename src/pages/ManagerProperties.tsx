@@ -8,6 +8,7 @@ import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { apiGet } from '@/services/api';
 import { cn } from '@/lib/utils';
 import {
   Plus, Building2, Search, MapPin, Sparkles,
@@ -59,12 +60,17 @@ export default function ManagerProperties() {
   const fetchProperties = async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('properties')
-      .select('*')
-      .eq('owner_id', user.id)
-      .order('created_at', { ascending: false });
-    setProperties(data || []);
+    try {
+      const res = await apiGet<{ items: any[] }>('/properties?limit=100');
+      setProperties(res.items);
+    } catch {
+      const { data } = await supabase
+        .from('properties')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false });
+      setProperties(data || []);
+    }
     setLoading(false);
   };
 
@@ -227,6 +233,15 @@ export default function ManagerProperties() {
                           Boosted
                         </Badge>
                       )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/manager/boost/${property.id}`); }}
+                        className="gap-1.5 h-8 text-xs rounded-lg"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                        Boost
+                      </Button>
                     </div>
                   </div>
                 </div>

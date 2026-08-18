@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { listPayments, updatePayment, PaymentData } from '@/services/payments';
 import { getCurrentSubscription } from '@/services/subscriptions';
+import { apiGet } from '@/services/api';
 import AvatarUpload from '@/components/AvatarUpload';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
@@ -117,8 +119,12 @@ export default function ManagerDashboard() {
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
+    const propsPromise = apiGet<{ items: any[] }>('/properties?limit=100').catch(async () => {
+      const { data } = await supabase.from('properties').select('*').eq('owner_id', user.id).order('created_at', { ascending: false });
+      return { items: data || [] };
+    });
     const [propsRes, tenancyRes, leaseRes, tenantRes, payRes, profileRes, subscriptionData] = await Promise.all([
-      supabase.from('properties').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
+      propsPromise,
       supabase.from('tenancies').select('*').eq('manager_id', user.id).order('created_at', { ascending: false }),
       supabase.from('leases').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
       supabase.from('tenants').select('id, first_name, last_name, phone, user_id').eq('owner_id', user.id),
@@ -131,14 +137,14 @@ export default function ManagerDashboard() {
     const allPayments = payRes.items || [];
 
     const propMap: Record<string, string> = {};
-    propsRes.data?.forEach(p => { propMap[p.id] = p.title; });
+    (propsRes.items as any[])?.forEach(p => { propMap[p.id] = p.title; });
 
     const tenantMap: Record<string, { name: string; phone: string; user_id: string }> = {};
     tenantRes.data?.forEach(t => {
       tenantMap[t.id] = { name: (t.first_name || '') + ' ' + (t.last_name || ''), phone: t.phone || '', user_id: t.user_id || '' };
     });
 
-    setProperties(propsRes.data || []);
+    setProperties(propsRes.items || []);
 
     // Prefer tenancies (new schema), fallback to leases (old schema)
     const tenancyRows = tenancyRes.data || [];
@@ -780,6 +786,12 @@ export default function ManagerDashboard() {
                               <p className="text-xs text-muted-foreground">{p.state || p.city} · UGX {(p.rent_amount || 0).toLocaleString()}</p>
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize shrink-0 ${statusBadge(p.status)}`}>{p.status}</span>
+                            {p.is_boosted && (
+                              <span className="text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 bg-amber-400/15 text-amber-600 border border-amber-300">
+                                <Sparkles className="h-3 w-3 inline mr-0.5 -mt-0.5" />
+                                Boosted
+                              </span>
+                            )}
                             <button onClick={() => navigate(`/dashboard/manager/boost/${p.id}`)} className="text-xs text-primary hover:underline font-medium shrink-0 ml-1">
                               Boost
                             </button>
@@ -1402,11 +1414,11 @@ export default function ManagerDashboard() {
           <form onSubmit={handleChangePassword} className="space-y-4 mt-4">
             <div>
               <Label>New Password</Label>
-              <Input type="password" minLength={6} value={passwordForm.new} onChange={e => setPasswordForm(f => ({ ...f, new: e.target.value }))} required placeholder="At least 6 characters" className="mt-1" />
+              <PasswordInput minLength={6} value={passwordForm.new} onChange={e => setPasswordForm(f => ({ ...f, new: e.target.value }))} required placeholder="At least 6 characters" className="mt-1" />
             </div>
             <div>
               <Label>Confirm New Password</Label>
-              <Input type="password" minLength={6} value={passwordForm.confirm} onChange={e => setPasswordForm(f => ({ ...f, confirm: e.target.value }))} required placeholder="Repeat the new password" className="mt-1" />
+              <PasswordInput minLength={6} value={passwordForm.confirm} onChange={e => setPasswordForm(f => ({ ...f, confirm: e.target.value }))} required placeholder="Repeat the new password" className="mt-1" />
             </div>
             <Button type="submit" disabled={sendingAction === 'password'} className="w-full gradient-primary text-primary-foreground">
               {sendingAction === 'password' ? 'Updating...' : 'Update Password'}
