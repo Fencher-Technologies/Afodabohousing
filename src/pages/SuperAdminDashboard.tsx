@@ -14,7 +14,7 @@ import {
   TrendingUp, AlertTriangle, Home, UserCheck, Calendar, Activity,
   ChevronRight, ArrowUp, ArrowDown, BarChart3, Search, Crown,
   MoreHorizontal, X, Download, ArrowUpDown, ChevronLeft, ChevronsLeft, ChevronsRight,
-  KeyRound, Trash2, Sparkles, XCircle,
+  KeyRound, Trash2, XCircle,
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -54,7 +54,6 @@ type Manager = {
   created_at: string | null; property_count: number;
   overdue_tenants: number; total_outstanding: number;
   subscription_plan?: string | null; subscription_status?: string | null;
-  boosted_count?: number;
 };
 
 function avatarInitials(name: string | null, email: string): string {
@@ -254,8 +253,8 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
 
   const handleBulkExport = () => {
     const selected = managers.filter(m => selectedRows.has(m.id));
-    const csv = [['Name', 'Email', 'Status', 'Subscription', 'Sub Status', 'Boosted', 'Joined'].join(',')];
-    selected.forEach(m => csv.push([m.full_name || '', m.email, m.status, m.subscription_plan || '—', m.subscription_status || '', m.boosted_count ?? 0, m.created_at || ''].join(',')));
+    const csv = [['Name', 'Email', 'Status', 'Subscription', 'Sub Status', 'Joined'].join(',')];
+    selected.forEach(m => csv.push([m.full_name || '', m.email, m.status, m.subscription_plan || '—', m.subscription_status || '', m.created_at || ''].join(',')));
     const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'managers.csv'; a.click();
@@ -992,10 +991,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                         <tr className="bg-muted border-b border-border">
                           <th className="py-3 px-4 w-10"><div className="h-4 w-4 bg-muted-foreground/20 rounded" /></th>
                           <th className="text-left py-3 px-4 font-semibold">Name</th>
-                          <th className="text-left py-3 px-4 font-semibold">Properties</th>
-                          <th className="text-left py-3 px-4 font-semibold">Overdue</th>
                           <th className="text-left py-3 px-4 font-semibold">Subscription</th>
-                          <th className="text-left py-3 px-4 font-semibold">Boosted</th>
                           <th className="text-left py-3 px-4 font-semibold">Status</th>
                           <th className="text-left py-3 px-4 font-semibold">Actions</th>
                         </tr>
@@ -1036,7 +1032,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                             </span>
                           </th>
                           <th className="text-left py-3 px-4 font-semibold">Subscription</th>
-                          <th className="text-left py-3 px-4 font-semibold">Boosted</th>
                           <th className="text-left py-3 px-4 font-semibold cursor-pointer select-none" onClick={() => toggleSort('status')}>
                             <span className="inline-flex items-center gap-1">
                               Status {sortColumn === 'status' && <ArrowUpDown className="h-3 w-3" />}
@@ -1076,15 +1071,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                               ) : m.subscription_plan ? (
                                 <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
                                   {m.subscription_plan} · pending
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4">
-                              {(m.boosted_count ?? 0) > 0 ? (
-                                <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-600">
-                                  <Sparkles className="h-3.5 w-3.5" /> {m.boosted_count}
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">—</span>

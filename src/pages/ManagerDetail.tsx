@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import AvatarUpload from '@/components/AvatarUpload';
@@ -17,10 +18,13 @@ type ManagerProfile = {
   photo_url: string | null; role: string; status: string;
   created_at: string | null;
   property_count: number;
+  tenants_count: number;
   overdue_tenants: number;
   total_outstanding: number;
   subscription_plan: string | null;
   subscription_status: string | null;
+  subscription_id: string | null;
+  subscription_days_remaining: number;
   boosted_count: number;
 };
 
@@ -72,6 +76,8 @@ export default function ManagerDetail() {
   const [properties, setProperties] = useState<AssignedProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [suspending, setSuspending] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmAmount, setConfirmAmount] = useState('');
 
   const isSuperAdmin = role === 'super_admin';
 
@@ -101,10 +107,13 @@ export default function ManagerDetail() {
         status: data.status || 'active',
         created_at: data.created_at,
         property_count: data.property_count || 0,
+        tenants_count: data.tenants_count || 0,
         overdue_tenants: data.overdue_tenants || 0,
         total_outstanding: data.total_outstanding || 0,
         subscription_plan: data.subscription_plan || null,
         subscription_status: data.subscription_status || null,
+        subscription_id: data.subscription_id || null,
+        subscription_days_remaining: data.subscription_days_remaining || 0,
         boosted_count: data.boosted_count || 0,
       });
       setProperties(data.properties || []);
@@ -135,6 +144,33 @@ export default function ManagerDetail() {
       toast({ title: 'Error updating status', variant: 'destructive' });
     }
     setSuspending(false);
+  };
+
+  const handleConfirmSubscription = async () => {
+    if (!profile?.subscription_id) return;
+    const paid = Number(confirmAmount);
+    if (!paid || paid <= 0) {
+      toast({ title: 'Enter the paid amount', variant: 'destructive' });
+      return;
+    }
+    setConfirming(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/admin/subscriptions/${profile.subscription_id}/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ paid_amount: paid }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      toast({ title: 'Subscription activated' });
+      fetchData();
+    } catch {
+      toast({ title: 'Confirm failed: amount mismatch or subscription not pending', variant: 'destructive' });
+    }
+    setConfirming(false);
   };
 
   if (loading) {
@@ -170,11 +206,12 @@ export default function ManagerDetail() {
     );
   }
 
-  const outstandingFmt = profile.total_outstanding > 0 ? `UGX ${Math.round(profile.total_outstanding).toLocaleString()}` : '—';
-  const subBadge = profile.subscription_plan && profile.subscription_status === 'completed'
-    ? `UGX ${profile.subscription_plan}`
+  const subBadge = profile.subscription_status === 'completed'
+    ? profile.subscription_days_remaining > 0
+      ? `${profile.subscription_days_remaining} day${profile.subscription_days_remaining === 1 ? '' : 's'} left`
+      : 'Expired'
     : profile.subscription_plan
-      ? `${profile.subscription_plan} · ${profile.subscription_status}`
+      ? `${profile.subscription_plan} · ${profile.subscription_status || 'pending'}`
       : '—';
 
   return (
@@ -228,6 +265,22 @@ export default function ManagerDetail() {
                   <Shield className="h-3.5 w-3.5" /> Edit
                 </Button>
               </div>
+              {profile.subscription_id && profile.subscription_status === 'pending' && (
+                <div className="flex items-center gap-2 mt-3">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Paid amount (UGX)"
+                    value={confirmAmount}
+                    onChange={e => setConfirmAmount(e.target.value)}
+                    className="h-8 w-44 text-xs"
+                  />
+                  <Button size="sm" variant="default" className="h-8 text-xs gap-1" onClick={handleConfirmSubscription} disabled={confirming}>
+                    <Sparkles className="h-3.5 w-3.5" /> {confirming ? '...' : 'Confirm Payment'}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -235,10 +288,10 @@ export default function ManagerDetail() {
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Properties Managed', value: profile.property_count, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10' },
-            { label: 'Overdue Tenants', value: profile.overdue_tenants, icon: <Users className="h-5 w-5" />, color: 'text-rose-600', bg: 'bg-rose-50' },
-            { label: 'Total Outstanding', value: outstandingFmt, icon: <Calendar className="h-5 w-5" />, color: 'text-sky-600', bg: 'bg-sky-50' },
-            { label: 'Subscription', value: subBadge, icon: <Sparkles className="h-5 w-5" />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+            { label: 'Properties', value: profile.property_count, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10' },
+            { label: 'Tenants', value: profile.tenants_count, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10' },
+            { label: 'Boosted Properties', value: profile.boosted_count, icon: <Sparkles className="h-5 w-5" />, color: 'text-amber-600', bg: 'bg-amber-50' },
+            { label: 'Subscription', value: subBadge, icon: <Calendar className="h-5 w-5" />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           ].map(s => (
             <div key={s.label} className="bg-card border border-border rounded-2xl p-4 shadow-sm">
               <div className={`${s.bg} ${s.color} w-9 h-9 rounded-xl flex items-center justify-center mb-3`}>{s.icon}</div>

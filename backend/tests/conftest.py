@@ -152,6 +152,9 @@ class MockTableBuilder:
                     return MockResponse(data=[], count=0)
                 base = next(d for d in seed if _matches(d))
                 updated = {**base, **self._updated}
+                for i, d in enumerate(seed):
+                    if _matches(d):
+                        seed[i] = updated
                 return MockResponse(data=[updated], count=1)
 
         data = seed[:]

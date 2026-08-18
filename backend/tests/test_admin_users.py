@@ -35,12 +35,26 @@ def _seeds():
                 "id": "sub-mgr",
                 "manager_id": MANAGER_ID,
                 "plan_id": "12mo",
-                "status": "active",
-                "started_at": "2026-03-01T00:00:00Z",
-                "expires_at": "2126-07-08T00:00:00Z",
+                "status": "pending",
+                "started_at": None,
+                "expires_at": None,
                 "auto_renew": True,
-                "payment_reference": None,
-                "payment_status": "completed",
+                "payment_reference": "4cebc908-8a25-45e9-a147-7b6fbdb1aabb",
+                "payment_status": "pending",
+                "created_at": "2026-03-01T00:00:00Z",
+                "updated_at": "2026-03-01T00:00:00Z",
+            }
+        ],
+        "tenants": [
+            {
+                "id": "00000000-0000-0000-0000-000000000080",
+                "owner_id": MANAGER_ID,
+                "user_id": "00000000-0000-0000-0000-000000000081",
+                "first_name": "Grace",
+                "last_name": "Akello",
+                "email": "grace@test.com",
+                "phone": "+256700000001",
+                "status": "active",
                 "created_at": "2026-03-01T00:00:00Z",
                 "updated_at": "2026-03-01T00:00:00Z",
             }
@@ -98,7 +112,7 @@ def test_admin_users_list_is_lightweight(seeded_client):
     assert len(data) == 1
     m = data[0]
     assert m["subscription_plan"] == "1 Year"
-    assert m["subscription_status"] == "completed"
+    assert m["subscription_status"] == "pending"
     assert m["boosted_count"] == 1
     assert m["property_count"] == 0
     assert m["overdue_tenants"] == 0
@@ -130,8 +144,11 @@ def test_admin_user_detail_full(seeded_client):
     data = resp.json()
     assert data["property_count"] == 1
     assert data["boosted_count"] == 1
+    assert data["tenants_count"] == 1
     assert data["subscription_plan"] == "1 Year"
-    assert data["subscription_status"] == "completed"
+    assert data["subscription_status"] == "pending"
+    assert data["subscription_id"] == "sub-mgr"
+    assert data["subscription_days_remaining"] == 0
     assert data["overdue_tenants"] == 0
     assert len(data["properties"]) == 1
     p = data["properties"][0]
@@ -139,6 +156,28 @@ def test_admin_user_detail_full(seeded_client):
     assert p["title"] == "Manager Flat"
     assert p["monthly_rent"] == 800000
     assert p["is_boosted"] is True
+
+
+def test_admin_confirm_subscription_activates(seeded_client):
+    client = seeded_client(user=ADMIN, seeds=_seeds())
+    resp = client.post("/admin/subscriptions/sub-mgr/confirm", json={"paid_amount": 100000})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "active"
+    assert data["payment_status"] == "completed"
+    assert data["days_remaining"] > 0
+
+
+def test_admin_confirm_subscription_amount_mismatch(seeded_client):
+    client = seeded_client(user=ADMIN, seeds=_seeds())
+    resp = client.post("/admin/subscriptions/sub-mgr/confirm", json={"paid_amount": 5000})
+    assert resp.status_code == 400
+
+
+def test_admin_confirm_subscription_not_found(seeded_client):
+    client = seeded_client(user=ADMIN, seeds=_seeds())
+    resp = client.post("/admin/subscriptions/does-not-exist/confirm", json={"paid_amount": 100000})
+    assert resp.status_code == 404
 
 
 def test_admin_user_detail_not_found(seeded_client):

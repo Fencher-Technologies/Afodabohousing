@@ -14,8 +14,10 @@ from dependencies import (
     require_super_admin_or_manager,
 )
 from phone import normalize_phone
+from models.subscription import ManagerSubscriptionResponse
 from services.crud import _enrich_leases
 from services.pesapal import register_ipn_for_url
+from services.subscriptions import get_subscription_service
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +91,13 @@ class ManagerProperty(BaseModel):
 
 class ManagerDetailResponse(UserResponse):
     properties: list[ManagerProperty] = []
+    tenants_count: int = 0
+    subscription_id: str | None = None
+    subscription_days_remaining: int = 0
+
+
+class AdminConfirmSubscriptionRequest(BaseModel):
+    paid_amount: float
 
 
 class DashboardStats(BaseModel):
@@ -518,7 +527,10 @@ def get_user_detail(
     total_outstanding = 0
     subscription_plan = None
     subscription_status = None
+    subscription_id = None
+    subscription_days_remaining = 0
     boosted_count = 0
+    tenants_count = 0
     properties: list[ManagerProperty] = []
 
     if u.get("role") == "house_manager":
@@ -530,6 +542,9 @@ def get_user_detail(
         )
         prop_rows = props.data or []
         prop_count = len(prop_rows)
+
+        tenants = supabase.table("tenants").select("id", count="exact").eq("owner_id", user_id).execute()
+        tenants_count = tenants.count if hasattr(tenants, "count") else len(tenants.data or [])
 
         owner_leases = (
             supabase.table("leases")
@@ -549,7 +564,7 @@ def get_user_detail(
 
         subs = (
             supabase.table("manager_subscriptions")
-            .select("plan_id, status, payment_status")
+            .select("id, plan_id, status, payment_status, expires_at")
             .eq("manager_id", user_id)
             .order("created_at", desc=True)
             .limit(1)
@@ -557,6 +572,7 @@ def get_user_detail(
         )
         if subs.data:
             sub = subs.data[0]
+            subscription_id = str(sub.get("id")) if sub.get("id") else None
             subscription_status = sub.get("payment_status") or sub.get("status")
             plan_id = sub.get("plan_id")
             if plan_id:
@@ -568,6 +584,16 @@ def get_user_detail(
                     .execute()
                 )
                 subscription_plan = plan.data[0]["name"] if plan.data else str(plan_id)
+            expires = sub.get("expires_at")
+            if expires and subscription_status == "completed":
+                try:
+                    remaining = (
+                        isoparse(str(expires).replace("Z", "+00:00"))
+                        - datetime.now(UTC)
+                    )
+                    subscription_days_remaining = max(0, remaining.days)
+                except (TypeError, ValueError):
+                    subscription_days_remaining = 0
 
         prop_ids = [str(p["id"]) for p in prop_rows]
         if prop_ids:
@@ -612,7 +638,41 @@ def get_user_detail(
         subscription_status=subscription_status,
         boosted_count=boosted_count,
         properties=properties,
+        tenants_count=tenants_count,
+        subscription_id=subscription_id,
+        subscription_days_remaining=subscription_days_remaining,
     )
+
+
+@router.post("/subscriptions/{subscription_id}/confirm", response_model=ManagerSubscriptionResponse)
+def confirm_subscription_payment(
+    subscription_id: str,
+    data: AdminConfirmSubscriptionRequest,
+    current_user: CurrentUser = Depends(require_super_admin),
+    supabase: Client = Depends(get_service_client),
+) -> ManagerSubscriptionResponse:
+    """Super-admin safety valve: confirm a subscription after verifying the
+    payment on Pesapal's dashboard (paid before the webhook fixes). Reuses the
+    same amount-guarded activation as the live webhook.
+    """
+    sub = (
+        supabase.table("manager_subscriptions")
+        .select("payment_reference")
+        .eq("id", subscription_id)
+        .limit(1)
+        .execute()
+    )
+    if not sub.data:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    reference = sub.data[0].get("payment_reference")
+    result = get_subscription_service(supabase).confirm_subscription(reference, data.paid_amount)
+    if not result:
+        raise HTTPException(
+            status_code=400,
+            detail="Payment verification failed: amount mismatch or subscription not pending",
+        )
+    return result
 
 
 @router.get("/pending-managers", response_model=list[UserResponse])
