@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -243,8 +244,8 @@ export default function ForgotPin() {
                   <div className="space-y-2">
                     <Label htmlFor="newPin">New PIN (4-6 digits)</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input id="newPin" type="password" inputMode="numeric" placeholder="1234"
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                      <PasswordInput id="newPin" inputMode="numeric" placeholder="1234"
                         value={newPin} onChange={e => setNewPin(handlePinChange(e.target.value))}
                         className="pl-9 h-12 tracking-widest font-mono" maxLength={6} />
                     </div>
@@ -252,8 +253,8 @@ export default function ForgotPin() {
                   <div className="space-y-2">
                     <Label htmlFor="confirmPin">Confirm New PIN</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input id="confirmPin" type="password" inputMode="numeric" placeholder="Re-enter PIN"
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                      <PasswordInput id="confirmPin" inputMode="numeric" placeholder="Re-enter PIN"
                         value={confirmPin} onChange={e => setConfirmPin(handlePinChange(e.target.value))}
                         className="pl-9 h-12 tracking-widest font-mono" maxLength={6} />
                     </div>

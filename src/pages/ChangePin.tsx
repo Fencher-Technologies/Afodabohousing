@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Key, CheckCircle } from 'lucide-react';
 
@@ -54,11 +54,11 @@ export default function ChangePin() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Input type="password" placeholder="Current PIN" value={currentPin}
+              <PasswordInput placeholder="Current PIN" value={currentPin}
                 onChange={e => setCurrentPin(e.target.value)} maxLength={6} required />
-              <Input type="password" placeholder="New PIN" value={newPin}
+              <PasswordInput placeholder="New PIN" value={newPin}
                 onChange={e => setNewPin(e.target.value)} maxLength={6} required />
-              <Input type="password" placeholder="Confirm new PIN" value={confirmPin}
+              <PasswordInput placeholder="Confirm new PIN" value={confirmPin}
                 onChange={e => setConfirmPin(e.target.value)} maxLength={6} required />
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Change PIN
