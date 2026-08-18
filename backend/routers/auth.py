@@ -242,6 +242,16 @@ def signup(
             detail="You must accept the Terms of Service and Privacy Policy to create an account.",
         )
 
+    normalized_phone = None
+    if data.phone:
+        try:
+            normalized_phone = normalize_phone(data.phone)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
+
     existing_profile = (
         service_supabase.table("profiles")
         .select("id, user_id")
@@ -259,7 +269,7 @@ def signup(
             email=data.email,
             password=data.password,
             full_name=data.full_name,
-            phone=data.phone,
+            phone=normalized_phone or data.phone,
         )
     except Exception as e:
         msg = str(e)
@@ -286,7 +296,7 @@ def signup(
         profile_payload = {
             "email": data.email,
             "full_name": data.full_name,
-            "phone": normalize_phone(data.phone) if data.phone else None,
+            "phone": normalized_phone,
             "user_id": user_id,
             "role": data.role,
             "accepted_terms": True,
