@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 import { useToast } from '@/hooks/use-toast';
 import logoImg from '@/assets/axis-logo.png';
 import heroBg from '@/assets/hero-bg.jpg';
@@ -181,7 +182,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <Label htmlFor="confirm-password">Confirm password</Label>
-                  <Input id="confirm-password" type="password" placeholder="Repeat the new password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6} className="mt-1.5" />
+                  <PasswordInput id="confirm-password" placeholder="Repeat the new password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6} className="mt-1.5" />
                 </div>
                 <Button type="submit" disabled={loading} className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
                   {loading ? 'Updating...' : 'Update Password'}
@@ -301,7 +302,7 @@ export default function LoginPage() {
                     <>
                       <div>
                         <Label>PIN</Label>
-                        <Input type="password" inputMode="numeric" placeholder="Enter your PIN" value={pin}
+                        <PasswordInput inputMode="numeric" placeholder="Enter your PIN" value={pin}
                           onChange={e => setPin(e.target.value)} maxLength={6}
                           className="mt-1.5 text-center text-xl tracking-widest font-mono h-14" />
                       </div>

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -1025,13 +1026,13 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
           <form onSubmit={handleChangePassword} className="px-4 pb-6 space-y-4">
             <div>
               <p className="text-sm font-semibold mb-2">New Password</p>
-              <Input type="password" minLength={6} value={passwordForm.new}
+              <PasswordInput minLength={6} value={passwordForm.new}
                 onChange={e => setPasswordForm(f => ({ ...f, new: e.target.value }))}
                 required placeholder="At least 6 characters" className="rounded-lg h-11" />
             </div>
             <div>
               <p className="text-sm font-semibold mb-2">Confirm New Password</p>
-              <Input type="password" minLength={6} value={passwordForm.confirm}
+              <PasswordInput minLength={6} value={passwordForm.confirm}
                 onChange={e => setPasswordForm(f => ({ ...f, confirm: e.target.value }))}
                 required placeholder="Repeat the new password" className="rounded-lg h-11" />
             </div>

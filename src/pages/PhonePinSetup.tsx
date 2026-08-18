@@ -116,10 +116,9 @@ export default function PhonePinSetup() {
               <div className="space-y-2">
                 <Label htmlFor="pin">Create PIN (4-6 digits)</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                  <PasswordInput
                     id="pin"
-                    type="password"
                     inputMode="numeric"
                     placeholder="1234"
                     value={pin}
@@ -134,10 +133,9 @@ export default function PhonePinSetup() {
               <div className="space-y-2">
                 <Label htmlFor="confirmPin">Confirm PIN</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                  <PasswordInput
                     id="confirmPin"
-                    type="password"
                     inputMode="numeric"
                     placeholder="Re-enter PIN"
                     value={confirmPin}

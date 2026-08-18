@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -211,8 +212,8 @@ export default function RegisterPage() {
                   <div>
                     <Label>Create PIN</Label>
                     <div className="relative mt-1.5">
-                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input type="password" inputMode="numeric" placeholder="4-6 digit PIN" value={pin}
+                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                      <PasswordInput inputMode="numeric" placeholder="4-6 digit PIN" value={pin}
                         onChange={e => setPin(e.target.value)} maxLength={6} className="pl-9 text-center text-xl tracking-widest font-mono" />
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">Use this PIN to sign in quickly next time.</p>
