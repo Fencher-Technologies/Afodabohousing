@@ -89,11 +89,18 @@ class ManagerProperty(BaseModel):
     is_boosted: bool = False
 
 
+class ManagerActivity(BaseModel):
+    timestamp: str
+    kind: str
+    title: str
+
+
 class ManagerDetailResponse(UserResponse):
     properties: list[ManagerProperty] = []
     tenants_count: int = 0
     subscription_id: str | None = None
     subscription_days_remaining: int = 0
+    activity: list[ManagerActivity] = []
 
 
 class AdminConfirmSubscriptionRequest(BaseModel):
@@ -532,11 +539,12 @@ def get_user_detail(
     boosted_count = 0
     tenants_count = 0
     properties: list[ManagerProperty] = []
+    activity: list[ManagerActivity] = []
 
     if u.get("role") == "house_manager":
         props = (
             supabase.table("properties")
-            .select("id, title, status, property_type, city, monthly_rent, bedrooms, bathrooms")
+            .select("id, title, status, property_type, city, monthly_rent, bedrooms, bathrooms, created_at")
             .eq("owner_id", user_id)
             .execute()
         )
@@ -624,6 +632,117 @@ def get_user_detail(
             for p in prop_rows
         ]
 
+        title_of = {str(p["id"]): p.get("title", "property") for p in prop_rows}
+        for p in prop_rows:
+            created = p.get("created_at")
+            if created:
+                activity.append(ManagerActivity(
+                    timestamp=str(created),
+                    kind="property",
+                    title=f"Listed {title_of.get(str(p['id']), 'property')}",
+                ))
+
+        if prop_ids:
+            boost_rows_all = (
+                supabase.table("property_boosts")
+                .select("property_id, status, created_at")
+                .in_("property_id", prop_ids)
+                .order("created_at", desc=True)
+                .limit(20)
+                .execute()
+            )
+            for b in boost_rows_all.data or []:
+                created = b.get("created_at")
+                if not created:
+                    continue
+                verb = "Boosted" if b.get("status") == "active" else f"Boost {b.get('status') or 'requested'}"
+                activity.append(ManagerActivity(
+                    timestamp=str(created),
+                    kind="boost",
+                    title=f"{verb} — {title_of.get(str(b.get('property_id')), 'property')}",
+                ))
+
+        subs_all = (
+            supabase.table("manager_subscriptions")
+            .select("id, plan_id, status, payment_status, created_at")
+            .eq("manager_id", user_id)
+            .order("created_at", desc=True)
+            .limit(50)
+            .execute()
+        )
+        if subs_all.data:
+            plan_ids = {str(s.get("plan_id")) for s in subs_all.data if s.get("plan_id")}
+            sub_plan_name: dict[str, str] = {}
+            if plan_ids:
+                plans_all = (
+                    supabase.table("subscription_plans")
+                    .select("id, name")
+                    .in_("id", list(plan_ids))
+                    .execute()
+                )
+                sub_plan_name = {str(p["id"]): p.get("name", "") for p in (plans_all.data or [])}
+            for s in subs_all.data:
+                created = s.get("created_at")
+                if not created:
+                    continue
+                st = s.get("status") or s.get("payment_status") or ""
+                label = {
+                    "pending": "Subscription started (pending payment)",
+                    "active": "Subscription activated",
+                    "completed": "Subscription payment completed",
+                    "expired": "Subscription expired",
+                    "cancelled": "Subscription cancelled",
+                }.get(str(st), "Subscription")
+                activity.append(ManagerActivity(
+                    timestamp=str(created),
+                    kind="subscription",
+                    title=f"{label} — {sub_plan_name.get(str(s.get('plan_id')), 'plan')}",
+                ))
+
+        manager_lease_ids = [str(l.get("id")) for l in (owner_leases.data or []) if l.get("id")]
+        pays: list[dict] = []
+        if manager_lease_ids:
+            pays_resp = (
+                supabase.table("payments")
+                .select("amount, status, paid_date")
+                .in_("lease_id", manager_lease_ids)
+                .order("paid_date", desc=True)
+                .limit(20)
+                .execute()
+            )
+            pays = pays_resp.data or []
+        for p in pays:
+            when = p.get("paid_date")
+            if not when:
+                continue
+            activity.append(ManagerActivity(
+                timestamp=str(when),
+                kind="payment",
+                title=f"Rent payment {p.get('status') or ''} — UGX {float(p.get('amount') or 0):,.0f}",
+            ))
+
+        leases_act = (
+            supabase.table("leases")
+            .select("property_id, status, created_at")
+            .eq("owner_id", user_id)
+            .order("created_at", desc=True)
+            .limit(20)
+            .execute()
+        )
+        for l in leases_act.data or []:
+            created = l.get("created_at")
+            if not created:
+                continue
+            pname = title_of.get(str(l.get("property_id")), "property")
+            if l.get("status") == "active":
+                title = f"Rent agreement added — {pname}"
+            else:
+                title = f"Rent agreement {l.get('status') or 'updated'} — {pname}"
+            activity.append(ManagerActivity(timestamp=str(created), kind="lease", title=title))
+
+        activity.sort(key=lambda e: parse_timestamp(e.timestamp), reverse=True)
+        activity = activity[:40]
+
     return ManagerDetailResponse(
         id=str(u.get("user_id", "")),
         user_id=str(u.get("user_id", "")),
@@ -643,6 +762,7 @@ def get_user_detail(
         tenants_count=tenants_count,
         subscription_id=subscription_id,
         subscription_days_remaining=subscription_days_remaining,
+        activity=activity,
     )
 
 

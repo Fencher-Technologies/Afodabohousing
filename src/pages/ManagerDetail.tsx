@@ -26,6 +26,7 @@ type ManagerProfile = {
   subscription_id: string | null;
   subscription_days_remaining: number;
   boosted_count: number;
+  activity: { timestamp: string; kind: string; title: string }[];
 };
 
 type AssignedProperty = {
@@ -36,10 +37,8 @@ type AssignedProperty = {
 };
 
 type ActivityEntry = {
-  id: string; action: string; timestamp: string; type: string;
+  timestamp: string; kind: string; title: string;
 };
-
-const now = new Date();
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'text-emerald-700 bg-emerald-50 border-emerald-200',
@@ -47,13 +46,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'text-amber-700 bg-amber-50 border-amber-200',
 };
 
-const MOCK_ACTIVITY: ActivityEntry[] = [
-  { id: '1', action: 'Added new property: Kololo Heights', timestamp: new Date(now.getTime() - 2 * 3600000).toISOString(), type: 'property' },
-  { id: '2', action: 'Confirmed payment of UGX 450,000 from Grace Akello', timestamp: new Date(now.getTime() - 5 * 3600000).toISOString(), type: 'payment' },
-  { id: '3', action: 'Signed lease for Ntinda Apts — Unit 3B', timestamp: new Date(now.getTime() - 24 * 3600000).toISOString(), type: 'lease' },
-  { id: '4', action: 'Created maintenance request: Plumbing issue at Bukoto', timestamp: new Date(now.getTime() - 2 * 24 * 3600000).toISOString(), type: 'maintenance' },
-  { id: '5', action: 'Sent rent reminder to 3 tenants', timestamp: new Date(now.getTime() - 3 * 24 * 3600000).toISOString(), type: 'reminder' },
-];
+const now = new Date();
 
 function timeAgo(iso: string): string {
   const diff = now.getTime() - new Date(iso).getTime();
@@ -74,6 +67,7 @@ export default function ManagerDetail() {
 
   const [profile, setProfile] = useState<ManagerProfile | null>(null);
   const [properties, setProperties] = useState<AssignedProperty[]>([]);
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [suspending, setSuspending] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -117,6 +111,7 @@ export default function ManagerDetail() {
         boosted_count: data.boosted_count || 0,
       });
       setProperties(data.properties || []);
+      setActivity(data.activity || []);
     } catch (err) {
       toast({ title: 'Error loading manager', variant: 'destructive' });
     }
@@ -360,15 +355,17 @@ export default function ManagerDetail() {
             <Activity className="h-4 w-4 text-primary" />
             <h3 className="font-display font-semibold text-base">Activity Log</h3>
           </div>
-          {/* TODO: Replace mock data with real activity_log table queries */}
           <div className="divide-y divide-border max-h-64 overflow-y-auto">
-            {MOCK_ACTIVITY.map(entry => (
-              <div key={entry.id} className="flex items-start gap-3 px-5 py-3 hover:bg-muted/20 transition-colors">
+            {activity.length === 0 && (
+              <p className="px-5 py-3 text-sm text-muted-foreground">No activity yet</p>
+            )}
+            {activity.map((entry, i) => (
+              <div key={i} className="flex items-start gap-3 px-5 py-3 hover:bg-muted/20 transition-colors">
                 <div className="h-7 w-7 rounded-lg bg-primary/5 text-primary flex items-center justify-center shrink-0 mt-0.5">
                   <Activity className="h-3.5 w-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-foreground">{entry.action}</p>
+                  <p className="text-xs text-foreground">{entry.title}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">{timeAgo(entry.timestamp)}</p>
                 </div>
               </div>

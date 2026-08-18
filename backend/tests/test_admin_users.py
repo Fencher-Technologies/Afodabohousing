@@ -85,6 +85,30 @@ def _seeds():
                 "updated_at": "2026-03-01T00:00:00Z",
             }
         ],
+        "leases": [
+            {
+                "id": "00000000-0000-0000-0000-000000000075",
+                "owner_id": MANAGER_ID,
+                "property_id": PROP_ID,
+                "tenant_id": "00000000-0000-0000-0000-000000000080",
+                "monthly_rent": 0,
+                "status": "active",
+                "start_date": "2026-03-01",
+                "end_date": "2026-12-31",
+                "rent_effective_date": "2026-03-01",
+                "created_at": "2026-03-01T00:00:00Z",
+            }
+        ],
+        "payments": [
+            {
+                "id": "00000000-0000-0000-0000-000000000074",
+                "lease_id": "00000000-0000-0000-0000-000000000075",
+                "amount": 500000,
+                "status": "confirmed",
+                "paid_date": "2026-03-10T00:00:00Z",
+                "created_at": "2026-03-10T00:00:00Z",
+            }
+        ],
         "property_boosts": [
             {
                 "id": BOOST_ID,
@@ -156,6 +180,13 @@ def test_admin_user_detail_full(seeded_client):
     assert p["title"] == "Manager Flat"
     assert p["monthly_rent"] == 800000
     assert p["is_boosted"] is True
+    kinds = [a["kind"] for a in data["activity"]]
+    assert "property" in kinds
+    assert "boost" in kinds
+    assert "subscription" in kinds
+    assert "payment" in kinds
+    timestamps = [a["timestamp"] for a in data["activity"]]
+    assert timestamps == sorted(timestamps, reverse=True)
 
 
 def test_admin_confirm_subscription_activates(seeded_client):
