@@ -8,19 +8,27 @@ import { useToast } from '@/hooks/use-toast';
 import AvatarUpload from '@/components/AvatarUpload';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  ArrowLeft, Building2, Users, Calendar, Clock, Activity,
-  Shield, Home,
+  ArrowLeft, Building2, Users, Calendar, Activity,
+  Shield, Home, Sparkles,
 } from 'lucide-react';
 
 type ManagerProfile = {
   user_id: string; email: string; full_name: string | null;
   photo_url: string | null; role: string; status: string;
   created_at: string | null;
+  property_count: number;
+  overdue_tenants: number;
+  total_outstanding: number;
+  subscription_plan: string | null;
+  subscription_status: string | null;
+  boosted_count: number;
 };
 
 type AssignedProperty = {
   id: string; title: string; status: string;
-  unit_count: number; occupied_units: number;
+  property_type: string | null; city: string | null;
+  monthly_rent: number | null; bedrooms: number | null;
+  bathrooms: number | null; is_boosted: boolean;
 };
 
 type ActivityEntry = {
@@ -74,42 +82,35 @@ export default function ManagerDetail() {
 
   const fetchData = async () => {
     setLoading(true);
-    const [profileRes, propsRes, tenanciesRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('user_id', id).single(),
-      supabase.from('properties').select('id, title, status').eq('owner_id', id),
-      supabase.from('tenancies').select('id, property_id, status').eq('manager_id', id),
-    ]);
-
-    if (profileRes.data) {
-      setProfile({
-        user_id: profileRes.data.user_id,
-        email: profileRes.data.email,
-        full_name: profileRes.data.full_name,
-        photo_url: profileRes.data.photo_url,
-        role: profileRes.data.role || '',
-        status: profileRes.data.status,
-        created_at: profileRes.data.created_at,
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/admin/users/${id}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
       });
+      if (!res.ok) throw new Error('Failed to load manager');
+      const data = await res.json();
+      setProfile({
+        user_id: data.user_id,
+        email: data.email || '',
+        full_name: data.full_name,
+        photo_url: data.photo_url,
+        role: data.role || '',
+        status: data.status || 'active',
+        created_at: data.created_at,
+        property_count: data.property_count || 0,
+        overdue_tenants: data.overdue_tenants || 0,
+        total_outstanding: data.total_outstanding || 0,
+        subscription_plan: data.subscription_plan || null,
+        subscription_status: data.subscription_status || null,
+        boosted_count: data.boosted_count || 0,
+      });
+      setProperties(data.properties || []);
+    } catch (err) {
+      toast({ title: 'Error loading manager', variant: 'destructive' });
     }
-
-    const props = propsRes.data || [];
-    const tenancies = tenanciesRes.data || [];
-
-    const occupiedByProperty: Record<string, number> = {};
-    tenancies.forEach(t => {
-      if (t.status === 'active') {
-        occupiedByProperty[t.property_id] = (occupiedByProperty[t.property_id] || 0) + 1;
-      }
-    });
-
-    setProperties(props.map(p => ({
-      id: p.id,
-      title: p.title,
-      status: p.status,
-      unit_count: 1,
-      occupied_units: occupiedByProperty[p.id] || 0,
-    })));
-
     setLoading(false);
   };
 
@@ -169,8 +170,12 @@ export default function ManagerDetail() {
     );
   }
 
-  const activeTenants = properties.reduce((s, p) => s + p.occupied_units, 0);
-  const totalUnits = properties.reduce((s, p) => s + p.unit_count, 0);
+  const outstandingFmt = profile.total_outstanding > 0 ? `UGX ${Math.round(profile.total_outstanding).toLocaleString()}` : '—';
+  const subBadge = profile.subscription_plan && profile.subscription_status === 'completed'
+    ? `UGX ${profile.subscription_plan}`
+    : profile.subscription_plan
+      ? `${profile.subscription_plan} · ${profile.subscription_status}`
+      : '—';
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
@@ -230,14 +235,14 @@ export default function ManagerDetail() {
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Properties Managed', value: properties.length, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10' },
-            { label: 'Active Tenants', value: activeTenants, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10' },
-            { label: 'Date Joined', value: profile.created_at ? new Date(profile.created_at).toLocaleDateString() : '—', icon: <Calendar className="h-5 w-5" />, color: 'text-sky-600', bg: 'bg-sky-50' },
-            { label: 'Last Active', value: 'Today', icon: <Clock className="h-5 w-5" />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+            { label: 'Properties Managed', value: profile.property_count, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10' },
+            { label: 'Overdue Tenants', value: profile.overdue_tenants, icon: <Users className="h-5 w-5" />, color: 'text-rose-600', bg: 'bg-rose-50' },
+            { label: 'Total Outstanding', value: outstandingFmt, icon: <Calendar className="h-5 w-5" />, color: 'text-sky-600', bg: 'bg-sky-50' },
+            { label: 'Subscription', value: subBadge, icon: <Sparkles className="h-5 w-5" />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           ].map(s => (
             <div key={s.label} className="bg-card border border-border rounded-2xl p-4 shadow-sm">
               <div className={`${s.bg} ${s.color} w-9 h-9 rounded-xl flex items-center justify-center mb-3`}>{s.icon}</div>
-              <div className="text-xl md:text-2xl font-display font-bold">{s.value}</div>
+              <div className={`text-xl md:text-2xl font-display font-bold ${String(s.value).length > 12 ? 'text-lg' : ''}`}>{s.value}</div>
               <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
             </div>
           ))}
@@ -264,29 +269,34 @@ export default function ManagerDetail() {
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {properties.map(p => {
-                const occPct = p.unit_count > 0 ? Math.round((p.occupied_units / p.unit_count) * 100) : 0;
-                return (
-                  <div key={p.id} className="flex items-center gap-4 px-5 py-4 hover:bg-muted/20 transition-colors">
-                    <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent shrink-0">
-                      <Home className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground text-sm">{p.title}</p>
-                      <p className="text-xs text-muted-foreground">{p.unit_count} unit{p.unit_count !== 1 ? 's' : ''}</p>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className="text-muted-foreground text-xs">{p.occupied_units}/{p.unit_count} occupied</span>
-                      <div className="flex items-center gap-1.5">
-                        <div className="h-2 w-16 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-accent rounded-full" style={{ width: `${occPct}%` }} />
-                        </div>
-                        <span className="text-xs font-semibold text-foreground w-8 text-right">{occPct}%</span>
-                      </div>
-                    </div>
+              {properties.map(p => (
+                <div key={p.id} className="flex items-center gap-4 px-5 py-4 hover:bg-muted/20 transition-colors">
+                  <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent shrink-0">
+                    <Home className="h-5 w-5" />
                   </div>
-                );
-              })}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-foreground text-sm truncate">{p.title}</p>
+                      {p.is_boosted && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 border border-amber-200 rounded-full px-1.5 py-0.5">
+                          <Sparkles className="h-2.5 w-2.5" /> Boosted
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {[p.city, p.property_type, p.bedrooms ? `${p.bedrooms} bed` : '', p.bathrooms ? `${p.bathrooms} bath` : ''].filter(Boolean).join(' · ') || '—'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm shrink-0">
+                    <span className="font-semibold text-foreground">
+                      {p.monthly_rent ? `UGX ${Math.round(p.monthly_rent).toLocaleString()}` : '—'}
+                    </span>
+                    <Badge variant={p.status === 'occupied' || p.status === 'rented' ? 'default' : 'secondary'} className="capitalize">
+                      {p.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

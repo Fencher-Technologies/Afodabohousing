@@ -184,7 +184,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
   // Managers table state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortColumn, setSortColumn] = useState<'name' | 'properties' | 'status' | 'overdue' | null>(null);
+  const [sortColumn, setSortColumn] = useState<'name' | 'status' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
@@ -198,16 +198,13 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
       list = list.filter(m => (m.full_name || '').toLowerCase().includes(q) || m.email.toLowerCase().includes(q));
     }
     if (statusFilter !== 'all') {
-      if (statusFilter === 'overdue') list = list.filter(m => m.overdue_tenants > 0);
-      else list = list.filter(m => m.status === statusFilter);
+      list = list.filter(m => m.status === statusFilter);
     }
     if (sortColumn) {
       list.sort((a, b) => {
         let cmp = 0;
         if (sortColumn === 'name') cmp = (a.full_name || a.email).localeCompare(b.full_name || b.email);
-        else if (sortColumn === 'properties') cmp = a.property_count - b.property_count;
         else if (sortColumn === 'status') cmp = a.status.localeCompare(b.status);
-        else if (sortColumn === 'overdue') cmp = a.overdue_tenants - b.overdue_tenants;
         return sortDirection === 'asc' ? cmp : -cmp;
       });
     }
@@ -221,7 +218,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, pageSize]);
 
-  const toggleSort = (col: 'name' | 'properties' | 'status' | 'overdue') => {
+  const toggleSort = (col: 'name' | 'status') => {
     if (sortColumn === col) setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortColumn(col); setSortDirection('asc'); }
   };
@@ -257,8 +254,8 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
 
   const handleBulkExport = () => {
     const selected = managers.filter(m => selectedRows.has(m.id));
-    const csv = [['Name', 'Email', 'Status', 'Properties', 'Subscription', 'Sub Status', 'Boosted', 'Joined'].join(',')];
-    selected.forEach(m => csv.push([m.full_name || '', m.email, m.status, m.property_count, m.subscription_plan || '—', m.subscription_status || '', m.boosted_count ?? 0, m.created_at || ''].join(',')));
+    const csv = [['Name', 'Email', 'Status', 'Subscription', 'Sub Status', 'Boosted', 'Joined'].join(',')];
+    selected.forEach(m => csv.push([m.full_name || '', m.email, m.status, m.subscription_plan || '—', m.subscription_status || '', m.boosted_count ?? 0, m.created_at || ''].join(',')));
     const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'managers.csv'; a.click();
@@ -924,7 +921,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                   { label: 'Active', value: managers.filter(m => m.status === 'active').length, color: 'bg-emerald-50 text-emerald-700' },
                   { label: 'Suspended', value: managers.filter(m => m.status === 'suspended').length, color: 'bg-red-50 text-red-700' },
                   { label: 'Pending Invite', value: managers.filter(m => m.status === 'pending').length, color: 'bg-amber-50 text-amber-700' },
-                  { label: 'With Overdue', value: managers.filter(m => m.overdue_tenants > 0).length, color: 'bg-rose-50 text-rose-700' },
+                  { label: 'Subscribed', value: managers.filter(m => m.subscription_status === 'completed').length, color: 'bg-violet-50 text-violet-700' },
                 ].map(s => (
                   <div key={s.label} className="bg-card border border-border rounded-xl p-3 shadow-sm">
                     <div className={`text-2xl font-display font-bold ${s.color.split(' ')[1]}`}>{s.value}</div>
@@ -953,7 +950,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="suspended">Suspended</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="overdue">Overdue Tenants</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -1039,16 +1035,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                               Name {sortColumn === 'name' && <ArrowUpDown className="h-3 w-3" />}
                             </span>
                           </th>
-                          <th className="text-left py-3 px-4 font-semibold cursor-pointer select-none" onClick={() => toggleSort('properties')}>
-                            <span className="inline-flex items-center gap-1">
-                              Properties {sortColumn === 'properties' && <ArrowUpDown className="h-3 w-3" />}
-                            </span>
-                          </th>
-                          <th className="text-left py-3 px-4 font-semibold cursor-pointer select-none" onClick={() => toggleSort('overdue')}>
-                            <span className="inline-flex items-center gap-1">
-                              Overdue {sortColumn === 'overdue' && <ArrowUpDown className="h-3 w-3" />}
-                            </span>
-                          </th>
                           <th className="text-left py-3 px-4 font-semibold">Subscription</th>
                           <th className="text-left py-3 px-4 font-semibold">Boosted</th>
                           <th className="text-left py-3 px-4 font-semibold cursor-pointer select-none" onClick={() => toggleSort('status')}>
@@ -1078,23 +1064,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                                   <p className="text-xs text-muted-foreground truncate">{m.email}</p>
                                 </div>
                               </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className={m.property_count === 0 ? 'text-muted-foreground' : 'font-semibold text-foreground'}>
-                                {m.property_count === 0 ? 'Unassigned' : m.property_count}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4">
-                              {m.overdue_tenants > 0 ? (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-semibold text-rose-600">{m.overdue_tenants}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    UGX {(m.total_outstanding || 0).toLocaleString()}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
                             </td>
                             <td className="py-3 px-4">
                               {m.subscription_plan && m.subscription_status === 'completed' ? (

@@ -74,6 +74,23 @@ class UserResponse(BaseModel):
     boosted_count: int = 0
 
 
+class ManagerProperty(BaseModel):
+    id: str
+    title: str
+    status: str
+    property_type: str | None = None
+    city: str | None = None
+    area: int | None = None
+    monthly_rent: float | None = None
+    bedrooms: int | None = None
+    bathrooms: float | None = None
+    is_boosted: bool = False
+
+
+class ManagerDetailResponse(UserResponse):
+    properties: list[ManagerProperty] = []
+
+
 class DashboardStats(BaseModel):
     # User stats
     total_managers: int = 0
@@ -389,98 +406,213 @@ def list_users(
     result = query.order("created_at", desc=True).execute()
     users = result.data or []
 
+    manager_ids = [str(u["user_id"]) for u in users if u.get("role") == "house_manager"]
+
+    # Latest subscription per manager (one batched query).
+    latest_sub_by_manager: dict[str, dict] = {}
+    plan_names: dict[str, str] = {}
+    if manager_ids:
+        subs = (
+            supabase.table("manager_subscriptions")
+            .select("manager_id, plan_id, status, payment_status, created_at")
+            .in_("manager_id", manager_ids)
+            .execute()
+            .data
+            or []
+        )
+        for s in subs:
+            mid = str(s.get("manager_id", ""))
+            if not mid:
+                continue
+            cur = latest_sub_by_manager.get(mid)
+            if cur is None or str(s.get("created_at", "")) > str(cur.get("created_at", "")):
+                latest_sub_by_manager[mid] = s
+
+        plan_ids = [str(s["plan_id"]) for s in latest_sub_by_manager.values() if s.get("plan_id")]
+        if plan_ids:
+            plans = (
+                supabase.table("subscription_plans")
+                .select("id, name")
+                .in_("id", plan_ids)
+                .execute()
+                .data
+                or []
+            )
+            plan_names = {str(p["id"]): p.get("name") for p in plans}
+
+    # Active boost count per manager (two batched queries: properties -> boosts).
+    boosted_by_manager: dict[str, int] = {}
+    if manager_ids:
+        props = (
+            supabase.table("properties")
+            .select("id, owner_id")
+            .in_("owner_id", manager_ids)
+            .execute()
+            .data
+            or []
+        )
+        owner_of = {str(p["id"]): str(p["owner_id"]) for p in props}
+        if owner_of:
+            boosts = (
+                supabase.table("property_boosts")
+                .select("property_id")
+                .in_("property_id", list(owner_of.keys()))
+                .eq("status", "active")
+                .execute()
+                .data
+                or []
+            )
+            for b in boosts:
+                owner = owner_of.get(str(b.get("property_id")))
+                if owner:
+                    boosted_by_manager[owner] = boosted_by_manager.get(owner, 0) + 1
+
     responses = []
     for u in users:
-        prop_count = 0
-        overdue = 0
-        total_outstanding = 0
+        mid = str(u.get("user_id", ""))
+        sub = latest_sub_by_manager.get(mid)
         subscription_plan = None
         subscription_status = None
-        boosted_count = 0
-        if u.get("role") == "house_manager":
-            try:
-                cnt = supabase.table("properties").select("id", count="exact").eq("owner_id", u["user_id"]).execute()
-                prop_count = cnt.count if hasattr(cnt, "count") else 0
-
-                owner_leases = (
-                    supabase.table("leases")
-                    .select(
-                        "id, tenant_id, owner_id, property_id, monthly_rent, "
-                        "status, start_date, end_date, rent_effective_date"
-                    )
-                    .eq("owner_id", u["user_id"])
-                    .execute()
-                )
-                enriched = _enrich_leases(owner_leases.data or [], supabase)
-                for lease in enriched:
-                    if lease.get("effective_status") == "terminated":
-                        continue
-                    if lease.get("is_overdue"):
-                        overdue += 1
-                        total_outstanding += float(lease.get("arrears_amount") or 0)
-
-                subs = (
-                    supabase.table("manager_subscriptions")
-                    .select("plan_id, status, payment_status")
-                    .eq("manager_id", u["user_id"])
-                    .order("created_at", desc=True)
-                    .limit(1)
-                    .execute()
-                )
-                if subs.data:
-                    sub = subs.data[0]
-                    subscription_status = sub.get("payment_status") or sub.get("status")
-                    plan_id = sub.get("plan_id")
-                    if plan_id:
-                        plan = (
-                            supabase.table("subscription_plans")
-                            .select("name")
-                            .eq("id", str(plan_id))
-                            .limit(1)
-                            .execute()
-                        )
-                        subscription_plan = plan.data[0]["name"] if plan.data else str(plan_id)
-
-                prop_ids = [
-                    p["id"]
-                    for p in (
-                        supabase.table("properties")
-                        .select("id")
-                        .eq("owner_id", u["user_id"])
-                        .execute()
-                        .data or []
-                    )
-                ]
-                if prop_ids:
-                    boost_cnt = (
-                        supabase.table("property_boosts")
-                        .select("id", count="exact")
-                        .in_("property_id", [str(pid) for pid in prop_ids])
-                        .eq("status", "active")
-                        .execute()
-                    )
-                    boosted_count = boost_cnt.count if hasattr(boost_cnt, "count") else len(boost_cnt.data or [])
-            except Exception:
-                pass
+        if sub:
+            subscription_status = sub.get("payment_status") or sub.get("status")
+            plan_id = sub.get("plan_id")
+            if plan_id:
+                subscription_plan = plan_names.get(str(plan_id)) or str(plan_id)
 
         responses.append(UserResponse(
-            id=str(u.get("user_id", "")),
-            user_id=str(u.get("user_id", "")),
+            id=mid,
+            user_id=mid,
             email=u.get("email", ""),
             full_name=u.get("full_name"),
             photo_url=u.get("photo_url"),
             role=u.get("role", ""),
             status=u.get("status", "active"),
             created_at=str(u.get("created_at")) if u.get("created_at") else None,
-            property_count=prop_count,
-            overdue_tenants=overdue,
-            total_outstanding=total_outstanding,
             subscription_plan=subscription_plan,
             subscription_status=subscription_status,
-            boosted_count=boosted_count,
+            boosted_count=boosted_by_manager.get(mid, 0),
         ))
 
     return responses
+
+
+@router.get("/users/{user_id}", response_model=ManagerDetailResponse)
+def get_user_detail(
+    user_id: str,
+    current_user: CurrentUser = Depends(require_super_admin),
+    supabase: Client = Depends(get_service_client),
+) -> ManagerDetailResponse:
+    prof = (
+        supabase.table("profiles")
+        .select("user_id, full_name, role, status, created_at, email, photo_url")
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not prof.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    u = prof.data[0]
+
+    prop_count = 0
+    overdue = 0
+    total_outstanding = 0
+    subscription_plan = None
+    subscription_status = None
+    boosted_count = 0
+    properties: list[ManagerProperty] = []
+
+    if u.get("role") == "house_manager":
+        props = (
+            supabase.table("properties")
+            .select("id, title, status, property_type, city, area, monthly_rent, bedrooms, bathrooms, is_boosted")
+            .eq("owner_id", user_id)
+            .execute()
+        )
+        prop_rows = props.data or []
+        prop_count = len(prop_rows)
+
+        owner_leases = (
+            supabase.table("leases")
+            .select(
+                "id, tenant_id, owner_id, property_id, monthly_rent, "
+                "status, start_date, end_date, rent_effective_date"
+            )
+            .eq("owner_id", user_id)
+            .execute()
+        )
+        for lease in _enrich_leases(owner_leases.data or [], supabase):
+            if lease.get("effective_status") == "terminated":
+                continue
+            if lease.get("is_overdue"):
+                overdue += 1
+                total_outstanding += float(lease.get("arrears_amount") or 0)
+
+        subs = (
+            supabase.table("manager_subscriptions")
+            .select("plan_id, status, payment_status")
+            .eq("manager_id", user_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if subs.data:
+            sub = subs.data[0]
+            subscription_status = sub.get("payment_status") or sub.get("status")
+            plan_id = sub.get("plan_id")
+            if plan_id:
+                plan = (
+                    supabase.table("subscription_plans")
+                    .select("name")
+                    .eq("id", str(plan_id))
+                    .limit(1)
+                    .execute()
+                )
+                subscription_plan = plan.data[0]["name"] if plan.data else str(plan_id)
+
+        prop_ids = [str(p["id"]) for p in prop_rows]
+        if prop_ids:
+            boost_cnt = (
+                supabase.table("property_boosts")
+                .select("id", count="exact")
+                .in_("property_id", prop_ids)
+                .eq("status", "active")
+                .execute()
+            )
+            boosted_count = boost_cnt.count if hasattr(boost_cnt, "count") else len(boost_cnt.data or [])
+
+        properties = [
+            ManagerProperty(
+                id=str(p["id"]),
+                title=p.get("title", ""),
+                status=p.get("status", ""),
+                property_type=p.get("property_type"),
+                city=p.get("city"),
+                area=p.get("area"),
+                monthly_rent=float(p["monthly_rent"]) if p.get("monthly_rent") is not None else None,
+                bedrooms=p.get("bedrooms"),
+                bathrooms=p.get("bathrooms"),
+                is_boosted=bool(p.get("is_boosted")),
+            )
+            for p in prop_rows
+        ]
+
+    return ManagerDetailResponse(
+        id=str(u.get("user_id", "")),
+        user_id=str(u.get("user_id", "")),
+        email=u.get("email", ""),
+        full_name=u.get("full_name"),
+        photo_url=u.get("photo_url"),
+        role=u.get("role", ""),
+        status=u.get("status", "active"),
+        created_at=str(u.get("created_at")) if u.get("created_at") else None,
+        property_count=prop_count,
+        overdue_tenants=overdue,
+        total_outstanding=total_outstanding,
+        subscription_plan=subscription_plan,
+        subscription_status=subscription_status,
+        boosted_count=boosted_count,
+        properties=properties,
+    )
 
 
 @router.get("/pending-managers", response_model=list[UserResponse])
