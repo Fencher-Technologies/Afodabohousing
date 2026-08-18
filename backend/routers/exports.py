@@ -18,7 +18,7 @@ router = APIRouter(prefix="/exports", tags=["exports"])
 COLUMNS = {
     "properties": [
         "id", "title", "property_type", "bedrooms", "bathrooms",
-        "rent_amount", "rent_period", "state", "city", "area",
+        "monthly_rent", "rent_period", "state", "city", "square_feet",
         "address", "status", "manager_phone", "created_at",
     ],
     "tenants": [

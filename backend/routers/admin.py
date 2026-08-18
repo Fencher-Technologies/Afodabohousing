@@ -536,7 +536,7 @@ def get_user_detail(
     if u.get("role") == "house_manager":
         props = (
             supabase.table("properties")
-            .select("id, title, status, property_type, city, area, monthly_rent, bedrooms, bathrooms, is_boosted")
+            .select("id, title, status, property_type, city, monthly_rent, bedrooms, bathrooms")
             .eq("owner_id", user_id)
             .execute()
         )
@@ -596,15 +596,17 @@ def get_user_detail(
                     subscription_days_remaining = 0
 
         prop_ids = [str(p["id"]) for p in prop_rows]
+        boosted_prop_ids: set[str] = set()
         if prop_ids:
-            boost_cnt = (
+            boost_rows = (
                 supabase.table("property_boosts")
-                .select("id", count="exact")
+                .select("property_id")
                 .in_("property_id", prop_ids)
                 .eq("status", "active")
                 .execute()
             )
-            boosted_count = boost_cnt.count if hasattr(boost_cnt, "count") else len(boost_cnt.data or [])
+            boosted_prop_ids = {str(b.get("property_id")) for b in (boost_rows.data or []) if b.get("property_id")}
+            boosted_count = len(boosted_prop_ids)
 
         properties = [
             ManagerProperty(
@@ -617,7 +619,7 @@ def get_user_detail(
                 monthly_rent=float(p["monthly_rent"]) if p.get("monthly_rent") is not None else None,
                 bedrooms=p.get("bedrooms"),
                 bathrooms=p.get("bathrooms"),
-                is_boosted=bool(p.get("is_boosted")),
+                is_boosted=str(p["id"]) in boosted_prop_ids,
             )
             for p in prop_rows
         ]
