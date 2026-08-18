@@ -69,6 +69,9 @@ def _normalize_property(p: dict[str, Any]) -> dict[str, Any]:
     p.setdefault("country", "UG")
     p.setdefault("security_deposit", 0)
     p.setdefault("is_active", True)
+    p.setdefault("rent_amount", p.get("monthly_rent"))
+    p.setdefault("rent_period", "monthly")
+    p.setdefault("area", p.get("square_feet"))
     return p
 
 
