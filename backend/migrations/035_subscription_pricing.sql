@@ -14,7 +14,7 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Update pricing/duration/display name to the client's final values.
 -- Runs regardless of whether the INSERT succeeded, so re-running stays correct.
-UPDATE subscription_plans SET name = '1 Month',   duration_days = 30,  price_usd = 5.00,  price_ugx = 20000  WHERE id = '1mo';
-UPDATE subscription_plans SET name = '3 Months',  duration_days = 90,  price_usd = 10.00, price_ugx = 40000  WHERE id = '3mo';
-UPDATE subscription_plans SET name = '6 Months',  duration_days = 180, price_usd = 20.00, price_ugx = 80000  WHERE id = '6mo';
-UPDATE subscription_plans SET name = '1 Year',    duration_days = 365, price_usd = 25.00, price_ugx = 100000 WHERE id = '12mo';
+UPDATE subscription_plans SET name = '1 Month',   duration_days = 30,  price_usd = 0.14,  price_ugx = 500  WHERE id = '1mo';
+UPDATE subscription_plans SET name = '3 Months',  duration_days = 90,  price_usd = 0.14,  price_ugx = 500  WHERE id = '3mo';
+UPDATE subscription_plans SET name = '6 Months',  duration_days = 180, price_usd = 0.14,  price_ugx = 500  WHERE id = '6mo';
+UPDATE subscription_plans SET name = '1 Year',    duration_days = 365, price_usd = 0.14,  price_ugx = 500  WHERE id = '12mo';
