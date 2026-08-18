@@ -28,6 +28,8 @@ function RootLayoutNav() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    SplashScreen.hideAsync();
+
     if (isLoading) return;
     console.log("[DEBUG_AUTH] layout effect — isLoading:", isLoading, "user:", user?.id, "role:", user?.role, "onboarding:", hasSeenOnboarding);
 
@@ -37,8 +39,6 @@ function RootLayoutNav() {
       // once query keys are structured for user-specific data.
       queryClient.clear();
     }
-
-    SplashScreen.hideAsync();
 
     if (!hasSeenOnboarding) {
       console.log("[DEBUG_AUTH] layout — redirecting to /onboarding");

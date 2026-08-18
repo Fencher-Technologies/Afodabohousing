@@ -1,28 +1,28 @@
 {
   "expo": {
     "name": "Axis",
+    "owner": "ayesigayonah",
     "slug": "f40vwt2jqz6u76jdi0j1n",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/axis-icon.png",
-    "scheme": "rork-app",
+    "scheme": "axis",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/images/axis-splash-mark.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.rork.f40vwt2jqz6u76jdi0j1n"
+      "bundleIdentifier": "com.axis.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/axis-adaptive.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.f40vwt2jqz6u76jdi0j1n"
+      "package": "com.axis.app",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/images/axis-favicon.png"
@@ -42,10 +42,27 @@
           "locationAlwaysAndWhenInUsePermission": "Allow Axis to use your location to pinpoint the property on the map.",
           "locationWhenInUsePermission": "Allow Axis to use your location to pinpoint the property on the map."
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/axis-splash-full.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": "https://rork.com/"
+      },
+      "eas": {
+        "projectId": "59e9a595-3c64-40fe-8687-81dc12c8d7bd"
+      }
     }
   }
 }

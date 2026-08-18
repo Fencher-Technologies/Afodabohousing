@@ -1,7 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { StyleSheet, Text, View, Pressable, Alert, FlatList, ActivityIndicator, Linking } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import * as DocumentPicker from "expo-document-picker";
 import {
   Phone,
   MessageCircle,
