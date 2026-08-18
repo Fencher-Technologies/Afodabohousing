@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { isMobileDevice } from '@/lib/utils';
 import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell, Star, TrendingUp, Smartphone, Download } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
 
@@ -380,7 +381,7 @@ export default function HomePage() {
       </section>
 
       {/* APK DOWNLOAD */}
-      <section className="container pb-20">
+      {isMobileDevice() && <section className="container pb-20">
         <div className="bg-card border border-border rounded-3xl p-8 md:p-12 shadow-card">
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="bg-primary/10 text-primary rounded-2xl p-5 shrink-0">
@@ -398,7 +399,7 @@ export default function HomePage() {
             </Button>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* CTA */}
       <section className="container pb-20">

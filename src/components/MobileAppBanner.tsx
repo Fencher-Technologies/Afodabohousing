@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Download, Smartphone } from 'lucide-react';
+import { isMobileDevice } from '@/lib/utils';
 
 const APK_URL = import.meta.env.VITE_MOBILE_APK_URL || '';
 const STORAGE_KEY = 'axis-app-download-dismissed';
@@ -14,6 +15,7 @@ export default function MobileAppBanner() {
   useEffect(() => {
     if (!APK_URL) return;
     if (localStorage.getItem(STORAGE_KEY)) return;
+    if (!isMobileDevice()) return;
     if (isIOsBrowser()) return;
     setVisible(true);
   }, []);
