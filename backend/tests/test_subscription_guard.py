@@ -33,7 +33,7 @@ TENANT = CurrentUser(id=UID_TENANT_USER, email="tenant@test.com", role="authenti
 FAKE_ID = "00000000-0000-0000-0000-000000000090"
 
 
-def _sub_row(status: str = "active", expires_at: str = "2126-07-08T00:00:00Z") -> dict:
+def _sub_row(status: str = "active", expires_at: str = "2126-07-08T00:00:00Z", created_at: str = "2026-01-01T00:00:00Z") -> dict:
     return {
         "id": f"sub-{UID_OWNER}",
         "manager_id": UID_OWNER,
@@ -44,7 +44,7 @@ def _sub_row(status: str = "active", expires_at: str = "2126-07-08T00:00:00Z") -
         "auto_renew": True,
         "payment_reference": None,
         "payment_status": "completed",
-        "created_at": "2026-01-01T00:00:00Z",
+        "created_at": created_at,
         "updated_at": "2026-01-01T00:00:00Z",
     }
 
@@ -279,3 +279,54 @@ def test_get_current_subscription_returns_none_without_row():
 
     svc = SubscriptionService(MockSupabaseClient(seeds={"manager_subscriptions": []}))
     assert svc.get_current_subscription(UID_OWNER) is None
+
+
+# ── Duplicate payment initiation guard ──────────────────────────────────────
+
+from datetime import UTC, datetime, timedelta
+
+RECENT = datetime.now(UTC).isoformat()
+
+PENDING_SUB_ROW = _sub_row(
+    status="pending",
+    expires_at=None,
+    created_at=RECENT,
+)
+
+
+def test_duplicate_pending_subscription_rejected(seeded_client):
+    client = seeded_client(
+        user=MANAGER,
+        seeds={"manager_subscriptions": [PENDING_SUB_ROW], "profiles": [{"user_id": UID_OWNER, "role": "house_manager", "full_name": "Test User"}]},
+    )
+    resp = client.post("/subscriptions/create", json={"plan_id": "12mo", "callback_url": "https://example.com"})
+    assert resp.status_code == 409
+
+
+def test_duplicate_pending_boost_rejected(seeded_client):
+    from dependencies import CurrentUser
+
+    owner = CurrentUser(id=UID_OWNER, email="test@test.com", role="authenticated")
+    client = seeded_client(
+        user=owner,
+        seeds={
+            "manager_subscriptions": [_sub_row(status="active")],
+            "property_boosts": [{
+                "id": "00000000-0000-0000-0000-000000000071",
+                "property_id": str(PID_PROP),
+                "manager_id": UID_OWNER,
+                "amount_paid": 70000,
+                "duration_days": 7,
+                "status": "pending",
+                "transaction_id": "ref-pending",
+                "payment_method": "pesapal",
+                "created_at": RECENT,
+                "updated_at": RECENT,
+            }],
+        },
+    )
+    resp = client.post(
+        "/boosts/initiate",
+        json={"property_id": str(PID_PROP), "duration_days": 7, "callback_url": "https://example.com"},
+    )
+    assert resp.status_code == 409

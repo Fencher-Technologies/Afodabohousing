@@ -34,6 +34,27 @@ class TestPaymentLifecycle:
         created = resp.json()
         assert float(created["amount"]) == 1500000
         assert created["payment_type"] == "rent"
+        assert created["tenant_name"] == "John Doe"
+        assert created["property_title"]
+        assert created["method"] == created["payment_method"]
+
+    def test_payment_response_includes_display_fields(self, owner_client: TestClient):
+        resp = owner_client.get(f"/payments/{PID_PAYMENT}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["tenant_name"] == "John Doe"
+        assert data["property_title"]
+        assert data["method"] == data["payment_method"]
+
+    def test_payment_list_items_include_display_fields(self, owner_client: TestClient):
+        resp = owner_client.get("/payments")
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        assert items
+        for item in items:
+            assert "tenant_name" in item
+            assert "property_title" in item
+            assert item["method"] == item.get("payment_method")
 
     def test_list_payments(self, owner_client: TestClient):
         resp = owner_client.get("/payments")

@@ -55,6 +55,62 @@ def get_payment_svc(supabase: Client = Depends(get_service_client)) -> PaymentSe
     return get_payment_service(supabase)
 
 
+def _enrich_payments(supabase: Client, payments: list[dict]) -> list[dict]:
+    """Attach tenant_name / property_title / method to payment rows.
+
+    The mobile and web UIs read these display fields; they are joined here
+    so both platforms see them without extra client work.
+    """
+    if not payments:
+        return payments
+    lease_ids = {str(p.get("lease_id")) for p in payments if p.get("lease_id")}
+    leases_by_id: dict[str, dict] = {}
+    if lease_ids:
+        resp = (
+            supabase.table("leases")
+            .select("id, tenant_id, property_id")
+            .in_("id", list(lease_ids))
+            .execute()
+        )
+        for l in resp.data or []:
+            leases_by_id[str(l["id"])] = l
+
+    tenant_ids = {str(l["tenant_id"]) for l in leases_by_id.values() if l.get("tenant_id")}
+    names_by_id: dict[str, str] = {}
+    if tenant_ids:
+        resp = (
+            supabase.table("tenants")
+            .select("id, first_name, last_name")
+            .in_("id", list(tenant_ids))
+            .execute()
+        )
+        for t in resp.data or []:
+            names_by_id[str(t["id"])] = (
+                f"{t.get('first_name') or ''} {t.get('last_name') or ''}".strip()
+            )
+
+    prop_ids = {str(l["property_id"]) for l in leases_by_id.values() if l.get("property_id")}
+    titles_by_id: dict[str, str] = {}
+    if prop_ids:
+        resp = (
+            supabase.table("properties")
+            .select("id, title")
+            .in_("id", list(prop_ids))
+            .execute()
+        )
+        for p in resp.data or []:
+            titles_by_id[str(p["id"])] = p.get("title") or ""
+
+    for payment in payments:
+        lease = leases_by_id.get(str(payment.get("lease_id")))
+        payment["method"] = payment.get("payment_method")
+        if not lease:
+            continue
+        payment["tenant_name"] = names_by_id.get(str(lease.get("tenant_id"))) or None
+        payment["property_title"] = titles_by_id.get(str(lease.get("property_id"))) or None
+    return payments
+
+
 @router.get("", response_model=PaginatedResponse)
 def list_payments(
     skip: int = Query(0, ge=0),
@@ -75,7 +131,7 @@ def list_payments(
     else:
         payments, total = service.get_all(current_user.id, skip, limit)
     return PaginatedResponse(
-        items=[PaymentResponse(**p) for p in payments],
+        items=[PaymentResponse(**p) for p in _enrich_payments(supabase, payments)],
         total=total,
         skip=skip,
         limit=limit,
@@ -111,7 +167,7 @@ def get_payment(
         )
         if not lease.data or str(lease.data[0]["owner_id"]) != str(current_user.id):
             raise HTTPException(status_code=403, detail="Access denied")
-    return PaymentResponse(**payment)
+    return PaymentResponse(**_enrich_payments(supabase, [payment])[0])
 
 
 @router.post("", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
@@ -156,7 +212,7 @@ def create_payment(
             payment = service.create(PaymentCreate(**payload))
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-    return PaymentResponse(**payment)
+    return PaymentResponse(**_enrich_payments(supabase, [payment])[0])
 
 
 @router.patch("/{payment_id}", response_model=PaymentResponse)
@@ -231,7 +287,7 @@ def update_payment(
                 metadata={"payment_id": str(payment_id), "status": data.status},
             )
 
-    return PaymentResponse(**result)
+    return PaymentResponse(**_enrich_payments(supabase, [result])[0])
 
 
 @router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)

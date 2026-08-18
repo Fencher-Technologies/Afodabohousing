@@ -84,11 +84,37 @@ async def create_subscription(
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Plan '{data.plan_id}' not found")
 
+    pending = (
+        supabase.table("manager_subscriptions")
+        .select("id, created_at")
+        .eq("manager_id", current_user.id)
+        .eq("plan_id", data.plan_id)
+        .eq("status", "pending")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if pending.data:
+        from datetime import datetime, timedelta, timezone
+        created_at = pending.data[0].get("created_at")
+        age_minutes = None
+        if created_at:
+            try:
+                dt = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+                age_minutes = (datetime.now(timezone.utc) - dt).total_seconds() / 60
+            except (TypeError, ValueError):
+                pass
+        if age_minutes is None or age_minutes < 30:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You already have a pending payment for this plan. Complete or cancel it before starting another.",
+            )
+
     reference = str(uuid4())
     amount = int(plan["price_ugx"])
 
     profile = profile or {}
-    first_name = (profile.get("full_name") or "").split()[0] or current_user.email
+    first_name = ((profile.get("full_name") or "").split() or [current_user.email])[0]
     last_name = " ".join((profile.get("full_name") or "").split()[1:]) or ""
     customer_phone = normalize_phone(data.phone_number) if data.phone_number else (normalize_phone(profile.get("phone")) if (profile or {}).get("phone") else "")
     customer_email = profile.get("email") or current_user.email

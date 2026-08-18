@@ -247,6 +247,32 @@ async def initiate_boost(
     if not pkg:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid boost package")
     amount = int(pkg["price_ugx"])
+
+    pending = (
+        supabase.table("property_boosts")
+        .select("id, created_at")
+        .eq("property_id", str(data.property_id))
+        .eq("status", "pending")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if pending.data:
+        from datetime import datetime, timedelta, timezone
+        created_at = pending.data[0].get("created_at")
+        age_minutes = None
+        if created_at:
+            try:
+                dt = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+                age_minutes = (datetime.now(timezone.utc) - dt).total_seconds() / 60
+            except (TypeError, ValueError):
+                pass
+        if age_minutes is None or age_minutes < 30:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This property already has a pending boost payment. Complete or cancel it before starting another.",
+            )
+
     reference = str(uuid4())
     prop_title = prop.data.get("title", "Property")
 
