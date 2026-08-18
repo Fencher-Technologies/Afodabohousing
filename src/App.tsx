@@ -127,7 +127,10 @@ const App = () => (
 
               {/* Dashboard routes (with sidebar layout) */}
               <Route element={<DashboardLayout />}>
-                <Route path="/dashboard/super-admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
+                <Route path="/dashboard/super-admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard initialTab="overview" /></ProtectedRoute>} />
+                <Route path="/dashboard/super-admin/approvals" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard initialTab="approvals" /></ProtectedRoute>} />
+                <Route path="/dashboard/super-admin/managers" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard initialTab="managers" /></ProtectedRoute>} />
+                <Route path="/dashboard/super-admin/settings" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard initialTab="settings" /></ProtectedRoute>} />
                 <Route path="/dashboard/super-admin/managers/:id" element={<ProtectedRoute allowedRoles={['super_admin']}><ManagerDetail /></ProtectedRoute>} />
                 <Route path="/dashboard/manager" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><ManagerDashboard /></ProtectedRoute>} />
                 <Route path="/dashboard/manager/boost/:id" element={<ProtectedRoute allowedRoles={['house_manager', 'super_admin']}><BoostPage /></ProtectedRoute>} />

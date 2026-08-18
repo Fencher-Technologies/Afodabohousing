@@ -49,6 +49,10 @@ class ResetTenantPasswordRequest(BaseModel):
     user_id: str
 
 
+class RemoveManagerRequest(BaseModel):
+    user_id: str
+
+
 class StatusUpdateRequest(BaseModel):
     status: str  # "active" | "suspended"
 
@@ -65,6 +69,9 @@ class UserResponse(BaseModel):
     property_count: int = 0
     overdue_tenants: int = 0
     total_outstanding: float = 0
+    subscription_plan: str | None = None
+    subscription_status: str | None = None
+    boosted_count: int = 0
 
 
 class DashboardStats(BaseModel):
@@ -319,6 +326,55 @@ def reset_tenant_password(
     return {"temporary_password": password}
 
 
+@router.delete("/users/{user_id}")
+def remove_manager(
+    user_id: str,
+    current_user: CurrentUser = Depends(require_super_admin),
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    """Permanently remove a manager: deletes the auth user (which cascades to
+    profiles, properties, leases, tenants and other owned rows via ON DELETE
+    CASCADE). Fails with a hint if the manager still owns rows that block
+    deletion (boosts, subscriptions, uploaded agreement documents).
+    """
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot remove your own account",
+        )
+
+    profile = (
+        supabase.table("profiles")
+        .select("role, full_name, email")
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not profile.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if profile.data[0].get("role") != "house_manager":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only managers can be removed here",
+        )
+
+    try:
+        supabase.auth.admin.delete_user(user_id)
+    except Exception as e:
+        logger.warning("Manager removal blocked for user_id=%s: %s", user_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Manager has records that block removal (boosts, subscriptions or "
+            "agreement documents). Suspend them instead.",
+        )
+
+    logger.info(
+        "Manager removed: user_id=%s email=%s by super_admin=%s",
+        user_id, profile.data[0].get("email"), current_user.id,
+    )
+    return {"message": "Manager removed", "user_id": user_id}
+
+
 @router.get("/users", response_model=list[UserResponse])
 def list_users(
     role: str | None = Query(None, description="Filter by role"),
@@ -338,6 +394,9 @@ def list_users(
         prop_count = 0
         overdue = 0
         total_outstanding = 0
+        subscription_plan = None
+        subscription_status = None
+        boosted_count = 0
         if u.get("role") == "house_manager":
             try:
                 cnt = supabase.table("properties").select("id", count="exact").eq("owner_id", u["user_id"]).execute()
@@ -359,6 +418,48 @@ def list_users(
                     if lease.get("is_overdue"):
                         overdue += 1
                         total_outstanding += float(lease.get("arrears_amount") or 0)
+
+                subs = (
+                    supabase.table("manager_subscriptions")
+                    .select("plan_id, status, payment_status")
+                    .eq("manager_id", u["user_id"])
+                    .order("created_at", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+                if subs.data:
+                    sub = subs.data[0]
+                    subscription_status = sub.get("payment_status") or sub.get("status")
+                    plan_id = sub.get("plan_id")
+                    if plan_id:
+                        plan = (
+                            supabase.table("subscription_plans")
+                            .select("name")
+                            .eq("id", str(plan_id))
+                            .limit(1)
+                            .execute()
+                        )
+                        subscription_plan = plan.data[0]["name"] if plan.data else str(plan_id)
+
+                prop_ids = [
+                    p["id"]
+                    for p in (
+                        supabase.table("properties")
+                        .select("id")
+                        .eq("owner_id", u["user_id"])
+                        .execute()
+                        .data or []
+                    )
+                ]
+                if prop_ids:
+                    boost_cnt = (
+                        supabase.table("property_boosts")
+                        .select("id", count="exact")
+                        .in_("property_id", [str(pid) for pid in prop_ids])
+                        .eq("status", "active")
+                        .execute()
+                    )
+                    boosted_count = boost_cnt.count if hasattr(boost_cnt, "count") else len(boost_cnt.data or [])
             except Exception:
                 pass
 
@@ -374,6 +475,9 @@ def list_users(
             property_count=prop_count,
             overdue_tenants=overdue,
             total_outstanding=total_outstanding,
+            subscription_plan=subscription_plan,
+            subscription_status=subscription_status,
+            boosted_count=boosted_count,
         ))
 
     return responses

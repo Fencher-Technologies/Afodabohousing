@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,12 @@ import {
   TrendingUp, AlertTriangle, Home, UserCheck, Calendar, Activity,
   ChevronRight, ArrowUp, ArrowDown, BarChart3, Search, Crown,
   MoreHorizontal, X, Download, ArrowUpDown, ChevronLeft, ChevronsLeft, ChevronsRight,
+  KeyRound, Trash2, Sparkles,
 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
@@ -48,6 +53,8 @@ type Manager = {
   full_name: string | null; photo_url?: string | null; role: string; status: string;
   created_at: string | null; property_count: number;
   overdue_tenants: number; total_outstanding: number;
+  subscription_plan?: string | null; subscription_status?: string | null;
+  boosted_count?: number;
 };
 
 function avatarInitials(name: string | null, email: string): string {
@@ -155,12 +162,17 @@ const CenterLabel = ({ total }: { total: number }) => (
   </text>
 );
 
-export default function SuperAdminDashboard() {
+export default function SuperAdminDashboard({ initialTab = 'overview' }: { initialTab?: Tab }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
-  const [tab, setTab] = useState<Tab>('overview');
+  const pathSeg = location.pathname.split('/').filter(Boolean).pop() ?? '';
+  const tab = (['overview', 'approvals', 'managers', 'settings'] as const).includes(pathSeg as Tab)
+    ? (pathSeg as Tab)
+    : initialTab;
+  const setTab = (t: Tab) => navigate(`/dashboard/super-admin${t === 'overview' ? '' : `/${t}`}`);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [boostStats, setBoostStats] = useState<{ total_revenue: number; active_boosts: number } | null>(null);
   const [managers, setManagers] = useState<Manager[]>([]);
@@ -245,8 +257,8 @@ export default function SuperAdminDashboard() {
 
   const handleBulkExport = () => {
     const selected = managers.filter(m => selectedRows.has(m.id));
-    const csv = [['Name', 'Email', 'Status', 'Properties', 'Joined'].join(',')];
-    selected.forEach(m => csv.push([m.full_name || '', m.email, m.status, m.property_count, m.created_at || ''].join(',')));
+    const csv = [['Name', 'Email', 'Status', 'Properties', 'Subscription', 'Sub Status', 'Boosted', 'Joined'].join(',')];
+    selected.forEach(m => csv.push([m.full_name || '', m.email, m.status, m.property_count, m.subscription_plan || '—', m.subscription_status || '', m.boosted_count ?? 0, m.created_at || ''].join(',')));
     const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'managers.csv'; a.click();
@@ -267,6 +279,10 @@ export default function SuperAdminDashboard() {
   const [createPhone, setCreatePhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
+  const [passwordDialogTitle, setPasswordDialogTitle] = useState('Manager Account Created');
+  const [passwordDialogDesc, setPasswordDialogDesc] = useState('Share this temporary password with the manager');
+  const [removeTarget, setRemoveTarget] = useState<Manager | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const apiBase = import.meta.env.VITE_API_URL || '';
 
@@ -397,6 +413,8 @@ export default function SuperAdminDashboard() {
   const openDialog = (mode: 'invite' | 'create') => {
     setDialogMode(mode);
     setCreatedPassword(null);
+    setPasswordDialogTitle('Manager Account Created');
+    setPasswordDialogDesc('Share this temporary password with the manager');
     setInviteEmail('');
     setCreateName('');
     setCreateEmail('');
@@ -471,8 +489,48 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleApproveManager = async (m: Manager) => {
+  const handleResetPassword = async (m: Manager) => {
+    setSubmitting(true);
     try {
+      const headers = await getHeaders();
+      const res = await fetch(`${apiBase}/admin/reset-tenant-password`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ user_id: m.user_id }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed'); }
+      const data = await res.json();
+      setPasswordDialogTitle('Password Reset');
+      setPasswordDialogDesc(`One-time password for ${m.full_name || m.email}. The manager must sign in with it next time.`);
+      setCreatedPassword(data.temporary_password);
+      setDialogMode('create');
+      setDialogOpen(true);
+      toast({ title: 'Password reset', description: 'New one-time password generated.' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+    setSubmitting(false);
+  };
+
+  const handleRemoveManager = async () => {
+    if (!removeTarget) return;
+    setRemoving(true);
+    try {
+      const headers = await getHeaders();
+      const res = await fetch(`${apiBase}/admin/users/${removeTarget.user_id}`, {
+        method: 'DELETE', headers,
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed'); }
+      toast({ title: 'Manager removed', description: `${removeTarget.full_name || removeTarget.email} was removed.` });
+      setRemoveTarget(null);
+      clearSelection();
+      fetchData();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+    setRemoving(false);
+  };
+
+  const handleApproveManager = async (m: Manager) => {    try {
       const headers = await getHeaders();
       const res = await fetch(`${apiBase}/admin/users/${m.user_id}/status`, {
         method: 'PATCH', headers,
@@ -513,6 +571,22 @@ export default function SuperAdminDashboard() {
   return (
     <div>
       <div className="p-4 md:p-6">
+          {/* ── Tab navigation ── */}
+          <div className="flex items-center gap-1 border-b border-border mb-6 pb-px overflow-x-auto">
+            {NAV_ITEMS.map(item => (
+              <button key={item.id} onClick={() => {
+                setTab(item.id);
+                navigate(`/dashboard/super-admin${item.id === 'overview' ? '' : `/${item.id}`}`);
+              }}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${
+                  tab === item.id
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}>
+                {item.icon} {item.label}
+              </button>
+            ))}
+          </div>
           {/* ═══════════ OVERVIEW ═══════════ */}
           {tab === 'overview' && (
             <div className="space-y-6 max-w-7xl">
@@ -923,6 +997,9 @@ export default function SuperAdminDashboard() {
                           <th className="py-3 px-4 w-10"><div className="h-4 w-4 bg-muted-foreground/20 rounded" /></th>
                           <th className="text-left py-3 px-4 font-semibold">Name</th>
                           <th className="text-left py-3 px-4 font-semibold">Properties</th>
+                          <th className="text-left py-3 px-4 font-semibold">Overdue</th>
+                          <th className="text-left py-3 px-4 font-semibold">Subscription</th>
+                          <th className="text-left py-3 px-4 font-semibold">Boosted</th>
                           <th className="text-left py-3 px-4 font-semibold">Status</th>
                           <th className="text-left py-3 px-4 font-semibold">Actions</th>
                         </tr>
@@ -972,6 +1049,8 @@ export default function SuperAdminDashboard() {
                               Overdue {sortColumn === 'overdue' && <ArrowUpDown className="h-3 w-3" />}
                             </span>
                           </th>
+                          <th className="text-left py-3 px-4 font-semibold">Subscription</th>
+                          <th className="text-left py-3 px-4 font-semibold">Boosted</th>
                           <th className="text-left py-3 px-4 font-semibold cursor-pointer select-none" onClick={() => toggleSort('status')}>
                             <span className="inline-flex items-center gap-1">
                               Status {sortColumn === 'status' && <ArrowUpDown className="h-3 w-3" />}
@@ -1018,6 +1097,31 @@ export default function SuperAdminDashboard() {
                               )}
                             </td>
                             <td className="py-3 px-4">
+                              {m.subscription_plan && m.subscription_status === 'completed' ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="inline-block text-xs font-semibold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                    {m.subscription_plan}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground capitalize">{m.subscription_status}</span>
+                                </div>
+                              ) : m.subscription_plan ? (
+                                <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+                                  {m.subscription_plan} · pending
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {(m.boosted_count ?? 0) > 0 ? (
+                                <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-600">
+                                  <Sparkles className="h-3.5 w-3.5" /> {m.boosted_count}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
                               <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[m.status] || 'bg-muted text-muted-foreground border-border'}`}>
                                 {m.status}
                               </span>
@@ -1040,6 +1144,16 @@ export default function SuperAdminDashboard() {
                                     setDialogOpen(true);
                                   }}>
                                     Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleResetPassword(m)} className="gap-2">
+                                    <KeyRound className="h-3.5 w-3.5" /> Reset Password
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-destructive gap-2"
+                                    onClick={() => setRemoveTarget(m)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" /> Remove
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
@@ -1113,8 +1227,8 @@ export default function SuperAdminDashboard() {
             <div className="mt-4 space-y-4">
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
                 <CheckCircle2 className="h-10 w-10 text-emerald-600 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-emerald-800">Manager Account Created</p>
-                <p className="text-xs text-emerald-600 mt-1">Share this temporary password with the manager</p>
+                <p className="text-sm font-semibold text-emerald-800">{passwordDialogTitle}</p>
+                <p className="text-xs text-emerald-600 mt-1">{passwordDialogDesc}</p>
               </div>
               <div className="bg-muted rounded-xl p-4">
                 <label className="text-xs font-medium text-muted-foreground">Temporary Password</label>
@@ -1180,6 +1294,30 @@ export default function SuperAdminDashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ── Remove Manager Confirm ── */}
+      <AlertDialog open={!!removeTarget} onOpenChange={(o) => { if (!o) setRemoveTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display text-xl">Remove Manager?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes {removeTarget?.full_name || removeTarget?.email}'s account,
+              profile, properties, leases and tenants. This cannot be undone. If they have boosts,
+              subscriptions or agreement documents the removal will be blocked — suspend instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveManager}
+              disabled={removing}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {removing ? 'Removing...' : 'Remove Manager'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

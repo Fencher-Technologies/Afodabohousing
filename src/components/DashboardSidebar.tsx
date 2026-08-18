@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard, Building2, Users, DollarSign, BarChart3,
   Crown, PanelLeftClose, PanelLeft, LogOut, ChevronRight, Home,
-  Wrench, Search, Menu, X, User
+  Wrench, Search, Menu, X, User, UserCheck, Shield
 } from 'lucide-react';
 
 interface NavItem {
@@ -30,6 +30,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Browse', path: '/dashboard/tenant/browse', icon: <Search className="h-4 w-4" />, roles: ['tenant'] },
   { label: 'Account', path: '/account', icon: <User className="h-4 w-4" />, roles: ['super_admin'] },
   { label: 'Overview', path: '/dashboard/super-admin', icon: <LayoutDashboard className="h-4 w-4" />, roles: ['super_admin'] },
+  { label: 'Approvals', path: '/dashboard/super-admin/approvals', icon: <UserCheck className="h-4 w-4" />, roles: ['super_admin'] },
+  { label: 'Managers', path: '/dashboard/super-admin/managers', icon: <Users className="h-4 w-4" />, roles: ['super_admin'] },
+  { label: 'Settings', path: '/dashboard/super-admin/settings', icon: <Shield className="h-4 w-4" />, roles: ['super_admin'] },
 ];
 
 export default function DashboardSidebar({ collapsed, onToggle, mobile, open, onClose }: {
