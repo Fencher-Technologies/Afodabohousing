@@ -85,9 +85,32 @@ class BoostService(BaseService):
         return result.data[0]
 
     @with_retry
-    def activate_by_reference(self, reference: str, txn_id: str) -> dict | None:
+    def activate_by_reference(self, reference: str, txn_id: str, paid_amount: float | None = None) -> dict | None:
+        if paid_amount is not None:
+            pending = (
+                self.table.select("*")
+                .eq("transaction_id", reference)
+                .eq("status", "pending")
+                .limit(1)
+                .execute()
+            )
+            if not pending.data:
+                return None
+            boost = pending.data[0]
+            expected = float(calculate_boost_price(self.supabase, int(boost["duration_days"])))
+            if abs(float(paid_amount) - expected) > 1.0:
+                logger.warning(
+                    "Boost %s amount mismatch: paid=%s expected=%s",
+                    boost["id"], paid_amount, expected,
+                )
+                self.table.update({"status": "failed"}).eq("id", boost["id"]).eq("status", "pending").execute()
+                return None
+
+        # Keep transaction_id as the merchant reference — the status poll
+        # looks boosts up by it. The Pesapal tracking id goes nowhere (the
+        # webhook idempotency cache already dedupes by it).
         result = (
-            self.table.update({"status": "active", "transaction_id": txn_id})
+            self.table.update({"status": "active"})
             .eq("transaction_id", reference)
             .eq("status", "pending")
             .execute()

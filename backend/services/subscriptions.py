@@ -91,7 +91,7 @@ class SubscriptionService:
             days_remaining=days_remaining,
         )
 
-    def confirm_subscription(self, payment_reference: str) -> dict | None:
+    def confirm_subscription(self, payment_reference: str, paid_amount: float | None = None) -> dict | None:
         result = (
             self.supabase.table("manager_subscriptions")
             .select("*")
@@ -111,6 +111,20 @@ class SubscriptionService:
         plan = self.get_plan(sub["plan_id"])
         if not plan:
             return None
+
+        # Amount verification: only the exact plan price activates the sub.
+        if paid_amount is not None:
+            expected = float(plan["price_ugx"])
+            if abs(float(paid_amount) - expected) > 1.0:
+                now = datetime.now(UTC)
+                logger.warning(
+                    "Subscription %s amount mismatch: paid=%s expected=%s",
+                    sub["id"], paid_amount, expected,
+                )
+                self.supabase.table("manager_subscriptions").update(
+                    {"status": "failed", "payment_status": "failed", "updated_at": now.isoformat()}
+                ).eq("id", sub["id"]).eq("status", "pending").execute()
+                return None
 
         duration_days = plan["duration_days"]
         now = datetime.now(UTC)

@@ -188,7 +188,11 @@ def verify_webhook(payload: bytes, signature: str | None) -> bool:
         logger.warning("PESAPAL_CONSUMER_SECRET not set — skipping signature verification")
         return True
     if not signature:
-        return False
+        # ponytail: live Pesapal IPNs can arrive without X-Pesapal-Signature;
+        # the payload carries no status anyway — trust comes from the
+        # authenticated GetTransactionStatus call + amount guard downstream.
+        logger.warning("Pesapal IPN received without X-Pesapal-Signature; relying on transaction status verification")
+        return True
     expected = hmac.new(
         s.pesapal_consumer_secret.encode(),
         payload,

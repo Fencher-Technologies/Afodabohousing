@@ -112,9 +112,11 @@ async def pesapal_webhook(
     # The IPN payload has no payment status — GetTransactionStatus is the
     # source of truth. If it fails, return 200 anyway; Pesapal retries.
     payment_status = "pending"
+    paid_amount = None
     try:
         token = await get_auth_token()
         status_data = await get_transaction_status(token, tracking_id)
+        paid_amount = status_data.get("amount")
         payment_status = PESAPAL_STATUS_MAP.get(
             (status_data.get("payment_status_description") or "").upper(),
             "pending",
@@ -128,12 +130,12 @@ async def pesapal_webhook(
 
     if payment_status == "completed":
         boost_svc = get_boost_service(supabase)
-        activated = boost_svc.activate_by_reference(merchant_ref, tracking_id)
+        activated = boost_svc.activate_by_reference(merchant_ref, tracking_id, paid_amount)
         if activated:
             logger.info("Boost %s activated via Pesapal webhook", activated["id"])
         else:
             sub_svc = get_subscription_service(supabase)
-            sub_activated = sub_svc.confirm_subscription(merchant_ref)
+            sub_activated = sub_svc.confirm_subscription(merchant_ref, paid_amount)
             if sub_activated:
                 logger.info("Subscription %s activated via Pesapal webhook", sub_activated["id"])
             else:
