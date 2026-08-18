@@ -137,7 +137,7 @@ async def pesapal_webhook(
             sub_svc = get_subscription_service(supabase)
             sub_activated = sub_svc.confirm_subscription(merchant_ref, paid_amount)
             if sub_activated:
-                logger.info("Subscription %s activated via Pesapal webhook", sub_activated["id"])
+                logger.info("Subscription %s activated via Pesapal webhook", sub_activated.id)
             else:
                 result = (
                     supabase.table("payments")
