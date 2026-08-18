@@ -112,10 +112,41 @@ export default function BoostPropertyScreen() {
         setPaymentComplete(false);
       }
     } catch (e: any) {
-      Alert.alert("Payment failed", e.message || "Could not initiate payment. Please try again.");
+      const msg = e?.message || "Could not initiate payment. Please try again.";
+      if (msg.toLowerCase().includes("pending boost")) {
+        setPaymentStatus("waiting_payment");
+        startPollingByProperty(propertyId);
+      } else {
+        Alert.alert("Payment failed", msg);
+      }
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const startPollingByProperty = (pid: string) => {
+    stopPolling();
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const res = await api.get<{ status: string; payment_status?: string }>(
+          `/payments/pesapal/status?property_id=${encodeURIComponent(pid)}`
+        );
+        if (res.status === "active" || res.status === "completed" || res.payment_status === "completed") {
+          stopPolling();
+          setPaymentStatus("success");
+        } else if (res.status === "failed" || res.status === "cancelled" || res.status === "expired") {
+          stopPolling();
+          setPaymentStatus("failed");
+        }
+      } catch {
+        // poll silently; timeout handles the dead end
+      }
+    }, POLL_INTERVAL_MS);
+
+    timeoutTimerRef.current = setTimeout(() => {
+      stopPolling();
+      setPaymentStatus("timeout");
+    }, POLL_TIMEOUT_MS);
   };
 
   const handleClosePayment = () => {

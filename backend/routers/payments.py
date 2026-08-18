@@ -365,34 +365,52 @@ async def initiate_pesapal_payment(
 
 @router.get("/pesapal/status")
 def pesapal_payment_status(
-    reference: str = Query(..., description="OrderMerchantReference / payment reference from the Pesapal callback"),
+    reference: str | None = Query(None, description="OrderMerchantReference / payment reference from the Pesapal callback"),
+    property_id: str | None = Query(None, description="Look up a boost's status by property instead of by reference"),
     current_user: CurrentUser = Depends(require_active_user),
     supabase: Client = Depends(get_service_client),
 ) -> dict:
-    """Poll the outcome of a Pesapal payment by its merchant reference.
+    """Poll the outcome of a Pesapal payment.
 
-    Checks manager_subscriptions (by payment_reference) then property_boosts
-    (by transaction_id), since both flows redirect to /payment/status.
+    Looks up subscriptions by payment_reference or boosts by transaction_id
+    (the merchant reference from the Pesapal callback), since both flows
+    redirect to /payment/status. When a boost initiate hits the pending-guard
+    409, the client has no fresh reference; it can instead pass property_id
+    to resume watching the existing pending boost.
     """
-    sub = (
-        supabase.table("manager_subscriptions")
-        .select("*")
-        .eq("payment_reference", reference)
-        .limit(1)
-        .execute()
-    )
-    if sub.data:
-        row = sub.data[0]
-        return {
-            "type": "subscription",
-            "status": row.get("status"),
-            "payment_status": row.get("payment_status", "pending"),
-        }
+    if reference:
+        sub = (
+            supabase.table("manager_subscriptions")
+            .select("*")
+            .eq("payment_reference", reference)
+            .limit(1)
+            .execute()
+        )
+        if sub.data:
+            row = sub.data[0]
+            return {
+                "type": "subscription",
+                "status": row.get("status"),
+                "payment_status": row.get("payment_status", "pending"),
+            }
+
+        boost = (
+            supabase.table("property_boosts")
+            .select("*")
+            .eq("transaction_id", reference)
+            .limit(1)
+            .execute()
+        )
+        if boost.data:
+            row = boost.data[0]
+            return {"type": "boost", "status": row.get("status")}
 
     boost = (
         supabase.table("property_boosts")
         .select("*")
-        .eq("transaction_id", reference)
+        .eq("property_id", property_id)
+        .in_("status", ["pending", "active"])
+        .order("created_at", desc=True)
         .limit(1)
         .execute()
     )

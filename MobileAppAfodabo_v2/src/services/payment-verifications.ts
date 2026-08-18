@@ -37,11 +37,14 @@ export const paymentVerificationsService = {
 
   uploadScreenshot: async (uri: string) => {
     const formData = new FormData();
-    const filename = uri.split("/").pop() || "screenshot.jpg";
+    const filename = uri.split("/").pop() || "screenshot.png";
+    const ext = (filename.split(".").pop() || "").toLowerCase();
+    const mime =
+      ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
     formData.append("file", {
       uri,
       name: filename,
-      type: "image/jpeg",
+      type: mime,
     } as unknown as Blob);
     return api.upload<{ path: string; url: string }>(
       "/uploads/payment-proof",

@@ -330,3 +330,35 @@ def test_duplicate_pending_boost_rejected(seeded_client):
         json={"property_id": str(PID_PROP), "duration_days": 7, "callback_url": "https://example.com"},
     )
     assert resp.status_code == 409
+
+
+def test_boost_status_lookup_by_property_id(seeded_client):
+    client = seeded_client(
+        user=MANAGER,
+        seeds={
+            "property_boosts": [{
+                "id": "00000000-0000-0000-0000-000000000072",
+                "property_id": str(PID_PROP),
+                "manager_id": UID_OWNER,
+                "amount_paid": 70000,
+                "duration_days": 7,
+                "status": "pending",
+                "transaction_id": "ref-pending-2",
+                "payment_method": "pesapal",
+                "created_at": RECENT,
+                "updated_at": RECENT,
+            }],
+        },
+    )
+    resp = client.get(f"/payments/pesapal/status?property_id={PID_PROP}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["type"] == "boost"
+    assert data["status"] == "pending"
+
+
+def test_boost_status_lookup_unknown_returns_pending(seeded_client):
+    client = seeded_client(user=MANAGER)
+    resp = client.get("/payments/pesapal/status?property_id=00000000-0000-0000-0000-00000000ffff")
+    assert resp.status_code == 200
+    assert resp.json() == {"type": "unknown", "status": "pending"}
