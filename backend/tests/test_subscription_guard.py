@@ -394,3 +394,36 @@ def test_pending_boost_reconciled_with_gateway(seeded_client):
     data = resp.json()
     assert data["type"] == "boost"
     assert data["status"] == "active"
+
+
+def test_reconcile_cooldown_limits_gateway_calls_to_once_per_minute(seeded_client):
+    from unittest.mock import patch
+
+    client = seeded_client(
+        user=MANAGER,
+        seeds={
+            "property_boosts": [{
+                "id": "00000000-0000-0000-0000-000000000074",
+                "property_id": str(PID_PROP),
+                "manager_id": UID_OWNER,
+                "amount_paid": 10000,
+                "duration_days": 7,
+                "status": "pending",
+                "transaction_id": "ref-cooldown",
+                "payment_method": "pesapal",
+                "pesapal_tracking_id": "txn-cooldown-1",
+                "created_at": RECENT,
+                "updated_at": RECENT,
+            }],
+        },
+    )
+    with patch("services.pesapal.get_auth_token", return_value="tok"), patch(
+        "services.pesapal.get_transaction_status",
+        return_value={"payment_status_description": "PENDING"},
+    ) as gts:
+        for _ in range(3):
+            resp = client.get(f"/payments/pesapal/status?property_id={PID_PROP}")
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "pending"
+
+    assert gts.call_count == 1, "a fast poller must not re-verify the gateway every tick"

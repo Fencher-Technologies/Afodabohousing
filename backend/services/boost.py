@@ -218,17 +218,17 @@ class BoostService(BaseService):
         return result.data[0] if result.data else None
 
     @with_retry
-    def get_active_boosted_property_ids(self) -> set[str]:
-        """Return set of property_ids that have active (non-expired) boosts."""
+    def get_active_boost_map(self) -> dict[str, str]:
+        """Return {property_id: boost created_at} for all currently active boosts."""
         now = datetime.now(UTC).isoformat()
         result = (
             self.supabase.table(self._table)
-            .select("property_id")
+            .select("property_id, created_at")
             .eq("status", "active")
             .gt("expires_at", now)
             .execute()
         )
-        return {r["property_id"] for r in (result.data or []) if r.get("property_id")}
+        return {r["property_id"]: r["created_at"] for r in (result.data or []) if r.get("property_id")}
 
     @with_retry
     def get_active_boost_details(self) -> dict[str, dict]:

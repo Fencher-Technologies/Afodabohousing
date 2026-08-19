@@ -1,4 +1,5 @@
 import logging
+import time
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -22,6 +23,30 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 settings = get_settings()
+
+# A polling client calls /payments/pesapal/status up to every few seconds while
+# an order is pending. Each reconcile costs 2 external Pesapal HTTP calls on top
+# of the DB reads, so throttle gateway verification to once per order/minute.
+# ponytail: single-process in-memory map; fine on the one Render instance.
+_RECONCILE_COOLDOWN_SECONDS = 60.0
+_reconcile_checked_at: dict[str, float] = {}
+
+
+def _reconcile_allowed(key: str) -> bool:
+    global _reconcile_checked_at
+    now = time.monotonic()
+    last = _reconcile_checked_at.get(key)
+    if last and now - last < _RECONCILE_COOLDOWN_SECONDS:
+        return False
+    if len(_reconcile_checked_at) > 500:
+        cutoff = now - 5 * 60
+        _reconcile_checked_at = {k: v for k, v in _reconcile_checked_at.items() if v >= cutoff}
+    _reconcile_checked_at[key] = now
+    return True
+
+
+def _reset_reconcile_cooldowns() -> None:
+    _reconcile_checked_at.clear()
 
 
 class PaginatedResponse(BaseModel):
@@ -442,6 +467,8 @@ async def _reconcile_pesapal_order(supabase, row: dict, kind: str) -> bool:
     """
     tracking_id = row.get("pesapal_tracking_id")
     if not tracking_id:
+        return False
+    if not _reconcile_allowed(f"{kind}:{row['id']}"):
         return False
     from services.pesapal import PESAPAL_STATUS_MAP
 

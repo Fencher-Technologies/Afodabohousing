@@ -568,49 +568,55 @@ class PropertyService(BaseService):
         min_price: float | None = None,
         max_price: float | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
-        query = self.supabase.table(self._table).select("*", count="exact").eq("is_active", True)
-        if state:
-            query = query.ilike("state", f"%{state}%")
-        if property_type:
-            query = query.eq("property_type", property_type)
-        if min_price is not None:
-            query = query.gte("monthly_rent", min_price)
-        if max_price is not None:
-            query = query.lte("monthly_rent", max_price)
+        def _filtered(columns: str, count: str | None = None):
+            query = self.supabase.table(self._table).select(columns, count=count).eq("is_active", True)
+            if state:
+                query = query.ilike("state", f"%{state}%")
+            if property_type:
+                query = query.eq("property_type", property_type)
+            if min_price is not None:
+                query = query.gte("monthly_rent", min_price)
+            if max_price is not None:
+                query = query.lte("monthly_rent", max_price)
+            return query
 
-        result = query.order("created_at", desc=True).execute()
-        total = result.count if hasattr(result, "count") else len(result.data or [])
-        all_properties = result.data or []
+        count_resp = _filtered("id", count="exact").range(0, 0).execute()
+        total = count_resp.count if hasattr(count_resp, "count") else len(count_resp.data or [])
 
-        boost_svc = BoostService(self.supabase)
-        boosted_ids = boost_svc.get_active_boosted_property_ids()
+        # Boosted properties rank first (by boost recency), then all others by
+        # recency. Active boosts are few, so fetch them fully and paginate only
+        # the large non-boosted set in SQL instead of loading the whole table.
+        boost_map = BoostService(self.supabase).get_active_boost_map()
 
-        if boosted_ids:
-            boosted_result = (
-                self.supabase.table("property_boosts")
-                .select("property_id, created_at")
-                .eq("status", "active")
-                .in_("property_id", list(boosted_ids))
+        page_rows: list[dict[str, Any]] = []
+        non_skip, non_limit = skip, limit
+        if boost_map:
+            boost_ids = list(boost_map)
+            boosted_resp = self.supabase.table(self._table).select("*").in_("id", boost_ids).execute()
+            by_id = {r["id"]: r for r in (boosted_resp.data or [])}
+            boosted_rows = [
+                by_id[i] for i in sorted(boost_ids, key=lambda i: boost_map[i], reverse=True)
+                if i in by_id
+            ]
+            if skip < len(boosted_rows):
+                page_rows = boosted_rows[skip:skip + limit]
+                non_skip, non_limit = 0, limit - len(page_rows)
+            else:
+                non_skip, non_limit = skip - len(boosted_rows), limit
+
+        if non_limit > 0:
+            page_resp = (
+                _filtered("*")
                 .order("created_at", desc=True)
+                .range(non_skip, non_skip + non_limit - 1)
                 .execute()
             )
-            boost_order = {
-                b["property_id"]: b["created_at"]
-                for b in (boosted_result.data or [])
-            }
+            page_rows += page_resp.data or []
 
-            boosted = [p for p in all_properties if p["id"] in boosted_ids]
-            not_boosted = [p for p in all_properties if p["id"] not in boosted_ids]
-
-            boosted.sort(key=lambda p: boost_order.get(p["id"], ""), reverse=True)
-
-            all_properties = boosted + not_boosted
-
-        all_properties = [_normalize_property(r) for r in all_properties]
-        all_properties = _enrich_with_manager_contact(all_properties, self.supabase)
-        all_properties = _enrich_with_boost_info(all_properties, self.supabase)
-        paginated = all_properties[skip:skip + limit]
-        return paginated, total
+        page_rows = [_normalize_property(r) for r in page_rows]
+        page_rows = _enrich_with_manager_contact(page_rows, self.supabase)
+        page_rows = _enrich_with_boost_info(page_rows, self.supabase)
+        return page_rows, total
 
     @with_retry
     def get_by_id(self, property_id: UUID, owner_id: UUID) -> dict[str, Any] | None:
