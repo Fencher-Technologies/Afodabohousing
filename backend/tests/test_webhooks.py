@@ -118,7 +118,7 @@ class TestPesapalWebhook:
         gts.assert_called_once_with("tok", "txn-pending")
         gbs.assert_not_called()
 
-    def test_returns_200_even_when_status_lookup_fails(self, client, pesapal_secret):
+    def test_returns_503_when_status_lookup_fails(self, client, pesapal_secret):
         body = self._ipn("txn-down", "ref-down")
         sig = self._sign(body.encode(), pesapal_secret)
 
@@ -132,16 +132,19 @@ class TestPesapalWebhook:
                 headers={"X-Pesapal-Signature": sig, "Content-Type": "application/json"},
             )
 
-        assert resp.status_code == 200
-        assert resp.json()["payment_status"] == "pending"
+        assert resp.status_code == 503
 
     def test_accepts_missing_signature(self, client, pesapal_secret):
         body = self._ipn("txn-002", "ref-002")
-        resp = client.post(
-            "/payments/webhook/pesapal",
-            content=body,
-            headers={"Content-Type": "application/json"},
-        )
+        with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
+            "routers.webhooks.get_transaction_status",
+            return_value={"payment_status_description": "PENDING"},
+        ):
+            resp = client.post(
+                "/payments/webhook/pesapal",
+                content=body,
+                headers={"Content-Type": "application/json"},
+            )
         assert resp.status_code == 200
 
     def test_rejects_bad_signature(self, client, pesapal_secret):
@@ -186,11 +189,15 @@ class TestPesapalWebhook:
         get_settings().pesapal_consumer_secret = ""
 
         body = self._ipn("txn-no-secret", "ref-no-secret")
-        resp = client.post(
-            "/payments/webhook/pesapal",
-            content=body,
-            headers={"Content-Type": "application/json"},
-        )
+        with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
+            "routers.webhooks.get_transaction_status",
+            return_value={"payment_status_description": "PENDING"},
+        ):
+            resp = client.post(
+                "/payments/webhook/pesapal",
+                content=body,
+                headers={"Content-Type": "application/json"},
+            )
         assert resp.status_code == 200
 
         get_settings().pesapal_consumer_secret = secret

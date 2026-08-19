@@ -362,3 +362,35 @@ def test_boost_status_lookup_unknown_returns_pending(seeded_client):
     resp = client.get("/payments/pesapal/status?property_id=00000000-0000-0000-0000-00000000ffff")
     assert resp.status_code == 200
     assert resp.json() == {"type": "unknown", "status": "pending"}
+
+
+def test_pending_boost_reconciled_with_gateway(seeded_client):
+    from unittest.mock import patch
+
+    client = seeded_client(
+        user=MANAGER,
+        seeds={
+            "property_boosts": [{
+                "id": "00000000-0000-0000-0000-000000000073",
+                "property_id": str(PID_PROP),
+                "manager_id": UID_OWNER,
+                "amount_paid": 10000,
+                "duration_days": 7,
+                "status": "pending",
+                "transaction_id": "ref-reconcile",
+                "payment_method": "pesapal",
+                "pesapal_tracking_id": "txn-reconcile-1",
+                "created_at": RECENT,
+                "updated_at": RECENT,
+            }],
+        },
+    )
+    with patch("services.pesapal.get_auth_token", return_value="tok"), patch(
+        "services.pesapal.get_transaction_status",
+        return_value={"payment_status_description": "COMPLETED", "amount": 10000},
+    ):
+        resp = client.get(f"/payments/pesapal/status?property_id={PID_PROP}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["type"] == "boost"
+    assert data["status"] == "active"

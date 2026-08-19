@@ -330,6 +330,9 @@ async def initiate_boost(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Payment initiation failed. Please try again.")
 
     redirect_url = pay_resp.get("redirect_url", "")
+    tracking_id = pay_resp.get("order_tracking_id")
+    if tracking_id:
+        service.table.update({"pesapal_tracking_id": tracking_id}).eq("id", result["id"]).execute()
     if not redirect_url:
         service.cancel(result["id"])
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to get payment redirect URL from Pesapal")

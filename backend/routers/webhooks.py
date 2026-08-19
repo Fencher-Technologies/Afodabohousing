@@ -14,6 +14,7 @@ from dependencies import get_service_client
 from services.boost import get_boost_service
 from services.notifications import notify
 from services.pesapal import (
+    PESAPAL_STATUS_MAP,
     get_auth_token,
     get_transaction_status,
 )
@@ -58,17 +59,6 @@ class PesapalWebhookPayload(BaseModel):
     order_notification_type: str | None = Field(default=None, validation_alias="OrderNotificationType")
 
 
-PESAPAL_STATUS_MAP = {
-    "COMPLETED": "completed",
-    "PENDING": "pending",
-    "PROCESSING": "pending",
-    "FAILED": "failed",
-    "REVERSED": "failed",
-    "EXPIRED": "failed",
-    "INVALID": "failed",
-}
-
-
 class SmsSendRequest(BaseModel):
     to: str
     message: str
@@ -110,7 +100,8 @@ async def pesapal_webhook(
     )
 
     # The IPN payload has no payment status — GetTransactionStatus is the
-    # source of truth. If it fails, return 200 anyway; Pesapal retries.
+    # source of truth. If it fails, return 503: Pesapal retries the IPN and
+    # the payment still gets confirmed later.
     payment_status = "pending"
     paid_amount = None
     try:
@@ -127,17 +118,27 @@ async def pesapal_webhook(
         )
     except Exception as e:
         logger.error("GetTransactionStatus failed for txn=%s: %s", tracking_id, str(e))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Status verification pending, retry IPN",
+        )
 
     if payment_status == "completed":
         boost_svc = get_boost_service(supabase)
         activated = boost_svc.activate_by_reference(merchant_ref, tracking_id, paid_amount)
         if activated:
             logger.info("Boost %s activated via Pesapal webhook", activated["id"])
+            if tracking_id:
+                boost_svc.table.update({"pesapal_tracking_id": tracking_id}).eq("id", activated["id"]).execute()
         else:
             sub_svc = get_subscription_service(supabase)
             sub_activated = sub_svc.confirm_subscription(merchant_ref, paid_amount)
             if sub_activated:
                 logger.info("Subscription %s activated via Pesapal webhook", sub_activated.id)
+                if tracking_id:
+                    sub_svc.supabase.table("manager_subscriptions").update(
+                        {"pesapal_tracking_id": tracking_id}
+                    ).eq("id", sub_activated.id).execute()
             else:
                 result = (
                     supabase.table("payments")

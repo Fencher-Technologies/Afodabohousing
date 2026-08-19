@@ -364,7 +364,7 @@ async def initiate_pesapal_payment(
 
 
 @router.get("/pesapal/status")
-def pesapal_payment_status(
+async def pesapal_payment_status(
     reference: str | None = Query(None, description="OrderMerchantReference / payment reference from the Pesapal callback"),
     property_id: str | None = Query(None, description="Look up a boost's status by property instead of by reference"),
     current_user: CurrentUser = Depends(require_active_user),
@@ -377,7 +377,15 @@ def pesapal_payment_status(
     redirect to /payment/status. When a boost initiate hits the pending-guard
     409, the client has no fresh reference; it can instead pass property_id
     to resume watching the existing pending boost.
+
+    If a row is still pending and carries a pesapal_tracking_id, reconcile it
+    by calling GetTransactionStatus directly — the IPN webhook is best-effort,
+    and this poll becomes the on-demand fallback so an IPN delay/loss no
+    longer strands a paid order in pending forever.
     """
+    row = None
+    kind = None
+
     if reference:
         sub = (
             supabase.table("manager_subscriptions")
@@ -387,38 +395,94 @@ def pesapal_payment_status(
             .execute()
         )
         if sub.data:
-            row = sub.data[0]
-            return {
-                "type": "subscription",
-                "status": row.get("status"),
-                "payment_status": row.get("payment_status", "pending"),
-            }
+            row, kind = sub.data[0], "subscription"
 
+        if not row:
+            boost = (
+                supabase.table("property_boosts")
+                .select("*")
+                .eq("transaction_id", reference)
+                .limit(1)
+                .execute()
+            )
+            if boost.data:
+                row, kind = boost.data[0], "boost"
+
+    if not row and property_id:
         boost = (
             supabase.table("property_boosts")
             .select("*")
-            .eq("transaction_id", reference)
+            .eq("property_id", property_id)
+            .in_("status", ["pending", "active"])
+            .order("created_at", desc=True)
             .limit(1)
             .execute()
         )
         if boost.data:
-            row = boost.data[0]
-            return {"type": "boost", "status": row.get("status")}
+            row, kind = boost.data[0], "boost"
 
-    boost = (
-        supabase.table("property_boosts")
-        .select("*")
-        .eq("property_id", property_id)
-        .in_("status", ["pending", "active"])
-        .order("created_at", desc=True)
-        .limit(1)
-        .execute()
+    if not row:
+        return {"type": "unknown", "status": "pending"}
+
+    status = row.get("status")
+    if not status or status == "pending":
+        if await _reconcile_pesapal_order(supabase, row, kind):
+            row = _refresh_row(supabase, kind, row)
+
+    return {
+        "type": kind,
+        "status": row.get("status", "pending"),
+        "payment_status": row.get("payment_status", "pending") if kind == "subscription" else None,
+    }
+
+
+async def _reconcile_pesapal_order(supabase, row: dict, kind: str) -> bool:
+    """Verify a pending Pesapal order against the gateway; update the row if
+    the authoritative status differs. Returns True if a change was applied.
+    """
+    tracking_id = row.get("pesapal_tracking_id")
+    if not tracking_id:
+        return False
+    from services.pesapal import PESAPAL_STATUS_MAP
+
+    try:
+        token = await pesapal.get_auth_token()
+        status_data = await pesapal.get_transaction_status(token, tracking_id)
+    except Exception as e:
+        logger.warning("Reconcile status lookup failed for %s %s: %s", kind, row.get("id"), e)
+        return False
+
+    status = PESAPAL_STATUS_MAP.get(
+        (status_data.get("payment_status_description") or "").upper(),
+        "pending",
     )
-    if boost.data:
-        row = boost.data[0]
-        return {"type": "boost", "status": row.get("status")}
+    if status == "pending":
+        return False
 
-    return {"type": "unknown", "status": "pending"}
+    table = "manager_subscriptions" if kind == "subscription" else "property_boosts"
+    payload = {"status": status}
+    if status == "completed":
+        payload["payment_status"] = "completed"
+        payload["transaction_id"] = tracking_id
+        if kind == "boost":
+            from services.boost import get_boost_service
+            activated = get_boost_service(supabase).activate_by_reference(
+                row["transaction_id"], tracking_id, status_data.get("amount")
+            )
+            return activated is not None
+        from services.subscriptions import get_subscription_service
+        activated = get_subscription_service(supabase).confirm_subscription(
+            row["payment_reference"], status_data.get("amount")
+        )
+        return activated is not None
+    result = supabase.table(table).update(payload).eq("id", row["id"]).eq("status", "pending").execute()
+    return bool(result.data)
+
+
+def _refresh_row(supabase, kind: str, row: dict) -> dict:
+    table = "manager_subscriptions" if kind == "subscription" else "property_boosts"
+    result = supabase.table(table).select("*").eq("id", row["id"]).limit(1).execute()
+    return result.data[0] if result.data else row
 
 
 

@@ -159,6 +159,11 @@ async def create_subscription(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Payment initiation failed. Please try again.")
 
     redirect_url = pay_resp.get("redirect_url") or ""
+    tracking_id = pay_resp.get("order_tracking_id")
+    if tracking_id:
+        supabase.table("manager_subscriptions").update(
+            {"pesapal_tracking_id": tracking_id}
+        ).eq("id", subscription_id).execute()
     if not redirect_url:
         error_msg = pay_resp.get("error", {}).get("message") or str(pay_resp)
         logger.error("Pesapal order submission response missing redirect_url for subscription %s: %s", subscription_id, error_msg)

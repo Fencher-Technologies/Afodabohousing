@@ -10,6 +10,16 @@ from config import get_settings
 
 logger = logging.getLogger(__name__)
 
+PESAPAL_STATUS_MAP = {
+    "COMPLETED": "completed",
+    "PENDING": "pending",
+    "PROCESSING": "pending",
+    "FAILED": "failed",
+    "REVERSED": "failed",
+    "EXPIRED": "failed",
+    "INVALID": "failed",
+}
+
 
 def _get_base_url() -> str:
     s = get_settings()
