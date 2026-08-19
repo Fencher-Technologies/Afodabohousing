@@ -195,7 +195,7 @@ class AgreementPDFGenerator:
             topMargin=18 * mm,
             bottomMargin=18 * mm,
             title=f"Tenancy Agreement {self.content.get('agreement_number', '')}",
-            author="Afodabo Housing",
+            author="Axis",
         )
 
         sty = self._init_styles()
@@ -375,7 +375,7 @@ class AgreementPDFGenerator:
         story.append(self._spacer(20))
         story.append(self._hr())
         story.append(Paragraph(
-            "Generated digitally by Afodabo Housing. This document is electronically signed.",
+            "Generated digitally by Axis. This document is electronically signed.",
             sty["footer"],
         ))
 

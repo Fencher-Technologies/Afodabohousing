@@ -67,3 +67,6 @@ class PaymentResponse(BaseModel):
     updated_at: datetime
     coverage_days: int | None = None
     frozen_monthly_rent: int | None = None
+    tenant_name: str | None = None
+    property_title: str | None = None
+    method: str | None = None

@@ -15,11 +15,11 @@ def normalize_phone(phone: str) -> str:
 
 def phone_to_email(phone: str) -> str:
     digits_only = "".join(c for c in phone if c.isdigit())
-    return f"phone_{digits_only}@afodabo.app"
+    return f"phone_{digits_only}@axis.app"
 
 
 def is_synthetic_email(email: str | None) -> bool:
-    return bool(email and email.startswith("phone_") and email.endswith("@afodabo.app"))
+    return bool(email and email.startswith("phone_") and email.endswith("@axis.app"))
 
 
 def validate_pin(pin: str) -> str | None:

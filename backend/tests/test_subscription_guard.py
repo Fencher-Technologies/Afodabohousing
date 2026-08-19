@@ -33,7 +33,7 @@ TENANT = CurrentUser(id=UID_TENANT_USER, email="tenant@test.com", role="authenti
 FAKE_ID = "00000000-0000-0000-0000-000000000090"
 
 
-def _sub_row(status: str = "active", expires_at: str = "2126-07-08T00:00:00Z") -> dict:
+def _sub_row(status: str = "active", expires_at: str = "2126-07-08T00:00:00Z", created_at: str = "2026-01-01T00:00:00Z") -> dict:
     return {
         "id": f"sub-{UID_OWNER}",
         "manager_id": UID_OWNER,
@@ -44,7 +44,7 @@ def _sub_row(status: str = "active", expires_at: str = "2126-07-08T00:00:00Z") -
         "auto_renew": True,
         "payment_reference": None,
         "payment_status": "completed",
-        "created_at": "2026-01-01T00:00:00Z",
+        "created_at": created_at,
         "updated_at": "2026-01-01T00:00:00Z",
     }
 
@@ -279,3 +279,151 @@ def test_get_current_subscription_returns_none_without_row():
 
     svc = SubscriptionService(MockSupabaseClient(seeds={"manager_subscriptions": []}))
     assert svc.get_current_subscription(UID_OWNER) is None
+
+
+# ── Duplicate payment initiation guard ──────────────────────────────────────
+
+from datetime import UTC, datetime, timedelta
+
+RECENT = datetime.now(UTC).isoformat()
+
+PENDING_SUB_ROW = _sub_row(
+    status="pending",
+    expires_at=None,
+    created_at=RECENT,
+)
+
+
+def test_duplicate_pending_subscription_rejected(seeded_client):
+    client = seeded_client(
+        user=MANAGER,
+        seeds={"manager_subscriptions": [PENDING_SUB_ROW], "profiles": [{"user_id": UID_OWNER, "role": "house_manager", "full_name": "Test User"}]},
+    )
+    resp = client.post("/subscriptions/create", json={"plan_id": "12mo", "callback_url": "https://example.com"})
+    assert resp.status_code == 409
+
+
+def test_duplicate_pending_boost_rejected(seeded_client):
+    from dependencies import CurrentUser
+
+    owner = CurrentUser(id=UID_OWNER, email="test@test.com", role="authenticated")
+    client = seeded_client(
+        user=owner,
+        seeds={
+            "manager_subscriptions": [_sub_row(status="active")],
+            "property_boosts": [{
+                "id": "00000000-0000-0000-0000-000000000071",
+                "property_id": str(PID_PROP),
+                "manager_id": UID_OWNER,
+                "amount_paid": 70000,
+                "duration_days": 7,
+                "status": "pending",
+                "transaction_id": "ref-pending",
+                "payment_method": "pesapal",
+                "created_at": RECENT,
+                "updated_at": RECENT,
+            }],
+        },
+    )
+    resp = client.post(
+        "/boosts/initiate",
+        json={"property_id": str(PID_PROP), "duration_days": 7, "callback_url": "https://example.com"},
+    )
+    assert resp.status_code == 409
+
+
+def test_boost_status_lookup_by_property_id(seeded_client):
+    client = seeded_client(
+        user=MANAGER,
+        seeds={
+            "property_boosts": [{
+                "id": "00000000-0000-0000-0000-000000000072",
+                "property_id": str(PID_PROP),
+                "manager_id": UID_OWNER,
+                "amount_paid": 70000,
+                "duration_days": 7,
+                "status": "pending",
+                "transaction_id": "ref-pending-2",
+                "payment_method": "pesapal",
+                "created_at": RECENT,
+                "updated_at": RECENT,
+            }],
+        },
+    )
+    resp = client.get(f"/payments/pesapal/status?property_id={PID_PROP}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["type"] == "boost"
+    assert data["status"] == "pending"
+
+
+def test_boost_status_lookup_unknown_returns_pending(seeded_client):
+    client = seeded_client(user=MANAGER)
+    resp = client.get("/payments/pesapal/status?property_id=00000000-0000-0000-0000-00000000ffff")
+    assert resp.status_code == 200
+    assert resp.json() == {"type": "unknown", "status": "pending"}
+
+
+def test_pending_boost_reconciled_with_gateway(seeded_client):
+    from unittest.mock import patch
+
+    client = seeded_client(
+        user=MANAGER,
+        seeds={
+            "property_boosts": [{
+                "id": "00000000-0000-0000-0000-000000000073",
+                "property_id": str(PID_PROP),
+                "manager_id": UID_OWNER,
+                "amount_paid": 10000,
+                "duration_days": 7,
+                "status": "pending",
+                "transaction_id": "ref-reconcile",
+                "payment_method": "pesapal",
+                "pesapal_tracking_id": "txn-reconcile-1",
+                "created_at": RECENT,
+                "updated_at": RECENT,
+            }],
+        },
+    )
+    with patch("services.pesapal.get_auth_token", return_value="tok"), patch(
+        "services.pesapal.get_transaction_status",
+        return_value={"payment_status_description": "COMPLETED", "amount": 10000},
+    ):
+        resp = client.get(f"/payments/pesapal/status?property_id={PID_PROP}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["type"] == "boost"
+    assert data["status"] == "active"
+
+
+def test_reconcile_cooldown_limits_gateway_calls_to_once_per_minute(seeded_client):
+    from unittest.mock import patch
+
+    client = seeded_client(
+        user=MANAGER,
+        seeds={
+            "property_boosts": [{
+                "id": "00000000-0000-0000-0000-000000000074",
+                "property_id": str(PID_PROP),
+                "manager_id": UID_OWNER,
+                "amount_paid": 10000,
+                "duration_days": 7,
+                "status": "pending",
+                "transaction_id": "ref-cooldown",
+                "payment_method": "pesapal",
+                "pesapal_tracking_id": "txn-cooldown-1",
+                "created_at": RECENT,
+                "updated_at": RECENT,
+            }],
+        },
+    )
+    with patch("services.pesapal.get_auth_token", return_value="tok"), patch(
+        "services.pesapal.get_transaction_status",
+        return_value={"payment_status_description": "PENDING"},
+    ) as gts:
+        for _ in range(3):
+            resp = client.get(f"/payments/pesapal/status?property_id={PID_PROP}")
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "pending"
+
+    assert gts.call_count == 1, "a fast poller must not re-verify the gateway every tick"

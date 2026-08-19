@@ -5,45 +5,48 @@
 @tailwind utilities;
 
 /* =========================================================
-   AFODABO HOUSING — "FOREST & GOLD" DESIGN SYSTEM
-   Green-dominant · Gold accent · Warm neutrals
-   Inspired by MobileAppAfodabo_v2/constants/theme.ts
+   AXIS — "NAVY & RED" DESIGN SYSTEM
+   Navy-dominant · Red accent · Cool neutrals
+   Palette sampled from the Axis logo (navy house icon #1A2332,
+   red roofline accent #D32F2F).
    ========================================================= */
 
 @layer base {
   :root {
-    /* Core — Warm Neutral */
-    --background: 36 24% 96%;
-    --foreground: 156 9% 11%;
+    /* Core — Cool Neutral */
+    --background: 240 25% 98%;
+    --foreground: 221 44% 7%;
 
     --card: 0 0% 100%;
-    --card-foreground: 156 9% 11%;
+    --card-foreground: 221 44% 7%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 156 9% 11%;
+    --popover-foreground: 221 44% 7%;
 
-    /* Primary — Forest Green */
-    --primary: 155 47% 26%;
+    /* Primary — Navy (from logo house icon) */
+    --primary: 218 32% 15%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary — Soft Green Tint */
-    --secondary: 150 21% 93%;
-    --secondary-foreground: 156 9% 11%;
+    /* Secondary — Soft Navy Tint */
+    --secondary: 217 39% 94%;
+    --secondary-foreground: 221 44% 7%;
 
     /* Muted */
-    --muted: 36 16% 90%;
-    --muted-foreground: 153 5% 37%;
+    --muted: 223 30% 95%;
+    --muted-foreground: 221 8% 40%;
 
-    /* Accent — Orange (CTA, highlights) */
-    --accent: 24 64% 53%;
+    /* Accent — Red (from logo roofline) */
+    --accent: 0 65% 51%;
     --accent-foreground: 0 0% 100%;
 
-    /* Gold — Warm accent */
+    /* Gold — Warm accent (retained for highlights) */
     --gold: 42 49% 58%;
-    --gold-foreground: 156 9% 11%;
+    --gold-foreground: 221 44% 7%;
 
     /* Status */
-    --destructive: 6 64% 46%;
+    /* Destructive is a distinct darker red (0 63% 46%) so it stays
+       visually distinct from the accent red (0 65% 51%) */
+    --destructive: 6 63% 46%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 147 46% 34%;
@@ -53,64 +56,64 @@
     --warning-foreground: 0 0% 100%;
 
     /* Borders */
-    --border: 36 16% 87%;
-    --input: 36 16% 87%;
-    --ring: 155 47% 26%;
+    --border: 220 24% 90%;
+    --input: 220 24% 90%;
+    --ring: 218 32% 15%;
 
     /* Radius */
     --radius: 0.5rem;
 
-    /* Shadows — green-tinted */
-    --shadow-sm: 0 1px 3px hsl(155 47% 26% / 0.08);
-    --shadow-md: 0 4px 16px hsl(155 47% 26% / 0.1);
-    --shadow-lg: 0 8px 32px hsl(155 47% 26% / 0.15);
-    --shadow-accent: 0 4px 20px hsl(24 64% 53% / 0.2);
+    /* Shadows — navy-tinted */
+    --shadow-sm: 0 1px 3px hsl(218 32% 15% / 0.08);
+    --shadow-md: 0 4px 16px hsl(218 32% 15% / 0.1);
+    --shadow-lg: 0 8px 32px hsl(218 32% 15% / 0.15);
+    --shadow-accent: 0 4px 20px hsl(0 65% 51% / 0.2);
 
-    /* Sidebar — deep charcoal with forest accent */
-    --sidebar-background: 156 9% 11%;
-    --sidebar-foreground: 36 24% 96%;
-    --sidebar-primary: 155 47% 26%;
+    /* Sidebar — deep navy with red accent */
+    --sidebar-background: 221 44% 7%;
+    --sidebar-foreground: 240 25% 96%;
+    --sidebar-primary: 218 32% 15%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 150 21% 93%;
-    --sidebar-accent-foreground: 156 9% 11%;
-    --sidebar-border: 155 10% 20%;
-    --sidebar-ring: 155 47% 26%;
+    --sidebar-accent: 217 39% 94%;
+    --sidebar-accent-foreground: 221 44% 7%;
+    --sidebar-border: 218 30% 15%;
+    --sidebar-ring: 218 32% 15%;
   }
 
   .dark {
-    --background: 156 9% 8%;
-    --foreground: 36 24% 92%;
-    --card: 156 9% 11%;
-    --card-foreground: 36 24% 92%;
-    --popover: 156 9% 11%;
-    --popover-foreground: 36 24% 92%;
-    --primary: 155 40% 35%;
+    --background: 221 44% 5%;
+    --foreground: 240 25% 94%;
+    --card: 221 44% 8%;
+    --card-foreground: 240 25% 94%;
+    --popover: 221 44% 8%;
+    --popover-foreground: 240 25% 94%;
+    --primary: 218 32% 22%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 155 10% 16%;
-    --secondary-foreground: 36 24% 92%;
-    --muted: 155 10% 16%;
-    --muted-foreground: 153 5% 58%;
-    --accent: 24 55% 50%;
+    --secondary: 218 30% 12%;
+    --secondary-foreground: 240 25% 94%;
+    --muted: 218 30% 12%;
+    --muted-foreground: 221 8% 58%;
+    --accent: 0 65% 58%;
     --accent-foreground: 0 0% 100%;
-    --gold: 42 40% 50%;
-    --gold-foreground: 156 9% 11%;
-    --destructive: 6 55% 45%;
+    --gold: 42 40% 56%;
+    --gold-foreground: 240 25% 94%;
+    --destructive: 6 60% 50%;
     --destructive-foreground: 0 0% 100%;
-    --success: 147 40% 35%;
+    --success: 147 40% 38%;
     --success-foreground: 0 0% 100%;
-    --warning: 32 80% 45%;
+    --warning: 32 80% 48%;
     --warning-foreground: 0 0% 100%;
-    --border: 156 10% 20%;
-    --input: 156 10% 20%;
-    --ring: 155 40% 35%;
-    --sidebar-background: 156 9% 5%;
-    --sidebar-foreground: 36 24% 90%;
-    --sidebar-primary: 155 40% 35%;
+    --border: 221 44% 15%;
+    --input: 221 44% 15%;
+    --ring: 218 32% 22%;
+    --sidebar-background: 221 44% 3%;
+    --sidebar-foreground: 240 25% 92%;
+    --sidebar-primary: 218 32% 22%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 155 10% 13%;
-    --sidebar-accent-foreground: 36 24% 90%;
-    --sidebar-border: 156 10% 15%;
-    --sidebar-ring: 155 40% 35%;
+    --sidebar-accent: 218 30% 10%;
+    --sidebar-accent-foreground: 240 25% 92%;
+    --sidebar-border: 221 44% 12%;
+    --sidebar-ring: 218 32% 22%;
   }
 }
 
@@ -198,10 +201,10 @@
 
   /* Gradients */
   .gradient-primary {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(155 50% 18%) 100%);
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(218 30% 12%) 100%);
   }
   .gradient-hero {
-    background: linear-gradient(135deg, hsl(156 9% 11% / 0.85) 0%, hsl(156 9% 11% / 0.5) 50%, hsl(155 47% 26% / 0.3) 100%);
+    background: linear-gradient(135deg, hsl(221 44% 10% / 0.85) 0%, hsl(221 44% 10% / 0.5) 50%, hsl(218 32% 15% / 0.3) 100%);
   }
 
   /* Card shadow */

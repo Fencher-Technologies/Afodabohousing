@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { User, Home, CalendarDays, DollarSign } from 'lucide-react';
+import { User, Home, CalendarDays, DollarSign, Save } from 'lucide-react';
 
 export interface TenancyFormData {
   property_id?: string;

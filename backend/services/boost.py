@@ -85,9 +85,32 @@ class BoostService(BaseService):
         return result.data[0]
 
     @with_retry
-    def activate_by_reference(self, reference: str, txn_id: str) -> dict | None:
+    def activate_by_reference(self, reference: str, txn_id: str, paid_amount: float | None = None) -> dict | None:
+        if paid_amount is not None:
+            pending = (
+                self.table.select("*")
+                .eq("transaction_id", reference)
+                .eq("status", "pending")
+                .limit(1)
+                .execute()
+            )
+            if not pending.data:
+                return None
+            boost = pending.data[0]
+            expected = float(calculate_boost_price(self.supabase, int(boost["duration_days"])))
+            if abs(float(paid_amount) - expected) > 1.0:
+                logger.warning(
+                    "Boost %s amount mismatch: paid=%s expected=%s",
+                    boost["id"], paid_amount, expected,
+                )
+                self.table.update({"status": "failed"}).eq("id", boost["id"]).eq("status", "pending").execute()
+                return None
+
+        # Keep transaction_id as the merchant reference — the status poll
+        # looks boosts up by it. The Pesapal tracking id goes nowhere (the
+        # webhook idempotency cache already dedupes by it).
         result = (
-            self.table.update({"status": "active", "transaction_id": txn_id})
+            self.table.update({"status": "active"})
             .eq("transaction_id", reference)
             .eq("status", "pending")
             .execute()
@@ -195,17 +218,17 @@ class BoostService(BaseService):
         return result.data[0] if result.data else None
 
     @with_retry
-    def get_active_boosted_property_ids(self) -> set[str]:
-        """Return set of property_ids that have active (non-expired) boosts."""
+    def get_active_boost_map(self) -> dict[str, str]:
+        """Return {property_id: boost created_at} for all currently active boosts."""
         now = datetime.now(UTC).isoformat()
         result = (
             self.supabase.table(self._table)
-            .select("property_id")
+            .select("property_id, created_at")
             .eq("status", "active")
             .gt("expires_at", now)
             .execute()
         )
-        return {r["property_id"] for r in (result.data or []) if r.get("property_id")}
+        return {r["property_id"]: r["created_at"] for r in (result.data or []) if r.get("property_id")}
 
     @with_retry
     def get_active_boost_details(self) -> dict[str, dict]:

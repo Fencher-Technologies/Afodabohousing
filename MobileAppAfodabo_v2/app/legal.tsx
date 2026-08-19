@@ -110,7 +110,7 @@ const privacyContent = {
     {
       title: "12. Contact Information",
       content:
-        "If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us at support@afodabo.ug or reach us in Kampala, Uganda.",
+        "If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us at support@axishousing.ug or reach us in Kampala, Uganda.",
     },
   ],
 };
@@ -211,7 +211,7 @@ const termsContent = {
 const aboutContent = {
   title: "About Axis",
   body: [
-    "Axis is a subscription-based SaaS platform that empowers house managers in Uganda to run their rental business from their phone.",
+    "Axis is a subscription-based SaaS platform that empowers house managers to run their rental business from their phone.",
     "Founded in 2024, Axis helps managers collect rent, track tenants, generate professional reports, and stay compliant — all without transaction fees.",
     "Tenants get a simple, transparent view of their tenancy with direct WhatsApp communication to their manager.",
     "Our mission is to make rental management effortless for African landlords and property managers.",
@@ -222,7 +222,7 @@ const contactContent = {
   title: "Contact Support",
   body: [
     "We're here to help! Reach us through any of these channels:",
-    "Email: support@afodabo.ug",
+    "Email: support@axishousing.ug",
     "Phone: +256 700 000 000",
     "WhatsApp: +256 700 000 000",
     "Hours: Monday–Friday, 9am–6pm EAT",

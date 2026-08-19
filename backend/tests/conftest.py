@@ -152,6 +152,9 @@ class MockTableBuilder:
                     return MockResponse(data=[], count=0)
                 base = next(d for d in seed if _matches(d))
                 updated = {**base, **self._updated}
+                for i, d in enumerate(seed):
+                    if _matches(d):
+                        seed[i] = updated
                 return MockResponse(data=[updated], count=1)
 
         data = seed[:]
@@ -465,6 +468,10 @@ class MockTableBuilder:
 class MockSupabaseClient:
     def __init__(self, seeds=None):
         self._seeds = seeds or {}
+        # Each test starts a fresh "database"; drop the process-wide Pesapal
+        # reconcile cooldown so a prior test can't suppress this one's lookups.
+        from routers.payments import _reset_reconcile_cooldowns
+        _reset_reconcile_cooldowns()
 
     def table(self, name):
         return MockTableBuilder(name, self._seeds)

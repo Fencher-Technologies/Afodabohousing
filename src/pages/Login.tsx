@@ -4,8 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 import { useToast } from '@/hooks/use-toast';
-import logoImg from '@/assets/logo.png';
+import logoImg from '@/assets/axis-logo.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Smartphone, MessageSquare, KeyRound } from 'lucide-react';
 
@@ -157,10 +158,10 @@ export default function LoginPage() {
       <div className="flex-1 flex flex-col justify-center px-6 py-12 bg-background max-w-[520px]">
         <div className="mx-auto w-full max-w-sm">
           <Link to="/" className="flex items-center gap-3 mb-10">
-            <img src={logoImg} alt="Afodabo Housing" className="h-11 w-11 rounded-xl" />
+            <img src={logoImg} alt="Axis" className="h-11 w-11 rounded-xl" />
             <div>
-              <div className="font-display font-bold text-lg text-primary leading-tight">Afodabo Housing</div>
-              <div className="text-muted-foreground text-xs">Uganda's Housing Platform</div>
+              <div className="font-display font-bold text-lg text-primary leading-tight">Axis</div>
+              <div className="text-muted-foreground text-xs">Housing Made Easy</div>
             </div>
           </Link>
 
@@ -181,7 +182,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <Label htmlFor="confirm-password">Confirm password</Label>
-                  <Input id="confirm-password" type="password" placeholder="Repeat the new password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6} className="mt-1.5" />
+                  <PasswordInput id="confirm-password" placeholder="Repeat the new password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6} className="mt-1.5" />
                 </div>
                 <Button type="submit" disabled={loading} className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
                   {loading ? 'Updating...' : 'Update Password'}
@@ -301,7 +302,7 @@ export default function LoginPage() {
                     <>
                       <div>
                         <Label>PIN</Label>
-                        <Input type="password" inputMode="numeric" placeholder="Enter your PIN" value={pin}
+                        <PasswordInput inputMode="numeric" placeholder="Enter your PIN" value={pin}
                           onChange={e => setPin(e.target.value)} maxLength={6}
                           className="mt-1.5 text-center text-xl tracking-widest font-mono h-14" />
                       </div>

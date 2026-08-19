@@ -54,7 +54,7 @@ export default function Onboarding() {
     }
     setSaving(false);
     await refreshRole();
-    toast({ title: 'Welcome to Afodabo Housing!' });
+    toast({ title: 'Welcome to Axis!' });
     navigate(getDashboard(selectedRole));
   };
 
@@ -95,7 +95,7 @@ export default function Onboarding() {
               <div className="h-20 w-20 rounded-2xl gradient-primary flex items-center justify-center mx-auto">
                 <Building2 className="h-10 w-10 text-primary-foreground" />
               </div>
-              <h2 className="font-bold text-2xl">Welcome to Afodabo Housing</h2>
+              <h2 className="font-bold text-2xl">Welcome to Axis</h2>
               <p className="text-sm text-muted-foreground">Your all-in-one platform for renting and managing properties in Uganda. Let's get you set up in under a minute.</p>
             </div>
           )}
@@ -120,7 +120,7 @@ export default function Onboarding() {
           {step === 2 && (
             <div className="space-y-5">
               <h2 className="font-bold text-xl">Choose Your Role</h2>
-              <p className="text-sm text-muted-foreground">How will you use Afodabo Housing?</p>
+              <p className="text-sm text-muted-foreground">How will you use Axis?</p>
               <div className="space-y-3">
                 <button onClick={() => setSelectedRole('tenant')}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${

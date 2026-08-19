@@ -18,7 +18,7 @@ router = APIRouter(prefix="/exports", tags=["exports"])
 COLUMNS = {
     "properties": [
         "id", "title", "property_type", "bedrooms", "bathrooms",
-        "rent_amount", "rent_period", "state", "city", "area",
+        "monthly_rent", "rent_period", "state", "city", "square_feet",
         "address", "status", "manager_phone", "created_at",
     ],
     "tenants": [
@@ -241,8 +241,12 @@ def export_report_pdf(
 
     props = supabase.table("properties").select("title, property_type, bedrooms, monthly_rent, status, city, state").eq("owner_id", current_user.id).execute()
     tenants_data = supabase.table("tenants").select("first_name, last_name, email, phone, status").eq("owner_id", current_user.id).execute()
-    leases_data = supabase.table("leases").select("monthly_rent, status, start_date, end_date").eq("owner_id", current_user.id).execute()
-    payments_data = supabase.table("payments").select("amount, status, paid_date").eq("owner_id", current_user.id).execute()
+    leases_data = supabase.table("leases").select("id, monthly_rent, status, start_date, end_date").eq("owner_id", current_user.id).execute()
+    lease_ids = [str(l.get("id")) for l in (leases_data.data or []) if l.get("id")]
+    if lease_ids:
+        payments_data = supabase.table("payments").select("amount, status, paid_date").in_("lease_id", lease_ids).execute()
+    else:
+        payments_data = type("EmptyResponse", (), {"data": []})()
 
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=18*mm, leftMargin=18*mm, topMargin=18*mm, bottomMargin=18*mm, title="Portfolio Report")
@@ -251,7 +255,7 @@ def export_report_pdf(
     h2 = ParagraphStyle("H2", parent=styles["Heading2"], fontSize=13, spaceAfter=6, spaceBefore=14)
     body = styles["Normal"]
 
-    story = [Paragraph("Afodabo Housing", styles["Normal"]), Paragraph("Portfolio Report", title_s), Spacer(1, 6*mm)]
+    story = [Paragraph("Axis", styles["Normal"]), Paragraph("Portfolio Report", title_s), Spacer(1, 6*mm)]
 
     p_rows = [[r.get("title",""), r.get("property_type",""), str(r.get("bedrooms","")), f"UGX {r['monthly_rent']:,.0f}" if r.get("monthly_rent") else "", r.get("status",""), f"{r.get('city','')}, {r.get('state','')}"] for r in (props.data or [])]
     if p_rows:

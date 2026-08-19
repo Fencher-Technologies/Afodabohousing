@@ -1,4 +1,4 @@
-# Afodabo Housing Mobile App
+# Axis Mobile App
 
 Native cross-platform mobile app built with Expo Router + React Native.
 
@@ -28,12 +28,12 @@ bun run start
 
 ## Backend Connection
 
-The mobile app connects to the Afodabo Housing backend via `EXPO_PUBLIC_API_URL` in `.env`.
+The mobile app connects to the Axis backend via `EXPO_PUBLIC_API_URL` in `.env`.
 
 The default — and production — backend is the permanent Render deployment:
 
 ```bash
-EXPO_PUBLIC_API_URL=https://afodabohousing.onrender.com
+EXPO_PUBLIC_API_URL=https://axishousing.onrender.com
 ```
 
 This is already set in `.env` and shipped config. Render provides a public HTTPS
@@ -80,16 +80,16 @@ The app uses Pesapal API 3.0 for property boosts and manager subscriptions.
 
 | Component | Production Value |
 |-----------|------------------|
-| Backend URL | https://afodabohousing.onrender.com |
-| `EXPO_PUBLIC_API_URL` | https://afodabohousing.onrender.com |
-| Pesapal IPN URL | https://afodabohousing.onrender.com/payments/webhook/pesapal |
-| Pesapal Callback URL | https://afodabohousing.onrender.com/payment/status |
+| Backend URL | https://axishousing.onrender.com |
+| `EXPO_PUBLIC_API_URL` | https://axishousing.onrender.com |
+| Pesapal IPN URL | https://axishousing.onrender.com/payments/webhook/pesapal |
+| Pesapal Callback URL | https://axishousing.onrender.com/payment/status |
 
 The IPN is registered once with Pesapal against the Render URL:
 
 ```bash
 # Run from backend directory
-python backend/scripts/register_ipn.py https://afodabohousing.onrender.com/payments/webhook/pesapal
+python backend/scripts/register_ipn.py https://axishousing.onrender.com/payments/webhook/pesapal
 ```
 
 This stores the `ipn_id` in the `pesapal_config` table so boost/subscription calls reuse it.
@@ -100,8 +100,8 @@ python backend/scripts/register_ipn.py https://YOUR_NGROK_URL/payments/webhook/p
 
 ### Payment Testing Checklist
 
-- [ ] Backend reachable at https://afodabohousing.onrender.com/health
-- [ ] `EXPO_PUBLIC_API_URL` in mobile `.env` = `https://afodabohousing.onrender.com`
+- [ ] Backend reachable at https://axishousing.onrender.com/health
+- [ ] `EXPO_PUBLIC_API_URL` in mobile `.env` = `https://axishousing.onrender.com`
 - [ ] IPN registered against the Render URL (see command above)
 - [ ] Pesapal credentials set in backend `.env` (`PESAPAL_CONSUMER_KEY`, `PESAPAL_CONSUMER_SECRET`, `PESAPAL_ENVIRONMENT=live`)
 - [ ] Test subscription/boost initiated → Pesapal page opens in app
@@ -109,7 +109,7 @@ python backend/scripts/register_ipn.py https://YOUR_NGROK_URL/payments/webhook/p
 ## Project Structure
 
 ```
-MobileAppAfodabo_v2/
+MobileAppAfodabo_v2/ (renamed: MobileAppAxis/ in a future rename)
 ├── app/                    # App screens (Expo Router)
 │   ├── (tabs)/            # Tab navigation screens
 │   ├── boost-property.tsx # Property boost with Pesapal
@@ -144,12 +144,12 @@ MobileAppAfodabo_v2/
 ## Troubleshooting
 
 ### App can't reach backend
-- Verify backend health: `curl https://afodabohousing.onrender.com/health`
-- Check `.env` has `EXPO_PUBLIC_API_URL=https://afodabohousing.onrender.com`
+- Verify backend health: `  curl https://axishousing.onrender.com/health`
+- Check `.env` has `EXPO_PUBLIC_API_URL=https://axishousing.onrender.com`
 - Restart Metro bundler: `bun run start --clear`
 
 ### Payment doesn't complete
-- Verify IPN registered: `python backend/scripts/register_ipn.py https://afodabohousing.onrender.com/payments/webhook/pesapal`
+- Verify IPN registered: `python backend/scripts/register_ipn.py https://axishousing.onrender.com/payments/webhook/pesapal`
 - Check backend logs for Pesapal webhook hits
 - Ensure `PESAPAL_IPN_URL` in backend `.env` (if set) matches the registered Render URL
 

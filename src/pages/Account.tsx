@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getCurrentSubscription } from '@/services/subscriptions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -28,8 +29,10 @@ export default function Account() {
     const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
     setProfile(p);
     if (p?.role === 'house_manager') {
-      const { data: sub } = await supabase.from('manager_subscriptions').select('*, subscription_plans!inner(name)').eq('manager_id', user.id).maybeSingle();
-      if (sub) setSubscription(sub);
+      try {
+        const sub = await getCurrentSubscription();
+        if (sub) setSubscription(sub);
+      } catch { /* subscription card stays hidden */ }
     }
     setLoading(false);
   }
@@ -121,7 +124,7 @@ export default function Account() {
               </div>
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground">Subscription</p>
-                <p className="text-sm font-bold text-foreground">{subscription?.subscription_plans?.name || 'No plan'}</p>
+                <p className="text-sm font-bold text-foreground">{subscription?.plan_name || 'No plan'}</p>
               </div>
               <Badge className={isActive ? 'bg-success/10 text-success border-success/20' : 'bg-destructive/10 text-destructive border-destructive/20'}>
                 {isActive ? 'Active' : 'Expired'}
@@ -135,9 +138,17 @@ export default function Account() {
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground font-medium">Days left</p>
-                  <p className="text-sm font-semibold">{Math.ceil((new Date(subscription.expires_at).getTime() - Date.now()) / 86400000)} days</p>
+                  <p className={`text-sm font-semibold ${subscription.days_remaining <= 14 ? 'text-destructive' : subscription.days_remaining <= 60 ? 'text-gold' : 'text-success'}`}>
+                    {subscription.days_remaining} days
+                  </p>
                 </div>
               </div>
+            )}
+            {isActive && subscription && (
+                <div className="h-2 bg-muted rounded-full overflow-hidden mb-3">
+                  <div className={`h-full rounded-full transition-all ${subscription.days_remaining > 60 ? 'bg-success' : subscription.days_remaining > 14 ? 'bg-gold' : 'bg-destructive'}`}
+                    style={{ width: `${Math.min(100, Math.round((subscription.days_remaining / 365) * 100))}%` }} />
+                </div>
             )}
             {!isActive && (
               <Button variant="outline" size="sm" className="w-full rounded-lg gap-2" onClick={() => navigate('/subscription')}>
@@ -250,12 +261,12 @@ export default function Account() {
                 <Info className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold">About Afodabo</p>
+                <p className="text-sm font-semibold">About Axis</p>
                 <p className="text-xs text-muted-foreground">Learn about the platform</p>
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
             </button>
-            <button onClick={() => window.location.href = 'mailto:support@afodabo.com'}
+              <button onClick={() => window.location.href = 'mailto:support@axishousing.com'}
               className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors border-b border-border">
               <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 <Headphones className="h-4 w-4 text-muted-foreground" />
@@ -298,7 +309,7 @@ export default function Account() {
           <span className="font-semibold">Sign Out</span>
         </button>
 
-        <p className="text-xs text-muted-foreground text-center">Afodabo Housing v1.0.0</p>
+        <p className="text-xs text-muted-foreground text-center">Axis v1.0.0</p>
       </div>
     </div>
   );

@@ -84,11 +84,37 @@ async def create_subscription(
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Plan '{data.plan_id}' not found")
 
+    pending = (
+        supabase.table("manager_subscriptions")
+        .select("id, created_at")
+        .eq("manager_id", current_user.id)
+        .eq("plan_id", data.plan_id)
+        .eq("status", "pending")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if pending.data:
+        from datetime import datetime, timedelta, timezone
+        created_at = pending.data[0].get("created_at")
+        age_minutes = None
+        if created_at:
+            try:
+                dt = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+                age_minutes = (datetime.now(timezone.utc) - dt).total_seconds() / 60
+            except (TypeError, ValueError):
+                pass
+        if age_minutes is None or age_minutes < 30:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You already have a pending payment for this plan. Complete or cancel it before starting another.",
+            )
+
     reference = str(uuid4())
     amount = int(plan["price_ugx"])
 
     profile = profile or {}
-    first_name = (profile.get("full_name") or "").split()[0] or current_user.email
+    first_name = ((profile.get("full_name") or "").split() or [current_user.email])[0]
     last_name = " ".join((profile.get("full_name") or "").split()[1:]) or ""
     customer_phone = normalize_phone(data.phone_number) if data.phone_number else (normalize_phone(profile.get("phone")) if (profile or {}).get("phone") else "")
     customer_email = profile.get("email") or current_user.email
@@ -115,7 +141,7 @@ async def create_subscription(
             order_id=order_id,
             amount=float(amount),
             currency="UGX",
-            description=f"Afodabo Housing - {plan['name']} Subscription",
+            description=f"Axis - {plan['name']} Subscription",
             callback_url=callback_url,
             ipn_id=ipn_id,
             first_name=first_name,
@@ -133,6 +159,11 @@ async def create_subscription(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Payment initiation failed. Please try again.")
 
     redirect_url = pay_resp.get("redirect_url") or ""
+    tracking_id = pay_resp.get("order_tracking_id")
+    if tracking_id:
+        supabase.table("manager_subscriptions").update(
+            {"pesapal_tracking_id": tracking_id}
+        ).eq("id", subscription_id).execute()
     if not redirect_url:
         error_msg = pay_resp.get("error", {}).get("message") or str(pay_resp)
         logger.error("Pesapal order submission response missing redirect_url for subscription %s: %s", subscription_id, error_msg)

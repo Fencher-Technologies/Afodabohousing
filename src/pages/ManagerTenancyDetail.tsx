@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { format, differenceInDays, differenceInMonths } from 'date-fns';
 import AgreementFlowCard from '@/components/AgreementFlowCard';
+import RentCoverageCard from '@/components/RentCoverageCard';
+import SetEffectiveDateModal from '@/components/SetEffectiveDateModal';
 
 export default function ManagerTenancyDetail() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +29,7 @@ export default function ManagerTenancyDetail() {
   const [deactivating, setDeactivating] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [effectiveDateOpen, setEffectiveDateOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -292,6 +295,9 @@ export default function ManagerTenancyDetail() {
           </button>
         </div>
 
+        {/* Rent Coverage Card */}
+        <RentCoverageCard leaseId={id!} canSetDate onSetDate={() => setEffectiveDateOpen(true)} />
+
         {/* Agreement Flow Card */}
         <AgreementFlowCard leaseId={id!} />
 
@@ -363,6 +369,12 @@ export default function ManagerTenancyDetail() {
         monthlyRent={lease.monthly_rent || 0}
         balanceDue={balance}
         onRecorded={fetchData}
+      />
+      <SetEffectiveDateModal
+        open={effectiveDateOpen}
+        onClose={() => setEffectiveDateOpen(false)}
+        leaseId={id!}
+        onSet={fetchData}
       />
     </div>
   );

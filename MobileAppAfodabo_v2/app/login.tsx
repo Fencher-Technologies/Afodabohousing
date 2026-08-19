@@ -13,8 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
-// OrDivider only served the phone-sign-in button (hidden). Kept for restore.
-// import { OrDivider } from "@/src/components/OrDivider";
+import { OrDivider } from "@/src/components/OrDivider";
 import { useAuth } from "@/src/context/auth-context";
 
 export default function LoginScreen() {
@@ -45,12 +44,14 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={["#1B4A38", "#236048"]}
+        colors={["#1A2332", "#15202B"]}
         style={styles.header}
       >
         <View style={styles.logoWrap}>
-          <Image source={require("../assets/images/axis-logo.png")} style={styles.logoIcon} contentFit="contain" />
+          <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
+        <Text style={styles.appName}>Axis</Text>
+        <Text style={styles.tagline}>Housing Made Easy</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView
@@ -100,8 +101,6 @@ export default function LoginScreen() {
             size="lg"
           />
 
-          {/* PHONE-AUTH HIDDEN: phone sign-in temporarily removed from UI.
-              Kept commented for restore. See phone-signin.tsx / phone-auth flow.
           <OrDivider />
 
           <Button
@@ -111,7 +110,7 @@ export default function LoginScreen() {
             fullWidth
             size="lg"
           />
-          */}
+
           {error && <Text style={styles.errorText}>{error}</Text>}
         </View>
 
@@ -141,20 +140,29 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   logoWrap: {
-    width: 96,
+    width: 72,
     height: 72,
     borderRadius: 20,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xs,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.08)",
+    borderColor: "rgba(255,255,255,0.15)",
     overflow: "hidden",
   },
   logoIcon: {
-    width: 84,
-    height: 63,
+    width: 56,
+    height: 56,
+  },
+  appName: {
+    fontSize: 28,
+    fontWeight: FontWeight.bold,
+    color: "#FFFFFF",
+  },
+  tagline: {
+    fontSize: FontSize.body,
+    color: "rgba(255,255,255,0.7)",
   },
   formWrap: {
     flex: 1,

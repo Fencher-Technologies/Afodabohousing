@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, User, ShieldCheck, ArrowRight } from 'lucide-react';
+import { PasswordInput } from '@/components/ui/password-input';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -59,7 +60,7 @@ export default function PhonePinSetup() {
         refresh_token: data.refresh_token || '',
       });
 
-      toast({ title: 'Account created!', description: 'Welcome to Afodabo Housing.' });
+      toast({ title: 'Account created!', description: 'Welcome to Axis.' });
       navigate('/onboarding');
     } catch (err: any) {
       const msg = err.message || 'Registration failed';
@@ -79,8 +80,8 @@ export default function PhonePinSetup() {
               <span className="text-primary-foreground font-bold text-lg">A</span>
             </div>
             <div>
-              <div className="font-display font-bold text-lg text-primary leading-tight">Afodabo Housing</div>
-              <div className="text-muted-foreground text-xs">Uganda's Housing Platform</div>
+              <div className="font-display font-bold text-lg text-primary leading-tight">Axis</div>
+              <div className="text-muted-foreground text-xs">Housing Made Easy</div>
             </div>
           </Link>
 
@@ -116,10 +117,9 @@ export default function PhonePinSetup() {
               <div className="space-y-2">
                 <Label htmlFor="pin">Create PIN (4-6 digits)</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                  <PasswordInput
                     id="pin"
-                    type="password"
                     inputMode="numeric"
                     placeholder="1234"
                     value={pin}
@@ -134,10 +134,9 @@ export default function PhonePinSetup() {
               <div className="space-y-2">
                 <Label htmlFor="confirmPin">Confirm PIN</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                  <PasswordInput
                     id="confirmPin"
-                    type="password"
                     inputMode="numeric"
                     placeholder="Re-enter PIN"
                     value={confirmPin}

@@ -23,7 +23,7 @@ export default function PaymentStatus() {
   useEffect(() => {
     if (!reference) return;
     let tries = 0;
-    timerRef.current = setInterval(async () => {
+    const check = async () => {
       tries += 1;
       try {
         const res = await apiGet<{ type: PaymentType; status: string; payment_status?: string }>(
@@ -43,7 +43,9 @@ export default function PaymentStatus() {
       } catch {
         if (tries >= POLL_LIMIT && timerRef.current) clearInterval(timerRef.current);
       }
-    }, POLL_INTERVAL);
+    };
+    check();
+    timerRef.current = setInterval(check, POLL_INTERVAL);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -74,7 +76,11 @@ export default function PaymentStatus() {
                 : status === 'failed'
                   ? 'Payment Failed'
                   : trackingId
-                    ? 'Confirming your payment...'
+                    ? type === 'boost'
+                      ? 'Confirming boost payment...'
+                      : type === 'subscription'
+                        ? 'Confirming subscription payment...'
+                        : 'Confirming your payment...'
                     : 'No payment found'}
             </CardTitle>
             <CardDescription className="mt-2">
@@ -85,7 +91,11 @@ export default function PaymentStatus() {
                 : status === 'failed'
                   ? 'Your payment could not be processed. Please try again.'
                   : trackingId
-                    ? 'We are checking the payment status with Pesapal. This can take a minute.'
+                    ? type === 'boost'
+                      ? 'We are confirming your boost payment with Pesapal. This can take a minute.'
+                      : type === 'subscription'
+                        ? 'We are confirming your subscription payment with Pesapal. This can take a minute.'
+                        : 'We are checking the payment status with Pesapal. This can take a minute.'
                     : 'This page expects the merchant reference from the Pesapal callback.'}
             </CardDescription>
           </div>

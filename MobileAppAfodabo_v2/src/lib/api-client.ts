@@ -2,8 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { API_BASE_URL } from "../../constants/config";
 
-const STORAGE_KEY_TOKEN = "afodabo_access_token";
-const STORAGE_KEY_REFRESH = "afodabo_refresh_token";
+const STORAGE_KEY_TOKEN = "axis_access_token";
+const STORAGE_KEY_REFRESH = "axis_refresh_token";
 
 class ApiError extends Error {
   status: number;
@@ -67,7 +67,20 @@ async function setRefreshToken(token: string): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY_REFRESH, token);
 }
 
+let _refreshPromise: Promise<string | null> | null = null;
+
 async function refreshAccessToken(): Promise<string | null> {
+  if (_refreshPromise) {
+    return _refreshPromise;
+  }
+
+  _refreshPromise = doRefreshAccessToken().finally(() => {
+    _refreshPromise = null;
+  });
+  return _refreshPromise;
+}
+
+async function doRefreshAccessToken(): Promise<string | null> {
   const refresh = await getRefreshToken();
   if (!refresh) return null;
 

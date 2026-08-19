@@ -13,8 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
-// OrDivider only served the phone-registration button (hidden). Kept for restore.
-// import { OrDivider } from "@/src/components/OrDivider";
+import { OrDivider } from "@/src/components/OrDivider";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { useAuth } from "@/src/context/auth-context";
 import type { UserRole } from "@/src/types";
@@ -58,10 +57,11 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={["#1B4A38", "#236048"]} style={styles.header}>
+      <LinearGradient colors={["#1A2332", "#15202B"]} style={styles.header}>
         <View style={styles.logoWrap}>
-          <Image source={require("../assets/images/axis-logo.png")} style={styles.logoIcon} contentFit="contain" />
+          <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
+        <Text style={styles.appName}>Create Account</Text>
         <Text style={styles.tagline}>Join Axis in under a minute</Text>
       </LinearGradient>
 
@@ -159,8 +159,6 @@ export default function RegisterScreen() {
           <View style={{ height: Spacing.lg }} />
           <Button label="Create Account" onPress={handleRegister} loading={loading} fullWidth size="lg" disabled={!termsAccepted} />
 
-          {/* PHONE-AUTH HIDDEN: phone registration temporarily removed from UI.
-              Kept commented for restore. See phone-auth.tsx / phone-auth flow.
           <OrDivider />
           <Button
             label="Register with Phone Number"
@@ -169,7 +167,6 @@ export default function RegisterScreen() {
             fullWidth
             size="lg"
           />
-          */}
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account? </Text>
@@ -192,26 +189,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 60,
     paddingBottom: Spacing.xl,
-    gap: Spacing.md,
+    gap: Spacing.xs,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
   },
   logoWrap: {
-    width: 96,
+    width: 72,
     height: 72,
     borderRadius: 20,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xs,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.08)",
+    borderColor: "rgba(255,255,255,0.15)",
     overflow: "hidden",
   },
   logoIcon: {
-    width: 84,
-    height: 63,
+    width: 56,
+    height: 56,
   },
+  appName: { fontSize: FontSize.display, fontWeight: FontWeight.bold, color: "#FFFFFF" },
   tagline: { fontSize: FontSize.body, color: "rgba(255,255,255,0.7)" },
   formWrap: {
     paddingHorizontal: Spacing.xl,

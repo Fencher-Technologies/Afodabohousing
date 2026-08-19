@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import logoImg from '@/assets/logo.png';
+import logoImg from '@/assets/axis-logo.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Mail, Smartphone, ArrowRight, MessageSquare, KeyRound, User, Check } from 'lucide-react';
 
@@ -84,7 +85,7 @@ export default function RegisterPage() {
         }),
       });
       if (!res.ok) throw new Error((await res.json()).detail || 'Registration failed');
-      toast({ title: 'Account created!', description: 'Welcome to Afodabo Housing.' });
+      toast({ title: 'Account created!', description: 'Welcome to Axis.' });
       navigate('/login');
     } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
     setLoading(false);
@@ -95,10 +96,10 @@ export default function RegisterPage() {
       <div className="flex-1 flex flex-col justify-center px-6 py-12 bg-background max-w-[560px] overflow-y-auto">
         <div className="mx-auto w-full max-w-sm">
           <Link to="/" className="flex items-center gap-3 mb-8">
-            <img src={logoImg} alt="Afodabo Housing" className="h-11 w-11 rounded-xl" />
+            <img src={logoImg} alt="Axis" className="h-11 w-11 rounded-xl" />
             <div>
-              <div className="font-display font-bold text-lg text-primary leading-tight">Afodabo Housing</div>
-              <div className="text-muted-foreground text-xs">Uganda's Housing Platform</div>
+              <div className="font-display font-bold text-lg text-primary leading-tight">Axis</div>
+              <div className="text-muted-foreground text-xs">Housing Made Easy</div>
             </div>
           </Link>
 
@@ -211,8 +212,8 @@ export default function RegisterPage() {
                   <div>
                     <Label>Create PIN</Label>
                     <div className="relative mt-1.5">
-                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input type="password" inputMode="numeric" placeholder="4-6 digit PIN" value={pin}
+                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                      <PasswordInput inputMode="numeric" placeholder="4-6 digit PIN" value={pin}
                         onChange={e => setPin(e.target.value)} maxLength={6} className="pl-9 text-center text-xl tracking-widest font-mono" />
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">Use this PIN to sign in quickly next time.</p>
@@ -242,8 +243,8 @@ export default function RegisterPage() {
         <div className="absolute inset-0 gradient-hero" />
         <div className="relative z-10 flex flex-col justify-end p-14 text-primary-foreground">
           <div className="max-w-sm">
-            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Uganda's #1 Housing App</p>
-            <h2 className="font-display text-5xl font-bold mb-4 leading-tight">Join Afodabo Housing Today</h2>
+            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Housing Made Easy</p>
+            <h2 className="font-display text-5xl font-bold mb-4 leading-tight">Join Axis Today</h2>
             <p className="text-primary-foreground/80 text-lg leading-relaxed">
               Register with your phone number and get access to verified properties, secure payments, and digital agreements.
             </p>

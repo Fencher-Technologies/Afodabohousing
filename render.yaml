@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: afodabo-api
+    name: axis-api
     runtime: docker
     repo: https://github.com/Fencher-Technologies/Afodabohousing
-    branch: joels-branch
+    branch: main
     rootDir: backend
     dockerfilePath: ./backend/Dockerfile
     healthCheckPath: /health
@@ -19,7 +19,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: CORS_ORIGINS
-        value: '["https://afodabohousing.vercel.app"]'
+        value: '["https://axishousing.vercel.app"]'
       - key: RATE_LIMIT_ENABLED
         value: "true"
       - key: PESAPAL_ENVIRONMENT

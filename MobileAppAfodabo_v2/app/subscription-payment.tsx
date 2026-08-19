@@ -72,8 +72,19 @@ export default function SubscriptionPaymentScreen() {
         setStatus("waiting_payment");
         startPolling();
       }
-    } catch {
-      setStatus("failed");
+    } catch (e) {
+      const msg =
+        e && typeof e === "object" && "message" in e
+          ? String((e as { message: string }).message)
+          : "Could not start payment.";
+      if (msg.toLowerCase().includes("already have a pending payment")) {
+        setResponseMessage(msg);
+        setStatus("waiting_payment");
+        startPolling();
+      } else {
+        setResponseMessage(msg);
+        setStatus("failed");
+      }
     }
   };
 
@@ -168,7 +179,7 @@ export default function SubscriptionPaymentScreen() {
           </View>
           <Text style={styles.resultTitle}>Payment Failed</Text>
           <Text style={styles.resultDescription}>
-            Your payment could not be processed. Please try again.
+            {responseMessage || "Your payment could not be processed. Please try again."}
           </Text>
           <View style={{ height: Spacing.lg }} />
           <Button label="Try Again" onPress={() => setStatus("idle")} fullWidth size="lg" />

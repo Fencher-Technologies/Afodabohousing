@@ -1,4 +1,4 @@
-import { Building2, Users, DollarSign, BarChart2, Clock, CheckCircle, AlertTriangle, Home, Plus, ArrowUpRight, ChevronRight } from 'lucide-react';
+import { Building2, Users, DollarSign, BarChart2, Clock, CheckCircle, AlertTriangle, Home, Plus, ArrowUpRight, ChevronRight, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';

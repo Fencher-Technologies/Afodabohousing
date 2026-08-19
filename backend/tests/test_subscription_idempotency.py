@@ -141,3 +141,25 @@ class TestConfirmSubscriptionIdempotency:
 
         assert result is None
         assert sb.tables["manager_subscriptions"]._update_calls == 0
+
+    def test_wrong_amount_marks_failed(self):
+        sb = FakeSupabase()
+        sb.seed("manager_subscriptions", [make_pending_sub()])
+        sb.seed("subscription_plans", [make_plan()])
+
+        result = SubscriptionService(sb).confirm_subscription(REF, paid_amount=5000)
+
+        assert result is None
+        subs_table = sb.tables["manager_subscriptions"]
+        assert subs_table._payload["status"] == "failed"
+        assert subs_table._payload["payment_status"] == "failed"
+
+    def test_correct_amount_activates(self):
+        sb = FakeSupabase()
+        sb.seed("manager_subscriptions", [make_pending_sub()])
+        sb.seed("subscription_plans", [make_plan()])
+
+        result = SubscriptionService(sb).confirm_subscription(REF, paid_amount=15000)
+
+        assert result is not None
+        assert result.status == "active"

@@ -19,12 +19,12 @@ CREATE TABLE IF NOT EXISTS boost_packages (
 
 -- Seed the client's final prices (does not overwrite existing rows).
 INSERT INTO boost_packages (id, days, price_ugx, label, sort_order) VALUES
-    ('7d',  7,  10000, '7 Days',  1),
-    ('14d', 14, 20000, '14 Days', 2),
-    ('30d', 30, 40000, '30 Days', 3)
+    ('7d',  7,  500, '7 Days',  1),
+    ('14d', 14, 500, '14 Days', 2),
+    ('30d', 30, 500, '30 Days', 3)
 ON CONFLICT (id) DO NOTHING;
 
 -- Ensure the correct values regardless of whether the INSERT succeeded.
-UPDATE boost_packages SET days = 7,  price_ugx = 10000, label = '7 Days',  sort_order = 1 WHERE id = '7d';
-UPDATE boost_packages SET days = 14, price_ugx = 20000, label = '14 Days', sort_order = 2 WHERE id = '14d';
-UPDATE boost_packages SET days = 30, price_ugx = 40000, label = '30 Days', sort_order = 3 WHERE id = '30d';
+UPDATE boost_packages SET days = 7,  price_ugx = 500, label = '7 Days',  sort_order = 1 WHERE id = '7d';
+UPDATE boost_packages SET days = 14, price_ugx = 500, label = '14 Days', sort_order = 2 WHERE id = '14d';
+UPDATE boost_packages SET days = 30, price_ugx = 500, label = '30 Days', sort_order = 3 WHERE id = '30d';

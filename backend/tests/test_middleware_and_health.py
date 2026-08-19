@@ -9,7 +9,7 @@ class TestHealthEndpoints:
         resp = client.get("/")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["message"] == "Afodabo Housing API"
+        assert data["message"] == "Axis API"
         assert "version" in data
 
     def test_health_returns_status(self, client):

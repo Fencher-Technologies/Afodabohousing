@@ -2,7 +2,7 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from supabase import Client
 
@@ -25,8 +25,10 @@ class NotificationResponse(BaseModel):
 
 
 class PaginatedNotificationsResponse(BaseModel):
-    notifications: list[NotificationResponse]
+    items: list[NotificationResponse]
     total: int
+    skip: int
+    limit: int
 
 
 class UnreadCountResponse(BaseModel):
@@ -35,14 +37,25 @@ class UnreadCountResponse(BaseModel):
 
 @router.get("", response_model=PaginatedNotificationsResponse)
 def list_notifications(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
 ) -> PaginatedNotificationsResponse:
+    count_resp = (
+        supabase.table("notifications")
+        .select("id", count="exact")
+        .eq("recipient_id", str(current_user.id))
+        .execute()
+    )
+    total = count_resp.count if hasattr(count_resp, "count") else len(count_resp.data or [])
+
     result = (
         supabase.table("notifications")
         .select("*")
         .eq("recipient_id", str(current_user.id))
         .order("created_at", desc=True)
+        .range(skip, skip + limit - 1)
         .execute()
     )
 
@@ -62,8 +75,10 @@ def list_notifications(
     ]
 
     return PaginatedNotificationsResponse(
-        notifications=notifications,
-        total=len(notifications),
+        items=notifications,
+        total=total,
+        skip=skip,
+        limit=limit,
     )
 
 
@@ -74,7 +89,7 @@ def unread_notification_count(
 ) -> UnreadCountResponse:
     result = (
         supabase.table("notifications")
-        .select("*", count="exact")
+        .select("id", count="exact")
         .eq("recipient_id", str(current_user.id))
         .eq("is_read", False)
         .execute()

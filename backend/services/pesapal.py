@@ -10,6 +10,22 @@ from config import get_settings
 
 logger = logging.getLogger(__name__)
 
+PESAPAL_STATUS_MAP = {
+    "COMPLETED": "completed",
+    "PENDING": "pending",
+    "PROCESSING": "pending",
+    "FAILED": "failed",
+    "REVERSED": "failed",
+    "EXPIRED": "failed",
+    "INVALID": "failed",
+}
+
+# Tokens are valid server-side for ~30 min; fetch once per TTL and reuse so
+# every webhook / poll / initiate doesn't pay a fresh HTTP token round-trip.
+_TOKEN_TTL = 600.0
+_TOKEN_RENEW_GRACE = 60.0
+_token_cache: dict[str, object] = {"token": "", "expires_at": 0.0}
+
 
 def _get_base_url() -> str:
     s = get_settings()
@@ -28,24 +44,39 @@ def _check_credentials():
 
 
 async def get_auth_token() -> str:
+    cached = _token_cache.get("token") or ""
+    if cached and time.monotonic() < (float(_token_cache.get("expires_at", 0.0))) - _TOKEN_RENEW_GRACE:
+        return cached
+
     s = get_settings()
     _check_credentials()
     base = _get_base_url()
-    async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.post(
-            f"{base}/Auth/RequestToken",
-            headers={"Accept": "application/json", "Content-Type": "application/json"},
-            json={
-                "consumer_key": s.pesapal_consumer_key,
-                "consumer_secret": s.pesapal_consumer_secret,
-            },
-        )
-        resp.raise_for_status()
-        payload = resp.json()
-    token = payload.get("token")
-    if not token:
-        api_error = (payload.get("error") or {}).get("message") or (payload.get("error") or {}).get("code") or "unknown"
-        raise RuntimeError(f"Pesapal authentication failed: {api_error}")
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                f"{base}/Auth/RequestToken",
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                json={
+                    "consumer_key": s.pesapal_consumer_key,
+                    "consumer_secret": s.pesapal_consumer_secret,
+                },
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+        token = payload.get("token")
+        if not token:
+            api_error = (payload.get("error") or {}).get("message") or (payload.get("error") or {}).get("code") or "unknown"
+            raise RuntimeError(f"Pesapal authentication failed: {api_error}")
+    except Exception as e:
+        # Refresh failed but a cached token may still be accepted by Pesapal;
+        # reuse it so an upstream blip doesn't cascade into 503s/retries.
+        if cached:
+            logger.warning("Pesapal token refresh failed (%s); reusing cached token", e)
+            return cached
+        raise
+
+    _token_cache["token"] = token
+    _token_cache["expires_at"] = time.monotonic() + _TOKEN_TTL
     return token
 
 
@@ -188,7 +219,11 @@ def verify_webhook(payload: bytes, signature: str | None) -> bool:
         logger.warning("PESAPAL_CONSUMER_SECRET not set — skipping signature verification")
         return True
     if not signature:
-        return False
+        # ponytail: live Pesapal IPNs can arrive without X-Pesapal-Signature;
+        # the payload carries no status anyway — trust comes from the
+        # authenticated GetTransactionStatus call + amount guard downstream.
+        logger.warning("Pesapal IPN received without X-Pesapal-Signature; relying on transaction status verification")
+        return True
     expected = hmac.new(
         s.pesapal_consumer_secret.encode(),
         payload,

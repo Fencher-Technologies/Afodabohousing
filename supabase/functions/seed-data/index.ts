@@ -29,11 +29,11 @@ serve(async (req) => {
 
     // ── 1. Create demo users ────────────────────────────────────────────
     const demoUsers = [
-      { email: "admin@afodabo.ug",    name: "Admin Afodabo",       role: "admin",        phone: "+256 700 000001" },
-      { email: "john@afodabo.ug",     name: "John Ssebagala",      role: "house_manager", phone: "+256 772 345678" },
-      { email: "grace@afodabo.ug",    name: "Grace Namukasa",      role: "house_manager", phone: "+256 701 234567" },
-      { email: "sarah@afodabo.ug",    name: "Sarah Nakato",        role: "tenant",        phone: "+256 754 987654" },
-      { email: "david@afodabo.ug",    name: "David Okello",        role: "tenant",        phone: "+256 783 112233" },
+      { email: "admin@axis.ug",    name: "Admin Axis",       role: "admin",        phone: "+256 700 000001" },
+      { email: "john@axis.ug",     name: "John Ssebagala",      role: "house_manager", phone: "+256 772 345678" },
+      { email: "grace@axis.ug",    name: "Grace Namukasa",      role: "house_manager", phone: "+256 701 234567" },
+      { email: "sarah@axis.ug",    name: "Sarah Nakato",        role: "tenant",        phone: "+256 754 987654" },
+      { email: "david@axis.ug",    name: "David Okello",        role: "tenant",        phone: "+256 783 112233" },
     ];
 
     const userIds: Record<string, string> = {};
@@ -65,15 +65,15 @@ serve(async (req) => {
       await supabase.from("profiles").upsert({ user_id: userId, full_name: u.name, phone: u.phone, role: u.role }, { onConflict: "user_id" });
     }
 
-    const johnId = userIds["john@afodabo.ug"];
-    const graceId = userIds["grace@afodabo.ug"];
-    const sarahId = userIds["sarah@afodabo.ug"];
-    const davidId = userIds["david@afodabo.ug"];
+    const johnId = userIds["john@axis.ug"];
+    const graceId = userIds["grace@axis.ug"];
+    const sarahId = userIds["sarah@axis.ug"];
+    const davidId = userIds["david@axis.ug"];
 
     // ── 2. Create tenant records ──────────────────────────────────────────
     const tenantData: { owner_id: string; user_id: string; first_name: string; last_name: string; email: string }[] = [];
-    if (sarahId && johnId) tenantData.push({ owner_id: johnId, user_id: sarahId, first_name: "Sarah", last_name: "Nakato", email: "sarah@afodabo.ug" });
-    if (davidId && graceId) tenantData.push({ owner_id: graceId, user_id: davidId, first_name: "David", last_name: "Okello", email: "david@afodabo.ug" });
+    if (sarahId && johnId) tenantData.push({ owner_id: johnId, user_id: sarahId, first_name: "Sarah", last_name: "Nakato", email: "sarah@axis.ug" });
+    if (davidId && graceId) tenantData.push({ owner_id: graceId, user_id: davidId, first_name: "David", last_name: "Okello", email: "david@axis.ug" });
 
     const { data: insertedTenants } = await supabase.from("tenants").insert(tenantData).select("id, user_id, owner_id");
     const sarahTenant = insertedTenants?.find(t => t.user_id === sarahId);
@@ -90,7 +90,7 @@ serve(async (req) => {
         rent_amount: 1800000, rent_period: "monthly",
         amenities: ["Water", "Electricity", "Parking", "Security"],
         description: "Spacious 3-bedroom house on a quiet Ntinda road. Tiled floors throughout, large compound, 24-hr security. Minutes from Ntinda Complex.",
-        manager_phone: "+256 772 345678", manager_email: "john@afodabo.ug", status: "occupied",
+        manager_phone: "+256 772 345678", manager_email: "john@axis.ug", status: "occupied",
         images: [],
       },
       {
@@ -101,7 +101,7 @@ serve(async (req) => {
         rent_amount: 1200000, rent_period: "monthly",
         amenities: ["Water", "Electricity", "WiFi", "Parking"],
         description: "Contemporary 2-bedroom apartment in Palm Gardens complex. Fully tiled, modern kitchen, high-speed WiFi included. Walking distance to Bukoto market.",
-        manager_phone: "+256 772 345678", manager_email: "john@afodabo.ug", status: "available",
+        manager_phone: "+256 772 345678", manager_email: "john@axis.ug", status: "available",
         images: [],
       },
       {
@@ -112,7 +112,7 @@ serve(async (req) => {
         rent_amount: 350000, rent_period: "monthly",
         amenities: ["Water", "Electricity"],
         description: "Neat self-contained room with private bathroom and kitchenette. Secure neighborhood, good transport links to Kampala CBD.",
-        manager_phone: "+256 772 345678", manager_email: "john@afodabo.ug", status: "available",
+        manager_phone: "+256 772 345678", manager_email: "john@axis.ug", status: "available",
         images: [],
       },
       {
@@ -123,7 +123,7 @@ serve(async (req) => {
         rent_amount: 550000, rent_period: "monthly",
         amenities: ["Water", "Electricity", "WiFi"],
         description: "Cozy studio apartment ideal for professionals. Open-plan living/bedroom, full kitchen, fast WiFi. Minutes from Kiwatule roundabout.",
-        manager_phone: "+256 772 345678", manager_email: "john@afodabo.ug", status: "available",
+        manager_phone: "+256 772 345678", manager_email: "john@axis.ug", status: "available",
         images: [],
       },
       {
@@ -134,7 +134,7 @@ serve(async (req) => {
         rent_amount: 3500000, rent_period: "monthly",
         amenities: ["Water", "Electricity", "WiFi", "Parking", "Security", "Generator", "Garden"],
         description: "Stunning executive bungalow on Naguru hill with panoramic city views. Two kitchens, servants quarters, manicured garden, generator backup.",
-        manager_phone: "+256 772 345678", manager_email: "john@afodabo.ug", status: "available",
+        manager_phone: "+256 772 345678", manager_email: "john@axis.ug", status: "available",
         images: [],
       },
       {
@@ -145,7 +145,7 @@ serve(async (req) => {
         rent_amount: 180000, rent_period: "monthly",
         amenities: ["Water", "Electricity"],
         description: "Affordable single room in Nansana. Shared bathroom and kitchen facilities. Secure compound.",
-        manager_phone: "+256 772 345678", manager_email: "john@afodabo.ug", status: "available",
+        manager_phone: "+256 772 345678", manager_email: "john@axis.ug", status: "available",
         images: [],
       },
 
@@ -158,7 +158,7 @@ serve(async (req) => {
         rent_amount: 900000, rent_period: "monthly",
         amenities: ["Water", "Electricity", "Parking"],
         description: "Well-maintained 2-bedroom apartment in Ruharo, Mbarara's premium neighborhood. Close to Mbarara University and Referral Hospital.",
-        manager_phone: "+256 701 234567", manager_email: "grace@afodabo.ug", status: "occupied",
+        manager_phone: "+256 701 234567", manager_email: "grace@axis.ug", status: "occupied",
         images: [],
       },
       {
@@ -169,7 +169,7 @@ serve(async (req) => {
         rent_amount: 1200000, rent_period: "monthly",
         amenities: ["Water", "Electricity", "Parking", "Security"],
         description: "Large family house in the peaceful Laroo division of Gulu. Borehole water supply, perimeter fence, private parking.",
-        manager_phone: "+256 701 234567", manager_email: "grace@afodabo.ug", status: "available",
+        manager_phone: "+256 701 234567", manager_email: "grace@axis.ug", status: "available",
         images: [],
       },
       {
@@ -180,7 +180,7 @@ serve(async (req) => {
         rent_amount: 300000, rent_period: "monthly",
         amenities: ["Water", "Electricity"],
         description: "Compact self-contained unit in Walukuba West, Jinja. Ideal for single professionals. Near Owen Falls Dam and Jinja market.",
-        manager_phone: "+256 701 234567", manager_email: "grace@afodabo.ug", status: "available",
+        manager_phone: "+256 701 234567", manager_email: "grace@axis.ug", status: "available",
         images: [],
       },
       {
@@ -191,7 +191,7 @@ serve(async (req) => {
         rent_amount: 1400000, rent_period: "monthly",
         amenities: ["Water", "Electricity", "WiFi", "Parking", "Garden"],
         description: "Charming apartment with partial lake views in quiet Kiwafu, Entebbe. Tiled floors, fitted kitchen, lush garden compound. 5 mins to Entebbe Airport.",
-        manager_phone: "+256 701 234567", manager_email: "grace@afodabo.ug", status: "available",
+        manager_phone: "+256 701 234567", manager_email: "grace@axis.ug", status: "available",
         images: [],
       },
       {
@@ -202,7 +202,7 @@ serve(async (req) => {
         rent_amount: 150000, rent_period: "monthly",
         amenities: ["Water", "Electricity"],
         description: "Affordable room in a clean compound in Adyel, Lira City. Shared amenities, good security. Close to Lira market.",
-        manager_phone: "+256 701 234567", manager_email: "grace@afodabo.ug", status: "available",
+        manager_phone: "+256 701 234567", manager_email: "grace@axis.ug", status: "available",
         images: [],
       },
       {
@@ -213,7 +213,7 @@ serve(async (req) => {
         rent_amount: 1500000, rent_period: "monthly",
         amenities: ["Water", "Electricity", "Parking", "Security", "Garden"],
         description: "Recently renovated 3-bedroom house along Wakiso-Gombe Road. Large garden, servant's quarters, water tank backup. Easy access to Kampala via Gayaza Road.",
-        manager_phone: "+256 701 234567", manager_email: "grace@afodabo.ug", status: "available",
+        manager_phone: "+256 701 234567", manager_email: "grace@axis.ug", status: "available",
         images: [],
       },
     ];
@@ -325,11 +325,11 @@ serve(async (req) => {
         success: true,
         message: "Demo data loaded successfully!",
         accounts: [
-          { email: "admin@afodabo.ug", password: "Demo@1234", role: "Admin" },
-          { email: "john@afodabo.ug", password: "Demo@1234", role: "House Manager (Kampala)" },
-          { email: "grace@afodabo.ug", password: "Demo@1234", role: "House Manager (Mbarara/Gulu)" },
-          { email: "sarah@afodabo.ug", password: "Demo@1234", role: "Tenant" },
-          { email: "david@afodabo.ug", password: "Demo@1234", role: "Tenant (rent due soon)" },
+          { email: "admin@axis.ug", password: "Demo@1234", role: "Admin" },
+          { email: "john@axis.ug", password: "Demo@1234", role: "House Manager (Kampala)" },
+          { email: "grace@axis.ug", password: "Demo@1234", role: "House Manager (Mbarara/Gulu)" },
+          { email: "sarah@axis.ug", password: "Demo@1234", role: "Tenant" },
+          { email: "david@axis.ug", password: "Demo@1234", role: "Tenant (rent due soon)" },
         ],
         summary: {
           properties: insertedProps?.length || 0,

@@ -103,7 +103,7 @@ def build_receipt_html(receipt: ReceiptData) -> str:
 </head>
 <body>
   <header>
-    <div class="brand">Afodabo Housing</div>
+    <div class="brand">Axis</div>
     <h1>Rent Payment Receipt</h1>
     <div>Issued {escape(issued_at)}</div>
   </header>
@@ -111,7 +111,7 @@ def build_receipt_html(receipt: ReceiptData) -> str:
     <div class="amount">{escape(_format_money(receipt.payment.get("amount")))}</div>
     <table>{table_rows}</table>
   </section>
-  <footer>This receipt was generated digitally by Afodabo Housing.</footer>
+  <footer>This receipt was generated digitally by Axis.</footer>
 </body>
 </html>"""
 
@@ -145,7 +145,7 @@ def build_receipt_pdf(receipt: ReceiptData) -> bytes:
         textColor=colors.HexColor("#52606D"),
     )
     story = [
-        Paragraph("Afodabo Housing", meta_style),
+        Paragraph("Axis", meta_style),
         Paragraph("Rent Payment Receipt", title_style),
         Paragraph(f"Receipt number: {receipt.receipt_number}", meta_style),
         Spacer(1, 10 * mm),
@@ -180,6 +180,6 @@ def build_receipt_pdf(receipt: ReceiptData) -> bytes:
             ]
         )
     )
-    story.extend([table, Spacer(1, 12 * mm), Paragraph("Generated digitally by Afodabo Housing.", meta_style)])
+    story.extend([table, Spacer(1, 12 * mm), Paragraph("Generated digitally by Axis.", meta_style)])
     doc.build(story)
     return buffer.getvalue()

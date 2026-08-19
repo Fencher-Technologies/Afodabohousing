@@ -7,7 +7,7 @@ const baseProperty = {
   id: "prop-1",
   title: "Test House",
   status: "available",
-  property_type: "house",
+  property_type: "Residential",
   rent_amount: 1500000,
   rent_period: "monthly",
   bedrooms: 3,
@@ -90,11 +90,11 @@ describe("PropertyCard", () => {
 
   it("renders type badge", () => {
     renderCard();
-    expect(screen.getByText("House")).toBeDefined();
+    expect(screen.getByText("Residential")).toBeDefined();
   });
 
   it("renders apartment type badge", () => {
-    renderCard({ property_type: "apartment" });
-    expect(screen.getByText("Apartment")).toBeDefined();
+    renderCard({ property_type: "Office Space" });
+    expect(screen.getByText("Office Space")).toBeDefined();
   });
 });

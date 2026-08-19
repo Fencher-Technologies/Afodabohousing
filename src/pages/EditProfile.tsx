@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -168,14 +169,14 @@ export default function EditProfile() {
                   onChange={e => setLinkPhone(e.target.value)} className="pl-9 h-11 rounded-lg" />
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="password" placeholder="Create PIN (4-6 digits)" value={linkPin}
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <PasswordInput placeholder="Create PIN (4-6 digits)" value={linkPin}
                   onChange={e => setLinkPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   className="pl-9 h-11 rounded-lg" maxLength={6} />
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="password" placeholder="Your current email password" value={linkPassword}
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <PasswordInput placeholder="Your current email password" value={linkPassword}
                   onChange={e => setLinkPassword(e.target.value)} className="pl-9 h-11 rounded-lg" />
               </div>
               <Button onClick={handleLinkSendOtp} disabled={linkLoading} className="w-full rounded-lg h-11 gap-2">

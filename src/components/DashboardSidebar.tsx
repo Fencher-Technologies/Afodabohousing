@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard, Building2, Users, DollarSign, BarChart3,
   Crown, PanelLeftClose, PanelLeft, LogOut, ChevronRight, Home,
-  Wrench, Search, Menu, X, User
+  Wrench, Search, Menu, X, User, UserCheck, Shield
 } from 'lucide-react';
 
 interface NavItem {
@@ -30,6 +30,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Browse', path: '/dashboard/tenant/browse', icon: <Search className="h-4 w-4" />, roles: ['tenant'] },
   { label: 'Account', path: '/account', icon: <User className="h-4 w-4" />, roles: ['super_admin'] },
   { label: 'Overview', path: '/dashboard/super-admin', icon: <LayoutDashboard className="h-4 w-4" />, roles: ['super_admin'] },
+  { label: 'Approvals', path: '/dashboard/super-admin/approvals', icon: <UserCheck className="h-4 w-4" />, roles: ['super_admin'] },
+  { label: 'Managers', path: '/dashboard/super-admin/managers', icon: <Users className="h-4 w-4" />, roles: ['super_admin'] },
+  { label: 'Settings', path: '/dashboard/super-admin/settings', icon: <Shield className="h-4 w-4" />, roles: ['super_admin'] },
 ];
 
 export default function DashboardSidebar({ collapsed, onToggle, mobile, open, onClose }: {
@@ -53,7 +56,7 @@ export default function DashboardSidebar({ collapsed, onToggle, mobile, open, on
         <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center text-primary-foreground font-bold text-sm shrink-0">
           A
         </div>
-        {!collapsed && <span className="font-semibold text-sm truncate">Afodabo</span>}
+        {!collapsed && <span className="font-semibold text-sm truncate">Axis</span>}
         {!mobile && (
           <button onClick={onToggle} className="ml-auto text-muted-foreground hover:text-foreground p-1">
             {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}

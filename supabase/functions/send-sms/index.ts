@@ -16,7 +16,7 @@ serve(async (req) => {
       throw new Error('EgoSMS credentials not configured')
     }
 
-    const { phone, message, sender = 'AFODABO' } = await req.json()
+    const { phone, message, sender = 'AXIS' } = await req.json()
 
     if (!phone || !message) {
       throw new Error('phone and message are required')
