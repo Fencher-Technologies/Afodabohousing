@@ -590,6 +590,7 @@ class PropertyService(BaseService):
 
         page_rows: list[dict[str, Any]] = []
         non_skip, non_limit = skip, limit
+        boost_ids: list[str] = []
         if boost_map:
             boost_ids = list(boost_map)
             boosted_resp = self.supabase.table(self._table).select("*").in_("id", boost_ids).execute()
@@ -605,9 +606,11 @@ class PropertyService(BaseService):
                 non_skip, non_limit = skip - len(boosted_rows), limit
 
         if non_limit > 0:
+            query = _filtered("*").order("created_at", desc=True)
+            if boost_ids:
+                query = query.not_.in_("id", boost_ids)
             page_resp = (
-                _filtered("*")
-                .order("created_at", desc=True)
+                query
                 .range(non_skip, non_skip + non_limit - 1)
                 .execute()
             )
