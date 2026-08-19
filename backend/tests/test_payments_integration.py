@@ -21,6 +21,38 @@ def owner_client(client):
     return client
 
 
+class TestPaymentFilters:
+    def test_list_payments_filtered_by_lease(self, owner_client: TestClient):
+        resp = owner_client.get(f"/payments?lease_id={PID_LEASE}")
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        assert items
+        assert all(str(i["lease_id"]) == PID_LEASE for i in items)
+
+    def test_list_payments_filtered_by_tenant(self, owner_client: TestClient):
+        resp = owner_client.get(f"/payments?tenant_id={PID_TENANT}")
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        assert items
+        assert all(str(i["tenant_id"]) == PID_TENANT for i in items)
+
+    def test_list_payments_unknown_lease_404(self, owner_client: TestClient):
+        resp = owner_client.get("/payments?lease_id=00000000-0000-0000-0000-00000000ffff")
+        assert resp.status_code == 404
+
+    def test_list_payments_foreign_lease_403(self, client: TestClient):
+        from dependencies import CurrentUser
+        stranger = CurrentUser(
+            id="00000000-0000-0000-0000-000000000099",
+            email="stranger@test.com",
+            role="house_manager",
+            status="active",
+        )
+        app.dependency_overrides[get_current_user] = lambda: stranger
+        resp = client.get(f"/payments?lease_id={PID_LEASE}")
+        assert resp.status_code == 403
+
+
 class TestPaymentLifecycle:
     def test_full_create_and_retrieve(self, owner_client: TestClient):
         resp = owner_client.post("/payments", json={

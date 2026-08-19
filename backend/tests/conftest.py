@@ -468,10 +468,14 @@ class MockTableBuilder:
 class MockSupabaseClient:
     def __init__(self, seeds=None):
         self._seeds = seeds or {}
-        # Each test starts a fresh "database"; drop the process-wide Pesapal
-        # reconcile cooldown so a prior test can't suppress this one's lookups.
+        # Each test starts a fresh "database"; drop process-wide caches so a
+        # prior test's reads can't leak stale rows into this one.
         from routers.payments import _reset_reconcile_cooldowns
+        from services.boost import reset_packages_cache
+        from services.subscriptions import reset_plans_cache
         _reset_reconcile_cooldowns()
+        reset_packages_cache()
+        reset_plans_cache()
 
     def table(self, name):
         return MockTableBuilder(name, self._seeds)

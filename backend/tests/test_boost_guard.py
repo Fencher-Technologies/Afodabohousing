@@ -59,6 +59,11 @@ class FakeSupabase:
 
     def seed(self, name, rows):
         self.table(name)._rows = rows
+        if name in ("subscription_plans", "boost_packages"):
+            from services.boost import reset_packages_cache
+            from services.subscriptions import reset_plans_cache
+            reset_plans_cache()
+            reset_packages_cache()
 
 
 def make_pending_boost():

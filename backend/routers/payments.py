@@ -140,19 +140,48 @@ def _enrich_payments(supabase: Client, payments: list[dict]) -> list[dict]:
 def list_payments(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    lease_id: UUID | None = Query(None, description="Scope to one lease's payments"),
+    tenant_id: UUID | None = Query(None, description="Scope to one tenant's payments"),
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
     service: PaymentService = Depends(get_payment_svc),
 ) -> PaginatedResponse:
-    tenant = (
+    caller_tenant = (
         supabase
         .table("tenants")
         .select("id")
-        .eq("user_id", current_user.id)
+        .eq("user_id", str(current_user.id))
         .execute()
     )
-    if tenant.data:
-        payments, total = service.get_all_for_tenant(tenant.data[0]["id"], skip, limit)
+    caller_tenant_id = caller_tenant.data[0]["id"] if caller_tenant.data else None
+
+    if lease_id:
+        lease = supabase.table("leases").select("owner_id, tenant_id").eq("id", str(lease_id)).execute()
+        if not lease.data:
+            raise HTTPException(status_code=404, detail="Lease not found")
+        l = lease.data[0]
+        if caller_tenant_id and str(l.get("tenant_id")) != str(caller_tenant_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+        if not caller_tenant_id and str(l.get("owner_id")) != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Access denied")
+        payments, total = service.get_all_for_lease(lease_id, skip, limit)
+    elif tenant_id:
+        if caller_tenant_id and str(tenant_id) != str(caller_tenant_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+        if not caller_tenant_id:
+            owned = (
+                supabase.table("leases")
+                .select("id")
+                .eq("owner_id", str(current_user.id))
+                .in_("tenant_id", [str(tenant_id)])
+                .limit(1)
+                .execute()
+            )
+            if not owned.data:
+                raise HTTPException(status_code=403, detail="Access denied")
+        payments, total = service.get_all_for_tenant(tenant_id, skip, limit)
+    elif caller_tenant_id:
+        payments, total = service.get_all_for_tenant(caller_tenant_id, skip, limit)
     else:
         payments, total = service.get_all(current_user.id, skip, limit)
     return PaginatedResponse(

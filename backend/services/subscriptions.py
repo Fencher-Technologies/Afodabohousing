@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 
 from supabase import Client
@@ -10,6 +11,27 @@ from models.subscription import (
 
 logger = logging.getLogger(__name__)
 
+# Plans are low-churn reference rows queried on every guard/initiate/current-sub
+# call. Cache them briefly; the only writes are direct DB edits, and 60s of
+# staleness is invisible for pricing display.
+_PLANS_TTL = 60.0
+_plans_cache: dict[str, object] = {"at": 0.0, "data": []}
+
+
+def _all_plans(supabase: Client) -> list[dict]:
+    now = time.monotonic()
+    if _plans_cache["data"] and now - _plans_cache["at"] < _PLANS_TTL:
+        return _plans_cache["data"]
+    result = supabase.table("subscription_plans").select("*").execute()
+    _plans_cache["data"] = result.data or []
+    _plans_cache["at"] = now
+    return _plans_cache["data"]
+
+
+def reset_plans_cache() -> None:
+    _plans_cache["data"] = []
+    _plans_cache["at"] = 0.0
+
 
 def get_subscription_service(supabase: Client) -> "SubscriptionService":
     return SubscriptionService(supabase)
@@ -20,24 +42,15 @@ class SubscriptionService:
         self.supabase = supabase
 
     def get_active_plans(self) -> list[SubscriptionPlanResponse]:
-        result = (
-            self.supabase.table("subscription_plans")
-            .select("*")
-            .eq("is_active", True)
-            .order("sort_order")
-            .execute()
-        )
-        return [SubscriptionPlanResponse(**row) for row in result.data]
+        rows = [r for r in _all_plans(self.supabase) if r.get("is_active") is True]
+        rows.sort(key=lambda r: r.get("sort_order") or 0)
+        return [SubscriptionPlanResponse(**row) for row in rows]
 
     def get_plan(self, plan_id: str) -> dict | None:
-        result = (
-            self.supabase.table("subscription_plans")
-            .select("*")
-            .eq("id", plan_id)
-            .limit(1)
-            .execute()
-        )
-        return result.data[0] if result.data else None
+        for row in _all_plans(self.supabase):
+            if str(row.get("id")) == str(plan_id):
+                return row
+        return None
 
     def get_current_subscription(self, manager_id: str) -> ManagerSubscriptionResponse | None:
         result = (

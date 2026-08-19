@@ -1286,6 +1286,26 @@ class PaymentService(BaseService):
         return response.data or [], total
 
     @with_retry
+    def get_all_for_lease(
+        self, lease_id: UUID, skip: int = 0, limit: int = 100
+    ) -> tuple[list[dict[str, Any]], int]:
+        count_resp = (
+            self.supabase.table(self._table)
+            .select("*", count="exact")
+            .eq("lease_id", str(lease_id))
+            .execute()
+        )
+        total = count_resp.count if hasattr(count_resp, "count") else 0
+        response = (
+            self.table.select("*")
+            .eq("lease_id", str(lease_id))
+            .order("created_at", desc=True)
+            .range(skip, skip + limit - 1)
+            .execute()
+        )
+        return response.data or [], total
+
+    @with_retry
     def get_overdue(
         self, owner_id: UUID, skip: int = 0, limit: int = 100
     ) -> tuple[list[dict[str, Any]], int]:

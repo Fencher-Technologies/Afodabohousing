@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -10,29 +11,39 @@ from services.base import BaseService, with_retry
 
 logger = logging.getLogger(__name__)
 
+# Same story as subscription plans: boost packages are tiny reference rows read
+# on every initiate/confirm/price-guard call. 60s TTL keeps pricing reads cheap.
+_PACKAGES_TTL = 60.0
+_packages_cache: dict[str, object] = {"at": 0.0, "data": []}
+
+
+def _all_packages(supabase: Client) -> list[dict]:
+    now = time.monotonic()
+    if _packages_cache["data"] and now - _packages_cache["at"] < _PACKAGES_TTL:
+        return _packages_cache["data"]
+    result = supabase.table("boost_packages").select("*").execute()
+    _packages_cache["data"] = result.data or []
+    _packages_cache["at"] = now
+    return _packages_cache["data"]
+
+
+def reset_packages_cache() -> None:
+    _packages_cache["data"] = []
+    _packages_cache["at"] = 0.0
+
 def get_boost_packages(supabase: Client) -> list[dict]:
     """Return active boost packages from the database, ordered for display."""
-    result = (
-        supabase.table("boost_packages")
-        .select("*")
-        .eq("is_active", True)
-        .order("sort_order")
-        .execute()
-    )
-    return result.data or []
+    rows = [r for r in _all_packages(supabase) if r.get("is_active") is True]
+    rows.sort(key=lambda r: r.get("sort_order") or 0)
+    return rows
 
 
 def get_boost_package(supabase: Client, duration_days: int) -> dict | None:
     """Return the active package matching a duration, or None if it does not exist."""
-    result = (
-        supabase.table("boost_packages")
-        .select("*")
-        .eq("days", duration_days)
-        .eq("is_active", True)
-        .limit(1)
-        .execute()
-    )
-    return result.data[0] if result.data else None
+    for row in _all_packages(supabase):
+        if row.get("days") == duration_days and row.get("is_active") is True:
+            return row
+    return None
 
 
 def calculate_boost_price(supabase: Client, duration_days: int) -> Decimal:
