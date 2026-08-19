@@ -106,7 +106,7 @@ export default function HomePage() {
 
       {/* HERO */}
       <section className="relative min-h-[660px] flex items-center justify-center">
-        <img src={heroBg} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <img src={heroBg} alt="" fetchPriority="high" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 gradient-hero" />
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto pt-8 md:pt-0">
           <Badge className="bg-accent text-accent-foreground mb-4 text-xs font-semibold tracking-widest uppercase px-3 py-1.5 whitespace-normal text-center leading-snug max-w-xs sm:max-w-none mx-auto block sm:inline-block">

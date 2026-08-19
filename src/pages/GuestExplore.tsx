@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/select';
 import Footer from '@/components/Footer';
 import { Search, SlidersHorizontal, RotateCcw, Compass, MapPin } from 'lucide-react';
+import { usePropertyBookmarks } from '@/hooks/usePropertyBookmarks';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -71,13 +72,22 @@ export default function GuestExplore() {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Debounce price inputs so typing doesn't fire a request per keystroke.
+  const [debouncedPrice, setDebouncedPrice] = useState({ min: minPrice, max: maxPrice });
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedPrice({ min: minPrice, max: maxPrice }), 400);
+    return () => clearTimeout(t);
+  }, [minPrice, maxPrice]);
+
+  const { bookmarks, toggle } = usePropertyBookmarks(properties.map(p => p.id));
+
   // backend-side filters → API params
   const apiParams = useMemo(() => ({
     state: district || undefined,
     property_type: propertyType || undefined,
-    min_price: minPrice ? Number(minPrice) : undefined,
-    max_price: maxPrice ? Number(maxPrice) : undefined,
-  }), [district, propertyType, minPrice, maxPrice]);
+    min_price: debouncedPrice.min ? Number(debouncedPrice.min) : undefined,
+    max_price: debouncedPrice.max ? Number(debouncedPrice.max) : undefined,
+  }), [district, propertyType, debouncedPrice.min, debouncedPrice.max]);
 
   const fetchProperties = useCallback(async () => {
     setLoading(true);
@@ -354,7 +364,7 @@ export default function GuestExplore() {
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-            {filtered.map((p, i) => <PropertyCard key={p.id} property={p} index={i} />)}
+            {filtered.map((p, i) => <PropertyCard key={p.id} property={p} index={i} bookmarks={bookmarks} onToggleBookmark={toggle} />)}
           </div>
         )}
       </div>

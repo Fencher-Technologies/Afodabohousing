@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Search, SlidersHorizontal, MapPin } from 'lucide-react';
 import Footer from '@/components/Footer';
+import { usePropertyBookmarks } from '@/hooks/usePropertyBookmarks';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -37,9 +38,20 @@ export default function PropertiesPage() {
   const [maxPrice, setMaxPrice] = useState(searchParams.get('max') || '');
   const [stateInput, setStateInput] = useState(state);
 
+  // Debounce the numeric price inputs so typing "150000" fires one request,
+  // not six.
+  const [priceFilters, setPriceFilters] = useState({ min: minPrice, max: maxPrice });
+  useEffect(() => {
+    const t = setTimeout(() => setPriceFilters({ min: minPrice, max: maxPrice }), 400);
+    return () => clearTimeout(t);
+  }, [minPrice, maxPrice]);
+
   useEffect(() => {
     fetchProperties();
-  }, [state, propType, period, minPrice, maxPrice]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, propType, period, priceFilters.min, priceFilters.max]);
+
+  const { bookmarks, toggle } = usePropertyBookmarks(properties.map(p => p.id));
 
   const fetchProperties = async () => {
     setLoading(true);
@@ -47,8 +59,8 @@ export default function PropertiesPage() {
     if (state) params.set('state', state);
     if (propType !== 'all') params.set('property_type', propType);
     if (period !== 'all') params.set('rent_period', period);
-    if (minPrice) params.set('min_price', minPrice);
-    if (maxPrice) params.set('max_price', maxPrice);
+    if (priceFilters.min) params.set('min_price', priceFilters.min);
+    if (priceFilters.max) params.set('max_price', priceFilters.max);
     params.set('limit', '50');
 
     try {
@@ -196,7 +208,7 @@ export default function PropertiesPage() {
               </div>
             ) : properties.length > 0 ? (
               <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {properties.map((p, i) => <PropertyCard key={p.id} property={p} index={i} />)}
+                {properties.map((p, i) => <PropertyCard key={p.id} property={p} index={i} bookmarks={bookmarks} onToggleBookmark={toggle} />)}
               </div>
             ) : (
               <div className="text-center py-20 text-muted-foreground">

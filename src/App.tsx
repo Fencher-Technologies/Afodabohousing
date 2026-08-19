@@ -5,65 +5,66 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "next-themes";
-import { Component, ErrorInfo, ReactNode } from "react";
+import { Component, ErrorInfo, ReactNode, Suspense, lazy } from "react";
 import { usePageViewTracking } from "@/services/tracking";
-import Index from "./pages/Index";
-import LoginPage from "./pages/Login";
-import RegisterPage from "./pages/Register";
-import PropertiesPage from "./pages/Properties";
-import PropertyDetailPage from "./pages/PropertyDetail";
-import ManagerDashboard from "./pages/ManagerDashboard";
-import BoostPage from "./pages/BoostPage";
-import TenantDashboard from "./pages/TenantDashboard";
-import SuperAdminDashboard from "./pages/SuperAdminDashboard";
-import ManagerDetail from "./pages/ManagerDetail";
-import AcceptInvitePage from "./pages/AcceptInvite";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AboutPage from "./pages/About";
-import ContactPage from "./pages/Contact";
-import PrivacyPage from "./pages/Privacy";
-import TermsPage from "./pages/Terms";
-import ForgotPassword from "./pages/ForgotPassword";
-import ForgotPin from "./pages/ForgotPin";
-import PhoneAuth from "./pages/PhoneAuth";
-import GettingStarted from "./pages/GettingStarted";
-import PhoneOtp from "./pages/PhoneOtp";
-import PhonePinSetup from "./pages/PhonePinSetup";
-import PhoneSignin from "./pages/PhoneSignin";
-import ChangePin from "./pages/ChangePin";
-import Account from "./pages/Account";
-import EditProfile from "./pages/EditProfile";
-import ChangePassword from "./pages/ChangePassword";
-import ManagerTenancies from "./pages/ManagerTenancies";
-import ManagerCreateTenancy from "./pages/ManagerCreateTenancy";
-import ManagerTenancyDetail from "./pages/ManagerTenancyDetail";
-import ManagerEditTenancy from "./pages/ManagerEditTenancy";
-import ManagerReports from "./pages/ManagerReports";
-import TenantPayments from "./pages/TenantPayments";
-import TenantPaymentDetail from "./pages/TenantPaymentDetail";
-import ManagerSubscription from "./pages/ManagerSubscription";
-import PaymentStatus from "./pages/PaymentStatus";
-import AgreementView from "./pages/AgreementView";
-import AgreementHistory from "./pages/AgreementHistory";
-import Notifications from "./pages/Notifications";
-import CreateProperty from "./pages/CreateProperty";
-import EditProperty from "./pages/EditProperty";
-import TenantBrowse from "./pages/TenantBrowse";
-import Onboarding from "./pages/Onboarding";
-import NotFound from "./pages/NotFound";
-import ManagerPaymentVerifications from "./pages/ManagerPaymentVerifications";
-import ManagerPaymentDetail from "./pages/ManagerPaymentDetail";
-import ManagerCreateAgreement from "./pages/ManagerCreateAgreement";
-import TenantSubmitPayment from "./pages/TenantSubmitPayment";
-import GuestExplore from "./pages/GuestExplore";
-import ManagerProperties from "./pages/ManagerProperties";
-import ManagerPaymentHistory from "./pages/ManagerPaymentHistory";
-import TenantMyTenancy from "./pages/TenantMyTenancy";
-import ManagerTenantDetail from "./pages/ManagerTenantDetail";
-import AgreementPreview from "./pages/AgreementPreview";
-import AgreementSummary from "./pages/AgreementSummary";
 import DashboardLayout from "./components/DashboardLayout";
 import MobileAppBanner from "./components/MobileAppBanner";
+
+const Index = lazy(() => import("./pages/Index"));
+const LoginPage = lazy(() => import("./pages/Login"));
+const RegisterPage = lazy(() => import("./pages/Register"));
+const PropertiesPage = lazy(() => import("./pages/Properties"));
+const PropertyDetailPage = lazy(() => import("./pages/PropertyDetail"));
+const ManagerDashboard = lazy(() => import("./pages/ManagerDashboard"));
+const BoostPage = lazy(() => import("./pages/BoostPage"));
+const TenantDashboard = lazy(() => import("./pages/TenantDashboard"));
+const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
+const ManagerDetail = lazy(() => import("./pages/ManagerDetail"));
+const AcceptInvitePage = lazy(() => import("./pages/AcceptInvite"));
+const AboutPage = lazy(() => import("./pages/About"));
+const ContactPage = lazy(() => import("./pages/Contact"));
+const PrivacyPage = lazy(() => import("./pages/Privacy"));
+const TermsPage = lazy(() => import("./pages/Terms"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ForgotPin = lazy(() => import("./pages/ForgotPin"));
+const PhoneAuth = lazy(() => import("./pages/PhoneAuth"));
+const GettingStarted = lazy(() => import("./pages/GettingStarted"));
+const PhoneOtp = lazy(() => import("./pages/PhoneOtp"));
+const PhonePinSetup = lazy(() => import("./pages/PhonePinSetup"));
+const PhoneSignin = lazy(() => import("./pages/PhoneSignin"));
+const ChangePin = lazy(() => import("./pages/ChangePin"));
+const Account = lazy(() => import("./pages/Account"));
+const EditProfile = lazy(() => import("./pages/EditProfile"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const ManagerTenancies = lazy(() => import("./pages/ManagerTenancies"));
+const ManagerCreateTenancy = lazy(() => import("./pages/ManagerCreateTenancy"));
+const ManagerTenancyDetail = lazy(() => import("./pages/ManagerTenancyDetail"));
+const ManagerEditTenancy = lazy(() => import("./pages/ManagerEditTenancy"));
+const ManagerReports = lazy(() => import("./pages/ManagerReports"));
+const TenantPayments = lazy(() => import("./pages/TenantPayments"));
+const TenantPaymentDetail = lazy(() => import("./pages/TenantPaymentDetail"));
+const ManagerSubscription = lazy(() => import("./pages/ManagerSubscription"));
+const PaymentStatus = lazy(() => import("./pages/PaymentStatus"));
+const AgreementView = lazy(() => import("./pages/AgreementView"));
+const AgreementHistory = lazy(() => import("./pages/AgreementHistory"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const CreateProperty = lazy(() => import("./pages/CreateProperty"));
+const EditProperty = lazy(() => import("./pages/EditProperty"));
+const TenantBrowse = lazy(() => import("./pages/TenantBrowse"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const ManagerPaymentVerifications = lazy(() => import("./pages/ManagerPaymentVerifications"));
+const ManagerPaymentDetail = lazy(() => import("./pages/ManagerPaymentDetail"));
+const ManagerCreateAgreement = lazy(() => import("./pages/ManagerCreateAgreement"));
+const TenantSubmitPayment = lazy(() => import("./pages/TenantSubmitPayment"));
+const GuestExplore = lazy(() => import("./pages/GuestExplore"));
+const ManagerProperties = lazy(() => import("./pages/ManagerProperties"));
+const ManagerPaymentHistory = lazy(() => import("./pages/ManagerPaymentHistory"));
+const TenantMyTenancy = lazy(() => import("./pages/TenantMyTenancy"));
+const ManagerTenantDetail = lazy(() => import("./pages/ManagerTenantDetail"));
+const AgreementPreview = lazy(() => import("./pages/AgreementPreview"));
+const AgreementSummary = lazy(() => import("./pages/AgreementSummary"));
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -92,6 +93,14 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 
 function PageViewTracker() { usePageViewTracking(); return null; }
 
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -104,6 +113,7 @@ const App = () => (
         <BrowserRouter>
           <PageViewTracker />
           <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}>
             <Routes>
               {/* Public routes (no sidebar) */}
               <Route path="/" element={<Index />} />
@@ -170,6 +180,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
             <MobileAppBanner />
           </ErrorBoundary>
         </BrowserRouter>

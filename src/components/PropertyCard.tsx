@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Bed, Bath, Sofa, Sparkles, Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Database } from '@/integrations/supabase/types';
 import { isPropertyBoosted } from '@/services/property-boosts';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,31 +39,35 @@ function formatUGX(amount: number) {
 interface PropertyCardProps {
   property: Property;
   index?: number;
+  /** Pre-batched bookmark set for this page's list; when provided, no per-card query runs. */
+  bookmarks?: Set<string>;
+  onToggleBookmark?: (propertyId: string, next: boolean) => void;
 }
 
-function PropertyCard({ property, index = 0 }: PropertyCardProps) {
+function PropertyCard({ property, index = 0, bookmarks, onToggleBookmark }: PropertyCardProps) {
   const imageUrl = property.images?.[0] || fallbackImages[index % 3];
   const isBoosted = isPropertyBoosted(property);
   const { user } = useAuth();
   const [bookmarked, setBookmarked] = useState(false);
   const [toggling, setToggling] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    supabase.from('property_bookmarks').select('id').eq('user_id', user.id).eq('property_id', property.id).maybeSingle().then(({ data }) => setBookmarked(!!data));
-  }, [user, property.id]);
+  const isBookmarked = bookmarks ? bookmarks.has(property.id) : bookmarked;
 
   const toggleBookmark = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!user || toggling) return;
     setToggling(true);
-    if (bookmarked) {
-      await supabase.from('property_bookmarks').delete().eq('user_id', user.id).eq('property_id', property.id);
+    if (onToggleBookmark) {
+      await onToggleBookmark(property.id, !isBookmarked);
     } else {
-      await supabase.from('property_bookmarks').insert({ user_id: user.id, property_id: property.id });
+      if (isBookmarked) {
+        await supabase.from('property_bookmarks').delete().eq('user_id', user.id).eq('property_id', property.id);
+      } else {
+        await supabase.from('property_bookmarks').insert({ user_id: user.id, property_id: property.id });
+      }
+      setBookmarked(!isBookmarked);
     }
-    setBookmarked(!bookmarked);
     setToggling(false);
   };
 
@@ -96,7 +99,7 @@ function PropertyCard({ property, index = 0 }: PropertyCardProps) {
           <div className="absolute top-3 right-3 flex flex-col gap-2 items-end">
             {user && (
               <button onClick={toggleBookmark} className="h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center transition-colors">
-                <Heart className={`h-4 w-4 ${bookmarked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+                <Heart className={`h-4 w-4 ${isBookmarked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
               </button>
             )}
             <Badge
