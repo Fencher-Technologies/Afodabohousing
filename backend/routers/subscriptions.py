@@ -1,4 +1,5 @@
 import logging
+import time
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,8 +18,10 @@ from models.subscription import (
 )
 from phone import normalize_phone
 from services.pesapal import (
+    PESAPAL_STATUS_MAP,
     get_auth_token,
     get_ipn_id,
+    get_transaction_status,
     submit_order,
 )
 from services.subscriptions import SubscriptionService, get_subscription_service
@@ -26,6 +29,9 @@ from services.subscriptions import SubscriptionService, get_subscription_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
+
+_SUB_RECONCILE_COOLDOWN = 60.0
+_sub_reconcile_checked_at: dict[str, float] = {}
 
 
 def get_sub_svc() -> SubscriptionService:
@@ -43,7 +49,7 @@ def list_plans(
 
 
 @router.get("/current", response_model=ManagerSubscriptionResponse | None)
-def get_current_subscription(
+async def get_current_subscription(
     current_user: CurrentUser = Depends(require_active_user),
     service: SubscriptionService = Depends(get_sub_svc),
     supabase: Client = Depends(get_service_client),
@@ -57,7 +63,41 @@ def get_current_subscription(
         pass
     if role not in ("house_manager", "super_admin"):
         return None
-    return service.get_current_subscription(current_user.id)
+
+    sub = service.get_current_subscription_raw(current_user.id)
+
+    # If the subscription is pending and has a tracking ID, reconcile against
+    # Pesapal so a missed IPN doesn't strand the user in "pending" forever.
+    if sub and sub.get("status") == "pending" and sub.get("pesapal_tracking_id"):
+        sub_id = sub["id"]
+        now = time.monotonic()
+        last = _sub_reconcile_checked_at.get(sub_id)
+        if last is None or now - last >= _SUB_RECONCILE_COOLDOWN:
+            _sub_reconcile_checked_at[sub_id] = now
+            try:
+                token = await get_auth_token()
+                status_data = await get_transaction_status(token, sub["pesapal_tracking_id"])
+                ps = PESAPAL_STATUS_MAP.get(
+                    (status_data.get("payment_status_description") or "").upper(),
+                    "pending",
+                )
+                if ps == "completed":
+                    service.confirm_subscription(sub["payment_reference"], status_data.get("amount"))
+                    sub = service.get_current_subscription_raw(current_user.id)
+                elif ps == "failed":
+                    from datetime import datetime, timezone
+                    supabase.table("manager_subscriptions").update(
+                        {"status": "failed", "payment_status": "failed",
+                         "updated_at": datetime.now(timezone.utc).isoformat()}
+                    ).eq("id", sub_id).eq("status", "pending").execute()
+                    sub = service.get_current_subscription_raw(current_user.id)
+            except Exception as e:
+                logger.warning("Subscription reconcile failed for %s: %s", sub_id, e)
+
+    if sub is None:
+        return None
+
+    return service.to_response(sub)
 
 
 @router.post("/create", response_model=SubscriptionCreateResponse)
@@ -164,6 +204,12 @@ async def create_subscription(
         supabase.table("manager_subscriptions").update(
             {"pesapal_tracking_id": tracking_id}
         ).eq("id", subscription_id).execute()
+    else:
+        logger.warning(
+            "Pesapal submit_order for subscription %s (ref=%s) returned no order_tracking_id; "
+            "reconciliation will not be possible if IPN is missed. response=%s",
+            subscription_id, reference, pay_resp,
+        )
     if not redirect_url:
         error_msg = pay_resp.get("error", {}).get("message") or str(pay_resp)
         logger.error("Pesapal order submission response missing redirect_url for subscription %s: %s", subscription_id, error_msg)

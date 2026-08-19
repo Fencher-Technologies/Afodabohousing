@@ -6,12 +6,12 @@ import { Crown, ShieldCheck, CheckCircle, XCircle, Loader2, X } from "lucide-rea
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { API_BASE_URL } from "@/constants/config";
+import { api } from "@/src/lib/api-client";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
 import { Button } from "@/src/components/Button";
 import { PageHeader } from "@/src/components/PageHeader";
 import { useSubscriptionPlans, useCreateSubscription } from "@/src/hooks/useSubscriptions";
-import { subscriptionsService } from "@/src/services/subscriptions";
 
 const POLL_INTERVAL_MS = 5000;
 const POLL_TIMEOUT_MS = 120000;
@@ -30,6 +30,7 @@ export default function SubscriptionPaymentScreen() {
   const webViewRef = useRef<any>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paymentRefRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -49,17 +50,20 @@ export default function SubscriptionPaymentScreen() {
     }
   };
 
-  const startPolling = () => {
-    // One active poll loop at a time — a second call (WebView callback,
-    // retry, or close-then-reopen) must first kill the previous timer.
+  const startPolling = (ref: string) => {
     stopPolling();
     pollTimerRef.current = setInterval(async () => {
       try {
-        const current = await subscriptionsService.getCurrent();
-        if (current?.status === "active") {
+        const res = await api.get<{ status: string; payment_status?: string }>(
+          `/payments/pesapal/status?reference=${encodeURIComponent(ref)}`
+        );
+        if (res.status === "active" || res.status === "completed" || res.payment_status === "completed") {
           stopPolling();
           setStatus("success");
           setTimeout(() => router.replace("/subscription"), 2000);
+        } else if (res.status === "failed" || res.status === "cancelled" || res.status === "expired") {
+          stopPolling();
+          setStatus("failed");
         }
       } catch {
         // poll silently
@@ -76,6 +80,7 @@ export default function SubscriptionPaymentScreen() {
     setStatus("processing");
     try {
       const result = await createSubscription.mutateAsync({ plan_id: plan, callback_url: API_BASE_URL });
+      paymentRefRef.current = result.payment_reference;
       if (result.redirect_url) {
         setResponseMessage(result.message || "Complete your payment in the Pesapal window.");
         setPaymentUrl(result.redirect_url);
@@ -83,7 +88,7 @@ export default function SubscriptionPaymentScreen() {
       } else {
         setResponseMessage(result.message || "Check your phone for the payment prompt.");
         setStatus("waiting_payment");
-        startPolling();
+        startPolling(result.payment_reference);
       }
     } catch (e) {
       const msg =
@@ -93,7 +98,7 @@ export default function SubscriptionPaymentScreen() {
       if (msg.toLowerCase().includes("already have a pending payment")) {
         setResponseMessage(msg);
         setStatus("waiting_payment");
-        startPolling();
+        startPolling(paymentRefRef.current || "");
       } else {
         setResponseMessage(msg);
         setStatus("failed");
@@ -110,13 +115,14 @@ export default function SubscriptionPaymentScreen() {
 
   const handleNavigationStateChange = (navState: any) => {
     const url = navState.url || "";
-    // Detect when Pesapal redirects back to our callback URL
     if (url.startsWith(API_BASE_URL) && url.includes("/payment/status")) {
       webViewRef.current?.stopLoading();
       setPaymentUrl(null);
       setPaymentComplete(true);
       setStatus("waiting_payment");
-      startPolling();
+      if (paymentRefRef.current) {
+        startPolling(paymentRefRef.current);
+      }
     }
   };
 
@@ -216,7 +222,7 @@ export default function SubscriptionPaymentScreen() {
             If you completed the payment, please check again — it may take a moment.
           </Text>
           <View style={{ height: Spacing.lg }} />
-          <Button label="Check Status" onPress={() => { setStatus("waiting_payment"); startPolling(); }} fullWidth size="lg" tone="primary" />
+          <Button label="Check Status" onPress={() => { setStatus("waiting_payment"); if (paymentRefRef.current) startPolling(paymentRefRef.current); }} fullWidth size="lg" tone="primary" />
           <View style={{ height: Spacing.sm }} />
           <Button label="Try Again" onPress={() => setStatus("idle")} fullWidth size="lg" />
         </View>

@@ -53,6 +53,12 @@ class SubscriptionService:
         return None
 
     def get_current_subscription(self, manager_id: str) -> ManagerSubscriptionResponse | None:
+        raw = self.get_current_subscription_raw(manager_id)
+        if raw is None:
+            return None
+        return self.to_response(raw)
+
+    def get_current_subscription_raw(self, manager_id: str) -> dict | None:
         result = (
             self.supabase.table("manager_subscriptions")
             .select("*")
@@ -63,8 +69,9 @@ class SubscriptionService:
         )
         if not result.data:
             return None
+        return result.data[0]
 
-        sub = result.data[0]
+    def to_response(self, sub: dict) -> ManagerSubscriptionResponse:
         plan = self.get_plan(sub["plan_id"])
         plan_name = plan["name"] if plan else sub["plan_id"]
 
@@ -81,12 +88,12 @@ class SubscriptionService:
             except (TypeError, ValueError):
                 expires_dt = None
 
-        status = sub["status"]
-        if status == "active" and expires_dt and expires_dt <= now:
-            status = "expired"
+        st = sub["status"]
+        if st == "active" and expires_dt and expires_dt <= now:
+            st = "expired"
 
         days_remaining = 0
-        if status == "active" and expires_dt:
+        if st == "active" and expires_dt:
             remaining = expires_dt - now
             days_remaining = max(0, remaining.days)
 
@@ -95,7 +102,7 @@ class SubscriptionService:
             manager_id=str(sub["manager_id"]),
             plan_id=sub["plan_id"],
             plan_name=plan_name,
-            status=status,
+            status=st,
             started_at=sub.get("started_at"),
             expires_at=sub.get("expires_at"),
             auto_renew=sub.get("auto_renew", True),
