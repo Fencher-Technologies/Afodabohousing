@@ -1,6 +1,6 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, Text, View, FlatList, Pressable } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { Plus, Building2, Home, CheckCircle2, XCircle } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -19,12 +19,6 @@ export default function ManagerPropertiesScreen() {
   const [statusFilter, setStatusFilter] = useState<"all" | "available" | "occupied" | "inactive">("all");
   const { data, isLoading, error, refetch } = usePropertyList();
   const { refreshing, onRefresh } = useRefresh({ refetches: [refetch] });
-
-  useFocusEffect(
-    useCallback(() => {
-      refetch();
-    }, [refetch])
-  );
 
   const properties = data?.items ?? [];
 

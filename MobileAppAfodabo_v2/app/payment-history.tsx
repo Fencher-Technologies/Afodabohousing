@@ -19,7 +19,7 @@ import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
 export default function PaymentHistoryScreen() {
   const { id, tenancyId } = useLocalSearchParams<{ id: string; tenancyId: string }>();
   const leaseId = id || tenancyId || "";
-  const { data, isLoading, refetch } = usePaymentList();
+  const { data, isLoading, refetch } = usePaymentList(leaseId ? { leaseId } : {});
   const deletePayment = useDeletePayment();
   const { user, subscription } = useAuth();
   const isManager = user?.role === "manager";
@@ -29,7 +29,8 @@ export default function PaymentHistoryScreen() {
   const [showGate, setShowGate] = useState(false);
 
   const payments = useMemo(() => {
-    if (!data?.items || !leaseId) return [];
+    // Backend already filters by lease_id; the guard is a safety net only.
+    if (!data?.items) return [];
     return data.items.filter((p) => p.lease_id === leaseId);
   }, [data, leaseId]);
 

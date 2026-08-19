@@ -3,8 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { propertiesService } from "../services/properties";
 import { tenanciesService } from "../services/tenancies";
 import { paymentsService } from "../services/payments";
+import type { Tenancy } from "../types";
 
-interface DashboardStats {
+export interface DashboardStats {
   total_properties: number;
   total_tenancies: number;
   active_tenants: number;
@@ -17,7 +18,7 @@ interface DashboardStats {
 export function useDashboardStats() {
   return useQuery({
     queryKey: ["dashboard"],
-    queryFn: async (): Promise<DashboardStats> => {
+    queryFn: async () => {
       const [propertiesRes, tenanciesRes, paymentsRes] = await Promise.all([
         propertiesService.list(0, 1),
         tenanciesService.list(0, 100),
@@ -45,7 +46,7 @@ export function useDashboardStats() {
         .reduce((sum, p) => sum + Number(p.amount), 0);
       const totalCollected = confirmedPayments.reduce((sum, p) => sum + Number(p.amount), 0);
 
-      return {
+      const stats: DashboardStats = {
         total_properties: propertiesRes.total,
         total_tenancies: tenanciesRes.total,
         active_tenants: activeTenants,
@@ -54,6 +55,9 @@ export function useDashboardStats() {
         collected_total: totalCollected,
         pending_review_count: 0,
       };
+      // The full tenancy list rides along so the home screen doesn't fetch the
+      // same 100-row payload a second time for its "needs attention" list.
+      return { stats, tenancies: tenanciesList as Tenancy[] };
     },
     staleTime: 30_000,
   });

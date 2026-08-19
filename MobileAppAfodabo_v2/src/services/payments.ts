@@ -41,8 +41,16 @@ interface PaymentCreateData {
 }
 
 export const paymentsService = {
-  list: (skip = 0, limit = 100) =>
-    api.get<PaginatedResponse<PaymentResponse>>(`/payments?skip=${skip}&limit=${limit}`),
+  list: (
+    skip = 0,
+    limit = 100,
+    filters: { lease_id?: string; tenant_id?: string } = {}
+  ) => {
+    const params = new URLSearchParams({ skip: String(skip), limit: String(limit) });
+    if (filters.lease_id) params.set("lease_id", filters.lease_id);
+    if (filters.tenant_id) params.set("tenant_id", filters.tenant_id);
+    return api.get<PaginatedResponse<PaymentResponse>>(`/payments?${params.toString()}`);
+  },
 
   getById: (id: string) =>
     api.get<PaymentResponse>(`/payments/${id}`),

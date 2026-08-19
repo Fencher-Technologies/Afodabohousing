@@ -44,7 +44,7 @@ export default function TenancyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, subscription } = useAuth();
   const { data: lease, isLoading, refetch: refetchTenancy } = useTenancy(id || "");
-  const { data: paymentsData, refetch: refetchPayments } = usePaymentList();
+  const { data: paymentsData, refetch: refetchPayments } = usePaymentList(id ? { leaseId: id } : {});
   const { refreshing, onRefresh } = useRefresh({ refetches: [refetchTenancy, refetchPayments] });
 
   const [showGate, setShowGate] = useState(false);

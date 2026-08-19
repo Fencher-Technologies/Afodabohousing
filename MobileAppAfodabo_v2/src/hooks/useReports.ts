@@ -2,17 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 
 import { reportsService, type ReportQuery } from "../services/reports";
 
-export function useTenantsReport(query: ReportQuery = {}) {
+export function useTenantsReport(query: ReportQuery = {}, enabled = true) {
   return useQuery({
     queryKey: ["reports", "tenants", query],
     queryFn: () => reportsService.getTenantsReport(query),
+    enabled,
   });
 }
 
-export function useOutstandingReport(query: ReportQuery = {}) {
+export function useOutstandingReport(query: ReportQuery = {}, enabled = true) {
   return useQuery({
     queryKey: ["reports", "outstanding", query],
     queryFn: () => reportsService.getOutstandingReport(query),
+    enabled,
   });
 }
 
@@ -24,17 +26,19 @@ export function useTenantStatement(tenantId: string | null) {
   });
 }
 
-export function useRentCollection(query: ReportQuery = {}) {
+export function useRentCollection(query: ReportQuery = {}, enabled = true) {
   return useQuery({
     queryKey: ["reports", "rent-collection", query],
     queryFn: () => reportsService.getRentCollection(query),
+    enabled,
   });
 }
 
-export function useFinancialSummary() {
+export function useFinancialSummary(enabled = true) {
   return useQuery({
     queryKey: ["reports", "summary"],
     queryFn: () => reportsService.getSummary(),
+    enabled,
   });
 }
 
@@ -45,9 +49,10 @@ export function useDuePayments(filter: "overdue" | "due_soon" | "paid" = "overdu
   });
 }
 
-export function usePaymentHistory(query: ReportQuery = {}) {
+export function usePaymentHistory(query: ReportQuery = {}, enabled = true) {
   return useQuery({
     queryKey: ["reports", "payment-history", query],
     queryFn: () => reportsService.getPaymentHistory(query),
+    enabled,
   });
 }

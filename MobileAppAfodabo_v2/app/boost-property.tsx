@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Pressable, StyleSheet, Text, View, Alert, Linking, BackHandler } from "react-native";
+import { Pressable, StyleSheet, Text, View, Alert, Linking, BackHandler, AppState } from "react-native";
 import { WebView } from "react-native-webview";
 import { router, useLocalSearchParams } from "expo-router";
 import { Sparkles, ArrowLeft, X, Loader2 } from "lucide-react-native";
@@ -40,12 +40,33 @@ export default function BoostPropertyScreen() {
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const webViewRef = useRef<any>(null);
+  // True only while a payment is awaiting confirmation. Survives timer teardown
+  // so the AppState "active" handler can resume polling after a background pause.
+  const pollingDesiredRef = useRef(false);
 
   useEffect(() => {
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
       if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
     };
+  }, []);
+
+  // Pause status polling while the app is backgrounded; resume on foreground
+  // if we still expect confirmation.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") {
+        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+        if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+        pollTimerRef.current = null;
+        timeoutTimerRef.current = null;
+      } else if (pollingDesiredRef.current) {
+        if (boostIdRef.current) startPolling(boostIdRef.current);
+        else startPollingByProperty(propertyId);
+      }
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -63,6 +84,7 @@ export default function BoostPropertyScreen() {
   }, []);
 
   const stopPolling = () => {
+    pollingDesiredRef.current = false;
     if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
     pollTimerRef.current = null;
@@ -71,6 +93,7 @@ export default function BoostPropertyScreen() {
 
   const startPolling = (boostId: string) => {
     stopPolling();
+    pollingDesiredRef.current = true;
     pollTimerRef.current = setInterval(async () => {
       try {
         const res = await api.get<{ status: string; payment_status?: string }>(
@@ -126,6 +149,7 @@ export default function BoostPropertyScreen() {
 
   const startPollingByProperty = (pid: string) => {
     stopPolling();
+    pollingDesiredRef.current = true;
     pollTimerRef.current = setInterval(async () => {
       try {
         const res = await api.get<{ status: string; payment_status?: string }>(

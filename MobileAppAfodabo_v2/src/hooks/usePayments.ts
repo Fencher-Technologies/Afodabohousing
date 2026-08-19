@@ -3,10 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { paymentsService } from "../services/payments";
 import type { Payment } from "../types";
 
-export function usePaymentList() {
+export function usePaymentList(filters: { leaseId?: string; tenantId?: string } = {}) {
   return useQuery({
-    queryKey: ["payments"],
-    queryFn: () => paymentsService.list(),
+    queryKey: ["payments", filters],
+    queryFn: () =>
+      paymentsService.list(0, 100, {
+        lease_id: filters.leaseId,
+        tenant_id: filters.tenantId,
+      }),
   });
 }
 

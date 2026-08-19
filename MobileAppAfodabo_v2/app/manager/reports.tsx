@@ -105,11 +105,11 @@ export default function ReportsScreen() {
     [statusFilter, propertyId]
   );
 
-  const tenants = useTenantsReport(query);
-  const outstanding = useOutstandingReport(query);
-  const rent = useRentCollection(query);
-  const summary = useFinancialSummary();
-  const history = usePaymentHistory();
+  const tenants = useTenantsReport(query, tab === "tenants");
+  const outstanding = useOutstandingReport(query, tab === "outstanding");
+  const rent = useRentCollection(query, tab === "rent_collection");
+  const summary = useFinancialSummary(tab === "summary");
+  const history = usePaymentHistory({}, tab === "payment_history");
   const statement = useTenantStatement(statementTenantId);
 
   const active = {

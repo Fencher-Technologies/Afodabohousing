@@ -25,7 +25,6 @@ import { SearchInput } from "@/src/components/SearchInput";
 import { LoadingState } from "@/src/components/LoadingState";
 import { useAuth } from "@/src/context/auth-context";
 import { useDashboardStats } from "@/src/hooks/useDashboard";
-import { useTenancyList } from "@/src/hooks/useTenancies";
 import { useOwnerSubmissions } from "@/src/hooks/usePaymentVerifications";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
@@ -43,16 +42,16 @@ export default function ManagerDashboardScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
 
-  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats();
-  const { data: tenanciesData, isLoading: tenanciesLoading, refetch: refetchTenancies } = useTenancyList();
+  const { data: dashboard, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats();
+  const stats = dashboard?.stats;
+  const tenancies = dashboard?.tenancies ?? [];
   const { data: pendingVerifications, refetch: refetchVerifications } = useOwnerSubmissions("pending");
 
-  const tenancies = tenanciesData?.items || [];
   const pendingVerificationCount = pendingVerifications?.length ?? 0;
-  const isLoading = statsLoading || tenanciesLoading;
+  const isLoading = statsLoading;
 
   const { refreshing, onRefresh } = useRefresh({
-    refetches: [refetchStats, refetchTenancies, refetchVerifications],
+    refetches: [refetchStats, refetchVerifications],
   });
 
   const firstName = (user?.full_name || "").toString().trim().split(" ")[0];

@@ -1,6 +1,6 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, Text, View, Pressable, FlatList, ScrollView } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { Compass, MapPin, SlidersHorizontal, RotateCcw } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -85,12 +85,6 @@ export default function ExploreScreen() {
 
   const { data, isLoading, error, refetch } = usePublicProperties(apiParams);
   const { refreshing, onRefresh } = useRefresh({ refetches: [refetch] });
-
-  useFocusEffect(
-    useCallback(() => {
-      refetch();
-    }, [refetch]),
-  );
 
   const properties = data?.items ?? [];
 

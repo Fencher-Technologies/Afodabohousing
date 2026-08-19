@@ -38,7 +38,7 @@ export default function TenantDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: tenant, isLoading: tenantLoading, refetch: refetchTenant } = useTenant(id);
   const { data: tenanciesData, isLoading: tenanciesLoading, refetch: refetchTenancies } = useTenancyList();
-  const { data: paymentsData, isLoading: paymentsLoading, refetch: refetchPayments } = usePaymentList();
+  const { data: paymentsData, isLoading: paymentsLoading, refetch: refetchPayments } = usePaymentList(id ? { tenantId: id } : {});
   const { refreshing, onRefresh } = useRefresh({ refetches: [refetchTenant, refetchTenancies, refetchPayments] });
 
   const lease = useMemo(
@@ -60,7 +60,10 @@ export default function TenantDetailScreen() {
     };
   }, [tenant, lease, id]);
 
-  const payments = useMemo(() => (paymentsData?.items ?? []).filter((p) => p.tenant_id === id), [paymentsData, id]);
+  const payments = useMemo(() => {
+    // Backend already scopes by tenant_id for managers; the filter is a safety net.
+    return (paymentsData?.items ?? []).filter((p) => p.tenant_id === id);
+  }, [paymentsData, id]);
 
   const isLoading = tenantLoading || tenanciesLoading || paymentsLoading;
 

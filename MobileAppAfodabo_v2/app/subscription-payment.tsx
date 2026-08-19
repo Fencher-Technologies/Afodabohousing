@@ -38,13 +38,26 @@ export default function SubscriptionPaymentScreen() {
     };
   }, []);
 
+  const stopPolling = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    if (timeoutTimerRef.current) {
+      clearTimeout(timeoutTimerRef.current);
+      timeoutTimerRef.current = null;
+    }
+  };
+
   const startPolling = () => {
+    // One active poll loop at a time — a second call (WebView callback,
+    // retry, or close-then-reopen) must first kill the previous timer.
+    stopPolling();
     pollTimerRef.current = setInterval(async () => {
       try {
         const current = await subscriptionsService.getCurrent();
         if (current?.status === "active") {
-          if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-          if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+          stopPolling();
           setStatus("success");
           setTimeout(() => router.replace("/subscription"), 2000);
         }
@@ -54,7 +67,7 @@ export default function SubscriptionPaymentScreen() {
     }, POLL_INTERVAL_MS);
 
     timeoutTimerRef.current = setTimeout(() => {
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      stopPolling();
       setStatus("timeout");
     }, POLL_TIMEOUT_MS);
   };
@@ -89,6 +102,7 @@ export default function SubscriptionPaymentScreen() {
   };
 
   const handleClosePayment = () => {
+    stopPolling();
     setPaymentUrl(null);
     setPaymentComplete(false);
     setStatus("idle");
