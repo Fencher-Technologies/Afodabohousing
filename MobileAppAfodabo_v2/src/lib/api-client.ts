@@ -2,8 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { API_BASE_URL } from "../../constants/config";
 
-const STORAGE_KEY_TOKEN = "axis_access_token";
-const STORAGE_KEY_REFRESH = "axis_refresh_token";
+const STORAGE_KEY_TOKEN = "afodabo_access_token";
+const STORAGE_KEY_REFRESH = "afodabo_refresh_token";
 
 class ApiError extends Error {
   status: number;

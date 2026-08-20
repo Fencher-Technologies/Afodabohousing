@@ -7,7 +7,6 @@ import {
   Alert,
   Modal,
   TextInput,
-  Dimensions,
   TouchableOpacity,
 } from "react-native";
 import { Image } from "expo-image";
@@ -15,14 +14,11 @@ import { router } from "expo-router";
 import {
   CheckCircle,
   XCircle,
-  Clock,
-  Search,
-  ChevronRight,
   Image as ImageIcon,
   X,
 } from "lucide-react-native";
 
-import { Colors, FontSize, FontWeight, Radii, Spacing, Shadows } from "@/constants/theme";
+import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
 import { Badge } from "@/src/components/Badge";
@@ -30,6 +26,7 @@ import { Button } from "@/src/components/Button";
 import { LoadingState } from "@/src/components/LoadingState";
 import { EmptyState } from "@/src/components/EmptyState";
 import { SearchInput } from "@/src/components/SearchInput";
+import { PageHeader } from "@/src/components/PageHeader";
 import { useOwnerSubmissions, useApproveVerification, useRejectVerification } from "@/src/hooks/usePaymentVerifications";
 import { useAuth } from "@/src/context/auth-context";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
@@ -67,7 +64,6 @@ export default function PaymentVerificationScreen() {
         setShowGate(true);
         return;
       }
-      const tenantName = item.tenants?.first_name ?? "Tenant";
       Alert.alert(
         "Approve Payment",
         `This will record an official rent payment of ${formatUGX(item.amount)} and notify the tenant. It will count toward their rent coverage (paid until / days in arrears) and appear in reports, balances, and payment history.\n\nContinue?`,
@@ -125,12 +121,11 @@ export default function PaymentVerificationScreen() {
 
   return (
     <Screen scroll>
-      <View style={styles.header}>
-        <Text style={styles.title}>Payment Verification</Text>
-        <Text style={styles.subtitle}>
-          Review and approve or reject tenant payment submissions.
-        </Text>
-      </View>
+      <PageHeader
+        title="Payment Verification"
+        subtitle="Review tenant payment submissions"
+        onBack={() => router.back()}
+      />
 
       {/* Filter tabs */}
       <View style={styles.tabs}>

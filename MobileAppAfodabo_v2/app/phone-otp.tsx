@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { StyleSheet, Text, View, TextInput, Platform } from "react-native";
+import { StyleSheet, Text, View, TextInput } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
+import { FloatingBackButton } from "@/src/components/FloatingBackButton";
 import { authService } from "@/src/services/auth";
 
 const RESEND_DELAY = 30;
@@ -62,6 +64,8 @@ export default function OtpVerificationScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" backgroundColor="#1B4A38" />
+      <FloatingBackButton onPress={() => router.back()} />
       <LinearGradient colors={["#1B4A38", "#236048"]} style={styles.header}>
         <Text style={styles.appName}>Verify Code</Text>
         <Text style={styles.tagline}>Enter the code sent to {phone}</Text>

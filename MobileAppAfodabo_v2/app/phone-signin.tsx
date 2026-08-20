@@ -8,6 +8,7 @@ import { Phone, Lock } from "lucide-react-native";
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
+import { FloatingBackButton } from "@/src/components/FloatingBackButton";
 import { authService } from "@/src/services/auth";
 import { setStoredToken } from "@/src/lib/api-client";
 import { useAuth } from "@/src/context/auth-context";
@@ -45,6 +46,7 @@ export default function PhoneSignInScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" backgroundColor="#1B4A38" />
+      <FloatingBackButton onPress={() => router.back()} />
       <LinearGradient colors={["#1B4A38", "#236048"]} style={styles.header}>
         <Text style={styles.appName}>Sign in with Phone Number</Text>
         <Text style={styles.tagline}>Use your phone number and PIN</Text>

@@ -1,7 +1,7 @@
 {
   "apps": [
     {
-      "name": "Axis",
+      "name": "Afodabo Housing",
       "path": "expo",
       "framework": "react-native"
     }

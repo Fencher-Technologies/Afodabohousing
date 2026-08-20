@@ -1,5 +1,5 @@
 /**
- * Axis — Design Tokens
+ * Afodabo Housing — Design Tokens
  * Single source of truth for colors, spacing, radii, typography, shadows.
  */
 

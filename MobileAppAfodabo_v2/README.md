@@ -1,4 +1,4 @@
-# Axis Mobile App
+# Afodabo Housing Mobile App
 
 Native cross-platform mobile app built with Expo Router + React Native.
 
@@ -28,7 +28,7 @@ bun run start
 
 ## Backend Connection
 
-The mobile app connects to the Axis backend via `EXPO_PUBLIC_API_URL` in `.env`.
+The mobile app connects to the Afodabo backend via `EXPO_PUBLIC_API_URL` in `.env`.
 
 The default — and production — backend is the permanent Render deployment:
 
@@ -109,7 +109,7 @@ python backend/scripts/register_ipn.py https://YOUR_NGROK_URL/payments/webhook/p
 ## Project Structure
 
 ```
-MobileAppAfodabo_v2/ (renamed: MobileAppAxis/ in a future rename)
+MobileAppAfodabo_v2/ (renamed: MobileAppAfodabo/ in a future rename)
 ├── app/                    # App screens (Expo Router)
 │   ├── (tabs)/            # Tab navigation screens
 │   ├── boost-property.tsx # Property boost with Pesapal

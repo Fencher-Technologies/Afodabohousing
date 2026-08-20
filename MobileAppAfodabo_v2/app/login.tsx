@@ -15,6 +15,7 @@ import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { OrDivider } from "@/src/components/OrDivider";
+import { FloatingBackButton } from "@/src/components/FloatingBackButton";
 import { useAuth } from "@/src/context/auth-context";
 
 export default function LoginScreen() {
@@ -45,6 +46,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" backgroundColor="#1A2332" />
+      <FloatingBackButton onPress={() => router.back()} />
       <LinearGradient
         colors={["#1A2332", "#15202B"]}
         style={styles.header}
@@ -52,7 +54,7 @@ export default function LoginScreen() {
         <View style={styles.logoWrap}>
           <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
-        <Text style={styles.appName}>Axis</Text>
+        <Text style={styles.appName}>Afodabo</Text>
         <Text style={styles.tagline}>Housing Made Easy</Text>
       </LinearGradient>
 

@@ -7,8 +7,8 @@ import { authService } from "../services/auth";
 import { subscriptionsService } from "../services/subscriptions";
 import type { Subscription, User, UserRole } from "../types";
 
-const SESSION_KEY = "axis_session";
-const ONBOARDING_KEY = "axis_onboarding_seen";
+const SESSION_KEY = "afodabo_session";
+const ONBOARDING_KEY = "afodabo_onboarding_seen";
 
 interface AuthState {
   user: User | null;

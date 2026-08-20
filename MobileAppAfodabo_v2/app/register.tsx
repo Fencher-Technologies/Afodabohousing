@@ -16,6 +16,7 @@ import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { OrDivider } from "@/src/components/OrDivider";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
+import { FloatingBackButton } from "@/src/components/FloatingBackButton";
 import { useAuth } from "@/src/context/auth-context";
 import type { UserRole } from "@/src/types";
 
@@ -59,12 +60,13 @@ export default function RegisterScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" backgroundColor="#1A2332" />
+      <FloatingBackButton onPress={() => router.back()} />
       <LinearGradient colors={["#1A2332", "#15202B"]} style={styles.header}>
         <View style={styles.logoWrap}>
           <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
         <Text style={styles.appName}>Create Account</Text>
-        <Text style={styles.tagline}>Join Axis in under a minute</Text>
+        <Text style={styles.tagline}>Join Afodabo in under a minute</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView

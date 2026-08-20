@@ -5,7 +5,6 @@ import {
   View,
   Pressable,
   Alert,
-  ScrollView,
 } from "react-native";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -150,7 +149,7 @@ export default function SubmitPaymentScreen() {
   if (submitted) {
     return (
       <Screen>
-        <PageHeader title="Submit Payment" />
+        <PageHeader title="Submit Payment" onBack={() => router.back()} />
         <View style={styles.successContainer}>
           <View style={styles.successIcon}>
             <CheckCircle size={64} color={Colors.success} />
@@ -197,7 +196,7 @@ export default function SubmitPaymentScreen() {
   if (!tenanciesLoading && !hasActiveTenancy) {
     return (
       <Screen>
-        <PageHeader title="Submit Payment" />
+        <PageHeader title="Submit Payment" onBack={() => router.back()} />
         <EmptyState
           icon={<Wallet size={32} color={Colors.primary} />}
           title="You currently do not have an active tenancy"
@@ -211,7 +210,7 @@ export default function SubmitPaymentScreen() {
 
   return (
     <Screen scroll keyboardShouldAdjust="resize">
-      <PageHeader title="Submit Payment" />
+      <PageHeader title="Submit Payment" onBack={() => router.back()} />
       <Text style={styles.subtitle}>
         Notify your manager about a payment you made outside the app. It will be
         verified before being recorded as an official payment.

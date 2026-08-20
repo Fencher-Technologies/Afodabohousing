@@ -2,11 +2,13 @@ import { useState } from "react";
 import { StyleSheet, Text, View, KeyboardAvoidingView, Platform, Pressable } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 import { User, Lock, Square, CheckSquare } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
+import { FloatingBackButton } from "@/src/components/FloatingBackButton";
 import { authService } from "@/src/services/auth";
 import { setStoredToken } from "@/src/lib/api-client";
 import { useAuth } from "@/src/context/auth-context";
@@ -63,6 +65,8 @@ export default function PinSetupScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" backgroundColor="#1B4A38" />
+      <FloatingBackButton onPress={() => router.back()} />
       <LinearGradient colors={["#1B4A38", "#236048"]} style={styles.header}>
         <Text style={styles.appName}>Create Your PIN</Text>
         <Text style={styles.tagline}>Secure your account with a PIN</Text>
