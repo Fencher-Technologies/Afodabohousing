@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { propertiesService } from "../services/properties";
 import { tenanciesService } from "../services/tenancies";
 import { paymentsService } from "../services/payments";
-import type { Tenancy } from "../types";
+import type { LeaseResponse } from "../services/tenancies";
 
 export interface DashboardStats {
   total_properties: number;
@@ -57,7 +57,8 @@ export function useDashboardStats() {
       };
       // The full tenancy list rides along so the home screen doesn't fetch the
       // same 100-row payload a second time for its "needs attention" list.
-      return { stats, tenancies: tenanciesList as Tenancy[] };
+      // Consumers map through fromBackendLease themselves (as home.tsx does).
+      return { stats, tenancies: tenanciesList };
     },
     staleTime: 30_000,
   });

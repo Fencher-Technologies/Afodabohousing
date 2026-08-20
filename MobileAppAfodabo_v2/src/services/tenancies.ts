@@ -1,6 +1,6 @@
 import { api } from "../lib/api-client";
 
-interface LeaseResponse {
+export interface LeaseResponse {
   id: string;
   owner_id: string;
   property_id: string;
