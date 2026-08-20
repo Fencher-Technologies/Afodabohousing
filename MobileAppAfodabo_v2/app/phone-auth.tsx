@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { StyleSheet, Text, View, KeyboardAvoidingView, Platform } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";import { Phone } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
+import { Phone } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
+import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
@@ -38,6 +40,7 @@ export default function PhoneAuthScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" backgroundColor="#1B4A38" />
       <LinearGradient colors={["#1B4A38", "#236048"]} style={styles.header}>
         <Text style={styles.appName}>Register with Phone Number</Text>
         <Text style={styles.tagline}>Verify your phone to get started</Text>

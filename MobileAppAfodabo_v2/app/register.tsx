@@ -7,6 +7,7 @@ import { StyleSheet, Text, View, KeyboardAvoidingView, Platform, ScrollView, Pre
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 import { Mail, Lock, User, Phone, Square, CheckSquare } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -57,6 +58,7 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" backgroundColor="#1A2332" />
       <LinearGradient colors={["#1A2332", "#15202B"]} style={styles.header}>
         <View style={styles.logoWrap}>
           <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />

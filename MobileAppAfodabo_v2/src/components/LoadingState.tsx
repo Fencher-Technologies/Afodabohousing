@@ -3,6 +3,7 @@
  */
 
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 
 interface LoadingStateProps {
@@ -22,6 +23,7 @@ export function LoadingState({ message, inline = false }: LoadingStateProps) {
 
   return (
     <View style={styles.full}>
+      <StatusBar style="dark" backgroundColor={Colors.bg} />
       <ActivityIndicator size="large" color={Colors.primary} />
       {message && <Text style={styles.fullText}>{message}</Text>}
     </View>
@@ -35,6 +37,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.md,
     padding: Spacing.xxl,
+    backgroundColor: Colors.bg,
   },
   fullText: {
     fontSize: FontSize.body,

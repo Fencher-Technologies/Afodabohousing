@@ -2,6 +2,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View, KeyboardAvoidingView, Platform } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 import { Phone, Lock } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
@@ -43,6 +44,7 @@ export default function PhoneSignInScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" backgroundColor="#1B4A38" />
       <LinearGradient colors={["#1B4A38", "#236048"]} style={styles.header}>
         <Text style={styles.appName}>Sign in with Phone Number</Text>
         <Text style={styles.tagline}>Use your phone number and PIN</Text>

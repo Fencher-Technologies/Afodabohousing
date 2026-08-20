@@ -5,10 +5,12 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { Colors } from "@/constants/theme";
 import { AuthProvider, useAuth } from "@/src/context/auth-context";
 import { LoadingState } from "@/src/components/LoadingState";
 
@@ -108,6 +110,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
+          <StatusBar style="dark" backgroundColor={Colors.bg} />
           <AuthProvider>
             <RootLayoutNav />
           </AuthProvider>

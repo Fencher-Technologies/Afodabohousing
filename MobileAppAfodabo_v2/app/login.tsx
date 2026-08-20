@@ -7,10 +7,11 @@ import { StyleSheet, Text, View, Pressable, KeyboardAvoidingView, Platform } fro
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 import { Mail, Lock } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
+import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { OrDivider } from "@/src/components/OrDivider";
@@ -43,6 +44,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" backgroundColor="#1A2332" />
       <LinearGradient
         colors={["#1A2332", "#15202B"]}
         style={styles.header}
@@ -115,7 +117,7 @@ export default function LoginScreen() {
         </View>
 
         <View style={[styles.footer, { marginBottom: Math.max(insets.bottom, 16) }]}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
+          <Text style={styles.footerText}>Don&apos;t have an account? </Text>
           <Pressable onPress={() => router.push("/register")}>
             <Text style={styles.footerLink}>Create Account</Text>
           </Pressable>

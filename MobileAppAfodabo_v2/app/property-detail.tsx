@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Share, StyleSheet, Text, View, Pressable, Alert, Linking, ScrollView, useWindowDimensions } from "react-native";
+import {
+  Share,
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+  Alert,
+  Linking,
+  ScrollView,
+  useWindowDimensions,
+} from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import {
@@ -21,9 +31,16 @@ import {
   Car,
   Star,
   Sparkles,
+  ChevronLeft,
 } from "lucide-react-native";
 
-import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
+import {
+  Colors,
+  FontSize,
+  FontWeight,
+  Radii,
+  Spacing,
+} from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
 import { Badge } from "@/src/components/Badge";
@@ -32,8 +49,18 @@ import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { useAuth } from "@/src/context/auth-context";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
-import { useProperty, usePublicProperty, useDeleteProperty, useUpdateProperty } from "@/src/hooks/useProperties";
-import { formatUGX, formatPropertyType, formatAmenity, formatDate } from "@/src/utils/format";
+import {
+  useProperty,
+  usePublicProperty,
+  useDeleteProperty,
+  useUpdateProperty,
+} from "@/src/hooks/useProperties";
+import {
+  formatUGX,
+  formatPropertyType,
+  formatAmenity,
+  formatDate,
+} from "@/src/utils/format";
 import { MessageTemplates, openWhatsApp } from "@/src/utils/whatsapp";
 
 export default function PropertyDetailScreen() {
@@ -44,7 +71,11 @@ export default function PropertyDetailScreen() {
   const isExpired = isManager && subscription?.status !== "active";
   const authQuery = useProperty(id ?? "", { enabled: isManager });
   const publicQuery = usePublicProperty(id ?? "", { enabled: !isManager });
-  const { data: property, isLoading, error } = isManager ? authQuery : publicQuery;
+  const {
+    data: property,
+    isLoading,
+    error,
+  } = isManager ? authQuery : publicQuery;
 
   const deleteMutation = useDeleteProperty();
   const updateMutation = useUpdateProperty();
@@ -74,7 +105,11 @@ export default function PropertyDetailScreen() {
   if (error || !property) {
     return (
       <Screen scroll>
-        <ErrorState title="Property not found" description="This property may have been removed." onRetry={refetch} />
+        <ErrorState
+          title="Property not found"
+          description="This property may have been removed."
+          onRetry={refetch}
+        />
       </Screen>
     );
   }
@@ -88,7 +123,10 @@ export default function PropertyDetailScreen() {
     if (phone) {
       openWhatsApp(phone, MessageTemplates.inquiry(property.title));
     } else {
-      Alert.alert("Contact unavailable", "The manager has not provided a phone number.");
+      Alert.alert(
+        "Contact unavailable",
+        "The manager has not provided a phone number.",
+      );
     }
   };
 
@@ -96,7 +134,10 @@ export default function PropertyDetailScreen() {
     if (phone) {
       Linking.openURL(`tel:${phone}`);
     } else {
-      Alert.alert("Contact unavailable", "The manager has not provided a phone number.");
+      Alert.alert(
+        "Contact unavailable",
+        "The manager has not provided a phone number.",
+      );
     }
   };
 
@@ -104,33 +145,54 @@ export default function PropertyDetailScreen() {
     if (email) {
       Linking.openURL(`mailto:${email}`);
     } else {
-      Alert.alert("Contact unavailable", "The manager has not provided an email address.");
+      Alert.alert(
+        "Contact unavailable",
+        "The manager has not provided an email address.",
+      );
     }
   };
 
   const handleViewLocation = () => {
     if (property.lat && property.lng) {
-      Linking.openURL(`https://www.google.com/maps?q=${property.lat},${property.lng}`);
+      Linking.openURL(
+        `https://www.google.com/maps?q=${property.lat},${property.lng}`,
+      );
     } else {
-      const address = [property.address, property.city, property.district].filter(Boolean).join(", ");
-      Linking.openURL(`https://www.google.com/maps?q=${encodeURIComponent(address)}`);
+      const address = [property.address, property.city, property.district]
+        .filter(Boolean)
+        .join(", ");
+      Linking.openURL(
+        `https://www.google.com/maps?q=${encodeURIComponent(address)}`,
+      );
     }
   };
 
   const handleGetDirections = () => {
     if (property.lat && property.lng) {
-      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${property.lat},${property.lng}`);
+      Linking.openURL(
+        `https://www.google.com/maps/dir/?api=1&destination=${property.lat},${property.lng}`,
+      );
     } else {
-      const address = [property.address, property.city, property.district].filter(Boolean).join(", ");
-      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`);
+      const address = [property.address, property.city, property.district]
+        .filter(Boolean)
+        .join(", ");
+      Linking.openURL(
+        `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`,
+      );
     }
   };
 
   const handleMessage = () => {
     if (phone) {
-      openWhatsApp(phone, MessageTemplates.generic(`Hello, I'm interested in ${property.title}.`));
+      openWhatsApp(
+        phone,
+        MessageTemplates.generic(`Hello, I'm interested in ${property.title}.`),
+      );
     } else {
-      Alert.alert("Contact unavailable", "The manager has not provided a phone number.");
+      Alert.alert(
+        "Contact unavailable",
+        "The manager has not provided a phone number.",
+      );
     }
   };
 
@@ -143,7 +205,9 @@ export default function PropertyDetailScreen() {
       property.beds > 0 ? `Bedrooms: ${property.beds}` : null,
       property.baths > 0 ? `Bathrooms: ${property.baths}` : null,
       property.description ? `\n${property.description}` : null,
-      property.amenities.length > 0 ? `\nAmenities: ${property.amenities.map(formatAmenity).join(", ")}` : null,
+      property.amenities.length > 0
+        ? `\nAmenities: ${property.amenities.map(formatAmenity).join(", ")}`
+        : null,
       property.manager_phone ? `\nContact: ${property.manager_phone}` : null,
     ]
       .filter(Boolean)
@@ -170,7 +234,10 @@ export default function PropertyDetailScreen() {
             await deleteMutation.mutateAsync(property.id);
             router.back();
           } catch {
-            Alert.alert("Error", "Could not delete property. Please try again.");
+            Alert.alert(
+              "Error",
+              "Could not delete property. Please try again.",
+            );
           }
         },
       },
@@ -185,20 +252,25 @@ export default function PropertyDetailScreen() {
     const willBeOccupied = property.occupancy_status !== "occupied";
     Alert.alert(
       willBeOccupied ? "Mark as Occupied" : "Mark as Available",
-      willBeOccupied ? "This will mark the property as occupied." : "This will mark the property as available for rent.",
+      willBeOccupied
+        ? "This will mark the property as occupied."
+        : "This will mark the property as available for rent.",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Proceed",
           onPress: async () => {
             try {
-              await updateMutation.mutateAsync({ id: property.id, data: { status: willBeOccupied ? "occupied" : "available" } });
+              await updateMutation.mutateAsync({
+                id: property.id,
+                data: { status: willBeOccupied ? "occupied" : "available" },
+              });
             } catch {
               Alert.alert("Error", "Could not update occupancy status.");
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -210,20 +282,25 @@ export default function PropertyDetailScreen() {
     const willBeActive = property.status !== "active";
     Alert.alert(
       willBeActive ? "Activate Property" : "Deactivate Property",
-      willBeActive ? "This will make the property visible to the public." : "This will hide the property from public listings.",
+      willBeActive
+        ? "This will make the property visible to the public."
+        : "This will hide the property from public listings.",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Proceed",
           onPress: async () => {
             try {
-              await updateMutation.mutateAsync({ id: property.id, data: { is_active: willBeActive } });
+              await updateMutation.mutateAsync({
+                id: property.id,
+                data: { is_active: willBeActive },
+              });
             } catch {
               Alert.alert("Error", "Could not update property status.");
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -240,7 +317,9 @@ export default function PropertyDetailScreen() {
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={(e) => {
                 const index = Math.round(e.nativeEvent.contentOffset.x / width);
-                setCurrentImageIndex(Math.max(0, Math.min(index, property.images.length - 1)));
+                setCurrentImageIndex(
+                  Math.max(0, Math.min(index, property.images.length - 1)),
+                );
               }}
               style={styles.image}
             >
@@ -262,9 +341,15 @@ export default function PropertyDetailScreen() {
                       key={i}
                       onPress={() => {
                         setCurrentImageIndex(i);
-                        imageScrollRef.current?.scrollTo({ x: i * width, animated: true });
+                        imageScrollRef.current?.scrollTo({
+                          x: i * width,
+                          animated: true,
+                        });
                       }}
-                      style={[styles.imageDot, i === currentImageIndex && styles.imageDotActive]}
+                      style={[
+                        styles.imageDot,
+                        i === currentImageIndex && styles.imageDotActive,
+                      ]}
                       accessibilityRole="button"
                       accessibilityLabel={`Image ${i + 1} of ${property.images.length}`}
                     />
@@ -283,20 +368,18 @@ export default function PropertyDetailScreen() {
             <Text style={styles.imagePlaceholderText}>{property.title}</Text>
           </View>
         )}
-        <View style={styles.imageBadges}>
-          <Badge label={formatPropertyType(property.type)} tone="primary" size="md" />
-          <Badge
-            label={property.occupancy_status === "occupied" ? "Occupied" : "Available"}
-            tone={property.occupancy_status === "occupied" ? "warning" : "success"}
-            size="md"
-          />
-          {property.status !== "active" && (
-            <Badge label="Inactive" tone="muted" size="md" />
-          )}
-          {property.is_boosted && (
-            <Badge label="★ Boosted" tone="gold" size="md" />
-          )}
-        </View>
+
+        {/* Back button — top-left */}
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={8}
+        >
+          <ChevronLeft size={24} color={Colors.textOnPrimary} />
+        </Pressable>
+
         <Pressable
           onPress={() => {
             if (!requireAuth("save properties")) return;
@@ -306,8 +389,36 @@ export default function PropertyDetailScreen() {
           accessibilityRole="button"
           accessibilityLabel={bookmarked ? "Remove bookmark" : "Add bookmark"}
         >
-          <Bookmark size={22} color={bookmarked ? Colors.gold : Colors.textOnPrimary} fill={bookmarked ? Colors.gold : "none"} />
+          <Bookmark
+            size={22}
+            color={bookmarked ? Colors.gold : Colors.textOnPrimary}
+            fill={bookmarked ? Colors.gold : "none"}
+          />
         </Pressable>
+      </View>
+
+      {/* Badges — now sit just below the image, outside the image container */}
+      <View style={styles.imageBadgesRow}>
+        <Badge
+          label={formatPropertyType(property.type)}
+          tone="primary"
+          size="md"
+        />
+        <Badge
+          label={
+            property.occupancy_status === "occupied" ? "Occupied" : "Available"
+          }
+          tone={
+            property.occupancy_status === "occupied" ? "warning" : "success"
+          }
+          size="md"
+        />
+        {property.status !== "active" && (
+          <Badge label="Inactive" tone="muted" size="md" />
+        )}
+        {property.is_boosted && (
+          <Badge label="★ Boosted" tone="gold" size="md" />
+        )}
       </View>
 
       <View style={styles.content}>
@@ -316,9 +427,16 @@ export default function PropertyDetailScreen() {
           <Text style={styles.title}>{property.title}</Text>
           <View style={styles.locationRow}>
             <MapPin size={16} color={Colors.textMuted} />
-            <Text style={styles.locationText}>{[property.address, property.city, property.district].filter(Boolean).join(", ")}</Text>
+            <Text style={styles.locationText}>
+              {[property.address, property.city, property.district]
+                .filter(Boolean)
+                .join(", ")}
+            </Text>
           </View>
-          <Text style={styles.price}>{formatUGX(property.rent_amount)}<Text style={styles.pricePeriod}>/month</Text></Text>
+          <Text style={styles.price}>
+            {formatUGX(property.rent_amount)}
+            <Text style={styles.pricePeriod}>/month</Text>
+          </Text>
         </View>
 
         {/* Quick Details */}
@@ -348,7 +466,9 @@ export default function PropertyDetailScreen() {
             {property.square_feet != null && property.square_feet > 0 && (
               <View style={styles.quickDetailItem}>
                 <Maximize2 size={20} color={Colors.primary} />
-                <Text style={styles.quickDetailValue}>{property.square_feet}</Text>
+                <Text style={styles.quickDetailValue}>
+                  {property.square_feet}
+                </Text>
                 <Text style={styles.quickDetailLabel}>Sq Ft</Text>
               </View>
             )}
@@ -371,7 +491,9 @@ export default function PropertyDetailScreen() {
               {property.amenities.map((amenity) => (
                 <View key={amenity} style={styles.amenityChip}>
                   <Check size={14} color={Colors.success} />
-                  <Text style={styles.amenityText}>{formatAmenity(amenity)}</Text>
+                  <Text style={styles.amenityText}>
+                    {formatAmenity(amenity)}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -382,7 +504,9 @@ export default function PropertyDetailScreen() {
         {property.security_deposit != null && property.security_deposit > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Deposit</Text>
-            <Text style={styles.description}>{formatUGX(property.security_deposit)}</Text>
+            <Text style={styles.description}>
+              {formatUGX(property.security_deposit)}
+            </Text>
           </View>
         )}
 
@@ -392,7 +516,9 @@ export default function PropertyDetailScreen() {
             <Text style={styles.sectionTitle}>Date Listed</Text>
             <View style={styles.dateRow}>
               <Calendar size={16} color={Colors.textMuted} />
-              <Text style={styles.dateText}>{formatDate(property.created_at)}</Text>
+              <Text style={styles.dateText}>
+                {formatDate(property.created_at)}
+              </Text>
             </View>
           </View>
         ) : null}
@@ -403,28 +529,54 @@ export default function PropertyDetailScreen() {
           <Card padding="md">
             {property.lat && property.lng ? (
               <View style={styles.locationBtns}>
-                <Pressable onPress={handleViewLocation} style={({ pressed }) => [
-                  styles.locationBtn,
-                  pressed && styles.locationBtnPressed,
-                ]} accessibilityRole="button" accessibilityLabel="View location on map">
+                <Pressable
+                  onPress={handleViewLocation}
+                  style={({ pressed }) => [
+                    styles.locationBtn,
+                    pressed && styles.locationBtnPressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="View location on map"
+                >
                   {({ pressed }) => (
                     <>
-                      <MapPin size={18} color={pressed ? Colors.textOnPrimary : Colors.primary} />
-                      <Text style={[styles.locationBtnText, pressed && styles.locationBtnTextPressed]}>
+                      <MapPin
+                        size={18}
+                        color={pressed ? Colors.textOnPrimary : Colors.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.locationBtnText,
+                          pressed && styles.locationBtnTextPressed,
+                        ]}
+                      >
                         View Location
                       </Text>
                     </>
                   )}
                 </Pressable>
-                <Pressable onPress={handleGetDirections} style={({ pressed }) => [
-                  styles.locationBtn,
-                  styles.locationBtnSecondary,
-                  pressed && styles.locationBtnSecondaryPressed,
-                ]} accessibilityRole="button" accessibilityLabel="Get directions to this property">
+                <Pressable
+                  onPress={handleGetDirections}
+                  style={({ pressed }) => [
+                    styles.locationBtn,
+                    styles.locationBtnSecondary,
+                    pressed && styles.locationBtnSecondaryPressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Get directions to this property"
+                >
                   {({ pressed }) => (
                     <>
-                      <Navigation size={18} color={pressed ? Colors.textOnPrimary : Colors.accent} />
-                      <Text style={[styles.locationBtnText, pressed && styles.locationBtnTextPressed]}>
+                      <Navigation
+                        size={18}
+                        color={pressed ? Colors.textOnPrimary : Colors.accent}
+                      />
+                      <Text
+                        style={[
+                          styles.locationBtnText,
+                          pressed && styles.locationBtnTextPressed,
+                        ]}
+                      >
                         Get Directions
                       </Text>
                     </>
@@ -433,7 +585,9 @@ export default function PropertyDetailScreen() {
               </View>
             ) : (
               <Text style={styles.locationUnavailable}>
-                {[property.address, property.city, property.district].filter(Boolean).join(", ") || "Location not specified"}
+                {[property.address, property.city, property.district]
+                  .filter(Boolean)
+                  .join(", ") || "Location not specified"}
               </Text>
             )}
           </Card>
@@ -447,9 +601,22 @@ export default function PropertyDetailScreen() {
               {phone ? (
                 <Pressable onPress={handleCall} accessibilityRole="button">
                   {({ pressed }) => (
-                    <View style={[styles.contactBtn, pressed && styles.contactBtnPressed]}>
-                      <Phone size={16} color={pressed ? Colors.textOnPrimary : Colors.primary} />
-                      <Text style={[styles.contactBtnText, pressed && styles.contactBtnTextPressed]}>
+                    <View
+                      style={[
+                        styles.contactBtn,
+                        pressed && styles.contactBtnPressed,
+                      ]}
+                    >
+                      <Phone
+                        size={16}
+                        color={pressed ? Colors.textOnPrimary : Colors.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.contactBtnText,
+                          pressed && styles.contactBtnTextPressed,
+                        ]}
+                      >
                         {phone}
                       </Text>
                     </View>
@@ -458,15 +625,30 @@ export default function PropertyDetailScreen() {
               ) : (
                 <View style={styles.contactUnavailable}>
                   <Phone size={16} color={Colors.textMuted} />
-                  <Text style={styles.contactUnavailableText}>Phone not provided</Text>
+                  <Text style={styles.contactUnavailableText}>
+                    Phone not provided
+                  </Text>
                 </View>
               )}
               {email ? (
                 <Pressable onPress={handleEmail} accessibilityRole="button">
                   {({ pressed }) => (
-                    <View style={[styles.contactBtn, pressed && styles.contactBtnPressed]}>
-                      <Mail size={16} color={pressed ? Colors.textOnPrimary : Colors.primary} />
-                      <Text style={[styles.contactBtnText, pressed && styles.contactBtnTextPressed]}>
+                    <View
+                      style={[
+                        styles.contactBtn,
+                        pressed && styles.contactBtnPressed,
+                      ]}
+                    >
+                      <Mail
+                        size={16}
+                        color={pressed ? Colors.textOnPrimary : Colors.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.contactBtnText,
+                          pressed && styles.contactBtnTextPressed,
+                        ]}
+                      >
                         {email}
                       </Text>
                     </View>
@@ -475,7 +657,9 @@ export default function PropertyDetailScreen() {
               ) : (
                 <View style={styles.contactUnavailable}>
                   <Mail size={16} color={Colors.textMuted} />
-                  <Text style={styles.contactUnavailableText}>Email not provided</Text>
+                  <Text style={styles.contactUnavailableText}>
+                    Email not provided
+                  </Text>
                 </View>
               )}
             </View>
@@ -495,14 +679,21 @@ export default function PropertyDetailScreen() {
                     <View style={styles.boostStatusText}>
                       <Text style={styles.boostStatusTitle}>Boosted</Text>
                       <Text style={styles.boostStatusSub}>
-                        {property.boost_package_label ?? "Boosted"} — {property.boost_days_remaining ?? 0} day{(property.boost_days_remaining ?? 0) !== 1 ? "s" : ""} remaining
+                        {property.boost_package_label ?? "Boosted"} —{" "}
+                        {property.boost_days_remaining ?? 0} day
+                        {(property.boost_days_remaining ?? 0) !== 1
+                          ? "s"
+                          : ""}{" "}
+                        remaining
                       </Text>
                     </View>
                   </View>
                 ) : (
                   <Button
                     label="Boost Property"
-                    onPress={() => router.push(`/boost-property?propertyId=${property.id}`)}
+                    onPress={() =>
+                      router.push(`/boost-property?propertyId=${property.id}`)
+                    }
                     variant="outline"
                     leftIcon={<Sparkles size={18} color={Colors.gold} />}
                     fullWidth
@@ -510,12 +701,31 @@ export default function PropertyDetailScreen() {
                 )}
               </Card>
 
-              <Button label="Edit Property" onPress={() => router.push(`/edit-property?id=${property.id}`)} variant="outline" leftIcon={<Pencil size={18} color={Colors.primary} />} fullWidth />
               <Button
-                label={property.occupancy_status === "occupied" ? "Mark Available" : "Mark Occupied"}
+                label="Edit Property"
+                onPress={() => router.push(`/edit-property?id=${property.id}`)}
+                variant="outline"
+                leftIcon={<Pencil size={18} color={Colors.primary} />}
+                fullWidth
+              />
+              <Button
+                label={
+                  property.occupancy_status === "occupied"
+                    ? "Mark Available"
+                    : "Mark Occupied"
+                }
                 onPress={handleToggleOccupancy}
                 variant="outline"
-                leftIcon={<Check size={18} color={property.occupancy_status === "occupied" ? Colors.success : Colors.warning} />}
+                leftIcon={
+                  <Check
+                    size={18}
+                    color={
+                      property.occupancy_status === "occupied"
+                        ? Colors.success
+                        : Colors.warning
+                    }
+                  />
+                }
                 fullWidth
                 loading={updateMutation.isPending}
               />
@@ -527,7 +737,14 @@ export default function PropertyDetailScreen() {
                 fullWidth
                 loading={updateMutation.isPending}
               />
-              <Button label="Delete Property" onPress={handleDelete} variant="danger" leftIcon={<Trash2 size={18} color={Colors.textOnPrimary} />} fullWidth loading={deleteMutation.isPending} />
+              <Button
+                label="Delete Property"
+                onPress={handleDelete}
+                variant="danger"
+                leftIcon={<Trash2 size={18} color={Colors.textOnPrimary} />}
+                fullWidth
+                loading={deleteMutation.isPending}
+              />
             </View>
           </View>
         )}
@@ -541,27 +758,65 @@ export default function PropertyDetailScreen() {
               fullWidth
               size="lg"
               tone="accent"
-              leftIcon={<MessageCircle size={20} color={Colors.textOnPrimary} />}
+              leftIcon={
+                <MessageCircle size={20} color={Colors.textOnPrimary} />
+              }
             />
             <View style={styles.guestSecondary}>
-              <Pressable onPress={handleShare} accessibilityRole="button" accessibilityLabel="Share property">
+              <Pressable
+                onPress={handleShare}
+                accessibilityRole="button"
+                accessibilityLabel="Share property"
+              >
                 {({ pressed }) => (
-                  <View style={[styles.guestIconBtn, pressed && styles.guestIconBtnPressed]}>
-                    <Share2 size={20} color={pressed ? Colors.textOnPrimary : Colors.primary} />
+                  <View
+                    style={[
+                      styles.guestIconBtn,
+                      pressed && styles.guestIconBtnPressed,
+                    ]}
+                  >
+                    <Share2
+                      size={20}
+                      color={pressed ? Colors.textOnPrimary : Colors.primary}
+                    />
                   </View>
                 )}
               </Pressable>
-              <Pressable onPress={handleMessage} accessibilityRole="button" accessibilityLabel="Message on WhatsApp">
+              <Pressable
+                onPress={handleMessage}
+                accessibilityRole="button"
+                accessibilityLabel="Message on WhatsApp"
+              >
                 {({ pressed }) => (
-                  <View style={[styles.guestIconBtn, pressed && styles.guestIconBtnPressed]}>
-                    <MessageCircle size={20} color={pressed ? Colors.textOnPrimary : "#25D366"} />
+                  <View
+                    style={[
+                      styles.guestIconBtn,
+                      pressed && styles.guestIconBtnPressed,
+                    ]}
+                  >
+                    <MessageCircle
+                      size={20}
+                      color={pressed ? Colors.textOnPrimary : "#25D366"}
+                    />
                   </View>
                 )}
               </Pressable>
-              <Pressable onPress={handleCall} accessibilityRole="button" accessibilityLabel="Call">
+              <Pressable
+                onPress={handleCall}
+                accessibilityRole="button"
+                accessibilityLabel="Call"
+              >
                 {({ pressed }) => (
-                  <View style={[styles.guestIconBtn, pressed && styles.guestIconBtnPressed]}>
-                    <Phone size={20} color={pressed ? Colors.textOnPrimary : Colors.primary} />
+                  <View
+                    style={[
+                      styles.guestIconBtn,
+                      pressed && styles.guestIconBtnPressed,
+                    ]}
+                  >
+                    <Phone
+                      size={20}
+                      color={pressed ? Colors.textOnPrimary : Colors.primary}
+                    />
                   </View>
                 )}
               </Pressable>
@@ -605,12 +860,25 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
     color: "rgba(255,255,255,0.5)",
   },
-  imageBadges: {
+  backBtn: {
     position: "absolute",
     top: Spacing.md,
     left: Spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  // Badges now render below the image, outside imageWrap — plain flow row, not absolute.
+  imageBadgesRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
   },
   imageDots: {
     position: "absolute",
@@ -623,7 +891,7 @@ const styles = StyleSheet.create({
   },
   imageCounter: {
     position: "absolute",
-    top: Spacing.md,
+    bottom: Spacing.sm,
     right: Spacing.md,
     backgroundColor: "rgba(0,0,0,0.4)",
     borderRadius: Radii.pill,
