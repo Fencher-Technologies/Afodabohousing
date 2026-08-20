@@ -369,6 +369,18 @@ class TestBoosts:
             f"before non-boosted {PID_PROP} at index {idx_normal}"
         )
 
+    def test_boosted_property_listed_once(self, client: TestClient):
+        """A boosted property appears exactly once — as the boosted entry,
+        never duplicated in the regular band."""
+        resp = client.get("/properties/public")
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        boosted = [p for p in items if p["id"] == PID_PROP_2]
+        assert len(boosted) == 1, (
+            f"Boosted property {PID_PROP_2} appears {len(boosted)} times; "
+            "it must be listed only once (boosted-first, excluded from the plain band)."
+        )
+
 
 class TestSubscriptionPlans:
     def test_list_plans_final_pricing(self, client: TestClient):

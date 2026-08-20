@@ -31,6 +31,15 @@ class MockResponse:
         self.count = count
 
 
+class _NotFilter:
+    def __init__(self, parent):
+        self._parent = parent
+
+    def in_(self, column, values):
+        self._parent._not_filters[column] = ("not_in", values)
+        return self._parent
+
+
 class MockTableBuilder:
     def __init__(self, name, seeds=None):
         self._name = name
@@ -47,6 +56,11 @@ class MockTableBuilder:
         self._select_cols = "*"
         self._count = None
         self._maybe_single = False
+        self._not_filters = {}
+
+    @property
+    def not_(self):
+        return _NotFilter(self)
 
     def select(self, columns="*", count=None):
         self._select_cols = columns
@@ -158,11 +172,14 @@ class MockTableBuilder:
                 return MockResponse(data=[updated], count=1)
 
         data = seed[:]
-        for col, val in self._filters.items():
+        filters = {**self._filters, **self._not_filters}
+        for col, val in filters.items():
             if isinstance(val, tuple):
                 op, arg = val
                 if op == "in":
                     data = [d for d in data if d.get(col) in arg]
+                elif op == "not_in":
+                    data = [d for d in data if d.get(col) not in arg]
                 elif op == "gt":
                     data = [d for d in data if d.get(col, "") > arg]
                 elif op == "lt":
