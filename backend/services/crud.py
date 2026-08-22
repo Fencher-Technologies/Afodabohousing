@@ -563,15 +563,38 @@ class PropertyService(BaseService):
         skip: int = 0,
         limit: int = 100,
         state: str | None = None,
+        country: str | None = None,
+        region_id: str | None = None,
         property_type: str | None = None,
         rent_period: str | None = None,
         min_price: float | None = None,
         max_price: float | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
+        # If filtering by country, fetch matching region IDs first
+        region_ids_for_country: list[str] | None = None
+        if country:
+            regions_resp = (
+                self.supabase.table("regions")
+                .select("id")
+                .eq("country_id", country)
+                .is_("deprecated_at", "null")
+                .execute()
+            )
+            region_ids_for_country = [r["id"] for r in (regions_resp.data or [])]
+
         def _filtered(columns: str, count: str | None = None):
             query = self.supabase.table(self._table).select(columns, count=count).eq("is_active", True)
             if state:
-                query = query.ilike("state", f"%{state}%")
+                term = f"%{state}%"
+                query = query.or_(f"state.ilike.{term},city.ilike.{term}")
+            if region_id:
+                query = query.eq("region_id", region_id)
+            elif region_ids_for_country is not None:
+                if region_ids_for_country:
+                    query = query.in_("region_id", region_ids_for_country)
+                else:
+                    # Country has no regions yet — match nothing
+                    query = query.eq("region_id", "__none__")
             if property_type:
                 query = query.eq("property_type", property_type)
             if min_price is not None:

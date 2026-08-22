@@ -24,7 +24,7 @@ from reportlab.platypus import (
 
 def _format_money(value: Any) -> str:
     amount = Decimal(str(value or 0)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    return f"UGX {amount:,.0f}"
+    return f"{amount:,.0f}"
 
 
 def _format_date(value: Any) -> str:

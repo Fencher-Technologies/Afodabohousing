@@ -104,8 +104,8 @@ const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 const CHART_COLORS = ['#1A2332', '#0F1A2A', '#D32F2F', '#15202B', '#6366F5', '#10B981', '#F59E0B', '#8B5CF6'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function formatUGX(amount: number): string {
-  return `UGX ${(amount || 0).toLocaleString()}`;
+function formatAmount(amount: number): string {
+  return `${(amount || 0).toLocaleString()}`;
 }
 
 function MiniSparkline({ data, color = '#10b981' }: { data: number[]; color?: string }) {
@@ -148,7 +148,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     <div className="bg-card border border-border rounded-xl shadow-lg px-3 py-2 text-xs space-y-1">
       <p className="font-semibold text-foreground">{label}</p>
       {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color }}>{p.name}: {formatUGX(p.value)}</p>
+        <p key={i} style={{ color: p.color }}>{p.name}: {formatAmount(p.value)}</p>
       ))}
     </div>
   );
@@ -156,7 +156,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 const CenterLabel = ({ total }: { total: number }) => (
   <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
-    <tspan x="50%" dy="-0.5em" className="text-2xl font-bold fill-foreground">{formatUGX(total)}</tspan>
+    <tspan x="50%" dy="-0.5em" className="text-2xl font-bold fill-foreground">{formatAmount(total)}</tspan>
     <tspan x="50%" dy="1.5em" className="text-xs fill-muted-foreground">Total</tspan>
   </text>
 );
@@ -386,11 +386,11 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
   // TODO: replace with real data from activity_log or events table
   const recentActivity: ActivityRow[] = [
     { id: '1', name: 'Sarah Nakato', action: 'Lease Signed — Ntinda Apts', status: 'completed', timestamp: '2 hours ago' },
-    { id: '2', name: 'John Mukasa', action: 'Payment Made — UGX 450,000', status: 'completed', timestamp: '4 hours ago' },
+    { id: '2', name: 'John Mukasa', action: 'Payment Made — 450,000', status: 'completed', timestamp: '4 hours ago' },
     { id: '3', name: 'Grace Akello', action: 'Maintenance Request — Plumbing', status: 'pending', timestamp: '1 day ago' },
     { id: '4', name: 'Peter Ssali', action: 'Rent Overdue — Bukoto Heights', status: 'overdue', timestamp: '2 days ago' },
     { id: '5', name: 'Amina Wasso', action: 'Lease Renewed — Muyenga Villas', status: 'completed', timestamp: '3 days ago' },
-    { id: '6', name: 'David Okello', action: 'Payment Pending — UGX 320,000', status: 'pending', timestamp: '4 days ago' },
+    { id: '6', name: 'David Okello', action: 'Payment Pending — 320,000', status: 'pending', timestamp: '4 days ago' },
   ];
 
   // Audit Log
@@ -612,12 +612,12 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                   },
                   {
                     label: 'Sub Revenue (MTD)', icon: <DollarSign className="h-5 w-5" />, color: 'text-emerald-600', bg: 'bg-emerald-50',
-                    val: formatUGX(stats?.subscription_revenue_this_month ?? 0), sub: `Total: ${formatUGX(stats?.subscription_revenue_total ?? 0)}`,
+                    val: formatAmount(stats?.subscription_revenue_this_month ?? 0), sub: `Total: ${formatAmount(stats?.subscription_revenue_total ?? 0)}`,
                     trend: 0, spark: subRevenueSparkline, sparkColor: '#10b981',
                   },
                   {
                     label: 'Monthly Rent Collected', icon: <BarChart3 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10',
-                    val: formatUGX(stats?.total_collected ?? 0), sub: `${stats?.recent_payments_count ?? 0} payments this period`,
+                    val: formatAmount(stats?.total_collected ?? 0), sub: `${stats?.recent_payments_count ?? 0} payments this period`,
                     trend: rentTrend, spark: rentSparkline, sparkColor: '#6366f1',
                   },
                 ].map(card => (
@@ -653,7 +653,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                       <LineChart data={collectionTrendData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                        <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v: number) => `UGX ${(v / 1000000).toFixed(1)}M`} />
+                        <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v: number) => `${(v / 1000000).toFixed(1)}M`} />
                         <Tooltip content={<CustomTooltip />} />
                         {rentTrendLines.map((l, i) => (
                           <Line key={l.name} type="monotone" dataKey={l.name} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
@@ -681,10 +681,10 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                           ))}
                         </Pie>
                         <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="fill-foreground">
-                          <tspan x="50%" dy="-0.5em" className="text-lg font-bold">{formatUGX(totalRevenue)}</tspan>
+                          <tspan x="50%" dy="-0.5em" className="text-lg font-bold">{formatAmount(totalRevenue)}</tspan>
                           <tspan x="50%" dy="1.3em" className="text-xs fill-muted-foreground">Total</tspan>
                         </text>
-                        <Tooltip formatter={(v: number) => formatUGX(v)} />
+                        <Tooltip formatter={(v: number) => formatAmount(v)} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>

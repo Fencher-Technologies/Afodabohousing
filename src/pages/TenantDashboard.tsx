@@ -8,6 +8,7 @@ import { PasswordInput } from '@/components/ui/password-input';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/utils/currency';
 import {
   Home, MapPin, Phone, ChevronRight, Building2, Clock, Image, Settings, LogOut,
   DollarSign, ShieldCheck, Bell, Wrench, FileText, CheckCircle, XCircle,
@@ -254,6 +255,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
   const isOverdue = daysLeft !== null && daysLeft < 0;
   const isDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
   const property = activeLease?.properties;
+  const propertyCurrency = property?.rent_currency || activeLease?.rent_currency || 'USD';
 
   const monthRent = activeLease?.monthly_rent || property?.monthly_rent || property?.rent_amount || 0;
   const totalPaid = payments.filter(p => p.status === 'confirmed').reduce((s: number, p: any) => s + p.amount, 0);
@@ -483,17 +485,17 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                       <div className="space-y-3">
                         <div className="bg-muted/50 rounded-lg p-4 text-center">
                           <p className="text-xs text-muted-foreground">Monthly Rent</p>
-                          <p className="text-2xl font-bold text-foreground">UGX {monthRent.toLocaleString()}</p>
+                          <p className="text-2xl font-bold text-foreground">{formatCurrency(monthRent, propertyCurrency)}</p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="bg-muted/50 rounded-lg p-3 text-center">
                             <p className="text-xs text-muted-foreground">Paid</p>
-                            <p className="text-lg font-bold text-success">UGX {totalPaid.toLocaleString()}</p>
+                            <p className="text-lg font-bold text-success">{formatCurrency(totalPaid, propertyCurrency)}</p>
                           </div>
                           <div className="bg-muted/50 rounded-lg p-3 text-center">
                             <p className="text-xs text-muted-foreground">Balance</p>
                             <p className={`text-lg font-bold ${remainingBalance > 0 ? 'text-gold' : 'text-success'}`}>
-                              UGX {remainingBalance.toLocaleString()}
+                              {formatCurrency(remainingBalance, propertyCurrency)}
                             </p>
                           </div>
                         </div>
@@ -569,7 +571,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                           </div>
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Rent</span>
-                            <span className="font-bold text-foreground">UGX {monthRent.toLocaleString()}/mo</span>
+                            <span className="font-bold text-foreground">{formatCurrency(monthRent, propertyCurrency)}/mo</span>
                           </div>
                         </div>
                         <div className="flex-1 min-w-[200px]">
@@ -624,7 +626,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold">
-                                {p.payment_type === 'rent' ? 'Rent payment' : 'Payment'} — UGX {(p.amount || 0).toLocaleString()}
+                                {p.payment_type === 'rent' ? 'Rent payment' : 'Payment'} — {formatCurrency(p.amount || 0, propertyCurrency)}
                               </p>
                               <p className="text-xs text-muted-foreground truncate">{p.notes || `${p.payment_type || 'Rent'} payment`}</p>
                             </div>
@@ -669,7 +671,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                 </div>
                 <div className="bg-card border border-border rounded-xl p-5 text-center">
                   <p className="text-xs text-muted-foreground">Total paid</p>
-                  <p className="text-2xl font-bold text-success">UGX {totalPaid.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-success">{formatCurrency(totalPaid, propertyCurrency)}</p>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-5 text-center">
                   <p className="text-xs text-muted-foreground">On time</p>
@@ -709,7 +711,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                             <span className="font-medium">{p.payment_type ? `${p.payment_type.charAt(0).toUpperCase() + p.payment_type.slice(1)}` : 'Payment'}</span>
                             {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
                           </td>
-                          <td className="py-3 px-4 font-bold">UGX {(p.amount || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4 font-bold">{formatCurrency(p.amount || 0, propertyCurrency)}</td>
                           <td className="py-3 px-4 text-muted-foreground">{p.created_at ? format(new Date(p.created_at), 'MMM dd, yyyy') : '—'}</td>
                           <td className="py-3 px-4"><StatusBadge status={p.status} /></td>
                         </tr>
@@ -982,7 +984,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Monthly rent</span>
-                        <span className="font-bold">UGX {monthRent.toLocaleString()}</span>
+                        <span className="font-bold">{formatCurrency(monthRent, propertyCurrency)}</span>
                       </div>
                     </div>
                   </div>

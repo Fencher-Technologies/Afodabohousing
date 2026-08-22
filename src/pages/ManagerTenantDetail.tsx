@@ -19,16 +19,14 @@ function initBg(id: string) {
   return `hsl(${hues[Math.abs(h) % hues.length]}, 50%, 45%)`;
 }
 
+import { formatCurrency } from '@/utils/currency';
+
 function initials(name: string, email: string) {
   if (name) {
     const parts = name.trim().split(/\s+/);
     return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
   }
   return email.charAt(0).toUpperCase();
-}
-
-function formatUGX(n: number) {
-  return `UGX ${(n || 0).toLocaleString()}`;
 }
 
 /* ── health helpers ── */
@@ -130,6 +128,7 @@ export default function ManagerTenantDetail() {
     .reduce((s: number, p: any) => s + Number(p.amount), 0);
 
   const leaseProp = activeLease?.properties ?? {};
+  const propertyCurrency = leaseProp.rent_currency || activeLease?.rent_currency || 'USD';
   const balanceDue = Math.max(0, (activeLease?.monthly_rent ?? 0) - totalPaid);
   const daysLeft = activeLease ? differenceInDays(new Date(activeLease.end_date), new Date()) : null;
   const isOverdue = balanceDue > 0 && (daysLeft !== null && daysLeft < 0);
@@ -255,7 +254,7 @@ export default function ManagerTenantDetail() {
 
             {/* rent + period */}
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold amount">{formatUGX(activeLease.monthly_rent ?? 0)}</span>
+              <span className="text-2xl font-bold amount">{formatCurrency(activeLease.monthly_rent ?? 0, propertyCurrency)}</span>
               <span className="text-sm text-muted-foreground capitalize">
                 / {activeLease.rent_period ?? 'monthly'}
               </span>
@@ -297,9 +296,9 @@ export default function ManagerTenantDetail() {
               )}
               <p className="mt-2 text-xs text-muted-foreground">
                 Balance: <span className={balanceDue > 0 ? 'text-destructive font-bold' : 'text-success font-bold'}>
-                  {formatUGX(balanceDue)}
+                  {formatCurrency(balanceDue, propertyCurrency)}
                 </span>
-                {' · '}Total paid: <span className="font-semibold">{formatUGX(totalPaid)}</span>
+                {' · '}Total paid: <span className="font-semibold">{formatCurrency(totalPaid, propertyCurrency)}</span>
               </p>
             </div>
 
@@ -307,16 +306,16 @@ export default function ManagerTenantDetail() {
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-muted/50 rounded-lg p-3 text-center">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Expected</p>
-                <p className="font-bold amount">{formatUGX(activeLease.monthly_rent ?? 0)}</p>
+                <p className="font-bold amount">{formatCurrency(activeLease.monthly_rent ?? 0, propertyCurrency)}</p>
               </div>
               <div className="bg-muted/50 rounded-lg p-3 text-center">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Paid</p>
-                <p className="font-bold amount text-success">{formatUGX(totalPaid)}</p>
+                <p className="font-bold amount text-success">{formatCurrency(totalPaid, propertyCurrency)}</p>
               </div>
               <div className="bg-muted/50 rounded-lg p-3 text-center">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Balance</p>
                 <p className={`font-bold amount ${balanceDue > 0 ? 'text-destructive' : 'text-success'}`}>
-                  {balanceDue > 0 ? formatUGX(balanceDue) : 'Cleared'}
+                  {balanceDue > 0 ? formatCurrency(balanceDue, propertyCurrency) : 'Cleared'}
                 </p>
               </div>
             </div>
@@ -417,7 +416,7 @@ export default function ManagerTenantDetail() {
                           : '—'}
                       </td>
                       <td className="py-3 px-4 font-bold amount whitespace-nowrap">
-                        {formatUGX(pay.amount ?? 0)}
+                        {formatCurrency(pay.amount ?? 0, propertyCurrency)}
                       </td>
                       <td className="py-3 px-4 text-muted-foreground capitalize whitespace-nowrap">
                         {(pay.payment_method ?? pay.method ?? '—').replace(/_/g, ' ')}

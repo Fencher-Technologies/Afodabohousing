@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft } from 'lucide-react';
 import PropertyForm from '@/components/forms/PropertyForm';
 import type { PropertyFormData } from '@/components/forms/PropertyForm';
+import { cleanDbError } from '@/utils/dbError';
 
 export default function EditProperty() {
   const { id } = useParams<{ id: string }>();
@@ -32,15 +33,18 @@ export default function EditProperty() {
     setInitialData({
       title: data.title || '', description: data.description || '',
       property_type: data.property_type || 'Residential', state: data.state || '',
-      area: data.area || '', address: data.address || '',
+      address: data.address || '',
       bedrooms: data.bedrooms || 1, sitting_rooms: data.sitting_rooms || 1,
-      kitchens: data.kitchens || 1, bathrooms: data.bathrooms || 1,
-      rent_amount: data.rent_amount || 0, rent_period: data.rent_period || 'monthly',
+      bathrooms: data.bathrooms || 1,
+      monthly_rent: data.monthly_rent || 0, rent_period: data.rent_period || 'monthly',
       manager_phone: data.manager_phone || '', manager_email: data.manager_email || '',
       amenities: data.amenities || [],
       images: data.images || [],
       latitude: data.latitude ? String(data.latitude) : '',
       longitude: data.longitude ? String(data.longitude) : '',
+      country: data.country || 'UG',
+      region_id: data.region_id || '',
+      rent_currency: data.rent_currency || 'UGX',
     });
     setLoading(false);
   };
@@ -49,16 +53,18 @@ export default function EditProperty() {
     if (!id) return;
     const { error } = await supabase.from('properties').update({
       title: data.title, description: data.description || null,
-      property_type: data.property_type, state: data.state, area: data.area || null,
+      property_type: data.property_type, state: data.state,
       address: data.address || null, bedrooms: data.bedrooms, sitting_rooms: data.sitting_rooms,
-      kitchens: data.kitchens, bathrooms: data.bathrooms, rent_amount: data.rent_amount,
-      rent_period: data.rent_period, manager_phone: data.manager_phone || null,
+      bathrooms: data.bathrooms, monthly_rent: data.monthly_rent,
+      rent_currency: data.rent_currency, rent_period: data.rent_period,
+      manager_phone: data.manager_phone || null,
       manager_email: data.manager_email || null, amenities: data.amenities,
       images: data.images.length > 0 ? data.images : null,
       latitude: data.latitude ? Number(data.latitude) : null,
       longitude: data.longitude ? Number(data.longitude) : null,
+      country: data.country, region_id: data.region_id || null,
     }).eq('id', id);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    if (error) { toast({ title: 'Could not update property', description: cleanDbError(error), variant: 'destructive' }); return; }
     toast({ title: 'Property updated!' });
     navigate('/dashboard/manager');
   };

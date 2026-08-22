@@ -16,6 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import { listPayments, updatePayment, PaymentData } from '@/services/payments';
 import { getCurrentSubscription } from '@/services/subscriptions';
 import { apiGet } from '@/services/api';
+import { formatCurrency } from '@/utils/currency';
+import { cleanDbError } from '@/utils/dbError';
 import AvatarUpload from '@/components/AvatarUpload';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
@@ -92,6 +94,7 @@ export default function ManagerDashboard() {
     area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1,
     rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '',
     amenities: [] as string[], latitude: '', longitude: '',
+    country: 'UG', region_id: '', rent_currency: 'UGX',
   });
   const [mapsUrl, setMapsUrl] = useState('');
   const [showMapsInput, setShowMapsInput] = useState(false);
@@ -204,7 +207,7 @@ export default function ManagerDashboard() {
     setSendingAction('password');
     const { error } = await supabase.auth.updateUser({ password: passwordForm.new });
     setSendingAction('');
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    if (error) { toast({ title: 'Error', description: cleanDbError(error), variant: 'destructive' }); return; }
     toast({ title: 'Password updated', description: 'Use your new password next time you sign in.' });
     setPasswordDialogOpen(false);
     setPasswordForm({ current: '', new: '', confirm: '' });
@@ -266,13 +269,17 @@ export default function ManagerDashboard() {
       }
     }
     const payload: Record<string, any> = {
-      ...form, monthly_rent: Number(form.rent_amount),
-      property_type: form.property_type,
-      rent_period: form.rent_period,
+      title: form.title, description: form.description || null,
+      property_type: form.property_type, state: form.state || null,
+      address: form.address || '', city: form.city || '', zip_code: '',
+      bedrooms: form.bedrooms, sitting_rooms: form.sitting_rooms,
+      bathrooms: form.bathrooms, monthly_rent: Number(form.rent_amount),
+      security_deposit: 0, square_feet: null,
+      rent_currency: form.rent_currency, rent_period: form.rent_period,
+      manager_phone: form.manager_phone || null,
+      manager_email: form.manager_email || null, amenities: form.amenities,
+      country: form.country, region_id: form.region_id || null,
     };
-    delete payload.rent_amount; // DB column is monthly_rent
-    delete payload.kitchens;    // not in DB
-    delete payload.area;        // not in DB
     if (form.latitude) {
       payload.latitude = Number(form.latitude);
       payload.longitude = Number(form.longitude);
@@ -287,18 +294,18 @@ export default function ManagerDashboard() {
     if (editingProperty) {
       const { error } = await supabase.from('properties').update(payload).eq('id', editingProperty.id);
       setUploading(false);
-      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+      if (error) { toast({ title: 'Error', description: cleanDbError(error), variant: 'destructive' }); return; }
       toast({ title: 'Property updated!', description: 'Your listing has been updated.' });
     } else {
       payload.owner_id = user.id;
       const { error } = await supabase.from('properties').insert(payload);
       setUploading(false);
-      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+      if (error) { toast({ title: 'Error', description: cleanDbError(error), variant: 'destructive' }); return; }
       toast({ title: 'Property published!', description: 'Your listing is now live.' });
     }
     setPropDialogOpen(false);
     setEditingProperty(null);
-    setForm({ title: '', description: '', property_type: 'Residential', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [], latitude: '', longitude: '' });
+    setForm({ title: '', description: '', property_type: 'Residential', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [], latitude: '', longitude: '', country: 'UG', region_id: '', rent_currency: 'UGX' });
     setImageFiles([]);
     fetchData();
   };
@@ -323,7 +330,7 @@ export default function ManagerDashboard() {
     setSendingAction(`delete-${deleteConfirmProperty.id}`);
     const { error } = await supabase.from('properties').delete().eq('id', deleteConfirmProperty.id);
     setSendingAction('');
-    if (error) { toast({ title: 'Error deleting property', description: error.message, variant: 'destructive' }); }
+    if (error) { toast({ title: 'Error deleting property', description: cleanDbError(error), variant: 'destructive' }); }
     else { toast({ title: 'Property deleted', description: 'The listing has been removed.' }); fetchData(); }
     setDeleteConfirmProperty(null);
   };
@@ -345,7 +352,7 @@ export default function ManagerDashboard() {
       status: 'available',
     });
     setSendingAction('');
-    if (error) { toast({ title: 'Error adding unit', description: error.message, variant: 'destructive' }); return; }
+    if (error) { toast({ title: 'Error adding unit', description: cleanDbError(error), variant: 'destructive' }); return; }
     toast({ title: 'Unit added!', description: `Unit ${unitForm.unit_number} is now listed.` });
     setUnitDialogOpen(false);
     setUnitForm({ unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 0, kitchens: 1, rent_amount: 0, description: '' });
@@ -400,7 +407,7 @@ export default function ManagerDashboard() {
     try {
       await updatePayment(payment.id!, { status: 'confirmed', paid_date: new Date().toISOString().split('T')[0] });
       const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-      if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! UGX ${(payment.amount || 0).toLocaleString()} has been confirmed. - Axis`);
+      if (profile?.phone) await sendSMS(profile.phone, `Payment CONFIRMED! ${(payment.amount || 0).toLocaleString()} has been confirmed. - Axis`);
       toast({ title: 'Payment confirmed', description: 'Tenant notified via SMS.' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -413,7 +420,7 @@ export default function ManagerDashboard() {
     try {
       await updatePayment(payment.id!, { status: 'rejected' });
       const { data: profile } = await supabase.from('profiles').select('phone').eq('user_id', payment.tenant_id).single();
-      if (profile?.phone) await sendSMS(profile.phone, `Your rent payment (UGX ${(payment.amount || 0).toLocaleString()}) was rejected. - Axis`);
+      if (profile?.phone) await sendSMS(profile.phone, `Your rent payment (${(payment.amount || 0).toLocaleString()}) was rejected. - Axis`);
       toast({ title: 'Payment rejected', description: 'Tenant notified via SMS.', variant: 'destructive' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -453,7 +460,7 @@ export default function ManagerDashboard() {
     if (!lease.tenant_phone) { toast({ title: 'No phone number for this tenant', variant: 'destructive' }); return; }
     setSendingAction(`remind-${lease.id}`);
     const days = differenceInDays(new Date(lease.end_date), new Date());
-    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of UGX ${(lease.monthly_rent || 0).toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Axis. Contact: ${user?.email}`);
+    await sendSMS(lease.tenant_phone, `RENT REMINDER: Your rent of ${(lease.monthly_rent || 0).toLocaleString()} is due ${days > 0 ? `in ${days} days` : 'TODAY'}! Please pay on Axis. Contact: ${user?.email}`);
     toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${lease.tenant_name}` });
     setSendingAction('');
   };
@@ -474,7 +481,7 @@ export default function ManagerDashboard() {
   const statCards = [
     { label: 'Total Listings', val: properties.length, sub: `${available} available · ${occupied} occupied`, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
     { label: 'Active Tenants', val: leases.filter(t => t.status === 'active').length, sub: `${dueSoonTenancies.length} rent due soon`, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10', trend: null },
-    { label: 'Revenue Confirmed', val: `UGX ${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
+    { label: 'Revenue Confirmed', val: `${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
   ];
 
   return (
@@ -549,7 +556,7 @@ export default function ManagerDashboard() {
                     <div className="grid grid-cols-2 gap-4">
                       <div><Label>Start Date</Label><Input type="date" value={tenantFormData.start_date} onChange={e => setTenantFormData(f => ({ ...f, start_date: e.target.value }))} required className="mt-1" /></div>
                       <div><Label>End Date</Label><Input type="date" value={tenantFormData.end_date} onChange={e => setTenantFormData(f => ({ ...f, end_date: e.target.value }))} required className="mt-1" /></div>
-                      <div><Label>Monthly Rent (UGX)</Label><Input type="number" value={tenantFormData.monthly_rent || ''} onChange={e => setTenantFormData(f => ({ ...f, monthly_rent: Number(e.target.value) }))} className="mt-1" /></div>
+                      <div><Label>Monthly Rent</Label><Input type="number" value={tenantFormData.monthly_rent || ''} onChange={e => setTenantFormData(f => ({ ...f, monthly_rent: Number(e.target.value) }))} className="mt-1" /></div>
                     </div>
                   </div>
                   <div className="flex gap-3">
@@ -694,7 +701,7 @@ export default function ManagerDashboard() {
                         <div key={r.label} className="mb-4">
                           <div className="flex justify-between items-center mb-1.5">
                             <span className="text-sm text-muted-foreground">{r.label}</span>
-                            <span className={`text-sm font-bold ${r.textColor}`}>UGX {(r.val || 0).toLocaleString()}</span>
+                            <span className={`text-sm font-bold ${r.textColor}`}>{(r.val || 0).toLocaleString()}</span>
                           </div>
                           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                             <div className={`h-full ${r.color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
@@ -730,7 +737,7 @@ export default function ManagerDashboard() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-foreground truncate">{p.tenant_name || 'Tenant'}</p>
-                              <p className="text-xs text-muted-foreground">UGX {(p.amount || 0).toLocaleString()} · {format(new Date(p.created_at), 'MMM dd')}</p>
+                              <p className="text-xs text-muted-foreground">{(p.amount || 0).toLocaleString()} · {format(new Date(p.created_at), 'MMM dd')}</p>
                             </div>
                             <div className="flex gap-1.5 shrink-0">
                               <Button size="sm" className="gradient-primary text-primary-foreground h-7 w-7 p-0" disabled={!!sendingAction} onClick={() => handleConfirmPayment(p)}>
@@ -770,8 +777,8 @@ export default function ManagerDashboard() {
                       <div className="text-center py-8">
                         <Building2 className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
                         <p className="text-muted-foreground text-sm font-medium">No properties yet</p>
-                        <Button size="sm" className="mt-3 gradient-primary text-primary-foreground text-xs" onClick={() => setPropDialogOpen(true)}>
-                          <Plus className="h-3 w-3 mr-1" /> Add First Property
+                        <Button size="sm" className="mt-3 gradient-primary text-primary-foreground text-xs" onClick={() => setTab('properties')}>
+                          Manage Properties
                         </Button>
                       </div>
                     ) : (
@@ -783,7 +790,7 @@ export default function ManagerDashboard() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-foreground truncate">{p.title}</p>
-                              <p className="text-xs text-muted-foreground">{p.state || p.city} · UGX {(p.rent_amount || 0).toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">{p.state || p.city} · {(p.rent_amount || 0).toLocaleString()}</p>
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize shrink-0 ${statusBadge(p.status)}`}>{p.status}</span>
                             {p.is_boosted && (
@@ -830,7 +837,7 @@ export default function ManagerDashboard() {
                               <p className="text-xs text-muted-foreground">{t.property_title || ''}</p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="text-sm font-bold text-destructive">UGX {(t.balance_due || 0).toLocaleString()}</p>
+                              <p className="text-sm font-bold text-destructive">{(t.balance_due || 0).toLocaleString()}</p>
                               {t.end_date && (
                                 <p className={`text-xs font-semibold ${differenceInDays(new Date(t.end_date), new Date()) < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                                   {differenceInDays(new Date(t.end_date), new Date()) < 0 ? `${Math.abs(differenceInDays(new Date(t.end_date), new Date()))}d past` : `${differenceInDays(new Date(t.end_date), new Date())}d left`}
@@ -901,7 +908,7 @@ export default function ManagerDashboard() {
                               </td>
                               <td className="py-3.5 px-4 text-muted-foreground">{p.state || p.city}{p.area ? ` · ${p.area}` : ''}</td>
                               <td className="py-3.5 px-4">
-                                  <span className="font-bold text-foreground">UGX {(p.rent_amount || 0).toLocaleString()}</span>
+                                  <span className="font-bold text-foreground">{(p.rent_amount || 0).toLocaleString()}</span>
                                 <span className="text-xs text-muted-foreground ml-1 capitalize">/{p.rent_period.slice(0, 2)}</span>
                               </td>
                               <td className="py-3.5 px-4">
@@ -991,7 +998,7 @@ export default function ManagerDashboard() {
                                 <span className="text-sm text-foreground">{t.property_title || '-'}</span>
                               </td>
                               <td className="py-3.5 px-4">
-                                <span className="font-bold text-foreground">UGX {(t.monthly_rent || 0).toLocaleString()}</span>
+                                <span className="font-bold text-foreground">{(t.monthly_rent || 0).toLocaleString()}</span>
                               </td>
                               <td className="py-3.5 px-4">
                                 <div className="text-sm text-foreground">{format(new Date(t.end_date), 'MMM dd, yyyy')}</div>
@@ -1044,7 +1051,7 @@ export default function ManagerDashboard() {
                               onClick={async () => {
                                 setSendingAction(`deact-${t.id}`);
                                 const { error } = await supabase.from('leases').update({ status: 'inactive' }).eq('id', t.id);
-                                if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+                                if (error) toast({ title: 'Error', description: cleanDbError(error), variant: 'destructive' });
                                 else { toast({ title: 'Tenancy deactivated' }); fetchData(); }
                                 setSendingAction('');
                               }}>
@@ -1118,7 +1125,7 @@ export default function ManagerDashboard() {
                                 <span className="font-semibold text-foreground">{p.tenant_name || 'Unknown'}</span>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 font-bold text-foreground">UGX {(p.amount || 0).toLocaleString()}</td>
+                            <td className="py-3.5 px-4 font-bold text-foreground">{(p.amount || 0).toLocaleString()}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{p.period_start} – {p.period_end}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs max-w-[160px] truncate">{p.notes || '—'}</td>
@@ -1319,7 +1326,7 @@ export default function ManagerDashboard() {
               ))}
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Rent Amount (UGX)</Label><Input type="number" min={0} value={form.rent_amount || ''} onChange={e => setForm({ ...form, rent_amount: Number(e.target.value) })} required className="mt-1" placeholder="e.g. 500000" /></div>
+              <div><Label>Rent Amount</Label><Input type="number" min={0} value={form.rent_amount || ''} onChange={e => setForm({ ...form, rent_amount: Number(e.target.value) })} required className="mt-1" placeholder="e.g. 500000" /></div>
               <div>
                 <Label>Rent Period</Label>
                 <Select value={form.rent_period} onValueChange={v => setForm({ ...form, rent_period: v })}>
@@ -1394,7 +1401,7 @@ export default function ManagerDashboard() {
               <div><Label>Bathrooms</Label><Input type="number" min={0} value={unitForm.bathrooms} onChange={e => setUnitForm(f => ({ ...f, bathrooms: Number(e.target.value) }))} className="mt-1" /></div>
               <div><Label>Sitting Rooms</Label><Input type="number" min={0} value={unitForm.sitting_rooms} onChange={e => setUnitForm(f => ({ ...f, sitting_rooms: Number(e.target.value) }))} className="mt-1" /></div>
               <div><Label>Kitchens</Label><Input type="number" min={0} value={unitForm.kitchens} onChange={e => setUnitForm(f => ({ ...f, kitchens: Number(e.target.value) }))} className="mt-1" /></div>
-              <div className="col-span-2"><Label>Rent Amount (UGX)</Label><Input type="number" min={0} value={unitForm.rent_amount || ''} onChange={e => setUnitForm(f => ({ ...f, rent_amount: Number(e.target.value) }))} required placeholder="e.g. 450000" className="mt-1" /></div>
+              <div className="col-span-2"><Label>Rent Amount</Label><Input type="number" min={0} value={unitForm.rent_amount || ''} onChange={e => setUnitForm(f => ({ ...f, rent_amount: Number(e.target.value) }))} required placeholder="e.g. 450000" className="mt-1" /></div>
             </div>
             <div><Label>Notes</Label><Textarea value={unitForm.description} onChange={e => setUnitForm(f => ({ ...f, description: e.target.value }))} rows={2} className="mt-1" placeholder="Any specific details about this unit..." /></div>
             <Button type="submit" disabled={sendingAction === 'add-unit' || !selectedPropertyForUnit} className="w-full gradient-primary text-primary-foreground">

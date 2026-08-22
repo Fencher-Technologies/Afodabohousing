@@ -237,7 +237,7 @@ async def initiate_boost(
     service: BoostService = Depends(get_boost_svc),
 ) -> InitiateBoostResponse:
     """Manager initiates a boost for their own property. Payment via Pesapal."""
-    prop = supabase.table("properties").select("id, owner_id, title").eq("id", str(data.property_id)).maybe_single().execute()
+    prop = supabase.table("properties").select("id, owner_id, title, rent_currency").eq("id", str(data.property_id)).maybe_single().execute()
     if not prop.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found")
     if str(prop.data.get("owner_id")) != str(current_user.id):
@@ -311,7 +311,7 @@ async def initiate_boost(
             token=token,
             order_id=order_id,
             amount=float(amount),
-            currency="UGX",
+            currency=prop.data.get("rent_currency") or "USD",
             description=f"Boost {prop_title} ({data.duration_days} days)",
             callback_url=callback_url,
             ipn_id=ipn_id,
@@ -342,7 +342,7 @@ async def initiate_boost(
         reference=reference,
         status="pending",
         redirect_url=redirect_url,
-        message=f"Redirecting to Pesapal to complete payment of UGX {amount:,}.",
+        message=f"Redirecting to Pesapal to complete payment of {amount:,}.",
     )
 
 
@@ -355,5 +355,5 @@ def default_boost_price(supabase: Client = Depends(get_service_client)) -> Boost
     return BoostPriceResponse(
         duration_days=7,
         amount=float(calculate_boost_price(supabase, 7)),
-        currency="UGX",
+        currency="USD",
     )

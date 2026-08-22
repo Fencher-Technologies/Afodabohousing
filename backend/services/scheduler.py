@@ -1,5 +1,8 @@
 import logging
+import subprocess
+import sys
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -87,17 +90,18 @@ async def check_rent_reminders(supabase=None, today: date | None = None, dispatc
             to_email = tenant.get("email")
             property_title = prop.get("title") if prop else None
             amount = arrears
+            currency = (prop or {}).get("rent_currency") or "USD"
 
             if days_until_due == 1:
                 title = "Rent due tomorrow"
                 body = (
-                    f"Your rent of UGX {amount:,.0f} is due tomorrow ({next_due}). "
+                    f"Your rent of {currency} {amount:,.0f} is due tomorrow ({next_due}). "
                     "Please make your payment to avoid any inconvenience."
                 )
             else:
                 title = f"Rent due in {days_until_due} days"
                 body = (
-                    f"Your rent of UGX {amount:,.0f} is due on {next_due} "
+                    f"Your rent of {currency} {amount:,.0f} is due on {next_due} "
                     f"({days_until_due} days away). "
                     "Please make your payment on time."
                 )
@@ -469,6 +473,30 @@ async def expire_subscriptions():
         logger.error("Subscription expiry check failed: %s", str(e), exc_info=True)
 
 
+async def sync_geonames():
+    """Monthly sync of country/region data from GeoNames dumps.
+
+    Runs the sync_geonames.py script as a subprocess to avoid blocking
+    the async event loop. Logs results to sync_history via the script.
+    """
+    try:
+        script_path = Path(__file__).parent.parent / "scripts" / "sync_geonames.py"
+        proc = subprocess.run(
+            [sys.executable, str(script_path), "sync"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if proc.returncode == 0:
+            logger.info("GeoNames sync completed successfully")
+        else:
+            logger.error("GeoNames sync failed: %s", proc.stderr[-500:] if proc.stderr else "unknown")
+    except subprocess.TimeoutExpired:
+        logger.error("GeoNames sync timed out after 300s")
+    except Exception as e:
+        logger.error("GeoNames sync error: %s", str(e), exc_info=True)
+
+
 def start_scheduler():
     settings = get_settings()
     if settings.environment == "production":
@@ -476,11 +504,13 @@ def start_scheduler():
         scheduler.add_job(check_tenancy_expiry, "cron", hour=6, minute=0)
         scheduler.add_job(check_boost_expiry, "cron", hour=6, minute=30)
         scheduler.add_job(expire_subscriptions, "cron", hour=0, minute=15)
+        scheduler.add_job(sync_geonames, "cron", day=1, hour=3, minute=0)
     else:
         scheduler.add_job(check_rent_reminders, "interval", hours=6)
         scheduler.add_job(check_tenancy_expiry, "interval", hours=12)
         scheduler.add_job(check_boost_expiry, "interval", hours=12)
         scheduler.add_job(expire_subscriptions, "interval", hours=12)
+        scheduler.add_job(sync_geonames, "interval", hours=24 * 30)
     scheduler.start()
     logger.info("Background scheduler started")
 

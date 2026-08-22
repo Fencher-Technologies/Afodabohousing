@@ -151,7 +151,7 @@ export default function ManagerTenancies() {
                           {lease.start_date ? format(new Date(lease.start_date), 'MMM dd') : '—'} - {lease.end_date ? format(new Date(lease.end_date), 'MMM dd, yyyy') : '—'}
                         </span>
                         <span className="flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" /> UGX {(lease.monthly_rent || 0).toLocaleString()}/mo
+                          <DollarSign className="h-3 w-3" /> {(lease.monthly_rent || 0).toLocaleString()}/mo
                         </span>
                         {t.phone && (
                           <a href={`https://wa.me/${t.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer"

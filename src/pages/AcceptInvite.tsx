@@ -207,7 +207,7 @@ export default function AcceptInvitePage() {
         <div className="absolute inset-0 gradient-hero" />
         <div className="relative z-10 flex flex-col justify-end p-14 text-primary-foreground">
           <div className="max-w-sm">
-            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Uganda's #1 Housing App</p>
+            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">The #1 Housing App</p>
             <h2 className="font-display text-5xl font-bold mb-4 leading-tight">
               Welcome to Axis
             </h2>

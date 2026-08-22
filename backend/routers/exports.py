@@ -257,7 +257,7 @@ def export_report_pdf(
 
     story = [Paragraph("Axis", styles["Normal"]), Paragraph("Portfolio Report", title_s), Spacer(1, 6*mm)]
 
-    p_rows = [[r.get("title",""), r.get("property_type",""), str(r.get("bedrooms","")), f"UGX {r['monthly_rent']:,.0f}" if r.get("monthly_rent") else "", r.get("status",""), f"{r.get('city','')}, {r.get('state','')}"] for r in (props.data or [])]
+    p_rows = [[r.get("title",""), r.get("property_type",""), str(r.get("bedrooms","")), f"{r['monthly_rent']:,.0f}" if r.get("monthly_rent") else "", r.get("status",""), f"{r.get('city','')}, {r.get('state','')}"] for r in (props.data or [])]
     if p_rows:
         story.append(Paragraph(f"Properties ({len(p_rows)})", h2))
         story.append(Table([["Title","Type","Beds","Rent","Status","Location"]] + p_rows, colWidths=[60*mm,30*mm,16*mm,30*mm,22*mm,40*mm], repeatRows=1, hAlign="LEFT"))
@@ -273,8 +273,8 @@ def export_report_pdf(
     story.append(Spacer(1, 6*mm))
     story.append(Paragraph("Summary", h2))
     story.append(Table([["Metric","Value"],[
-        "Total Monthly Rent", f"UGX {total_rent:,.0f}"],
-        ["Total Collected", f"UGX {total_paid:,.0f}"],
+        "Total Monthly Rent", f"{total_rent:,.0f}"],
+        ["Total Collected", f"{total_paid:,.0f}"],
         ["Active Leases", str(sum(1 for l in (leases_data.data or []) if l.get("status")=="active"))],
         ["Tenants", str(len(t_rows))],
     ], colWidths=[60*mm, 60*mm], hAlign="LEFT"))

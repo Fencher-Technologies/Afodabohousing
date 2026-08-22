@@ -58,7 +58,7 @@ export default function Footer() {
               </div>
             </ScrollLink>
             <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6 max-w-xs">
-              Connecting tenants with verified house managers across Uganda. Find your perfect home, generate agreements, and manage rent in one platform.
+              Connecting tenants with verified house managers worldwide. Find your perfect home, generate agreements, and manage rent in one platform.
             </p>
             <div className="space-y-2.5 text-sm">
               <a href="mailto:info@axishousing.com" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">

@@ -10,22 +10,22 @@ const VALUES = [
   {
     icon: <Shield className="h-7 w-7" />,
     title: 'Trust and Transparency',
-    desc: 'Every listing on Axis is reviewed before going live. We believe every Ugandan deserves to know exactly what they are renting before committing.',
+    desc: 'Every listing on Axis is reviewed before going live. We believe everyone deserves to know exactly what they are renting before committing.',
   },
   {
     icon: <HeartHandshake className="h-7 w-7" />,
     title: 'Community First',
-    desc: 'We are built by Ugandans, for Ugandans. Our platform serves families, students, professionals and property owners from Kampala to Arua.',
+    desc: 'We are built by people, for people. Our platform serves families, students, professionals and property owners everywhere.',
   },
   {
     icon: <Award className="h-7 w-7" />,
     title: 'Excellence in Service',
-    desc: 'From seamless online payments to digital tenancy agreements, we set the standard for modern property management in East Africa.',
+    desc: 'From seamless online payments to digital tenancy agreements, we set the standard for modern property management worldwide.',
   },
   {
     icon: <Building2 className="h-7 w-7" />,
     title: 'Nationwide Coverage',
-    desc: 'We cover all states of Uganda. Whether you are relocating for work, school or family, we have verified listings near you.',
+    desc: 'We cover locations worldwide. Whether you are relocating for work, school or family, we have verified listings near you.',
   },
 ];
 
@@ -51,7 +51,7 @@ export default function AboutPage() {
         <div className="relative z-10 container text-center text-primary-foreground">
           <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Our Story</p>
           <h1 className="font-display text-5xl md:text-6xl font-bold mb-5 leading-tight">
-            Built for Every Ugandan
+            Built for Everyone
           </h1>
           <p className="text-primary-foreground/85 text-xl max-w-2xl mx-auto leading-relaxed">
             Axis was founded with a single mission: make finding and managing a home as simple, safe and dignified as possible.
@@ -71,10 +71,10 @@ export default function AboutPage() {
               Millions of people relocate for work, education and family every year. Finding safe, verified and fairly priced accommodation should not be a struggle. We created Axis to solve exactly that.
             </p>
             <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-              Our platform connects tenants directly with verified house managers across all states of Uganda. No middlemen. No inflated fees. Just honest, transparent housing.
+              Our platform connects tenants directly with verified house managers worldwide. No middlemen. No inflated fees. Just honest, transparent housing.
             </p>
             <div className="flex flex-wrap gap-3">
-              {['135 Districts Covered', 'Verified Listings Only', 'Secure Online Payments', 'Digital Agreements'].map(f => (
+              {['Locations Covered', 'Verified Listings Only', 'Secure Online Payments', 'Digital Agreements'].map(f => (
                 <span key={f} className="flex items-center gap-2 bg-secondary border border-border rounded-full px-4 py-2 text-sm font-medium text-foreground">
                   <CheckCircle className="h-4 w-4 text-primary" />
                   {f}
@@ -86,7 +86,7 @@ export default function AboutPage() {
             <img src={logoImg} alt="Axis" className="h-24 w-24 mx-auto mb-6 rounded-2xl" />
             <div className="grid grid-cols-2 gap-5">
               {[
-                { val: '135+', label: 'Districts' },
+                { val: 'Global', label: 'Reach' },
                 { val: '100%', label: 'Verified' },
                 { val: 'UGX', label: 'Local Currency' },
                 { val: '24/7', label: 'Support' },
@@ -128,7 +128,7 @@ export default function AboutPage() {
           <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">The People</p>
           <h2 className="font-display text-4xl font-bold text-foreground">Behind the Platform</h2>
           <p className="text-muted-foreground mt-3 max-w-xl mx-auto text-lg">
-            A dedicated team of Ugandans working to transform how housing is found and managed across the country.
+            A dedicated team working to transform how housing is found and managed worldwide.
           </p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto">

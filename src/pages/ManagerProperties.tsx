@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { apiGet } from '@/services/api';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/utils/currency';
 import {
   Plus, Building2, Search, MapPin, Sparkles,
   Home, CheckCircle2, XCircle
@@ -25,11 +26,11 @@ const FILTERS: { id: StatusFilter; label: string; icon: React.ReactNode }[] = [
   { id: 'inactive', label: 'Inactive', icon: <Building2 className="h-3.5 w-3.5" /> },
 ];
 
-function formatUGX(amount: number) {
+function formatCompact(amount: number, currency?: string | null) {
   const n = amount || 0;
-  if (n >= 1000000) return `UGX ${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `UGX ${(n / 1000).toFixed(0)}K`;
-  return `UGX ${n.toLocaleString()}`;
+  if (n >= 1000000) return `${formatCurrency(n / 1000000, currency)}M`;
+  if (n >= 1000) return `${formatCurrency(n / 1000, currency)}K`;
+  return formatCurrency(n, currency);
 }
 
 const periodLabels: Record<string, string> = {
@@ -202,12 +203,12 @@ export default function ManagerProperties() {
                         <span className="truncate">
                           {[property.area, property.city, property.state]
                             .filter(Boolean)
-                            .join(', ') || 'Uganda'}
+                            .join(', ') || '—'}
                         </span>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="font-semibold text-foreground">
-                          {formatUGX(property.rent_amount)}
+                          {formatCompact(property.rent_amount, (property as any).rent_currency)}
                           <span className="text-muted-foreground font-normal text-xs ml-0.5">
                             {periodLabels[property.rent_period] || ''}
                           </span>

@@ -97,7 +97,7 @@ export default function ManagerPaymentDetail() {
           </Button>
           <div>
             <h1 className="font-bold text-xl">Payment Detail</h1>
-            <p className="text-sm text-muted-foreground">{property.title || 'Payment'} · UGX {(payment.amount || 0).toLocaleString()}</p>
+            <p className="text-sm text-muted-foreground">{property.title || 'Payment'} · {(payment.amount || 0).toLocaleString()}</p>
           </div>
           {!editing && (
             <div className="ml-auto flex gap-2">
@@ -126,7 +126,7 @@ export default function ManagerPaymentDetail() {
           <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
             <h2 className="font-bold text-sm">Edit Payment</h2>
             <div>
-              <Label>Amount (UGX)</Label>
+              <Label>Amount</Label>
               <Input value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="50000" className="mt-1" />
             </div>
             <div>
@@ -165,7 +165,7 @@ export default function ManagerPaymentDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-muted/30 rounded-lg p-4">
                 <p className="text-xs text-muted-foreground">Amount</p>
-                <p className="font-bold text-lg">UGX {(payment.amount || 0).toLocaleString()}</p>
+                <p className="font-bold text-lg">{(payment.amount || 0).toLocaleString()}</p>
               </div>
               <div className="bg-muted/30 rounded-lg p-4">
                 <p className="text-xs text-muted-foreground">Method</p>
@@ -202,7 +202,7 @@ export default function ManagerPaymentDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Payment</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove the payment record of UGX {(payment.amount || 0).toLocaleString()}. This cannot be undone.
+              This will permanently remove the payment record of {(payment.amount || 0).toLocaleString()}. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

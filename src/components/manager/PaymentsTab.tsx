@@ -72,7 +72,7 @@ export function PaymentsTab({ payments, loading, onConfirmPayment, onRejectPayme
                       <span className="font-semibold text-foreground">{p.tenant_name || 'Unknown'}</span>
                     </div>
                   </td>
-                  <td className="py-3.5 px-4 font-bold text-foreground">UGX {(p.amount || 0).toLocaleString()}</td>
+                  <td className="py-3.5 px-4 font-bold text-foreground">{(p.amount || 0).toLocaleString()}</td>
                   <td className="py-3.5 px-4 text-muted-foreground text-xs">{p.period_start} – {p.period_end}</td>
                   <td className="py-3.5 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                   <td className="py-3.5 px-4 text-muted-foreground text-xs max-w-[160px] truncate">{p.notes || '—'}</td>

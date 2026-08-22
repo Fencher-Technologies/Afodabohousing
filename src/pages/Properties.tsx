@@ -18,12 +18,21 @@ interface Property {
   sitting_rooms: number; state: string | null; city: string | null;
   area: string | null; images: string[] | null; description: string | null;
   amenities: string[] | null; address: string | null; created_at: string;
+  region_id: string | null; country: string | null; rent_currency: string | null;
 }
 
-const UGANDA_STATES = [
-  'All States', 'Central', 'Eastern', 'Western', 'Northern', 'North Eastern', 'South Western', 'Buganda', 'Kigezi',
-  'Ankole', 'Toro', 'Busoga', 'Lango', 'Acholi', 'Karamoja', 'West Nile', 'Bunyoro', 'Tooro',
-];
+interface Region { id: string; name: string; country_id: string; }
+interface Country { id: string; name: string; iso2: string; }
+
+const CURRENCY_MAP: Record<string, string> = {
+  UG: 'UGX', KE: 'KES', TZ: 'TZS', NG: 'NGN', GH: 'GHS', ZA: 'ZAR',
+  RW: 'RWF', ET: 'ETB', SD: 'SDG', CD: 'CDF', CM: 'XAF', MZ: 'MZN',
+  ZM: 'ZMW', MW: 'MWK', SS: 'SSP', US: 'USD', GB: 'GBP', EU: 'EUR',
+};
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  UGX: 'UGX', KES: 'KES', NGN: '₦', GHS: 'GH₵', TZS: 'TSh', ZAR: 'R', USD: '$', GBP: '£', EUR: '€',
+};
 
 export default function PropertiesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,6 +40,8 @@ export default function PropertiesPage() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
 
+  const [country, setCountry] = useState(searchParams.get('country') || '');
+  const [regionId, setRegionId] = useState(searchParams.get('region_id') || '');
   const [state, setState] = useState(searchParams.get('state') || '');
   const [propType, setPropType] = useState(searchParams.get('type') || 'all');
   const [period, setPeriod] = useState(searchParams.get('period') || 'all');
@@ -38,24 +49,51 @@ export default function PropertiesPage() {
   const [maxPrice, setMaxPrice] = useState(searchParams.get('max') || '');
   const [stateInput, setStateInput] = useState(state);
 
-  // Debounce the numeric price inputs so typing "150000" fires one request,
-  // not six.
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [selectedCurrency, setSelectedCurrency] = useState('USD');
+
   const [priceFilters, setPriceFilters] = useState({ min: minPrice, max: maxPrice });
   useEffect(() => {
     const t = setTimeout(() => setPriceFilters({ min: minPrice, max: maxPrice }), 400);
     return () => clearTimeout(t);
   }, [minPrice, maxPrice]);
 
+  // Load countries on mount
+  useEffect(() => {
+    fetch(`${API}/regions/countries`)
+      .then(r => r.json())
+      .then((data: Country[]) => setCountries(data.filter(c => !c.id.startsWith('deprecated-'))))
+      .catch(() => {});
+  }, []);
+
+  // Load regions when country changes
+  useEffect(() => {
+    if (!country) { setRegions([]); return; }
+    fetch(`${API}/regions/regions?country_id=${country}`)
+      .then(r => r.json())
+      .then((data: Region[]) => setRegions(data.filter(r => !r.id.startsWith('deprecated-'))))
+      .catch(() => {});
+  }, [country]);
+
+  // Sync currency when country changes
+  useEffect(() => {
+    if (!country) { setSelectedCurrency('USD'); return; }
+    setSelectedCurrency(CURRENCY_MAP[country] || 'USD');
+  }, [country]);
+
   useEffect(() => {
     fetchProperties();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, propType, period, priceFilters.min, priceFilters.max]);
+  }, [country, regionId, state, propType, period, priceFilters.min, priceFilters.max]);
 
   const { bookmarks, toggle } = usePropertyBookmarks(properties.map(p => p.id));
 
   const fetchProperties = async () => {
     setLoading(true);
     const params = new URLSearchParams();
+    if (country) params.set('country', country);
+    if (regionId) params.set('region_id', regionId);
     if (state) params.set('state', state);
     if (propType !== 'all') params.set('property_type', propType);
     if (period !== 'all') params.set('rent_period', period);
@@ -77,6 +115,8 @@ export default function PropertiesPage() {
   const handleSearch = () => {
     setState(stateInput);
     const params: Record<string, string> = {};
+    if (country) params.country = country;
+    if (regionId) params.region_id = regionId;
     if (stateInput) params.state = stateInput;
     if (propType !== 'all') params.type = propType;
     if (period !== 'all') params.period = period;
@@ -84,25 +124,25 @@ export default function PropertiesPage() {
   };
 
   const clearFilters = () => {
-    setState(''); setPropType('all'); setPeriod('all');
-    setMinPrice(''); setMaxPrice(''); setStateInput('');
+    setCountry(''); setRegionId(''); setState(''); setPropType('all');
+    setPeriod('all'); setMinPrice(''); setMaxPrice(''); setStateInput('');
     setSearchParams({});
   };
+
+  const activeCountry = countries.find(c => c.id === country);
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* Page Header */}
       <div className="bg-primary py-10">
         <div className="container">
           <h1 className="font-display text-3xl font-bold text-primary-foreground mb-4">Browse Properties</h1>
-          {/* Search row */}
           <div className="bg-card rounded-xl p-3 flex flex-col sm:flex-row gap-3 max-w-2xl">
             <div className="flex-1 flex items-center gap-2 px-3">
               <MapPin className="h-4 w-4 text-accent shrink-0" />
               <Input
-                placeholder="State or city…"
+                placeholder="State, city, or area…"
                 value={stateInput}
                 onChange={e => setStateInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -119,7 +159,6 @@ export default function PropertiesPage() {
 
       <div className="container py-8">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Filters sidebar */}
           <aside className="lg:w-64 shrink-0">
             <div className="bg-card border border-border rounded-xl p-5 shadow-card sticky top-24">
               <div className="flex items-center justify-between mb-4">
@@ -132,15 +171,45 @@ export default function PropertiesPage() {
 
               <div className="space-y-5">
                 <div>
-                  <Label className="text-sm mb-2 block">State</Label>
-                  <Select value={state || 'all'} onValueChange={v => setState(v === 'all' ? '' : v)}>
-                    <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
+                  <Label className="text-sm mb-2 block">Country</Label>
+                  <Select value={country || 'all'} onValueChange={v => {
+                    const val = v === 'all' ? '' : v;
+                    setCountry(val);
+                    setRegionId('');
+                  }}>
+                    <SelectTrigger><SelectValue placeholder="All Countries" /></SelectTrigger>
                     <SelectContent>
-                      {UGANDA_STATES.map(s => (
-                        <SelectItem key={s} value={s === 'All States' ? 'all' : s}>{s}</SelectItem>
+                      <SelectItem value="all">All Countries</SelectItem>
+                      {countries.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                {country && regions.length > 0 && (
+                  <div>
+                    <Label className="text-sm mb-2 block">Region</Label>
+                    <Select value={regionId || 'all'} onValueChange={v => setRegionId(v === 'all' ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder="All Regions" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Regions</SelectItem>
+                        {regions.map(r => (
+                          <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div>
+                  <Label className="text-sm mb-2 block">State / District</Label>
+                  <Input
+                    placeholder="e.g. Kampala, Wakiso…"
+                    value={stateInput}
+                    onChange={e => setStateInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  />
                 </div>
 
                 <div>
@@ -169,7 +238,9 @@ export default function PropertiesPage() {
                 </div>
 
                 <div>
-                  <Label className="text-sm mb-2 block">Price Range (UGX)</Label>
+                  <Label className="text-sm mb-2 block">
+                    Price Range ({CURRENCY_SYMBOLS[selectedCurrency] || selectedCurrency})
+                  </Label>
                   <div className="flex gap-2">
                     <Input
                       type="number"
@@ -195,11 +266,11 @@ export default function PropertiesPage() {
             </div>
           </aside>
 
-          {/* Results */}
           <div className="flex-1">
             <p className="text-muted-foreground text-sm mb-5">
               Showing <strong className="text-foreground">{total}</strong> properties
-              {state ? ` in ${state}` : ' across Uganda'}
+              {activeCountry ? ` in ${activeCountry.name}` : ''}
+              {state ? ` — ${state}` : ''}
             </p>
 
             {loading ? (

@@ -59,7 +59,7 @@ class PaginatedResponse(BaseModel):
 class PesapalInitiateRequest(BaseModel):
     amount: float
     callback_url: str
-    currency: str = "UGX"
+    currency: str = "USD"
     description: str
     email: str | None = None
     first_name: str
@@ -337,7 +337,7 @@ def update_payment(
                 recipient_id=tenant_user_id,
                 type="payment_status",
                 title=f"Payment {status_label}",
-                body=f"Your rent payment of UGX {amount:,.0f} has been {status_label} by the house manager.",
+                body=f"Your rent payment of {result.get('currency', 'USD')} {amount:,.0f} has been {status_label} by the house manager.",
                 metadata={"payment_id": str(payment_id), "status": data.status},
             )
 

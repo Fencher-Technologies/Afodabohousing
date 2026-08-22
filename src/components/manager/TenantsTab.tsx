@@ -68,7 +68,7 @@ export function TenantsTab({ leases, loading, onAddTenant, onSendReminder, onUpl
                       <span className="text-sm text-foreground">{t.property_title || '-'}</span>
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="font-bold text-foreground">UGX {(t.monthly_rent || 0).toLocaleString()}</span>
+                      <span className="font-bold text-foreground">{(t.monthly_rent || 0).toLocaleString()}</span>
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="text-sm text-foreground">{format(new Date(t.end_date), 'MMM dd, yyyy')}</div>

@@ -86,7 +86,7 @@ export default function Navbar() {
                   <div className="bg-primary/10 text-primary rounded-lg p-1.5"><Building2 className="h-4 w-4" /></div>
                   <div>
                     <div className="text-sm font-semibold text-foreground">Browse All Properties</div>
-                    <div className="text-xs text-muted-foreground">Verified listings across Uganda</div>
+                    <div className="text-xs text-muted-foreground">Verified listings worldwide</div>
                   </div>
                 </Link>
                 <Link to="/properties?state=Central" className="flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors">
@@ -107,7 +107,7 @@ export default function Navbar() {
                   <div className="bg-accent/10 text-accent rounded-lg p-1.5"><MapPin className="h-4 w-4" /></div>
                   <div>
                     <div className="text-sm font-semibold text-foreground">Mbarara</div>
-                    <div className="text-xs text-muted-foreground">Western Uganda</div>
+                    <div className="text-xs text-muted-foreground">Regional Listings</div>
                   </div>
                 </Link>
                 <div className="border-t border-border mt-2 pt-2 mx-2">

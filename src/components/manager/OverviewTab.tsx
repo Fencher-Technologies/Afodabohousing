@@ -41,7 +41,7 @@ export function OverviewTab({ loading, properties, leases, payments, onSetTab, o
   const statCards = [
     { label: 'Total Listings', val: properties.length, sub: `${available} available · ${occupied} occupied`, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10' },
     { label: 'Active Tenants', val: leases.filter(t => t.status === 'active').length, sub: `${dueSoonTenancies.length} rent due soon`, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10' },
-    { label: 'Revenue Confirmed', val: `UGX ${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Revenue Confirmed', val: `${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10' },
   ];
 
   return (
@@ -112,7 +112,7 @@ export function OverviewTab({ loading, properties, leases, payments, onSetTab, o
               <div key={r.label} className="mb-4">
                 <div className="flex justify-between items-center mb-1.5">
                   <span className="text-sm text-muted-foreground">{r.label}</span>
-                  <span className={`text-sm font-bold ${r.textColor}`}>UGX {(r.val || 0).toLocaleString()}</span>
+                  <span className={`text-sm font-bold ${r.textColor}`}>{(r.val || 0).toLocaleString()}</span>
                 </div>
                 <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                   <div className={`h-full ${r.color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
@@ -147,7 +147,7 @@ export function OverviewTab({ loading, properties, leases, payments, onSetTab, o
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">{p.tenant_name || 'Tenant'}</p>
-                    <p className="text-xs text-muted-foreground">UGX {(p.amount || 0).toLocaleString()} · {format(new Date(p.created_at), 'MMM dd')}</p>
+                    <p className="text-xs text-muted-foreground">{(p.amount || 0).toLocaleString()} · {format(new Date(p.created_at), 'MMM dd')}</p>
                   </div>
                   <div className="flex gap-1.5 shrink-0">
                     <Button size="sm" className="gradient-primary text-primary-foreground h-7 w-7 p-0" disabled={!!sendingAction} onClick={() => onConfirmPayment(p)}>
@@ -199,7 +199,7 @@ export function OverviewTab({ loading, properties, leases, payments, onSetTab, o
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">{p.title}</p>
-                    <p className="text-xs text-muted-foreground">{p.state || p.city} · UGX {(p.rent_amount || 0).toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">{p.state || p.city} · {(p.rent_amount || 0).toLocaleString()}</p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize shrink-0 ${statusBadge(p.status)}`}>{p.status}</span>
                 </div>
@@ -236,7 +236,7 @@ export function OverviewTab({ loading, properties, leases, payments, onSetTab, o
                     <p className="text-xs text-muted-foreground">{t.property_title || ''}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-destructive">UGX {(t.balance_due || 0).toLocaleString()}</p>
+                    <p className="text-sm font-bold text-destructive">{(t.balance_due || 0).toLocaleString()}</p>
                     {t.end_date && (
                       <p className={`text-xs font-semibold ${differenceInDays(new Date(t.end_date), new Date()) < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                         {differenceInDays(new Date(t.end_date), new Date()) < 0

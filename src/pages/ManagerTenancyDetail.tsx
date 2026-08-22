@@ -237,20 +237,20 @@ export default function ManagerTenancyDetail() {
           <div className="grid md:grid-cols-4 gap-4">
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-xs text-muted-foreground">Monthly Rent</p>
-              <p className="font-bold text-lg">UGX {(lease.monthly_rent || 0).toLocaleString()}</p>
+              <p className="font-bold text-lg">{(lease.monthly_rent || 0).toLocaleString()}</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-xs text-muted-foreground">Deposit</p>
-              <p className="font-bold text-lg">{lease.rent_deposit ? `UGX ${lease.rent_deposit.toLocaleString()}` : '—'}</p>
+              <p className="font-bold text-lg">{lease.rent_deposit ? lease.rent_deposit.toLocaleString() : '—'}</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-xs text-muted-foreground">Total Paid</p>
-              <p className="font-bold text-lg text-success">UGX {totalPaid.toLocaleString()}</p>
+              <p className="font-bold text-lg text-success">{totalPaid.toLocaleString()}</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-xs text-muted-foreground">Balance</p>
               <p className={`font-bold text-lg ${balance > 0 ? 'text-gold' : 'text-success'}`}>
-                {balance > 0 ? `UGX ${balance.toLocaleString()}` : 'Cleared'}
+                {balance > 0 ? `${balance.toLocaleString()}` : 'Cleared'}
               </p>
             </div>
           </div>
@@ -334,7 +334,7 @@ export default function ManagerTenancyDetail() {
                     <tr key={pay.id} onClick={() => navigate(`/dashboard/manager/payments/${pay.id}`)}
                       className="border-b border-border/50 hover:bg-muted/20 cursor-pointer transition-colors">
                       <td className="py-3 px-4 font-medium capitalize">{pay.payment_type || 'Payment'}</td>
-                      <td className="py-3 px-4 font-bold">UGX {(pay.amount || 0).toLocaleString()}</td>
+                      <td className="py-3 px-4 font-bold">{(pay.amount || 0).toLocaleString()}</td>
                       <td className="py-3 px-4 text-muted-foreground">
                         {pay.created_at ? format(new Date(pay.created_at), 'MMM dd, yyyy') : '—'}
                       </td>

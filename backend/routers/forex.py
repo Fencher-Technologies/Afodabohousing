@@ -9,13 +9,13 @@ router = APIRouter(prefix="/forex", tags=["forex"])
 @router.get("/rates")
 def list_rates(current_user: CurrentUser = Depends(get_current_user)) -> dict:
     rates = get_all_rates()
-    return {"base": "UGX", "rates": rates, "updated": "cached up to 6h"}
+    return {"base": "USD", "rates": rates, "updated": "cached up to 6h"}
 
 
 @router.get("/convert")
 def convert_currency(
     amount: float = Query(..., gt=0),
-    from_currency: str = Query("UGX"),
+    from_currency: str = Query("USD"),
     to_currency: str = Query("USD"),
     current_user: CurrentUser = Depends(get_current_user),
 ) -> dict:

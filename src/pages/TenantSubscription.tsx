@@ -102,7 +102,7 @@ export default function TenantSubscription() {
                 }`}>
                   <div className="mb-4">
                     <h3 className="font-bold text-lg">{plan.name}</h3>
-                    <p className="text-3xl font-bold mt-2">UGX {plan.price.toLocaleString()}</p>
+                    <p className="text-3xl font-bold mt-2">{plan.price.toLocaleString()}</p>
                     <p className="text-sm text-muted-foreground">/{plan.duration_days} days</p>
                   </div>
                   {plan.features && plan.features.length > 0 && (

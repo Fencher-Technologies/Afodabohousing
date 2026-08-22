@@ -9,7 +9,7 @@ export interface BoostPlan {
 }
 
 export function formatBoostPrice(amount: number) {
-  return `UGX ${amount.toLocaleString()}`;
+  return `${amount.toLocaleString()}`;
 }
 
 export function getBoostedUntil(property: unknown) {

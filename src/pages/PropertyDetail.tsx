@@ -8,8 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import VoiceRecorder from '@/components/VoiceRecorder';
+import { formatCurrency } from '@/utils/currency';
 import {
   MapPin, Bed, Bath, Home, Phone, Mail, ChevronLeft, ChevronRight,
   Wifi, Car, Zap, Droplets, Shield, Send, MessageSquare, Share2,
@@ -30,7 +32,7 @@ interface Property {
   area: string | null; images: string[] | null; description: string | null;
   amenities: string[] | null; address: string | null; created_at: string;
   manager_phone: string | null; manager_email: string | null; owner_id: string | null;
-  rent_currency: string | null;
+  rent_currency: string | null; country: string | null;
 }
 
 // Minimal rental unit type from DB (may not be in generated types yet)
@@ -74,13 +76,6 @@ const statusColors: Record<string, string> = {
   occupied: 'bg-destructive/10 text-destructive border border-destructive/30',
   inactive: 'bg-muted text-muted-foreground border border-border',
 };
-
-function formatUGX(amount: number) {
-  const n = amount || 0;
-  if (n >= 1000000) return `UGX ${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `UGX ${(n / 1000).toFixed(0)}K`;
-  return `UGX ${n.toLocaleString()}`;
-}
 
 export default function PropertyDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -142,8 +137,9 @@ export default function PropertyDetailPage() {
   };
 
   // Build OSM search/embed URLs using state + area
+  const countryName = property?.country || '';
   const buildOSMQuery = (p: Property) =>
-    [p.area, p.city, p.state, 'Uganda'].filter(Boolean).join(', ');
+    [p.area, p.city, p.state, countryName].filter(Boolean).join(', ');
 
   const getOSMSearchUrl = (p: Property) =>
     `https://www.openstreetmap.org/search?query=${encodeURIComponent(buildOSMQuery(p))}`;
@@ -151,19 +147,14 @@ export default function PropertyDetailPage() {
   const getOSMDirectionsUrl = (p: Property) =>
     `https://www.openstreetmap.org/directions?to=${encodeURIComponent(buildOSMQuery(p))}`;
 
-  // Use Nominatim geocoding URL embedded in iframe via overpass embed
   const getOSMEmbedUrl = (p: Property) => {
-    // Build a search-based embed that zooms to the state
-    const q = encodeURIComponent(`${p.state || p.city} District, Uganda`);
+    const q = encodeURIComponent(`${p.state || p.city}${countryName ? `, ${countryName}` : ''}`);
     return `https://nominatim.openstreetmap.org/search?q=${q}&format=html`;
   };
 
-  // Alternative: use leaflet/OSM tile embed with known Uganda bbox for the district
   const getOSMTileEmbed = (p: Property) => {
-    // Use a simple marker-based Leaflet embed URL
     const location = encodeURIComponent(buildOSMQuery(p));
-    // Embed using geoapify or umap for simplicity; fall back to standard OSM export
-    return `https://www.openstreetmap.org/export/embed.html?bbox=29.5%2C-1.5%2C35.5%2C4.5&layer=mapnik&marker=${encodeURIComponent((p.state || p.city) + ', Uganda')}`;
+    return `https://www.openstreetmap.org/export/embed.html?layer=mapnik&marker=${encodeURIComponent(location)}`;
   };
 
   if (loading) {
@@ -303,12 +294,12 @@ export default function PropertyDetailPage() {
               </h1>
               <div className="flex items-center gap-2 text-muted-foreground mb-5">
                 <MapPin className="h-4 w-4 text-accent shrink-0" />
-                <span className="text-sm">{fullLocation || property.state || property.city || 'Uganda'}</span>
+                <span className="text-sm">{fullLocation || property.state || property.city || ''}</span>
               </div>
               <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-2xl p-5 border border-primary/20">
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-display font-bold text-primary">
-                    {formatUGX(property.rent_amount)}
+                    {formatCurrency(property.rent_amount, property.rent_currency)}
                   </span>
                   <span className="text-lg text-muted-foreground">{periodLabel}</span>
                 </div>
@@ -427,7 +418,7 @@ export default function PropertyDetailPage() {
 
                         <div className="flex items-center justify-between pt-2 border-t border-border">
                           <div>
-                            <span className="text-xl font-bold text-primary font-display">{formatUGX(unit.rent_amount)}</span>
+                            <span className="text-xl font-bold text-primary font-display">{formatCurrency(unit.rent_amount, unit.rent_currency)}</span>
                             <span className="text-muted-foreground text-xs ml-1">/mo</span>
                           </div>
                           {unit.status === 'available' ? (
@@ -485,7 +476,7 @@ export default function PropertyDetailPage() {
                 <div className="h-40 bg-secondary flex flex-col items-center justify-center gap-3">
                   <MapPin className="h-10 w-10 text-accent opacity-40" />
                   <div className="text-center">
-                    <p className="font-semibold text-foreground text-sm">{fullLocation || `${property.state || property.city}, Uganda`}</p>
+                    <p className="font-semibold text-foreground text-sm">{fullLocation || `${property.state || property.city || ''}`}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Open a map app below to find exact location</p>
                   </div>
                 </div>

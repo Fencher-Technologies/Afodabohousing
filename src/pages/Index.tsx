@@ -43,13 +43,13 @@ const FEATURES = [
   },
 ];
 
-const DISTRICTS = ['Kampala', 'Wakiso', 'Mukono', 'Mbarara', 'Gulu', 'Jinja', 'Entebbe', 'Mbale', 'Lira', 'Arua'];
+
 
 const HOW_IT_WORKS = [
   {
     step: '01',
     emoji: '🔍',
-    title: 'Search by District',
+    title: 'Search by Location',
     desc: 'Browse thousands of verified rentals filtered by state, type, number of rooms, price range and available amenities.',
   },
   {
@@ -72,10 +72,12 @@ export default function HomePage() {
   const [searchDistrict, setSearchDistrict] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [searchInput, setSearchInput] = useState('');
-  const [stats, setStats] = useState({ properties: 0, tenancies: 0, users: 0 });
+  const [stats, setStats] = useState({ properties: 0, tenancies: 0, users: 0, locations: 0 });
+  const [popularLocations, setPopularLocations] = useState<string[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => { fetchProperties(); fetchStats(); }, [searchDistrict, filterType]);
+  useEffect(() => { fetchPopularLocations(); }, []);
 
   const fetchProperties = async () => {
     setLoading(true);
@@ -90,12 +92,39 @@ export default function HomePage() {
   };
 
   const fetchStats = async () => {
-    const [pRes, lRes, uRes] = await Promise.all([
-      supabase.from('properties').select('id', { count: 'exact', head: true }),
+    const [pRes, lRes, uRes, cityRes] = await Promise.all([
+      supabase.from('properties').select('id', { count: 'exact', head: true }).eq('is_active', true),
       supabase.from('leases').select('id', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('profiles').select('id', { count: 'exact', head: true }),
+      supabase.from('properties').select('city').eq('is_active', true).not('city', 'is', null).limit(2000),
     ]);
-    setStats({ properties: pRes.count || 0, tenancies: lRes.count || 0, users: uRes.count || 0 });
+    const locations = new Set(
+      ((cityRes.data as any[]) || []).map(d => (d.city || '').trim()).filter(Boolean)
+    ).size;
+    setStats({ properties: pRes.count || 0, tenancies: lRes.count || 0, users: uRes.count || 0, locations });
+  };
+
+  const fetchPopularLocations = async () => {
+    try {
+      const { data } = await supabase
+        .from('properties')
+        .select('city')
+        .eq('is_active', true)
+        .not('city', 'is', null)
+        .limit(2000);
+      const counts: Record<string, number> = {};
+      ((data as any[]) || []).forEach(r => {
+        const c = (r.city || '').trim();
+        if (c) counts[c] = (counts[c] || 0) + 1;
+      });
+      const top = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([c]) => c);
+      setPopularLocations(top);
+    } catch {
+      setPopularLocations([]);
+    }
   };
 
   const handleSearch = () => setSearchDistrict(searchInput);
@@ -114,10 +143,10 @@ export default function HomePage() {
           </Badge>
           <h1 className="font-display text-5xl md:text-7xl font-bold text-primary-foreground mb-6 leading-tight tracking-tight">
             Find Your Perfect<br />
-            <span className="text-gold">Home in Uganda</span>
+            <span className="text-gold">Home, Anywhere</span>
           </h1>
           <p className="text-primary-foreground/85 text-xl mb-10 max-w-2xl mx-auto leading-relaxed">
-            Search verified rentals across all states of Uganda. Connect with trusted house managers, sign digital agreements and manage rent elegantly.
+            Search verified rentals worldwide. Connect with trusted house managers, sign digital agreements and manage rent elegantly.
           </p>
 
           {/* Search bar */}
@@ -151,9 +180,9 @@ export default function HomePage() {
             </Button>
           </div>
 
-          {/* Popular states */}
+          {/* Popular locations — driven by live listing counts across all countries */}
           <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {DISTRICTS.map(d => (
+            {popularLocations.map(d => (
               <button
                 key={d}
                 onClick={() => { setSearchInput(d); setSearchDistrict(d); }}
@@ -171,7 +200,7 @@ export default function HomePage() {
         <div className="container grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
             { val: stats.properties > 0 ? `${stats.properties}+` : '10+', label: 'Active Listings', sub: 'Verified and ready' },
-            { val: '135', label: 'Districts Covered', sub: 'All across Uganda' },
+            { val: stats.locations > 0 ? `${stats.locations}+` : '10+', label: 'Locations Covered', sub: 'Worldwide' },
             { val: stats.tenancies > 0 ? `${stats.tenancies}+` : '2+', label: 'Active Tenancies', sub: 'Happy tenants' },
             { val: stats.users > 0 ? `${stats.users}+` : '5+', label: 'Registered Users', sub: 'Growing community' },
           ].map(s => (
@@ -230,7 +259,7 @@ export default function HomePage() {
           <div className="text-center mb-14">
             <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Why Choose Us</p>
             <h2 className="font-display text-4xl font-bold text-foreground">
-              Built for Every Ugandan
+              Built for Everyone
             </h2>
             <p className="text-muted-foreground mt-3 max-w-xl mx-auto text-lg">
               Whether you are looking for a home or managing properties, Axis gives you the tools to succeed.
@@ -357,8 +386,8 @@ export default function HomePage() {
       {/* TESTIMONIALS */}
       <section className="container py-20">
         <div className="text-center mb-12">
-          <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">What Ugandans Say</p>
-          <h2 className="font-display text-4xl font-bold text-foreground">Trusted Across Uganda</h2>
+            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">What Our Users Say</p>
+            <h2 className="font-display text-4xl font-bold text-foreground">Trusted Worldwide</h2>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
           {[

@@ -138,7 +138,7 @@ export default function TenantBrowse() {
                     <MapPin className="h-3 w-3" /> {p.state}{p.area ? `, ${p.area}` : ''}
                   </p>
                   <div className="flex items-center justify-between mt-3">
-                    <p className="font-bold text-primary">UGX {(p.rent_amount || 0).toLocaleString()}<span className="text-xs text-muted-foreground font-normal">/{p.rent_period || 'mo'}</span></p>
+                    <p className="font-bold text-primary">{(p.rent_amount || 0).toLocaleString()}<span className="text-xs text-muted-foreground font-normal">/{p.rent_period || 'mo'}</span></p>
                     <p className="text-xs text-muted-foreground">{p.bedrooms} bed · {p.bathrooms} bath</p>
                   </div>
                   {p.amenities && p.amenities.length > 0 && (

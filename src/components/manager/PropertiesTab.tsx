@@ -78,7 +78,7 @@ export function PropertiesTab({ properties, loading, onAddProperty, onEditProper
                     </td>
                     <td className="py-3.5 px-4 text-muted-foreground">{p.state || p.city}{p.area ? ` · ${p.area}` : ''}</td>
                     <td className="py-3.5 px-4">
-                      <span className="font-bold text-foreground">UGX {(p.rent_amount || 0).toLocaleString()}</span>
+                      <span className="font-bold text-foreground">{(p.rent_amount || 0).toLocaleString()}</span>
                       <span className="text-xs text-muted-foreground ml-1 capitalize">/{p.rent_period?.slice(0, 2)}</span>
                     </td>
                     <td className="py-3.5 px-4">

@@ -113,7 +113,7 @@ export default function ManagerPaymentHistory() {
             <div className="text-center">
               <p className="text-xs text-muted-foreground mb-1">Total Paid</p>
               <p className="text-2xl font-bold text-success">
-                UGX {totalPaid.toLocaleString()}
+                {totalPaid.toLocaleString()}
               </p>
             </div>
             <div className="text-center border-l border-border">
@@ -149,7 +149,7 @@ export default function ManagerPaymentHistory() {
                   >
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-foreground">
-                        UGX {Number(payment.amount).toLocaleString()}
+                        {Number(payment.amount).toLocaleString()}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {format(
@@ -217,7 +217,7 @@ export default function ManagerPaymentHistory() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Payment</AlertDialogTitle>
             <AlertDialogDescription>
-              Delete this UGX{' '}
+              Delete this{' '}
               {deleteTarget
                 ? Number(deleteTarget.amount).toLocaleString()
                 : ''}{' '}

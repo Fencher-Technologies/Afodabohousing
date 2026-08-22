@@ -718,7 +718,7 @@ def get_user_detail(
             activity.append(ManagerActivity(
                 timestamp=str(when),
                 kind="payment",
-                title=f"Rent payment {p.get('status') or ''} — UGX {float(p.get('amount') or 0):,.0f}",
+                title=f"Rent payment {p.get('status') or ''} — {float(p.get('amount') or 0):,.0f}",
             ))
 
         leases_act = (

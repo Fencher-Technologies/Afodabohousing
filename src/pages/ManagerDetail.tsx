@@ -266,7 +266,7 @@ export default function ManagerDetail() {
                     type="number"
                     min="0"
                     step="1"
-                    placeholder="Paid amount (UGX)"
+                    placeholder="Paid amount"
                     value={confirmAmount}
                     onChange={e => setConfirmAmount(e.target.value)}
                     className="h-8 w-44 text-xs"
@@ -337,7 +337,7 @@ export default function ManagerDetail() {
                   </div>
                   <div className="flex items-center gap-3 text-sm shrink-0">
                     <span className="font-semibold text-foreground">
-                      {p.monthly_rent ? `UGX ${Math.round(p.monthly_rent).toLocaleString()}` : '—'}
+                      {p.monthly_rent ? `${Math.round(p.monthly_rent).toLocaleString()}` : '—'}
                     </span>
                     <Badge variant={p.status === 'occupied' || p.status === 'rented' ? 'default' : 'secondary'} className="capitalize">
                       {p.status}

@@ -91,12 +91,12 @@ export default function TenancyForm({ mode, initialData, onSave, onCancel, savin
         <h2 className="font-bold text-sm flex items-center gap-2"><DollarSign className="h-4 w-4 text-primary" /> Rent Details</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-sm font-semibold mb-2">Monthly Rent (UGX)</p>
+            <p className="text-sm font-semibold mb-2">Monthly Rent</p>
             <Input type="number" min="0" value={form.monthly_rent} onChange={e => setForm(f => ({ ...f, monthly_rent: e.target.value }))}
               required placeholder="e.g. 500000" className="rounded-lg h-11" />
           </div>
           <div>
-            <p className="text-sm font-semibold mb-2">Deposit (UGX, optional)</p>
+            <p className="text-sm font-semibold mb-2">Deposit (optional)</p>
             <Input type="number" min="0" value={form.rent_deposit} onChange={e => setForm(f => ({ ...f, rent_deposit: e.target.value }))}
               placeholder="e.g. 500000" className="rounded-lg h-11" />
           </div>

@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft } from 'lucide-react';
 import PropertyForm from '@/components/forms/PropertyForm';
 import type { PropertyFormData } from '@/components/forms/PropertyForm';
+import { cleanDbError } from '@/utils/dbError';
 
 export default function CreateProperty() {
   const { user, loading: authLoading } = useAuth();
@@ -27,17 +28,21 @@ export default function CreateProperty() {
     if (!user) return;
     const { error } = await supabase.from('properties').insert({
       owner_id: user.id, title: data.title, description: data.description || null,
-      property_type: data.property_type, state: data.state, area: data.area || null,
-      address: data.address || null, bedrooms: data.bedrooms, sitting_rooms: data.sitting_rooms,
-      kitchens: data.kitchens, bathrooms: data.bathrooms, rent_amount: data.rent_amount,
-      rent_period: data.rent_period, manager_phone: data.manager_phone || null,
+      property_type: data.property_type, state: data.state || null,
+      address: data.address || '', city: '', zip_code: '',
+      bedrooms: data.bedrooms, sitting_rooms: data.sitting_rooms,
+      bathrooms: data.bathrooms, monthly_rent: data.monthly_rent,
+      security_deposit: 0, square_feet: null,
+      rent_currency: data.rent_currency, rent_period: data.rent_period,
+      manager_phone: data.manager_phone || null,
       manager_email: data.manager_email || null, amenities: data.amenities,
       images: data.images.length > 0 ? data.images : null,
       latitude: data.latitude ? Number(data.latitude) : null,
       longitude: data.longitude ? Number(data.longitude) : null,
+      country: data.country, region_id: data.region_id || null,
       status: 'available',
     });
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    if (error) { toast({ title: 'Could not create property', description: cleanDbError(error), variant: 'destructive' }); return; }
     toast({ title: 'Property created!' });
     navigate('/dashboard/manager');
   };

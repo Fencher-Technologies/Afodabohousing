@@ -14,10 +14,7 @@ import {
   ChevronRight, ArrowLeft, Building2, User, Mail,
   CalendarDays, AlertTriangle
 } from 'lucide-react';
-
-function formatUGX(amount: number): string {
-  return `UGX ${amount.toLocaleString()}`;
-}
+import { formatCurrency } from '@/utils/currency';
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return '—';
@@ -92,6 +89,7 @@ export default function TenantMyTenancy() {
   };
 
   const property = lease?.properties;
+  const propertyCurrency = property?.rent_currency || lease?.rent_currency || 'USD';
 
   const daysLeft = lease ? daysBetween(new Date().toISOString(), lease.end_date) : 0;
   const isOverdue = daysLeft < 0;
@@ -241,7 +239,7 @@ export default function TenantMyTenancy() {
               <div className="bg-muted/50 rounded-lg p-3">
                 <p className="text-xs text-muted-foreground font-medium">Rent</p>
                 <p className="text-sm font-bold text-foreground mt-1">
-                  {formatUGX(monthRent)}<span className="text-xs font-normal text-muted-foreground">/{lease?.rent_period === 'quarterly' ? 'qtr' : lease?.rent_period === 'annually' ? 'yr' : 'mo'}</span>
+                  {formatCurrency(monthRent, propertyCurrency)}<span className="text-xs font-normal text-muted-foreground">/{lease?.rent_period === 'quarterly' ? 'qtr' : lease?.rent_period === 'annually' ? 'yr' : 'mo'}</span>
                 </p>
               </div>
               <div className="bg-muted/50 rounded-lg p-3">
@@ -320,16 +318,16 @@ export default function TenantMyTenancy() {
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-xs text-muted-foreground font-medium">Expected Rent</p>
-              <p className="text-lg font-bold amount text-foreground mt-1">{formatUGX(monthRent)}</p>
+              <p className="text-lg font-bold amount text-foreground mt-1">{formatCurrency(monthRent, propertyCurrency)}</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-xs text-muted-foreground font-medium">Total Paid</p>
-              <p className="text-lg font-bold amount text-success mt-1">{formatUGX(totalPaid)}</p>
+              <p className="text-lg font-bold amount text-success mt-1">{formatCurrency(totalPaid, propertyCurrency)}</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-xs text-muted-foreground font-medium">Balance Due</p>
               <p className={`text-lg font-bold amount mt-1 ${hasBalance ? 'text-destructive' : 'text-success'}`}>
-                {formatUGX(balanceDue)}
+                {formatCurrency(balanceDue, propertyCurrency)}
               </p>
             </div>
             <div className="bg-muted/50 rounded-lg p-4 text-center">
@@ -357,7 +355,7 @@ export default function TenantMyTenancy() {
           {hasCredit && (
             <div className="mt-4 bg-gold/5 border border-gold/20 rounded-lg p-3 flex items-center justify-between">
               <p className="text-sm font-semibold text-gold">Credit balance</p>
-              <p className="text-sm font-bold text-gold">{formatUGX(credit)}</p>
+              <p className="text-sm font-bold text-gold">{formatCurrency(credit, propertyCurrency)}</p>
             </div>
           )}
           {!hasBalance && !hasCredit && totalPaid > 0 && (

@@ -84,7 +84,7 @@ export default function TenantPaymentDetail() {
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <div className="text-center mb-6">
             <p className="text-sm text-muted-foreground mb-1">Amount</p>
-            <p className="text-4xl font-bold">UGX {(payment.amount || 0).toLocaleString()}</p>
+            <p className="text-4xl font-bold">{(payment.amount || 0).toLocaleString()}</p>
           </div>
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -149,7 +149,7 @@ export default function TenantPaymentDetail() {
               <p className="text-xs text-muted-foreground mt-1">
                 {payment.leases?.start_date ? format(new Date(payment.leases.start_date), 'MMM dd, yyyy') : '—'} - {payment.leases?.end_date ? format(new Date(payment.leases.end_date), 'MMM dd, yyyy') : '—'}
               </p>
-              <p className="text-xs text-muted-foreground">UGX {(payment.leases?.monthly_rent || 0).toLocaleString()}/mo</p>
+              <p className="text-xs text-muted-foreground">{(payment.leases?.monthly_rent || 0).toLocaleString()}/mo</p>
             </div>
           </div>
         )}

@@ -138,11 +138,11 @@ export default function ExploreScreen() {
       <View style={styles.hero}>
         <View style={styles.heroBadge}>
           <Compass size={14} color={Colors.accent} />
-          <Text style={styles.heroBadgeText}>Uganda Rental Marketplace</Text>
+          <Text style={styles.heroBadgeText}>Global Rental Marketplace</Text>
         </View>
         <Text style={styles.heroTitle}>Find Your Perfect Home</Text>
         <Text style={styles.heroSubtitle}>
-          Browse verified rental properties across Uganda
+          Browse verified rental properties worldwide
         </Text>
       </View>
 

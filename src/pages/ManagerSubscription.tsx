@@ -187,7 +187,7 @@ export default function ManagerSubscription() {
                         {isCurrent && <Badge variant="outline" className="text-xs">Current</Badge>}
                       </div>
                       <p className="text-3xl font-bold text-primary">${plan.price_usd}</p>
-                      <p className="text-sm text-muted-foreground">UGX {plan.price_ugx.toLocaleString()} / {plan.duration_days} days</p>
+                      <p className="text-sm text-muted-foreground">{plan.price_ugx.toLocaleString()} / {plan.duration_days} days</p>
                       {plan.benefits.length > 0 && (
                         <div className="mt-4 space-y-2">
                           {plan.benefits.map((b, i) => (
@@ -207,7 +207,7 @@ export default function ManagerSubscription() {
             {selectedPlan && (
               <Button onClick={handlePay} disabled={activating} className="w-full h-12 rounded-xl font-bold text-base gap-2 bg-gold hover:bg-gold/90 text-gold-foreground">
                 {activating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Crown className="h-5 w-5" />}
-                {activating ? 'Redirecting...' : `Pay using Pesapal — UGX ${selectedPlan.price_ugx.toLocaleString()}`}
+                {activating ? 'Redirecting...' : `Pay using Pesapal — ${selectedPlan.price_ugx.toLocaleString()}`}
               </Button>
             )}
 

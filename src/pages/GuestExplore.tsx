@@ -13,8 +13,6 @@ import { usePropertyBookmarks } from '@/hooks/usePropertyBookmarks';
 
 const API = import.meta.env.VITE_API_URL || '';
 
-const POPULAR_DISTRICTS = ['Kampala', 'Wakiso', 'Mukono', 'Entebbe', 'Jinja', 'Mbarara'];
-
 const PROPERTY_TYPES = [
   { label: 'All Types', value: '' },
   { label: 'Apartment', value: 'apartment' },
@@ -157,13 +155,13 @@ export default function GuestExplore() {
         <div className="container">
           <div className="inline-flex items-center gap-1.5 bg-accent/20 text-accent text-xs font-semibold uppercase tracking-wider rounded-full px-3.5 py-1.5 mb-3">
             <Compass className="h-3.5 w-3.5" />
-            Uganda Rental Marketplace
+            Global Rental Marketplace
           </div>
           <h1 className="font-display text-3xl sm:text-4xl text-primary-foreground leading-tight">
             Find Your Perfect Home
           </h1>
           <p className="text-primary-foreground/70 mt-1.5 text-sm sm:text-base max-w-lg">
-            Browse verified rental properties across Uganda
+            Browse verified rental properties worldwide
           </p>
 
           {/* Search bar */}
@@ -175,27 +173,6 @@ export default function GuestExplore() {
               onChange={e => setQuery(e.target.value)}
               className="border-0 shadow-none focus-visible:ring-0 bg-transparent"
             />
-          </div>
-
-          {/* Popular district chips */}
-          <div className="flex flex-wrap gap-2 mt-4">
-            {POPULAR_DISTRICTS.map(d => {
-              const active = district === d;
-              return (
-                <button
-                  key={d}
-                  onClick={() => setDistrict(active ? '' : d)}
-                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                    active
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-primary-foreground/10 text-primary-foreground/70 hover:bg-primary-foreground/20'
-                  }`}
-                >
-                  <MapPin className="h-3 w-3" />
-                  {d}
-                </button>
-              );
-            })}
           </div>
         </div>
       </section>
@@ -237,16 +214,10 @@ export default function GuestExplore() {
         {showFilters && (
           <div className="bg-card border border-border rounded-xl p-4 sm:p-5 mb-6 shadow-sm">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-              {/* District */}
+              {/* Location */}
               <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">District</label>
-                <Select value={district || 'all'} onValueChange={v => setDistrict(v === 'all' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="All districts" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Districts</SelectItem>
-                    {POPULAR_DISTRICTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Location</label>
+                <Input placeholder="City, area, or district" value={district} onChange={e => setDistrict(e.target.value)} />
               </div>
 
               {/* Property type */}
@@ -264,13 +235,13 @@ export default function GuestExplore() {
 
               {/* Min price */}
               <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Min Price (UGX)</label>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Min Price</label>
                 <Input type="number" placeholder="0" value={minPrice} onChange={e => setMinPrice(e.target.value)} />
               </div>
 
               {/* Max price */}
               <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Max Price (UGX)</label>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Max Price</label>
                 <Input type="number" placeholder="Any" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} />
               </div>
 

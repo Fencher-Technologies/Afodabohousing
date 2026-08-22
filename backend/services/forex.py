@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 EXCHANGE_RATES: dict[str, dict[str, float]] = {}
 LAST_FETCH: datetime | None = None
 CACHE_TTL = timedelta(hours=6)
-BASE_CURRENCY = "UGX"
+BASE_CURRENCY = "USD"
 
 FALLBACK_RATES: dict[str, float] = {
     "USD": 0.00027,
@@ -39,7 +39,7 @@ def _fetch_rates() -> dict[str, float]:
     return FALLBACK_RATES
 
 
-def convert(amount: float, from_currency: str = "UGX", to_currency: str = "USD") -> float:
+def convert(amount: float, from_currency: str = "USD", to_currency: str = "USD") -> float:
     if from_currency == to_currency:
         return amount
     rates = _fetch_rates()

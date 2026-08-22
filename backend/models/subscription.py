@@ -67,7 +67,7 @@ class SubscriptionCreateResponse(BaseModel):
     subscription_id: str
     plan_id: str
     amount: float
-    currency: str = "UGX"
+    currency: str = "USD"
     payment_reference: str
     redirect_url: str | None = None
     message: str

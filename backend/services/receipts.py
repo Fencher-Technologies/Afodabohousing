@@ -33,7 +33,7 @@ class ReceiptData:
 
 def _format_money(value: Any) -> str:
     amount = Decimal(str(value or 0))
-    return f"UGX {amount:,.0f}"
+    return f"{amount:,.0f}"
 
 
 def _format_date(value: Any) -> str:

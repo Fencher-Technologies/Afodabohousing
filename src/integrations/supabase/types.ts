@@ -181,6 +181,7 @@ export type Database = {
           rent_amount: number
           rent_currency: string
           rent_period: Database["public"]["Enums"]["rent_period"]
+          region_id: string | null
           sitting_rooms: number
           state: string | null
           status: Database["public"]["Enums"]["property_status"]
@@ -209,6 +210,7 @@ Insert: {
           rent_amount: number
           rent_currency?: string
           rent_period?: Database["public"]["Enums"]["rent_period"]
+          region_id?: string | null
           sitting_rooms?: number
           state?: string | null
           status?: Database["public"]["Enums"]["property_status"]
@@ -238,6 +240,7 @@ Insert: {
           rent_amount?: number
           rent_currency?: string
           rent_period?: Database["public"]["Enums"]["rent_period"]
+          region_id?: string | null
           sitting_rooms?: number
           status?: Database["public"]["Enums"]["property_status"]
           title?: string

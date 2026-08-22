@@ -96,7 +96,7 @@ export default function Onboarding() {
                 <Building2 className="h-10 w-10 text-primary-foreground" />
               </div>
               <h2 className="font-bold text-2xl">Welcome to Axis</h2>
-              <p className="text-sm text-muted-foreground">Your all-in-one platform for renting and managing properties in Uganda. Let's get you set up in under a minute.</p>
+              <p className="text-sm text-muted-foreground">Your all-in-one platform for renting and managing properties anywhere. Let's get you set up in under a minute.</p>
             </div>
           )}
 

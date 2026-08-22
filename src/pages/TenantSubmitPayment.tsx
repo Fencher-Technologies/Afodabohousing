@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Upload, CheckCircle, ShieldCheck, X } from 'lucide-react';
 import { createVerification } from '@/services/payment-verifications';
 import { supabase } from '@/integrations/supabase/client';
+import { PESAPAL_CURRENCIES } from '@/config/currencies';
 
 const METHODS = [
   { label: 'Cash', value: 'cash' },
@@ -25,6 +26,7 @@ export default function TenantSubmitPayment() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState('USD');
   const [method, setMethod] = useState('');
   const [reference, setReference] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
@@ -60,7 +62,7 @@ export default function TenantSubmitPayment() {
     setSending(true);
     try {
       await createVerification({
-        amount: num, payment_method: method,
+        amount: num, currency, payment_method: method,
         transaction_reference: reference || undefined,
         payment_date: paymentDate, notes: notes || undefined,
         screenshot_url: screenshotUrl || undefined,
@@ -111,7 +113,7 @@ export default function TenantSubmitPayment() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label>Amount (UGX)</Label>
+                <Label>Amount</Label>
                 <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="e.g. 500000" required min={1} className="mt-1" />
               </div>
               <div>

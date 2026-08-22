@@ -1,7 +1,10 @@
 from uuid import UUID
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from postgrest.exceptions import APIError
 from supabase import Client
 
 from dependencies import (
@@ -15,6 +18,21 @@ from models import PropertyCreate, PropertyResponse, PropertyUpdate
 from services import PropertyService, get_property_service
 
 router = APIRouter(prefix="/properties", tags=["properties"])
+
+
+def _clean_db_error(err: APIError) -> str:
+    """Turn a raw PostgREST/Postgres error into a specific, user-safe message."""
+    msg = getattr(err, "message", "") or str(err)
+    col = re.search(r'column "([^"]+)"', msg)
+    if "not-null constraint" in msg or "null value in column" in msg:
+        return f"Missing required value: {col.group(1) if col else 'a field'}."
+    if "duplicate key" in msg:
+        return "This record already exists."
+    if "foreign key constraint" in msg:
+        return "A related record could not be found."
+    if "check constraint" in msg:
+        return "One of the values provided is invalid."
+    return "Could not save the property. Please check your input."
 
 
 class PaginatedResponse(BaseModel):
@@ -47,6 +65,8 @@ def list_properties(
 @router.get("/public", response_model=PaginatedResponse)
 def list_public_properties(
     state: str | None = Query(None),
+    country: str | None = Query(None),
+    region_id: str | None = Query(None),
     property_type: str | None = Query(None),
     min_price: float | None = Query(None, ge=0),
     max_price: float | None = Query(None, ge=0),
@@ -56,6 +76,7 @@ def list_public_properties(
     svc = PropertyService(get_service_client())
     properties_data, total = svc.get_public_listings(
         skip=skip, limit=limit, state=state,
+        country=country, region_id=region_id,
         property_type=property_type,
         min_price=min_price, max_price=max_price,
     )
@@ -103,7 +124,10 @@ def create_property(
     _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: PropertyService = Depends(get_property_svc),
 ) -> PropertyResponse:
-    property_data = service.create(data, current_user.id)
+    try:
+        property_data = service.create(data, current_user.id)
+    except APIError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_clean_db_error(e))
     return PropertyResponse(**property_data)
 
 
@@ -115,7 +139,10 @@ def update_property(
     _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: PropertyService = Depends(get_property_svc),
 ) -> PropertyResponse:
-    property_data = service.update(property_id, data, current_user.id)
+    try:
+        property_data = service.update(property_id, data, current_user.id)
+    except APIError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_clean_db_error(e))
     if not property_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

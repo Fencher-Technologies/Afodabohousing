@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { isPropertyBoosted } from '@/services/property-boosts';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatCurrency } from '@/utils/currency';
 import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
@@ -13,7 +14,7 @@ interface Property {
   id: string; title: string; status: string; property_type: string;
   rent_amount: number; rent_period: string; bedrooms: number; bathrooms: number;
   sitting_rooms: number; state: string | null; city: string | null;
-  area: string | null; images: string[] | null;
+  area: string | null; images: string[] | null; rent_currency?: string | null;
 }
 
 const fallbackImages = [prop1, prop2, prop3];
@@ -29,11 +30,11 @@ const periodLabels: Record<string, string> = {
   annually: '/yr',
 };
 
-function formatUGX(amount: number) {
+function formatCompact(amount: number, currency?: string | null) {
   const n = amount || 0;
-  if (n >= 1000000) return `UGX ${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `UGX ${(n / 1000).toFixed(0)}K`;
-  return `UGX ${n.toLocaleString()}`;
+  if (n >= 1000000) return `${formatCurrency(n / 1000000, currency)}M`;
+  if (n >= 1000) return `${formatCurrency(n / 1000, currency)}K`;
+  return formatCurrency(n, currency);
 }
 
 interface PropertyCardProps {
@@ -119,7 +120,7 @@ function PropertyCard({ property, index = 0, bookmarks, onToggleBookmark }: Prop
           <div className="flex items-center gap-1 text-muted-foreground text-sm mb-4">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-accent" />
             <span className="line-clamp-1">
-              {property.area ? `${property.area}, ` : ''}{property.state || property.city || 'Uganda'}
+              {property.area ? `${property.area}, ` : ''}{property.state || property.city || '—'}
             </span>
           </div>
 
@@ -145,7 +146,7 @@ function PropertyCard({ property, index = 0, bookmarks, onToggleBookmark }: Prop
           <div className="flex items-end justify-between border-t border-border pt-3">
             <div>
               <span className="text-xl font-bold text-primary font-display">
-                {formatUGX(property.rent_amount)}
+                {formatCompact(property.rent_amount, property.rent_currency)}
               </span>
               <span className="text-muted-foreground text-sm ml-1">
                 {periodLabels[property.rent_period] || ''}

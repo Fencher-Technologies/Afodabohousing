@@ -113,7 +113,7 @@ export default function ManagerPaymentVerifications() {
                         s.status === 'approved' ? 'bg-success/10 text-success' :
                         'bg-destructive/10 text-destructive'
                       }`}>{s.status}</span>
-                      <span className="font-bold text-lg">UGX {s.amount?.toLocaleString()}</span>
+                      <span className="font-bold text-lg">{s.amount?.toLocaleString()}</span>
                     </div>
                     <p className="text-sm text-muted-foreground capitalize">via {s.payment_method?.replace('_', ' ')}</p>
                     {s.transaction_reference && <p className="text-xs text-muted-foreground">Ref: {s.transaction_reference}</p>}
@@ -153,7 +153,7 @@ export default function ManagerPaymentVerifications() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             {rejectTarget && (
-              <p className="text-sm font-semibold">UGX {rejectTarget.amount?.toLocaleString()} via {rejectTarget.payment_method}</p>
+              <p className="text-sm font-semibold">{rejectTarget.amount?.toLocaleString()} via {rejectTarget.payment_method}</p>
             )}
             <div>
               <Label>Reason for rejection</Label>

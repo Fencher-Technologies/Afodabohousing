@@ -65,11 +65,23 @@ def set_sentry_request_context(request_id: str, method: str, path: str) -> None:
     sentry_sdk.set_user(None)
 
 
-def set_sentry_user(user: dict[str, Any] | None) -> None:
+def set_sentry_user(user: Any) -> None:
     if sentry_sdk is None or not is_sentry_enabled():
         return
 
-    sentry_sdk.set_user(user)
+    if user is None:
+        sentry_sdk.set_user(None)
+        return
+
+    # Pydantic models don't have .get(); convert to dict for Sentry
+    if hasattr(user, "model_dump"):
+        user_dict = user.model_dump()
+    elif hasattr(user, "dict"):
+        user_dict = user.dict()
+    else:
+        user_dict = user
+
+    sentry_sdk.set_user(user_dict)
 
 
 def capture_sentry_exception(exc: Exception) -> None:

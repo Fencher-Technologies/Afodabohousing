@@ -15,6 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from config import get_settings
 from dependencies.database import get_service_client
 from routers import (
+    admin_regions_router,
     admin_router,
     agreement_generator_router,
     agreements_router,
@@ -32,6 +33,7 @@ from routers import (
     payments_router,
     phone_auth_router,
     properties_router,
+    regions_router,
     rental_units_router,
     reports_router,
     saved_phones_router,
@@ -402,6 +404,8 @@ app.include_router(tracking_router)
 app.include_router(uploads_router)
 app.include_router(webhooks_router)
 app.include_router(notifications_router)
+app.include_router(admin_regions_router.router)
+app.include_router(regions_router.router)
 
 
 @app.get("/health")

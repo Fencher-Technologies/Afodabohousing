@@ -47,7 +47,7 @@ export default function RecordPaymentModal({ open, onClose, leaseId, tenantId, m
     });
     setSending(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Payment recorded', description: `UGX ${numericAmount.toLocaleString()} recorded` });
+    toast({ title: 'Payment recorded', description: `${numericAmount.toLocaleString()} recorded` });
     setAmount(''); setMethod('mobile_money'); setNotes(''); setDate(new Date().toISOString().split('T')[0]);
     onRecorded();
     onClose();
@@ -59,14 +59,14 @@ export default function RecordPaymentModal({ open, onClose, leaseId, tenantId, m
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
           <DialogDescription>
-            Agreed rent: <strong>UGX {monthlyRent.toLocaleString()}/month</strong> &middot;
-            Balance due: <strong>UGX {balanceDue.toLocaleString()}</strong>
+            Agreed rent: <strong>{monthlyRent.toLocaleString()}/month</strong> &middot;
+            Balance due: <strong>{balanceDue.toLocaleString()}</strong>
             {exceedsBalance && <span className="text-gold ml-2">Amount exceeds balance</span>}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>Amount (UGX)</Label>
+            <Label>Amount</Label>
             <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" className="mt-1 h-11 text-lg font-bold" />
           </div>
           {numericAmount > 0 && monthlyRent > 0 && (

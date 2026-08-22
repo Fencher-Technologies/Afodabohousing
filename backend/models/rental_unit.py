@@ -20,7 +20,7 @@ class RentalUnit(BaseModel):
     sitting_rooms: int = 0
     kitchens: int = 1
     rent_amount: Decimal
-    rent_currency: str = "UGX"
+    rent_currency: str = "USD"
     status: RentalUnitStatus = "available"
     description: str | None = None
     amenities: list[str] | None = None
@@ -37,7 +37,7 @@ class RentalUnitCreate(BaseModel):
     sitting_rooms: int = 0
     kitchens: int = 1
     rent_amount: Decimal
-    rent_currency: str = "UGX"
+    rent_currency: str = "USD"
     status: RentalUnitStatus = "available"
     description: str | None = None
     amenities: list[str] | None = None

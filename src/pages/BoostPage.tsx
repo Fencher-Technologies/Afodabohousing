@@ -100,7 +100,7 @@ export default function BoostPage() {
           <CardContent>
             <div className="bg-secondary rounded-xl p-4 mb-6">
               <p className="font-semibold text-foreground">{property?.title}</p>
-              <p className="text-sm text-muted-foreground mt-1">{property?.state || property?.city} · UGX {(property?.rent_amount || 0).toLocaleString()}/mo</p>
+              <p className="text-sm text-muted-foreground mt-1">{property?.state || property?.city} · {(property?.rent_amount || 0).toLocaleString()}/mo</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -111,7 +111,7 @@ export default function BoostPage() {
                   <SelectContent>
                     {options.map(d => (
                       <SelectItem key={d.days} value={String(d.days)}>
-                        {d.label} — UGX {d.price.toLocaleString()}
+                        {d.label} — {d.price.toLocaleString()}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -119,7 +119,7 @@ export default function BoostPage() {
               </div>
 
               <Button type="submit" disabled={sending} className="w-full gradient-primary text-primary-foreground gap-2">
-                {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><ExternalLink className="h-4 w-4" /> Pay using Pesapal — UGX {price.toLocaleString()}</>}
+                {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><ExternalLink className="h-4 w-4" /> Pay using Pesapal — {price.toLocaleString()}</>}
               </Button>
             </form>
           </CardContent>

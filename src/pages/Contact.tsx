@@ -19,8 +19,8 @@ const FAQS = [
     a: 'Log in as a Tenant, go to your Dashboard and click "Pay Online". You will be redirected to PesaPal where you can pay via Visa, Mastercard, MTN Mobile Money or Airtel Money.',
   },
   {
-    q: 'Is Axis available across Uganda?',
-    a: 'Yes. We cover all states of Uganda. You can search by state name in the search bar or browse from the properties page.',
+    q: 'Is Axis available worldwide?',
+    a: 'Yes. We cover locations across many countries. You can search by city, state or region in the search bar or browse from the properties page.',
   },
   {
     q: 'What happens after I upload payment proof?',

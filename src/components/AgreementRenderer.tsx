@@ -62,9 +62,9 @@ export default function AgreementRenderer({ content, mode = 'view' }: AgreementR
         <div className="bg-muted/30 rounded-lg p-4">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tenancy Terms</p>
           <div className="grid grid-cols-2 gap-3">
-            <div><p className="text-xs text-muted-foreground">Monthly Rent</p><p className="font-semibold">UGX {Number(content.tenancy.monthly_rent).toLocaleString()}</p></div>
+            <div><p className="text-xs text-muted-foreground">Monthly Rent</p><p className="font-semibold">{Number(content.tenancy.monthly_rent).toLocaleString()}</p></div>
             {content.tenancy.security_deposit > 0 && (
-              <div><p className="text-xs text-muted-foreground">Deposit</p><p className="font-semibold">UGX {Number(content.tenancy.security_deposit).toLocaleString()}</p></div>
+              <div><p className="text-xs text-muted-foreground">Deposit</p><p className="font-semibold">{Number(content.tenancy.security_deposit).toLocaleString()}</p></div>
             )}
             <div><p className="text-xs text-muted-foreground">Start Date</p><p className="font-semibold">{content.tenancy.start_date}</p></div>
             <div><p className="text-xs text-muted-foreground">End Date</p><p className="font-semibold">{content.tenancy.end_date}</p></div>

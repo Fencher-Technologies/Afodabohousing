@@ -79,21 +79,21 @@ export default function TenantPayments() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="bg-card border border-border rounded-xl p-5 text-center">
             <p className="text-xs text-muted-foreground">Total paid</p>
-            <p className="text-2xl font-bold text-success">UGX {confirmedTotal.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-success">{confirmedTotal.toLocaleString()}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-5 text-center">
             <p className="text-xs text-muted-foreground">Expected</p>
-            <p className="text-2xl font-bold text-foreground">UGX {monthRent.toLocaleString()}<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
+            <p className="text-2xl font-bold text-foreground">{monthRent.toLocaleString()}<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
           </div>
           {balanceDue > 0 ? (
             <div className="bg-card border border-border rounded-xl p-5 text-center">
               <p className="text-xs text-muted-foreground">Balance Due</p>
-              <p className="text-2xl font-bold text-destructive">UGX {balanceDue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-destructive">{balanceDue.toLocaleString()}</p>
             </div>
           ) : credit > 0 ? (
             <div className="bg-card border border-border rounded-xl p-5 text-center">
               <p className="text-xs text-muted-foreground">Credit</p>
-              <p className="text-2xl font-bold text-gold">UGX {credit.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gold">{credit.toLocaleString()}</p>
             </div>
           ) : (
             <div className="bg-card border border-border rounded-xl p-5 text-center">
@@ -144,7 +144,7 @@ export default function TenantPayments() {
                       <span className="font-medium capitalize">{p.payment_type || 'Payment'}</span>
                       {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
                     </td>
-                    <td className="py-3 px-4 font-bold">UGX {(p.amount || 0).toLocaleString()}</td>
+                    <td className="py-3 px-4 font-bold">{(p.amount || 0).toLocaleString()}</td>
                     <td className="py-3 px-4 text-muted-foreground">
                       {p.created_at ? format(new Date(p.created_at), 'MMM dd, yyyy') : '—'}
                     </td>

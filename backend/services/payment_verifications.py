@@ -163,7 +163,7 @@ class PaymentVerificationService:
                     recipient_id=manager_user_id,
                     type="payment_verification_submitted",
                     title="Payment Awaiting Verification",
-                    body=f"{tenant_name} has submitted a rent payment of UGX {float(data.amount):,.0f} awaiting verification.",
+                    body=f"{tenant_name} has submitted a rent payment of {float(data.amount):,.0f} awaiting verification.",
                     metadata={
                         "verification_id": str(submission["id"]),
                         "amount": str(data.amount),
@@ -288,7 +288,7 @@ class PaymentVerificationService:
                     recipient_id=tenant_user_id,
                     type="payment_verified",
                     title="Payment Verified",
-                    body=f"Your payment of UGX {float(submission['amount']):,.0f} has been verified by the house manager.",
+                    body=f"Your payment of {float(submission['amount']):,.0f} has been verified by the house manager.",
                     metadata={
                         "verification_id": str(verification_id),
                         "payment_id": str(payment["id"]),
@@ -340,7 +340,7 @@ class PaymentVerificationService:
                     recipient_id=tenant_user_id,
                     type="payment_rejected",
                     title="Payment Not Verified",
-                    body=f"Your payment of UGX {float(submission['amount']):,.0f} could not be verified. Reason: {data.rejection_reason}",
+                    body=f"Your payment of {float(submission['amount']):,.0f} could not be verified. Reason: {data.rejection_reason}",
                     metadata={
                         "verification_id": str(verification_id),
                         "amount": str(submission["amount"]),

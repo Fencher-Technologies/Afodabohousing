@@ -31,7 +31,7 @@ const EXPORTS = [
   { resource: 'payments', label: 'Payments' },
 ] as const;
 
-function fmt(n: number) { return `UGX ${n.toLocaleString()}`; }
+function fmt(n: number) { return `${n.toLocaleString()}`; }
 
 export default function ManagerReports() {
   const { user, loading: authLoading } = useAuth();
@@ -218,7 +218,7 @@ export default function ManagerReports() {
                   </div>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-                  <h3 className="font-bold text-sm mb-4">Amounts (UGX)</h3>
+                  <h3 className="font-bold text-sm mb-4">Amounts</h3>
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={collectionBarData}>
                       <XAxis dataKey="name" tick={{ fontSize: 12 }} />
