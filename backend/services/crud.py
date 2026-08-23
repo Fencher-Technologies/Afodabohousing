@@ -65,11 +65,18 @@ PROPERTY_OLD_TO_NEW: dict[str, str] = {
 
 def _normalize_property(p: dict[str, Any]) -> dict[str, Any]:
     p = _normalize_row(p, PROPERTY_OLD_TO_NEW)
+    # ponytail: rows carry either legacy or new price/size column; coalesce both
+    # ways until the schema settles on monthly_rent/square_feet only
+    if p.get("monthly_rent") in (None, ""):
+        p["monthly_rent"] = p.get("rent_amount")
+    if p.get("rent_amount") in (None, ""):
+        p["rent_amount"] = p.get("monthly_rent")
+    if p.get("square_feet") in (None, ""):
+        p["square_feet"] = p.get("area")
     p.setdefault("zip_code", "00000")
     p.setdefault("country", "UG")
     p.setdefault("security_deposit", 0)
     p.setdefault("is_active", True)
-    p.setdefault("rent_amount", p.get("monthly_rent"))
     p.setdefault("rent_period", "monthly")
     p.setdefault("area", p.get("square_feet"))
     return p

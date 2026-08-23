@@ -219,7 +219,8 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
             <select value={form.rent_period} onChange={e => setForm(f => ({ ...f, rent_period: e.target.value }))}
               className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm">
               <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="annually">Annually</option>
             </select>
           </div>
         </div>

@@ -31,7 +31,9 @@ export default function CreateProperty() {
       property_type: data.property_type, state: data.state || null,
       address: data.address || '', city: '', zip_code: '',
       bedrooms: data.bedrooms, sitting_rooms: data.sitting_rooms,
-      bathrooms: data.bathrooms, monthly_rent: data.monthly_rent,
+      bathrooms: data.bathrooms,
+      // ponytail: live DB has monthly_rent only; backend coalesces legacy readers
+      monthly_rent: data.monthly_rent,
       security_deposit: 0, square_feet: null,
       rent_currency: data.rent_currency, rent_period: data.rent_period,
       manager_phone: data.manager_phone || null,

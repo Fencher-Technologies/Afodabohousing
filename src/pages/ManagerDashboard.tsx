@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,6 +19,8 @@ import { apiGet } from '@/services/api';
 import { formatCurrency } from '@/utils/currency';
 import { cleanDbError } from '@/utils/dbError';
 import AvatarUpload from '@/components/AvatarUpload';
+import PropertyForm from '@/components/forms/PropertyForm';
+import type { PropertyFormData } from '@/components/forms/PropertyForm';
 import {
   Plus, Building2, Users, DollarSign, CheckCircle, Clock, XCircle,
   Eye, RefreshCcw, UserPlus, Bell, Home, Upload,
@@ -30,9 +32,6 @@ import { format, differenceInDays } from 'date-fns';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 type TenancyRow = Database['public']['Tables']['tenancies']['Row'];
-
-const AMENITIES_LIST = ['Water', 'Electricity', 'WiFi', 'Parking', 'Security', 'Garden', 'Generator', 'DSTV', 'Borehole', 'Tiled Floors'];
-const DISTRICTS_LIST = ['Kampala', 'Wakiso', 'Mukono', 'Mbarara', 'Gulu', 'Jinja', 'Entebbe', 'Mbale', 'Lira', 'Arua', 'Fort Portal', 'Masaka', 'Kabale', 'Hoima', 'Kasese', 'Soroti', 'Tororo'];
 
 const statusBadge = (s: string) => ({
   pending: 'status-pending',
@@ -62,7 +61,6 @@ export default function ManagerDashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [leases, setLeases] = useState<(TenancyRow & { tenant_name?: string; tenant_phone?: string; tenant_user_id?: string; property_title?: string })[]>([]);
@@ -89,24 +87,14 @@ export default function ManagerDashboard() {
   const [otpPassword, setOtpPassword] = useState<string | null>(null);
   const [copiedPwd, setCopiedPwd] = useState(false);
 
-  const [form, setForm] = useState({
-    title: '', description: '', property_type: 'Residential', state: '', city: '',
-    area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1,
-    rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '',
-    amenities: [] as string[], latitude: '', longitude: '',
-    country: 'UG', region_id: '', rent_currency: 'UGX',
-  });
-  const [mapsUrl, setMapsUrl] = useState('');
-  const [showMapsInput, setShowMapsInput] = useState(false);
-  const [mapsError, setMapsError] = useState('');
-  const [geoError, setGeoError] = useState('');
+  // Which table the tenancy rows came from (new schema vs legacy)
+  const [tenancySource, setTenancySource] = useState<'tenancies' | 'leases'>('tenancies');
 
   const [unitForm, setUnitForm] = useState({
     unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 0,
     kitchens: 1, rent_amount: 0, description: '',
   });
 
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
 
   const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
@@ -154,6 +142,7 @@ export default function ManagerDashboard() {
     const leaseRows = leaseRes.data || [];
     const rawTenancies = tenancyRows.length > 0 ? tenancyRows : leaseRows;
     const isTenancies = tenancyRows.length > 0;
+    setTenancySource(isTenancies ? 'tenancies' : 'leases');
 
     const tenancyMap: Record<string, { property_id: string; tenant_id: string }> = {};
     rawTenancies.forEach(t => {
@@ -184,7 +173,7 @@ export default function ManagerDashboard() {
     })));
 
     // Fetch maintenance requests for manager's properties
-    const propIds = propsRes.data?.map(p => p.id) || [];
+    const propIds = (propsRes.items || []).map(p => p.id);
     if (propIds.length > 0) {
       const { data: reqs } = await supabase.from('maintenance_requests').select('*').in('property_id', propIds).order('created_at', { ascending: false });
       setMaintenanceReqs((reqs || []).map(r => ({
@@ -219,110 +208,36 @@ export default function ManagerDashboard() {
     catch (e) { console.log('SMS failed (non-blocking):', e); }
   };
 
-  const parseGoogleMapsLink = (url: string): { lat: number; lng: number } | null => {
-    const patterns = [
-      /@?(-?\d+\.\d+),(-?\d+\.\d+)/,
-      /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/,
-      /[?&]query=(-?\d+\.\d+),(-?\d+\.\d+)/,
-      /[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/,
-    ];
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) {
-        const lat = parseFloat(match[1]);
-        const lng = parseFloat(match[2]);
-        if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-      }
-    }
-    return null;
-  };
-
-  const handleParseMapsUrl = async () => {
-    let url = mapsUrl.trim();
-    if (url.includes('goo.gl') || url.includes('maps.app.goo')) {
-      try {
-        const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
-        url = resp.url;
-      } catch { setMapsError('Could not open that link.'); return; }
-    }
-    const result = parseGoogleMapsLink(url);
-    if (!result) { setMapsError('Could not find coordinates in that link.'); return; }
-    setForm(f => ({ ...f, latitude: String(result.lat), longitude: String(result.lng) }));
-    setMapsUrl('');
-    setShowMapsInput(false);
-    setMapsError('');
-    setGeoError('');
-  };
-
-  const handleAddProperty = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Shared form (same fields as the standalone Add Property page)
+  const handleSaveProperty = async (data: PropertyFormData) => {
     if (!user) return;
     setUploading(true);
-    let imageUrls: string[] = [];
-    for (const file of imageFiles) {
-      const ext = file.name.split('.').pop();
-      const path = `properties/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { data } = await supabase.storage.from('property-images').upload(path, file);
-      if (data) {
-        const { data: urlData } = supabase.storage.from('property-images').getPublicUrl(path);
-        imageUrls.push(urlData.publicUrl);
-      }
-    }
     const payload: Record<string, any> = {
-      title: form.title, description: form.description || null,
-      property_type: form.property_type, state: form.state || null,
-      address: form.address || '', city: form.city || '', zip_code: '',
-      bedrooms: form.bedrooms, sitting_rooms: form.sitting_rooms,
-      bathrooms: form.bathrooms, monthly_rent: Number(form.rent_amount),
-      security_deposit: 0, square_feet: null,
-      rent_currency: form.rent_currency, rent_period: form.rent_period,
-      manager_phone: form.manager_phone || null,
-      manager_email: form.manager_email || null, amenities: form.amenities,
-      country: form.country, region_id: form.region_id || null,
+      title: data.title, description: data.description || null,
+      property_type: data.property_type, state: data.state || null,
+      address: data.address || '', city: '', zip_code: '',
+      bedrooms: data.bedrooms, sitting_rooms: data.sitting_rooms, bathrooms: data.bathrooms,
+      // ponytail: live DB has monthly_rent only; backend coalesces legacy readers
+      monthly_rent: Number(data.monthly_rent),
+      security_deposit: 0,
+      rent_currency: data.rent_currency, rent_period: data.rent_period,
+      manager_phone: data.manager_phone || null, manager_email: data.manager_email || null,
+      amenities: data.amenities, images: data.images.length > 0 ? data.images : null,
+      latitude: Number(data.latitude), longitude: Number(data.longitude),
+      country: data.country, region_id: data.region_id || null,
     };
-    if (form.latitude) {
-      payload.latitude = Number(form.latitude);
-      payload.longitude = Number(form.longitude);
-    }
-    if (!payload.latitude || !payload.longitude) {
-      setGeoError('Please add property location via Maps URL, GPS coordinates, or the Maps button.');
-      setUploading(false);
-      return;
-    }
-    if (imageUrls.length > 0) payload.images = imageUrls;
-
-    if (editingProperty) {
-      const { error } = await supabase.from('properties').update(payload).eq('id', editingProperty.id);
-      setUploading(false);
-      if (error) { toast({ title: 'Error', description: cleanDbError(error), variant: 'destructive' }); return; }
-      toast({ title: 'Property updated!', description: 'Your listing has been updated.' });
-    } else {
-      payload.owner_id = user.id;
-      const { error } = await supabase.from('properties').insert(payload);
-      setUploading(false);
-      if (error) { toast({ title: 'Error', description: cleanDbError(error), variant: 'destructive' }); return; }
-      toast({ title: 'Property published!', description: 'Your listing is now live.' });
-    }
+    const { error } = editingProperty
+      ? await supabase.from('properties').update(payload).eq('id', editingProperty.id)
+      : await supabase.from('properties').insert({ ...payload, owner_id: user.id });
+    setUploading(false);
+    if (error) { toast({ title: 'Error', description: cleanDbError(error), variant: 'destructive' }); return; }
+    toast({
+      title: editingProperty ? 'Property updated!' : 'Property published!',
+      description: editingProperty ? 'Your listing has been updated.' : 'Your listing is now live.',
+    });
     setPropDialogOpen(false);
     setEditingProperty(null);
-    setForm({ title: '', description: '', property_type: 'Residential', state: '', city: '', area: '', address: '', bedrooms: 1, sitting_rooms: 1, kitchens: 1, bathrooms: 1, rent_amount: 0, rent_period: 'monthly', manager_phone: '', manager_email: '', amenities: [], latitude: '', longitude: '', country: 'UG', region_id: '', rent_currency: 'UGX' });
-    setImageFiles([]);
     fetchData();
-  };
-
-  const handleEditProperty = (p: Property) => {
-    setEditingProperty(p);
-    setForm({
-      title: p.title, description: p.description || '', property_type: p.property_type,
-      state: p.state || p.city, city: p.city || '', area: p.area || '', address: p.address || '',
-      bedrooms: p.bedrooms, sitting_rooms: p.sitting_rooms, kitchens: p.kitchens, bathrooms: p.bathrooms,
-      rent_amount: p.rent_amount, rent_period: p.rent_period, manager_phone: p.manager_phone || '',
-      manager_email: p.manager_email || '', amenities: p.amenities || [],
-      latitude: p.latitude ? String(p.latitude) : '', longitude: p.longitude ? String(p.longitude) : '',
-    });
-    setImageFiles([]);
-    setGeoError('');
-    setPropDialogOpen(true);
   };
 
   const handleDeleteProperty = async () => {
@@ -381,7 +296,6 @@ export default function ManagerDashboard() {
           email: tenantFormData.email,
           full_name: tenantFormData.full_name,
           phone: tenantFormData.phone || null,
-          property_id: tenantFormData.property_id || null,
           rent_start_date: tenantFormData.start_date || null,
           rent_end_date: tenantFormData.end_date || null,
           rent_amount: tenantFormData.monthly_rent || null,
@@ -394,7 +308,7 @@ export default function ManagerDashboard() {
       const data = await res.json();
       setCreatedPassword(data.temporary_password);
       toast({ title: 'Tenant created!', description: `Account created for ${tenantFormData.email}` });
-      setTenantFormData({ full_name: '', phone: '', email: '', property_id: '', start_date: '', end_date: '', monthly_rent: 0 });
+      setTenantFormData({ full_name: '', phone: '', email: '', start_date: '', end_date: '', monthly_rent: 0 });
       try { await fetchData(); } catch (e) { console.error('fetchData after create failed', e); }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -464,9 +378,6 @@ export default function ManagerDashboard() {
     toast({ title: 'Reminder sent!', description: `SMS reminder sent to ${lease.tenant_name}` });
     setSendingAction('');
   };
-
-  const toggleAmenity = (a: string) =>
-    setForm(f => ({ ...f, amenities: f.amenities.includes(a) ? f.amenities.filter(x => x !== a) : [...f.amenities, a] }));
 
   const occupied = properties.filter(p => p.status === 'occupied').length;
   const available = properties.filter(p => p.status === 'available').length;
@@ -538,25 +449,19 @@ export default function ManagerDashboard() {
                     </div>
                   </div>
                   <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-                    <h3 className="font-display font-semibold text-base">Property & Lease Details</h3>
-                    <div>
-                      <Label>Assigned Property</Label>
-                      <Select value={tenantFormData.property_id} onValueChange={v => {
-                        const p = properties.find(pr => pr.id === v);
-                        setTenantFormData(f => ({ ...f, property_id: v, monthly_rent: p?.monthly_rent || p?.rent_amount || 0 }));
-                      }}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select property..." /></SelectTrigger>
-                        <SelectContent>
-                          {properties.filter(p => p.status !== 'inactive').map(p => (
-                            <SelectItem key={p.id} value={p.id}>{p.title} — {p.status}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <h3 className="font-display font-semibold text-base">Lease Details</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div><Label>Start Date</Label><Input type="date" value={tenantFormData.start_date} onChange={e => setTenantFormData(f => ({ ...f, start_date: e.target.value }))} required className="mt-1" /></div>
                       <div><Label>End Date</Label><Input type="date" value={tenantFormData.end_date} onChange={e => setTenantFormData(f => ({ ...f, end_date: e.target.value }))} required className="mt-1" /></div>
                       <div><Label>Monthly Rent</Label><Input type="number" value={tenantFormData.monthly_rent || ''} onChange={e => setTenantFormData(f => ({ ...f, monthly_rent: Number(e.target.value) }))} className="mt-1" /></div>
+                    </div>
+                    <div>
+                      <Label>Tenant Name</Label>
+                      <Input value={tenantFormData.full_name} onChange={e => setTenantFormData(f => ({ ...f, full_name: e.target.value }))} placeholder="e.g. John Mugisha" required className="mt-1" />
+                      <Label>Tenant Email</Label>
+                      <Input type="email" value={tenantFormData.email} onChange={e => setTenantFormData(f => ({ ...f, email: e.target.value }))} placeholder="tenant@example.com" required className="mt-1" />
+                      <Label>Tenant Phone</Label>
+                      <Input value={tenantFormData.phone} onChange={e => setTenantFormData(f => ({ ...f, phone: e.target.value }))} placeholder="+256 788 100145" required className="mt-1" />
                     </div>
                   </div>
                   <div className="flex gap-3">
@@ -1050,7 +955,7 @@ export default function ManagerDashboard() {
                                     disabled={sendingAction === `deact-${t.id}`}
                               onClick={async () => {
                                 setSendingAction(`deact-${t.id}`);
-                                const { error } = await supabase.from('leases').update({ status: 'inactive' }).eq('id', t.id);
+                                const { error } = await supabase.from(tenancySource).update({ status: 'inactive' }).eq('id', t.id);
                                 if (error) toast({ title: 'Error', description: cleanDbError(error), variant: 'destructive' });
                                 else { toast({ title: 'Tenancy deactivated' }); fetchData(); }
                                 setSendingAction('');
@@ -1273,107 +1178,35 @@ export default function ManagerDashboard() {
             <DialogTitle className="font-display text-xl">{editingProperty ? 'Edit Property' : 'List New Property'}</DialogTitle>
             <DialogDescription>{editingProperty ? 'Update your listing details below.' : 'Fill in the details to publish your listing on Axis.'}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleAddProperty} className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <Label>Property Title</Label>
-                <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required placeholder="e.g. Spacious 3-Bedroom House in Ntinda" className="mt-1" />
-              </div>
-              <div>
-                <Label>Property Type</Label>
-                <Select value={form.property_type} onValueChange={v => setForm({ ...form, property_type: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Residential">Residential</SelectItem>
-                    <SelectItem value="Office Space">Office Space</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>State / District</Label>
-                <Select value={form.state} onValueChange={v => setForm({ ...form, state: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select location..." /></SelectTrigger>
-                  <SelectContent>{DISTRICTS_LIST.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div><Label>Area / Neighbourhood</Label><Input value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} placeholder="e.g. Ntinda, Bukoto" className="mt-1" /></div>
-              <div className="col-span-2"><Label>Full Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Plot 45, Road name..." className="mt-1" /></div>
-              <div className="col-span-2">
-                <Label>Property Location</Label>
-                <div className="flex gap-2 mt-1">
-                  <Input value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} placeholder="Latitude" className="flex-1" />
-                  <Input value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} placeholder="Longitude" className="flex-1" />
-                  <button type="button" onClick={() => setShowMapsInput(!showMapsInput)} className="px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:border-primary whitespace-nowrap">
-                    Maps URL
-                  </button>
-                </div>
-                {showMapsInput && (
-                  <div className="flex gap-2 mt-2 items-start">
-                    <Input value={mapsUrl} onChange={e => { setMapsUrl(e.target.value); setMapsError(''); }} placeholder="Paste Google Maps link..." className="flex-1" />
-                    <button type="button" onClick={handleParseMapsUrl} className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm whitespace-nowrap">Parse</button>
-                  </div>
-                )}
-                {mapsError && <p className="text-xs text-red-500 mt-1">{mapsError}</p>}
-                {geoError && <p className="text-xs text-red-500 mt-1">{geoError}</p>}
-              </div>
-            </div>
-            <div className="grid grid-cols-4 gap-3">
-              {(['bedrooms', 'sitting_rooms', 'kitchens', 'bathrooms'] as const).map(f => (
-                <div key={f}>
-                  <Label className="text-xs capitalize">{f.replace('_', ' ')}</Label>
-                  <Input type="number" min={0} value={(form as unknown as Record<string, number>)[f]} onChange={e => setForm({ ...form, [f]: Number(e.target.value) })} className="mt-1" />
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Rent Amount</Label><Input type="number" min={0} value={form.rent_amount || ''} onChange={e => setForm({ ...form, rent_amount: Number(e.target.value) })} required className="mt-1" placeholder="e.g. 500000" /></div>
-              <div>
-                <Label>Rent Period</Label>
-                <Select value={form.rent_period} onValueChange={v => setForm({ ...form, rent_period: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="quarterly">Quarterly</SelectItem>
-                    <SelectItem value="annually">Annually</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div><Label>Your Phone</Label><Input value={form.manager_phone} onChange={e => setForm({ ...form, manager_phone: e.target.value })} placeholder="+256 788 100145" className="mt-1" /></div>
-              <div><Label>Contact Email</Label><Input type="email" value={form.manager_email} onChange={e => setForm({ ...form, manager_email: e.target.value })} placeholder="you@email.com" className="mt-1" /></div>
-            </div>
-            <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} className="mt-1" placeholder="Describe the property, surroundings, access..." /></div>
-            <div>
-              <Label>Amenities</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {AMENITIES_LIST.map(a => (
-                  <button type="button" key={a} onClick={() => toggleAmenity(a)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-all ${form.amenities.includes(a) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border text-muted-foreground hover:border-primary'}`}>
-                    {a}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label>Property Photos</Label>
-              <div className="mt-1 border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-primary transition-colors" onClick={() => fileRef.current?.click()}>
-                {imageFiles.length > 0 ? (
-                  <div className="space-y-1">
-                    {imageFiles.map(f => <p key={f.name} className="text-sm text-primary font-medium">{f.name}</p>)}
-                    <p className="text-xs text-muted-foreground mt-2">Click to add more</p>
-                  </div>
-                ) : (
-                  <>
-                    <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Click to upload property photos</p>
-                  </>
-                )}
-              </div>
-              <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => setImageFiles(Array.from(e.target.files || []))} />
-            </div>
-            <Button type="submit" disabled={uploading} className="w-full gradient-primary text-primary-foreground">
-              {uploading ? 'Saving...' : editingProperty ? 'Save Changes' : 'Publish Listing'}
-            </Button>
-          </form>
+          <div className="mt-4">
+            <PropertyForm
+              initialData={editingProperty ? {
+                title: editingProperty.title,
+                description: editingProperty.description || '',
+                property_type: String(editingProperty.property_type),
+                state: (editingProperty as any).state || '',
+                address: editingProperty.address || '',
+                bedrooms: editingProperty.bedrooms,
+                sitting_rooms: (editingProperty as any).sitting_rooms ?? 1,
+                bathrooms: (editingProperty as any).bathrooms ?? 1,
+                monthly_rent: Number((editingProperty as any).monthly_rent ?? editingProperty.rent_amount ?? 0),
+                rent_period: String(editingProperty.rent_period || 'monthly'),
+                manager_phone: editingProperty.manager_phone || '',
+                manager_email: editingProperty.manager_email || '',
+                amenities: editingProperty.amenities || [],
+                images: editingProperty.images || [],
+                latitude: editingProperty.latitude != null ? String(editingProperty.latitude) : '',
+                longitude: editingProperty.longitude != null ? String(editingProperty.longitude) : '',
+                country: (editingProperty as any).country || 'UG',
+                region_id: (editingProperty as any).region_id || '',
+                rent_currency: (editingProperty as any).rent_currency || 'UGX',
+              } : undefined}
+              onSave={handleSaveProperty}
+              onCancel={() => { setPropDialogOpen(false); setEditingProperty(null); }}
+              submitLabel={editingProperty ? 'Save Changes' : 'Publish Listing'}
+              saving={uploading}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 

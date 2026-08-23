@@ -84,8 +84,7 @@ export default function ManagerCreateAgreement() {
     if (!leaseId) return;
     setSaving(true);
     try {
-      await apiPost('/agreements/create', {
-        lease_id: leaseId,
+      await apiPost(`/agreements/${leaseId}/${isEdit ? 'edit' : 'build'}`, {
         standard_clauses: standardClauses.map(c => ({ key: c.key, title: c.title, content: c.content, enabled: c.enabled })),
         custom_clauses: customClauses.filter(c => c.title.trim() && c.content.trim()),
       });
