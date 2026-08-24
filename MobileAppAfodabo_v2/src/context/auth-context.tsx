@@ -9,12 +9,58 @@ import type { Subscription, User, UserRole } from "../types";
 
 const SESSION_KEY = "afodabo_session";
 const ONBOARDING_KEY = "afodabo_onboarding_seen";
+const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+interface CachedSession {
+  id: string;
+  email: string;
+  full_name: string;
+  phone: string;
+  role: UserRole;
+  email_verified: boolean;
+  cached_at: number;
+}
 
 interface AuthState {
   user: User | null;
   isLoading: boolean;
   hasSeenOnboarding: boolean;
   subscription: Subscription | null;
+}
+
+function parseCachedSession(raw: string | null): CachedSession | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof parsed.id !== "string" || typeof parsed.email !== "string" || typeof parsed.role !== "string") {
+      return null;
+    }
+    if (typeof parsed.cached_at !== "number") return null;
+    if (Date.now() - parsed.cached_at > CACHE_TTL_MS) return null;
+    return {
+      id: parsed.id as string,
+      email: parsed.email as string,
+      full_name: (parsed.full_name as string) || "",
+      phone: (parsed.phone as string) || "",
+      role: parsed.role as UserRole,
+      email_verified: (parsed.email_verified as boolean) || false,
+      cached_at: parsed.cached_at as number,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function cachedSessionToUser(c: CachedSession): User {
+  return {
+    id: c.id,
+    email: c.email,
+    full_name: c.full_name,
+    phone: c.phone,
+    role: c.role,
+    email_verified: c.email_verified,
+    created_at: "",
+  };
 }
 
 function useAuthInner() {
@@ -26,68 +72,150 @@ function useAuthInner() {
   useEffect(() => {
     (async () => {
       try {
-        const [token, onboard, storedSession] = await Promise.all([
+        const [token, onboard, storedSessionRaw] = await Promise.all([
           getStoredToken(),
           AsyncStorage.getItem(ONBOARDING_KEY),
           AsyncStorage.getItem(SESSION_KEY),
         ]);
-        console.log("[DEBUG_AUTH] init — token exists:", !!token, "storedSession:", storedSession);
+        console.log("[DEBUG_AUTH] init — token exists:", !!token, "storedSession:", storedSessionRaw ? "present" : "null");
         if (onboard === "true") setHasSeenOnboarding(true);
 
         if (token) {
-          console.log("[DEBUG_AUTH] init — fetching /auth/me");
-          const me = await authService.getMe();
-          console.log("[DEBUG_AUTH] init — /auth/me result:", { id: me.id, role: me.role, email: me.email, status: me.status });
-          let fullName = "";
-          let phone = "";
-          let profileRole: string | undefined;
-          try {
-            const profile = await authService.getProfile();
-            fullName = profile.full_name || "";
-            phone = profile.phone || "";
-            profileRole = profile.role;
-            console.log("[DEBUG_AUTH] init — /auth/profile result:", { id: profile.id, role: profileRole, full_name: profile.full_name });
-          } catch {
-            // profile is best-effort; stays empty if unavailable
-            console.log("[DEBUG_AUTH] init — /auth/profile failed or unavailable");
-          }
-          const effectiveRole = profileRole || me.role || "tenant";
-          const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
-          const userData = {
-            id: me.id,
-            email: me.email,
-            full_name: fullName,
-            phone,
-            role,
-            email_verified: me.status === "active",
-            created_at: "",
-          };
-          console.log("[DEBUG_AUTH] init — setting user from token:", userData);
-          setUser(userData);
+          const cached = parseCachedSession(storedSessionRaw);
 
-          if (role === "manager") {
-            try {
-              const sub = await subscriptionsService.getCurrent();
-              if (sub) {
-                setSubscription({
-                  id: sub.id,
-                  manager_id: sub.manager_id,
-                  plan_id: sub.plan_id as Subscription["plan_id"],
-                  plan_name: sub.plan_name,
-                  status: sub.status as Subscription["status"],
-                  started_at: sub.started_at,
-                  expires_at: sub.expires_at,
-                  auto_renew: sub.auto_renew,
-                  days_remaining: sub.days_remaining,
-                  payment_reference: sub.payment_reference,
-                });
-                console.log("[DEBUG_AUTH] init — subscription loaded:", sub.plan_name, sub.status);
-              } else {
-                console.log("[DEBUG_AUTH] init — no active subscription");
+          if (cached) {
+            // Fast path: render immediately from cache, validate in background
+            const cachedUser = cachedSessionToUser(cached);
+            console.log("[DEBUG_AUTH] init — fast path, rendering from cache:", cachedUser.role);
+            setUser(cachedUser);
+            setIsLoading(false);
+
+            // Background validation — non-blocking
+            (async () => {
+              try {
+                const [me, profile] = await Promise.allSettled([
+                  authService.getMe(),
+                  authService.getProfile(),
+                ]);
+
+                const meData = me.status === "fulfilled" ? me.value : null;
+                const profileData = profile.status === "fulfilled" ? profile.value : null;
+
+                if (meData) {
+                  const effectiveRole = profileData?.role || meData.role || "tenant";
+                  const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
+                  const freshUser: User = {
+                    id: meData.id,
+                    email: meData.email,
+                    full_name: profileData?.full_name || "",
+                    phone: profileData?.phone || "",
+                    role,
+                    email_verified: meData.status === "active",
+                    created_at: "",
+                  };
+                  console.log("[DEBUG_AUTH] init — background validation succeeded:", freshUser.role);
+                  setUser(freshUser);
+                  await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({
+                    id: freshUser.id,
+                    email: freshUser.email,
+                    full_name: freshUser.full_name,
+                    phone: freshUser.phone,
+                    role: freshUser.role,
+                    email_verified: freshUser.email_verified,
+                    cached_at: Date.now(),
+                  }));
+
+                  if (role === "manager") {
+                    try {
+                      const sub = await subscriptionsService.getCurrent();
+                      if (sub) {
+                        setSubscription({
+                          id: sub.id,
+                          manager_id: sub.manager_id,
+                          plan_id: sub.plan_id as Subscription["plan_id"],
+                          plan_name: sub.plan_name,
+                          status: sub.status as Subscription["status"],
+                          started_at: sub.started_at,
+                          expires_at: sub.expires_at,
+                          auto_renew: sub.auto_renew,
+                          days_remaining: sub.days_remaining,
+                          payment_reference: sub.payment_reference,
+                        });
+                      }
+                    } catch {
+                      // subscription fetch is best-effort
+                    }
+                  }
+                } else if (me.status === "rejected" && (me.reason as { status?: number })?.status === 401) {
+                  // Session is genuinely expired — check if refresh works
+                  console.log("[DEBUG_AUTH] init — background validation 401, session invalid");
+                  await clearTokens();
+                  setUser(null);
+                } else {
+                  // Network error or server error — keep cached user
+                  console.log("[DEBUG_AUTH] init — background validation failed (network/server), keeping cache");
+                }
+              } catch {
+                console.log("[DEBUG_AUTH] init — background validation error, keeping cache");
               }
+            })();
+          } else {
+            // Fallback: no valid cache, blocking validation
+            console.log("[DEBUG_AUTH] init — no cache, blocking validation");
+            const me = await authService.getMe();
+            let fullName = "";
+            let phone = "";
+            let profileRole: string | undefined;
+            try {
+              const profile = await authService.getProfile();
+              fullName = profile.full_name || "";
+              phone = profile.phone || "";
+              profileRole = profile.role;
             } catch {
-              // subscription fetch is best-effort
-              console.log("[DEBUG_AUTH] init — subscription fetch failed");
+              // profile is best-effort
+            }
+            const effectiveRole = profileRole || me.role || "tenant";
+            const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
+            const userData: User = {
+              id: me.id,
+              email: me.email,
+              full_name: fullName,
+              phone,
+              role,
+              email_verified: me.status === "active",
+              created_at: "",
+            };
+            setUser(userData);
+            await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({
+              id: userData.id,
+              email: userData.email,
+              full_name: userData.full_name,
+              phone: userData.phone,
+              role: userData.role,
+              email_verified: userData.email_verified,
+              cached_at: Date.now(),
+            }));
+
+            if (role === "manager") {
+              try {
+                const sub = await subscriptionsService.getCurrent();
+                if (sub) {
+                  setSubscription({
+                    id: sub.id,
+                    manager_id: sub.manager_id,
+                    plan_id: sub.plan_id as Subscription["plan_id"],
+                    plan_name: sub.plan_name,
+                    status: sub.status as Subscription["status"],
+                    started_at: sub.started_at,
+                    expires_at: sub.expires_at,
+                    auto_renew: sub.auto_renew,
+                    days_remaining: sub.days_remaining,
+                    payment_reference: sub.payment_reference,
+                  });
+                }
+              } catch {
+                // subscription fetch is best-effort
+              }
             }
           }
         } else {
@@ -146,7 +274,15 @@ function useAuthInner() {
     console.log("[DEBUG_AUTH] signIn — effective role:", effectiveRole, "profileRole:", profileRole, "signinRole:", result.role);
     console.log("[DEBUG_AUTH] signIn — setting user:", { id: userData.id, email: userData.email, role: userData.role });
     setUser(userData);
-    await AsyncStorage.setItem(SESSION_KEY, role);
+    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({
+      id: userData.id,
+      email: userData.email,
+      full_name: userData.full_name,
+      phone: userData.phone,
+      role: userData.role,
+      email_verified: userData.email_verified,
+      cached_at: Date.now(),
+    }));
     console.log("[DEBUG_AUTH] signIn — SESSION_KEY set to:", role);
 
     if (role === "manager") {
@@ -205,7 +341,15 @@ function useAuthInner() {
       created_at: "",
     };
     setUser(userData);
-    await AsyncStorage.setItem(SESSION_KEY, role);
+    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({
+      id: userData.id,
+      email: userData.email,
+      full_name: userData.full_name,
+      phone: userData.phone,
+      role: userData.role,
+      email_verified: userData.email_verified,
+      cached_at: Date.now(),
+    }));
     return userData;
   }, []);
 
@@ -259,21 +403,25 @@ function useAuthInner() {
         setUser(null);
         return null;
       }
-      const me = await authService.getMe();
-      console.log("[DEBUG_AUTH] refreshAuth — /auth/me result:", { id: me.id, role: me.role, email: me.email, status: me.status });
-      let fullName = "";
-      let phone = "";
-      let profileRole: string | undefined;
-      try {
-        const profile = await authService.getProfile();
-        fullName = profile.full_name || "";
-        phone = profile.phone || "";
-        profileRole = profile.role;
-        console.log("[DEBUG_AUTH] refreshAuth — /auth/profile result:", { id: profile.id, role: profileRole });
-      } catch {
-        // best-effort
-        console.log("[DEBUG_AUTH] refreshAuth — /auth/profile failed or unavailable");
+      const [meResult, profileResult] = await Promise.allSettled([
+        authService.getMe(),
+        authService.getProfile(),
+      ]);
+
+      const me = meResult.status === "fulfilled" ? meResult.value : null;
+      const profile = profileResult.status === "fulfilled" ? profileResult.value : null;
+
+      if (!me) {
+        console.log("[DEBUG_AUTH] refreshAuth — /auth/me failed, clearing tokens");
+        await clearTokens();
+        setUser(null);
+        return null;
       }
+
+      const fullName = profile?.full_name || "";
+      const phone = profile?.phone || "";
+      const profileRole = profile?.role;
+      console.log("[DEBUG_AUTH] refreshAuth — /auth/me result:", { id: me.id, role: me.role });
       const effectiveRole = profileRole || me.role || "tenant";
       const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
       const userData: User = {
@@ -287,7 +435,15 @@ function useAuthInner() {
       };
       console.log("[DEBUG_AUTH] refreshAuth — setting user:", { id: userData.id, role: userData.role });
       setUser(userData);
-      await AsyncStorage.setItem(SESSION_KEY, role);
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({
+        id: userData.id,
+        email: userData.email,
+        full_name: userData.full_name,
+        phone: userData.phone,
+        role: userData.role,
+        email_verified: userData.email_verified,
+        cached_at: Date.now(),
+      }));
       console.log("[DEBUG_AUTH] refreshAuth — SESSION_KEY set to:", role);
 
       if (role === "manager") {

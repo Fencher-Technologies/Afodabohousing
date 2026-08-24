@@ -1,20 +1,20 @@
 /**
- * Afodabo Housing — Design Tokens
+ * Axis Housing — Design Tokens
  * Single source of truth for colors, spacing, radii, typography, shadows.
  */
 
 export const Colors = {
   // Brand
-  primary: "#1A2332",
-  primaryDeep: "#15202B",
-  primarySoft: "#E8EDF5",
-  primaryMuted: "#536A8A",
+  primary: "#236048",
+  primaryDeep: "#1B4A38",
+  primarySoft: "#E8F0EC",
+  primaryMuted: "#5A8B73",
 
   gold: "#C9A961",
   goldSoft: "#F5EED9",
 
-  accent: "#D32F2F",
-  accentSoft: "#FDE8E8",
+  accent: "#D4783C",
+  accentSoft: "#F5E6DC",
 
   // Semantic
   success: "#2E7D52",
@@ -27,22 +27,22 @@ export const Colors = {
   infoSoft: "#E6F0F8",
 
   // Neutrals
-  bg: "#FAFAFC",
+  bg: "#F7F5F2",
   surface: "#FFFFFF",
-  surfaceAlt: "#F0F2F7",
-  border: "#E0E4EC",
-  borderStrong: "#C4CDD8",
+  surfaceAlt: "#F2EFEA",
+  border: "#E5E1DA",
+  borderStrong: "#D2CCC2",
 
   // Text
-  textPrimary: "#0A0F1A",
-  textSecondary: "#5A6370",
-  textMuted: "#8A9099",
+  textPrimary: "#1A1F1C",
+  textSecondary: "#5A635E",
+  textMuted: "#8A9089",
   textOnPrimary: "#FFFFFF",
-  textOnGold: "#0A0F1A",
+  textOnGold: "#1A1F1C",
 
   // Tab bar
-  tabActive: "#1A2332",
-  tabInactive: "#9AA3AE",
+  tabActive: "#236048",
+  tabInactive: "#9AA39E",
 
   // Health
   healthGood: "#2E7D52",
@@ -101,7 +101,7 @@ export const Shadows = {
     elevation: 8,
   },
   fab: {
-    shadowColor: "#1A2332",
+    shadowColor: "#236048",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 12,

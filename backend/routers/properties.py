@@ -68,6 +68,7 @@ def list_public_properties(
     country: str | None = Query(None),
     region_id: str | None = Query(None),
     property_type: str | None = Query(None),
+    property_type_slug: str | None = Query(None),
     min_price: float | None = Query(None, ge=0),
     max_price: float | None = Query(None, ge=0),
     skip: int = Query(0, ge=0),
@@ -78,6 +79,7 @@ def list_public_properties(
         skip=skip, limit=limit, state=state,
         country=country, region_id=region_id,
         property_type=property_type,
+        property_type_slug=property_type_slug,
         min_price=min_price, max_price=max_price,
     )
     return PaginatedResponse(

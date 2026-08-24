@@ -10,25 +10,11 @@ function mapBackendStatus(status: string): "active" | "inactive" {
   }
 }
 
-function mapBackendPropertyType(type: string): Property["type"] {
-  if (type === "Residential") return "apartment";
-  if (type === "Office Space") return "shop";
-  const valid: Property["type"][] = ["apartment", "house", "studio", "shop", "single_room"];
-  return valid.includes(type as Property["type"]) ? (type as Property["type"]) : "apartment";
-}
-
-/** Map frontend PropertyType to backend enum value ('Residential' | 'Office Space') */
-export function mapPropertyTypeToBackend(type: PropertyType): "Residential" | "Office Space" {
-  switch (type) {
-    case "shop":
-      return "Office Space";
-    case "apartment":
-    case "house":
-    case "studio":
-    case "single_room":
-    default:
-      return "Residential";
-  }
+function mapBackendPropertyType(type: string, slug?: string | null): PropertyType {
+  if (slug) return slug;
+  if (type === "Residential") return "Residential";
+  if (type === "Office Space") return "Office Space";
+  return type;
 }
 
 export function fromBackendProperty(b: BackendProperty): Property {
@@ -40,7 +26,7 @@ export function fromBackendProperty(b: BackendProperty): Property {
     address: b.address || "",
     city: b.city || "",
     area: b.city || b.state || "",
-    type: mapBackendPropertyType(b.property_type),
+    type: mapBackendPropertyType(b.property_type, b.property_type_slug),
     rent_amount: (b.rent_amount ?? b.monthly_rent ?? 0),
     rent_period: "monthly",
     beds: b.bedrooms ?? 0,
@@ -53,6 +39,8 @@ export function fromBackendProperty(b: BackendProperty): Property {
     status: b.is_active ? mapBackendStatus(b.status) : "inactive",
     lat: b.latitude ?? undefined,
     lng: b.longitude ?? undefined,
+    country: b.country ?? null,
+    region_id: b.region_id ?? null,
     manager_email: b.manager_email ?? undefined,
     manager_phone: b.manager_phone ?? undefined,
     square_feet: b.square_feet ?? undefined,
@@ -77,7 +65,7 @@ export function fromBackendToListItem(b: BackendProperty): PropertyListItem {
     title: b.title,
     district: b.state || "",
     city: b.city || "",
-    type: mapBackendPropertyType(b.property_type),
+    type: mapBackendPropertyType(b.property_type, b.property_type_slug),
     rent_amount: (b.rent_amount ?? b.monthly_rent ?? 0),
     rent_period: "monthly",
     beds: b.bedrooms ?? 0,

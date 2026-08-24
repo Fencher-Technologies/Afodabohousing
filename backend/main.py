@@ -33,6 +33,7 @@ from routers import (
     payments_router,
     phone_auth_router,
     properties_router,
+    property_types_router,
     regions_router,
     rental_units_router,
     reports_router,
@@ -387,6 +388,7 @@ app.include_router(exports_router)
 app.include_router(forex_router)
 app.include_router(boosts_router)
 app.include_router(properties_router)
+app.include_router(property_types_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)
 app.include_router(managers_router)

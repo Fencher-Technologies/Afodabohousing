@@ -1,5 +1,5 @@
 /**
- * Afodabo Housing — Type Definitions
+ * Axis Housing — Type Definitions
  */
 
 export type UserRole = "guest" | "tenant" | "manager" | "admin";
@@ -15,7 +15,7 @@ export interface User {
   avatar_url?: string;
 }
 
-export type PropertyType = "apartment" | "house" | "studio" | "shop" | "single_room";
+export type PropertyType = string;
 export type PropertyStatus = "active" | "inactive";
 export type RentPeriod = "monthly" | "quarterly" | "annually";
 export type Amenity =
@@ -40,7 +40,9 @@ export interface BackendProperty {
   state: string;
   zip_code: string;
   country: string | null;
+  region_id: string | null;
   property_type: string;
+  property_type_slug?: string | null;
   bedrooms: number;
   bathrooms: number;
   square_feet: number | null;
@@ -96,6 +98,8 @@ export interface Property {
   status: PropertyStatus;
   lat?: number;
   lng?: number;
+  country?: string | null;
+  region_id?: string | null;
   manager_email?: string;
   manager_phone?: string;
   square_feet?: number;

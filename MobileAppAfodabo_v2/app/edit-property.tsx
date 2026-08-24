@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { StyleSheet, Text, View, Alert, Pressable, ScrollView } from "react-native";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
@@ -16,6 +16,8 @@ import { LocationPicker } from "@/src/components/LocationPicker";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import { useAuth } from "@/src/context/auth-context";
 import { useProperty, useUpdateProperty } from "@/src/hooks/useProperties";
+import { useCountries, useRegions } from "@/src/hooks/useGeoLocation";
+import { usePropertyCategories, usePropertyTypes } from "@/src/hooks/usePropertyTypes";
 import { ensureImagesUploaded } from "@/src/services/properties";
 import type { Amenity } from "@/src/types";
 import { formatAmenity } from "@/src/utils/format";
@@ -25,17 +27,7 @@ const ALL_AMENITIES: Amenity[] = [
   "garden", "balcony", "furnished", "borehole", "solar",
 ];
 
-const PROPERTY_TYPES = [
-  { label: "Apartment", value: "apartment" },
-  { label: "House", value: "house" },
-  { label: "Studio", value: "studio" },
-  { label: "Shop", value: "shop" },
-  { label: "Single Room", value: "single_room" },
-];
-
-const DISTRICTS = [
-  "Kampala", "Wakiso", "Mukono", "Entebbe", "Jinja", "Mbarara",
-];
+const DEFAULT_COUNTRY = "UG";
 
 export default function EditPropertyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -45,11 +37,14 @@ export default function EditPropertyScreen() {
 
   const [showGate, setShowGate] = useState(false);
   const [title, setTitle] = useState("");
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [regionId, setRegionId] = useState("");
   const [district, setDistrict] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [type, setType] = useState("");
+  const [category, setCategory] = useState("");
   const [rent, setRent] = useState("");
   const [beds, setBeds] = useState("");
   const [baths, setBaths] = useState("");
@@ -59,14 +54,48 @@ export default function EditPropertyScreen() {
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [images, setImages] = useState<string[]>([]);
 
+  const { data: countries = [] } = useCountries();
+  const { data: regions = [] } = useRegions(country);
+  const { data: categories = [] } = usePropertyCategories();
+  const { data: types = [] } = usePropertyTypes(category || undefined);
+
+  const countryOptions = useMemo(() =>
+    countries.map((c) => ({ label: c.name, value: c.iso2 })),
+    [countries],
+  );
+
+  const regionOptions = useMemo(() =>
+    regions.map((r) => ({ label: r.name, value: r.name })),
+    [regions],
+  );
+
+  const categoryOptions = useMemo(() => [
+    { label: "All Categories", value: "" },
+    ...categories.map((c) => ({ label: c.label, value: c.slug })),
+  ], [categories]);
+
+  const typeOptions = useMemo(() =>
+    types.map((t) => ({ label: t.label, value: t.slug })),
+    [types],
+  );
+
+  const handleCategoryChange = (v: string) => {
+    setCategory(v);
+    setType("");
+  };
+
   useEffect(() => {
     if (!property) return;
     setTitle(property.title);
+    setCountry(property.country || DEFAULT_COUNTRY);
+    setRegionId(property.region_id || "");
     setDistrict(property.district);
     setCity(property.city);
     setAddress(property.address);
     setLocationCoords(property.lat && property.lng ? { lat: property.lat, lng: property.lng } : null);
     setType(property.type);
+    const matchedType = types.find((t) => t.slug === property.type);
+    setCategory(matchedType?.category_slug ?? "residential");
     setRent(String(property.rent_amount || ""));
     setBeds(String(property.beds || ""));
     setBaths(String(property.baths || ""));
@@ -75,7 +104,19 @@ export default function EditPropertyScreen() {
     setDescription(property.description);
     setAmenities(property.amenities);
     setImages(property.images);
-  }, [property]);
+  }, [property, types]);
+
+  const handleCountryChange = (iso: string) => {
+    setCountry(iso);
+    setRegionId("");
+    setDistrict("");
+  };
+
+  const handleRegionSelect = (name: string) => {
+    setDistrict(name);
+    const match = regions.find((r) => r.name === name);
+    setRegionId(match?.id ?? "");
+  };
 
   const toggleAmenity = (a: Amenity) => {
     setAmenities((prev) =>
@@ -132,10 +173,13 @@ export default function EditPropertyScreen() {
 
       const data: Record<string, unknown> = {
         title: title.trim(),
+        country,
+        region_id: regionId || null,
         state: district.trim(),
         city: city.trim(),
         address: address.trim(),
-        property_type: type || "apartment",
+        property_type: category === "commercial" ? "Office Space" : "Residential",
+        property_type_slug: type || null,
         monthly_rent: Number(rent),
         bedrooms: Number(beds) || 0,
         bathrooms: Number(baths) || 0,
@@ -177,10 +221,18 @@ export default function EditPropertyScreen() {
         <InputField label="Title" value={title} onChangeText={setTitle} placeholder="e.g. Sunrise Apartments" />
         <View style={{ height: Spacing.md }} />
         <SelectField
-          label="District"
+          label="Country"
+          value={country}
+          options={countryOptions}
+          onSelect={handleCountryChange}
+          placeholder="Select country"
+        />
+        <View style={{ height: Spacing.md }} />
+        <SelectField
+          label="District / Region"
           value={district}
-          options={DISTRICTS.map((d) => ({ label: d, value: d }))}
-          onSelect={setDistrict}
+          options={regionOptions}
+          onSelect={handleRegionSelect}
           placeholder="Select district"
         />
         <View style={{ height: Spacing.md }} />
@@ -198,9 +250,17 @@ export default function EditPropertyScreen() {
         />
         <View style={{ height: Spacing.md }} />
         <SelectField
+          label="Property Category"
+          value={category}
+          options={categoryOptions}
+          onSelect={handleCategoryChange}
+          placeholder="Select category"
+        />
+        <View style={{ height: Spacing.md }} />
+        <SelectField
           label="Property Type"
           value={type}
-          options={PROPERTY_TYPES}
+          options={typeOptions}
           onSelect={setType}
           placeholder="Select type"
         />

@@ -34,6 +34,12 @@ _MOBILE_TO_ENUM = {
 }
 
 
+_CATEGORY_TO_ENUM = {
+    "residential": "Residential",
+    "commercial": "Office Space",
+}
+
+
 def _normalize_property_type(value: str | None) -> str | None:
     if not value:
         return None
@@ -519,6 +525,26 @@ class PropertyService(BaseService):
         super().__init__(supabase)
         self._table = "properties"
 
+    def _resolve_property_type_from_slug(self, payload: dict[str, Any]) -> None:
+        """If property_type_slug is present, derive property_type ENUM from catalog."""
+        slug = payload.get("property_type_slug")
+        if not slug:
+            return
+        resp = (
+            self.supabase.table("property_types")
+            .select("category_slug")
+            .eq("slug", slug)
+            .limit(1)
+            .execute()
+        )
+        if resp.data:
+            cat = resp.data[0]["category_slug"]
+            payload["property_type"] = _CATEGORY_TO_ENUM.get(cat, "Residential")
+        else:
+            normalized = _normalize_property_type(payload.get("property_type"))
+            if normalized:
+                payload["property_type"] = normalized
+
     @with_retry
     def get_all(
         self, owner_id: UUID, skip: int = 0, limit: int = 100
@@ -573,6 +599,7 @@ class PropertyService(BaseService):
         country: str | None = None,
         region_id: str | None = None,
         property_type: str | None = None,
+        property_type_slug: str | None = None,
         rent_period: str | None = None,
         min_price: float | None = None,
         max_price: float | None = None,
@@ -604,6 +631,8 @@ class PropertyService(BaseService):
                     query = query.eq("region_id", "__none__")
             if property_type:
                 query = query.eq("property_type", property_type)
+            if property_type_slug:
+                query = query.eq("property_type_slug", property_type_slug)
             if min_price is not None:
                 query = query.gte("monthly_rent", min_price)
             if max_price is not None:
@@ -688,6 +717,7 @@ class PropertyService(BaseService):
         payload["owner_id"] = str(owner_id)
         if not payload.get("zip_code"):
             payload["zip_code"] = ""
+        self._resolve_property_type_from_slug(payload)
         normalized = _normalize_property_type(payload.get("property_type"))
         if normalized:
             payload["property_type"] = normalized
@@ -699,6 +729,7 @@ class PropertyService(BaseService):
         self, property_id: UUID, data: PropertyUpdate, owner_id: UUID
     ) -> dict[str, Any] | None:
         payload = data.model_dump(exclude_none=True, mode="json")
+        self._resolve_property_type_from_slug(payload)
         normalized = _normalize_property_type(payload.get("property_type"))
         if normalized:
             payload["property_type"] = normalized

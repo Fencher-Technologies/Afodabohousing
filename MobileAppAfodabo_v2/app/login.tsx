@@ -45,17 +45,15 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" backgroundColor="#1A2332" />
+      <StatusBar style="light" backgroundColor="#1B4A38" />
       <FloatingBackButton onPress={() => router.back()} />
       <LinearGradient
-        colors={["#1A2332", "#15202B"]}
+        colors={["#1B4A38", "#236048"]}
         style={styles.header}
       >
         <View style={styles.logoWrap}>
-          <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
+          <Image source={require("../assets/images/axis-logo.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
-        <Text style={styles.appName}>Afodabo</Text>
-        <Text style={styles.tagline}>Housing Made Easy</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView
@@ -105,18 +103,19 @@ export default function LoginScreen() {
             size="lg"
           />
 
-          <OrDivider />
-
-          <Button
-            label="Sign in with Phone Number"
-            onPress={() => router.push("/phone-signin")}
-            variant="outline"
-            fullWidth
-            size="lg"
-          />
-
           {error && <Text style={styles.errorText}>{error}</Text>}
         </View>
+
+        {/* PHONE-AUTH HIDDEN — phone sign-in preserved for future restore.
+        <OrDivider />
+        <Button
+          label="Sign in with Phone Number"
+          onPress={() => router.push("/phone-signin")}
+          variant="outline"
+          fullWidth
+          size="lg"
+        />
+        */}
 
         <View style={[styles.footer, { marginBottom: Math.max(insets.bottom, 16) }]}>
           <Text style={styles.footerText}>Don&apos;t have an account? </Text>
@@ -144,29 +143,20 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   logoWrap: {
-    width: 72,
-    height: 72,
+    width: 96,
+    height: 96,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xs,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: "transparent",
     overflow: "hidden",
   },
   logoIcon: {
-    width: 56,
-    height: 56,
-  },
-  appName: {
-    fontSize: 28,
-    fontWeight: FontWeight.bold,
-    color: "#FFFFFF",
-  },
-  tagline: {
-    fontSize: FontSize.body,
-    color: "rgba(255,255,255,0.7)",
+    width: 84,
+    height: 63,
   },
   formWrap: {
     flex: 1,

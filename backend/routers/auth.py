@@ -1366,8 +1366,15 @@ def update_profile(
     supabase: Client = Depends(get_supabase_client),
 ) -> ProfileResponse:
     payload = data.model_dump(exclude_none=True, mode="json")
-    if payload.get("phone"):
-        payload["phone"] = normalize_phone(payload["phone"])
+    if "phone" in payload:
+        raw_phone = (payload["phone"] or "").strip()
+        if raw_phone:
+            try:
+                payload["phone"] = normalize_phone(raw_phone)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=f"Invalid phone number: {exc}")
+        else:
+            payload["phone"] = None
     response = supabase.table("profiles").update(payload).eq("user_id", current_user.id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Profile not found")

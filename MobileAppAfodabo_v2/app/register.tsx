@@ -59,14 +59,14 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" backgroundColor="#1A2332" />
+      <StatusBar style="light" backgroundColor="#1B4A38" />
       <FloatingBackButton onPress={() => router.back()} />
-      <LinearGradient colors={["#1A2332", "#15202B"]} style={styles.header}>
+      <LinearGradient colors={["#1B4A38", "#236048"]} style={styles.header}>
         <View style={styles.logoWrap}>
-          <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
+          <Image source={require("../assets/images/axis-logo.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
         <Text style={styles.appName}>Create Account</Text>
-        <Text style={styles.tagline}>Join Afodabo in under a minute</Text>
+        <Text style={styles.tagline}>Join Axis in under a minute</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView
@@ -163,6 +163,7 @@ export default function RegisterScreen() {
           <View style={{ height: Spacing.lg }} />
           <Button label="Create Account" onPress={handleRegister} loading={loading} fullWidth size="lg" disabled={!termsAccepted} />
 
+          {/* PHONE-AUTH HIDDEN — phone registration preserved for future restore.
           <OrDivider />
           <Button
             label="Register with Phone Number"
@@ -171,6 +172,7 @@ export default function RegisterScreen() {
             fullWidth
             size="lg"
           />
+          */}
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account? </Text>
@@ -198,20 +200,20 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   logoWrap: {
-    width: 72,
-    height: 72,
+    width: 96,
+    height: 96,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xs,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: "transparent",
     overflow: "hidden",
   },
   logoIcon: {
-    width: 56,
-    height: 56,
+    width: 84,
+    height: 63,
   },
   appName: { fontSize: FontSize.display, fontWeight: FontWeight.bold, color: "#FFFFFF" },
   tagline: { fontSize: FontSize.body, color: "rgba(255,255,255,0.7)" },

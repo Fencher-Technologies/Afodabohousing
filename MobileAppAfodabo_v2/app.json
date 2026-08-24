@@ -1,24 +1,24 @@
 {
   "expo": {
-    "name": "Afodabo Housing",
+    "name": "Axis",
     "owner": "ayesigayonah",
     "slug": "f40vwt2jqz6u76jdi0j1n",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/axis-icon.png",
-    "scheme": "afodabo",
+    "scheme": "axis",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.afodabo.housing"
+      "bundleIdentifier": "com.axis.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/axis-adaptive.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.afodabo.housing",
+      "package": "com.axis.app",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
@@ -39,8 +39,8 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Afodabo Housing to use your location to pinpoint the property on the map.",
-          "locationWhenInUsePermission": "Allow Afodabo Housing to use your location to pinpoint the property on the map."
+          "locationAlwaysAndWhenInUsePermission": "Allow Axis to use your location to pinpoint the property on the map.",
+          "locationWhenInUsePermission": "Allow Axis to use your location to pinpoint the property on the map."
         }
       ],
       [

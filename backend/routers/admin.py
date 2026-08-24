@@ -81,6 +81,7 @@ class ManagerProperty(BaseModel):
     title: str
     status: str
     property_type: str | None = None
+    property_type_slug: str | None = None
     city: str | None = None
     area: int | None = None
     monthly_rent: float | None = None

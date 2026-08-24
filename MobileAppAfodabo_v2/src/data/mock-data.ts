@@ -1,5 +1,5 @@
 /**
- * Mock data for Afodabo Housing.
+ * Mock data for Axis Housing.
  * Simulates backend responses for all entities.
  */
 
