@@ -103,13 +103,17 @@ export default function AgreementFlowCard({ leaseId }: AgreementFlowCardProps) {
           <p className="font-semibold text-foreground">{hasDoc && !hasContent ? 'Incomplete Agreement' : 'No Agreement Yet'}</p>
           <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-xs mx-auto">
             {hasDoc && !hasContent
-              ? 'This agreement was created but the content is missing. Cancel it and create a new one.'
-              : 'Create a digital agreement for this tenancy using the in-app builder.'}
+              ? 'This agreement was created but the content is missing. Contact your manager to resolve this.'
+              : user?.role === 'tenant'
+                ? 'No agreement has been created yet. Your manager will create one when ready.'
+                : 'Create a digital agreement for this tenancy using the in-app builder.'}
           </p>
-          <Button size="sm" onClick={() => navigate(`/dashboard/manager/agreements/create/${leaseId}`)} className="gap-1.5">
-            <Plus className="h-4 w-4" />
-            {hasDoc && !hasContent ? 'Cancel & Create New' : 'Create Agreement'}
-          </Button>
+          {user?.role !== 'tenant' && (
+            <Button size="sm" onClick={() => navigate(`/dashboard/manager/agreements/create/${leaseId}`)} className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              {hasDoc && !hasContent ? 'Cancel & Create New' : 'Create Agreement'}
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -144,9 +148,11 @@ export default function AgreementFlowCard({ leaseId }: AgreementFlowCardProps) {
         <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/tenant/agreement/${leaseId}/history`)} className="gap-1.5 text-xs">
           <History className="h-3.5 w-3.5" /> History
         </Button>
-        <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/manager/agreements/create/${leaseId}?mode=edit`)} className="gap-1.5 text-xs">
-          <FileText className="h-3.5 w-3.5" /> Edit
-        </Button>
+        {user?.role !== 'tenant' && (
+          <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/manager/agreements/create/${leaseId}?mode=edit`)} className="gap-1.5 text-xs">
+            <FileText className="h-3.5 w-3.5" /> Edit
+          </Button>
+        )}
         <Button variant="outline" size="sm"
           onClick={() => window.open(`${API_BASE}/agreements/${leaseId}/pdf`, '_blank')}
           className="gap-1.5 text-xs">

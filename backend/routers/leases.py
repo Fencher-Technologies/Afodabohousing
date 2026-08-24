@@ -141,10 +141,14 @@ def list_leases(
 def get_lease(
     lease_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
     service: LeaseService = Depends(get_lease_svc),
 ) -> LeaseResponse:
     if current_user.role == "tenant":
-        lease = service.get_by_id_for_tenant(lease_id, current_user.id)
+        tenant = supabase.table("tenants").select("id").eq("user_id", str(current_user.id)).maybe_single().execute()
+        if not tenant.data:
+            raise HTTPException(status_code=404, detail="Lease not found")
+        lease = service.get_by_id_for_tenant(lease_id, UUID(tenant.data["id"]))
     else:
         lease = service.get_by_id(lease_id, current_user.id)
     if not lease:
