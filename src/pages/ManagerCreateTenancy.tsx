@@ -13,7 +13,6 @@ export default function ManagerCreateTenancy() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [properties, setProperties] = useState<any[]>([]);
-  const [tenants, setTenants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,24 +23,30 @@ export default function ManagerCreateTenancy() {
 
   const fetchData = async () => {
     if (!user) return;
-    const [propRes, tenRes] = await Promise.all([
-      supabase.from('properties').select('*').eq('owner_id', user.id).eq('status', 'available'),
-      supabase.from('tenants').select('*').eq('owner_id', user.id),
-    ]);
-    setProperties(propRes.data || []);
-    setTenants(tenRes.data || []);
+    const { data } = await supabase.from('properties').select('*').eq('owner_id', user.id).eq('status', 'available');
+    setProperties(data || []);
     setLoading(false);
   };
 
   const handleSave = async (data: TenancyFormData) => {
     if (!user) return;
-    const { error } = await supabase.from('leases').insert({
-      property_id: data.property_id, tenant_id: data.tenant_id, owner_id: user.id,
-      start_date: data.start_date, end_date: data.end_date,
-      monthly_rent: parseFloat(data.monthly_rent),
-      rent_deposit: data.rent_deposit ? parseFloat(data.rent_deposit) : null,
+    if (!data.tenant_id) {
+      toast({ title: 'Tenant required', description: 'Please find and select a tenant by email first', variant: 'destructive' });
+      return;
+    }
+    const payload: Record<string, any> = {
+      property_id: data.property_id,
+      tenant_id: data.tenant_id,
+      owner_id: user.id,
+      start_date: data.start_date,
+      end_date: data.end_date,
+      monthly_rent: parseFloat(data.monthly_rent) || 0,
       status: 'active',
-    });
+    };
+    if (data.rent_deposit) payload.security_deposit = parseFloat(data.rent_deposit);
+    if (data.unit_label) payload.unit_label = data.unit_label;
+
+    const { error } = await supabase.from('leases').insert(payload);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Tenancy created successfully' });
     navigate('/dashboard/manager/tenancies');
@@ -66,7 +71,7 @@ export default function ManagerCreateTenancy() {
           </div>
         </div>
         <TenancyForm mode="create" onSave={handleSave} onCancel={() => navigate('/dashboard/manager/tenancies')}
-          properties={properties} tenants={tenants} />
+          properties={properties} />
       </div>
     </div>
   );

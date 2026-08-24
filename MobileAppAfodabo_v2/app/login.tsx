@@ -54,7 +54,7 @@ export default function LoginScreen() {
         <View style={styles.logoWrap}>
           <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
-        <Text style={styles.appName}>Afodabo</Text>
+        <Text style={styles.appName}>Axis</Text>
         <Text style={styles.tagline}>Housing Made Easy</Text>
       </LinearGradient>
 

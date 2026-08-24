@@ -35,7 +35,7 @@ export default function GuestAccountScreen() {
 
         <View style={styles.section}>
           <CollapsibleSection title="Support & Policies">
-            <ActionRow icon={<Info size={20} color={Colors.textSecondary} />} label="About Afodabo" onPress={() => router.push("/legal?type=about")} />
+            <ActionRow icon={<Info size={20} color={Colors.textSecondary} />} label="About Axis" onPress={() => router.push("/legal?type=about")} />
             <Divider />
             <ActionRow icon={<Headphones size={20} color={Colors.textSecondary} />} label="Contact Support" onPress={() => router.push("/legal?type=contact")} />
             <Divider />
@@ -45,7 +45,7 @@ export default function GuestAccountScreen() {
           </CollapsibleSection>
         </View>
 
-        <Text style={styles.version}>Afodabo v1.0.0</Text>
+        <Text style={styles.version}>Axis v1.0.0</Text>
       </View>
       <View style={{ height: 100 }} />
     </Screen>

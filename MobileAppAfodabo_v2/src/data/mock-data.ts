@@ -1,5 +1,5 @@
 /**
- * Mock data for Afodabo Housing.
+ * Mock data for Axis Housing.
  * Simulates backend responses for all entities.
  */
 
@@ -20,7 +20,7 @@ export const mockUsers: Record<string, User> = {
   manager: {
     id: "mgr-001",
     full_name: "David Okello",
-    email: "david@afodabo.ug",
+    email: "david@axis.ug",
     phone: "256772123456",
     role: "manager",
     email_verified: true,

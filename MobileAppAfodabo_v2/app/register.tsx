@@ -66,7 +66,7 @@ export default function RegisterScreen() {
           <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
         <Text style={styles.appName}>Create Account</Text>
-        <Text style={styles.tagline}>Join Afodabo in under a minute</Text>
+        <Text style={styles.tagline}>Join Axis in under a minute</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView

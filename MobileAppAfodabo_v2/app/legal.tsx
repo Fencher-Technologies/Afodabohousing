@@ -33,7 +33,7 @@ const privacyContent = {
     {
       title: "1. Introduction",
       content:
-        "Afodabo Housing is a property and tenancy management platform that provides technology tools for property managers, landlords, and tenants. This Privacy Policy explains how we collect, use, protect, and share your personal information when you use our platform.",
+        "Axis Housing is a property and tenancy management platform that provides technology tools for property managers, landlords, and tenants. This Privacy Policy explains how we collect, use, protect, and share your personal information when you use our platform.",
     },
     {
       title: "2. Information We Collect",
@@ -56,7 +56,7 @@ const privacyContent = {
     {
       title: "3. Authentication",
       content:
-        "Afodabo uses multiple authentication methods to protect your account, including email-based authentication, phone OTP (one-time password) verification, and PIN-based authentication. All credentials are handled securely in accordance with industry standards. We do not reveal internal security implementation details.",
+        "Axis uses multiple authentication methods to protect your account, including email-based authentication, phone OTP (one-time password) verification, and PIN-based authentication. All credentials are handled securely in accordance with industry standards. We do not reveal internal security implementation details.",
     },
     {
       title: "4. How We Use Your Information",
@@ -80,7 +80,7 @@ const privacyContent = {
     {
       title: "6. Third-Party Services",
       content:
-        "Afodabo may use trusted third-party service providers to deliver our services. These include hosting providers, authentication providers, SMS providers, and payment providers. These providers are contractually obligated to protect your data and may only use it to provide services on our behalf.",
+        "Axis may use trusted third-party service providers to deliver our services. These include hosting providers, authentication providers, SMS providers, and payment providers. These providers are contractually obligated to protect your data and may only use it to provide services on our behalf.",
     },
     {
       title: "7. Data Security",
@@ -124,16 +124,16 @@ const termsContent = {
     {
       title: "1. Introduction",
       content:
-        "These Terms of Service constitute a legal agreement between you and Afodabo Housing governing your use of the Afodabo platform. By creating an account or using our services, you agree to be bound by these terms. If you do not agree, you may not use the platform.",
+        "These Terms of Service constitute a legal agreement between you and Axis Housing governing your use of the Axis platform. By creating an account or using our services, you agree to be bound by these terms. If you do not agree, you may not use the platform.",
     },
     {
-      title: "2. About Afodabo",
+      title: "2. About Axis",
       content:
-        "Afodabo provides technology tools for property management, tenant management, agreements and documentation, payment management, and maintenance management. Our platform is designed to help property managers, landlords, and tenants manage rental relationships more effectively.",
+        "Axis provides technology tools for property management, tenant management, agreements and documentation, payment management, and maintenance management. Our platform is designed to help property managers, landlords, and tenants manage rental relationships more effectively.",
     },
     {
       title: "3. User Responsibilities",
-      content: "As a user of the Afodabo platform, you agree to:",
+      content: "As a user of the Axis platform, you agree to:",
       bullets: [
         "Provide accurate and complete information when creating your account and using our services.",
         "Protect your account credentials and not share them with others.",
@@ -143,7 +143,7 @@ const termsContent = {
     },
     {
       title: "4. Property Owner and Manager Responsibilities",
-      content: "If you use Afodabo as a property owner or manager, you agree to:",
+      content: "If you use Axis as a property owner or manager, you agree to:",
       bullets: [
         "Have proper authority to manage the properties you list on the platform.",
         "Be responsible for the accuracy of all information you provide about properties, tenancies, and financial records.",
@@ -152,7 +152,7 @@ const termsContent = {
     },
     {
       title: "5. Tenant Responsibilities",
-      content: "If you use Afodabo as a tenant, you agree to:",
+      content: "If you use Axis as a tenant, you agree to:",
       bullets: [
         "Provide accurate information about yourself and your tenancy.",
         "Follow the terms of your tenancy agreements and lease documents.",
@@ -162,16 +162,16 @@ const termsContent = {
     {
       title: "6. Agreements and Documents",
       content:
-        "Afodabo provides tools to create, manage, and store agreements and documents related to your properties and tenancies. These tools are for management purposes only and do not replace formal legal agreements between parties. We recommend consulting with a legal professional for important agreements.",
+        "Axis provides tools to create, manage, and store agreements and documents related to your properties and tenancies. These tools are for management purposes only and do not replace formal legal agreements between parties. We recommend consulting with a legal professional for important agreements.",
     },
     {
       title: "7. Payments",
       content:
-        "Afodabo helps manage payment information and records. Actual payment obligations and financial agreements remain between the involved parties. Third-party payment providers may process transactions, and their terms and conditions also apply. Afodabo Housing is not a financial institution and does not hold funds on behalf of users.",
+        "Axis helps manage payment information and records. Actual payment obligations and financial agreements remain between the involved parties. Third-party payment providers may process transactions, and their terms and conditions also apply. Axis Housing is not a financial institution and does not hold funds on behalf of users.",
     },
     {
       title: "8. Prohibited Activities",
-      content: "You may not use the Afodabo platform for any of the following activities:",
+      content: "You may not use the Axis platform for any of the following activities:",
       bullets: [
         "Fraud or deceptive practices",
         "Unauthorized access to other users' accounts or data",
@@ -188,12 +188,12 @@ const termsContent = {
     {
       title: "10. Intellectual Property",
       content:
-        "The Afodabo platform, including its software, design, branding, and content, is owned by Afodabo Housing and protected by intellectual property laws. You may not copy, modify, distribute, or create derivative works without our express permission.",
+        "The Axis platform, including its software, design, branding, and content, is owned by Axis Housing and protected by intellectual property laws. You may not copy, modify, distribute, or create derivative works without our express permission.",
     },
     {
       title: "11. Limitation of Liability",
       content:
-        "Afodabo provides its platform as a management tool. To the maximum extent permitted by law, we are not liable for disputes between property managers and tenants, financial losses resulting from use of the platform, or indirect, incidental, or consequential damages arising from your use of our services.",
+        "Axis provides its platform as a management tool. To the maximum extent permitted by law, we are not liable for disputes between property managers and tenants, financial losses resulting from use of the platform, or indirect, incidental, or consequential damages arising from your use of our services.",
     },
     {
       title: "12. Governing Law",
@@ -209,10 +209,10 @@ const termsContent = {
 };
 
 const aboutContent = {
-  title: "About Afodabo",
+  title: "About Axis",
   body: [
-    "Afodabo Housing is a subscription-based SaaS platform that empowers house managers to run their rental business from their phone.",
-    "Founded in 2024, Afodabo helps managers collect rent, track tenants, generate professional reports, and stay compliant — all without transaction fees.",
+    "Axis Housing is a subscription-based SaaS platform that empowers house managers to run their rental business from their phone.",
+    "Founded in 2024, Axis helps managers collect rent, track tenants, generate professional reports, and stay compliant — all without transaction fees.",
     "Tenants get a simple, transparent view of their tenancy with direct WhatsApp communication to their manager.",
     "Our mission is to make rental management effortless for African landlords and property managers.",
   ],
@@ -222,7 +222,7 @@ const contactContent = {
   title: "Contact Support",
   body: [
     "We're here to help! Reach us through any of these channels:",
-    "Email: support@afodabohousing.com",
+    "Email: support@axishousing.com",
     "Phone: +256 700 000 000",
     "WhatsApp: +256 700 000 000",
     "Hours: Monday–Friday, 9am–6pm EAT",
