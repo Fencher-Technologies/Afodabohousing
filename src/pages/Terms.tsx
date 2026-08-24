@@ -90,7 +90,7 @@ export default function TermsPage() {
         </div>
 
         <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-          <Button className="gradient-primary text-primary-foreground px-8" onClick={() => navigate('/register')}>
+          <Button className="gradient-primary text-primary-foreground px-8" onClick={() => navigate('/signup')}>
             Create an Account
           </Button>
           <Button variant="outline" className="px-8" onClick={() => navigate('/contact')}>

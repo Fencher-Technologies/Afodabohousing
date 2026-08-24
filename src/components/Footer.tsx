@@ -6,11 +6,11 @@ const LINKS = {
   tenants: [
     { label: 'Browse Properties', to: '/properties' },
     { label: 'How It Works', to: '/#how-it-works' },
-    { label: 'Register as Tenant', to: '/register' },
+    { label: 'Register as Tenant', to: '/signup' },
     { label: 'Tenant Dashboard', to: '/dashboard/tenant' },
   ],
   managers: [
-    { label: 'List Your Property', to: '/register' },
+    { label: 'List Your Property', to: '/signup' },
     { label: 'Manager Dashboard', to: '/dashboard/manager' },
     { label: 'Contact Support', to: '/contact' },
     { label: 'Payment Tracking', to: '/dashboard/manager' },

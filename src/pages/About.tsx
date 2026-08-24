@@ -152,7 +152,7 @@ export default function AboutPage() {
               Whether you are looking for a home or managing properties, Axis is the platform for you.
             </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="bg-gold text-gold-foreground hover:bg-gold/90 font-semibold px-10" onClick={() => navigate('/register')}>
+            <Button size="lg" className="bg-gold text-gold-foreground hover:bg-gold/90 font-semibold px-10" onClick={() => navigate('/signup')}>
               Get Started Free
             </Button>
             <Button size="lg" variant="outline" className="bg-transparent border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10 font-semibold px-10" onClick={() => navigate('/properties')}>
