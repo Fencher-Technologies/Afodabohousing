@@ -441,7 +441,7 @@ export default function HomePage() {
             <Button
               size="lg"
               className="bg-gold text-gold-foreground hover:bg-gold/90 font-semibold px-10"
-              onClick={() => navigate('/register')}
+              onClick={() => navigate('/signup')}
             >
               Get Started Free
             </Button>
