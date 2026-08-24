@@ -581,7 +581,7 @@ export default function PropertyDetailPage() {
                       Sign In to Contact
                     </Button>
                   </div>
-                  <Button variant="outline" className="w-full" onClick={() => navigate('/register')}>
+                  <Button variant="outline" className="w-full" onClick={() => navigate('/signup')}>
                     Create Free Account
                   </Button>
                 </div>

@@ -200,7 +200,7 @@ export default function Navbar() {
           ) : (
             <>
               <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Sign In</Button>
-              <Button size="sm" className="gradient-primary text-primary-foreground" onClick={() => navigate('/register')}>
+              <Button size="sm" className="gradient-primary text-primary-foreground" onClick={() => navigate('/signup')}>
                 Get Started
               </Button>
             </>
@@ -265,7 +265,7 @@ export default function Navbar() {
                 <Button variant="outline" size="sm" onClick={() => { navigate('/login'); setMenuOpen(false); }}>
                   Sign In
                 </Button>
-                <Button size="sm" className="gradient-primary text-primary-foreground" onClick={() => { navigate('/register'); setMenuOpen(false); }}>
+                <Button size="sm" className="gradient-primary text-primary-foreground" onClick={() => { navigate('/signup'); setMenuOpen(false); }}>
                   Get Started Free
                 </Button>
               </>

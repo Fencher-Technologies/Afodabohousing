@@ -222,7 +222,7 @@ const contactContent = {
   title: "Contact Support",
   body: [
     "We're here to help! Reach us through any of these channels:",
-    "Email: support@afodabohousing.com",
+    "Email: support@axishousing.com",
     "Phone: +256 700 000 000",
     "WhatsApp: +256 700 000 000",
     "Hours: Monday–Friday, 9am–6pm EAT",

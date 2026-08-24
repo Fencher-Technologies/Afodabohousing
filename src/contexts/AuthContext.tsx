@@ -28,7 +28,12 @@ export const useAuth = () => {
   return ctx;
 };
 
+const isLocalStorageAvailable = (): boolean => {
+  try { return !!window?.localStorage; } catch { return false; }
+};
+
 const fetchRoleFromDB = async (userId: string): Promise<UserRole> => {
+  if (!isLocalStorageAvailable()) return null;
   try {
     const { data } = await supabase
       .from('profiles')

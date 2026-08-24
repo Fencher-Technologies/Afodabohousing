@@ -129,8 +129,8 @@ export default function ContactPage() {
               <ul className="space-y-2 text-sm">
                 {[
                   { label: 'Browse Properties', href: '/properties' },
-                  { label: 'Register as Tenant', href: '/register' },
-                  { label: 'Register as House Manager', href: '/register' },
+                  { label: 'Register as Tenant', href: '/signup' },
+                  { label: 'Register as House Manager', href: '/signup' },
                   { label: 'Sign In to Dashboard', href: '/login' },
                   { label: 'Privacy Policy', href: '/privacy' },
                   { label: 'Terms of Service', href: '/terms' },

@@ -10,8 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { isMobileDevice } from '@/lib/utils';
-import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell, Star, TrendingUp, Smartphone, Download } from 'lucide-react';
+import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell, Star, TrendingUp, Smartphone, Download, Globe } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
+
+const API = import.meta.env.VITE_API_URL || '';
+interface Country { iso2: string; name: string; }
+interface Region { id: string; country_id: string; name: string; admin_level: string; }
 
 interface Property {
   id: string; title: string; status: string; property_type: string;
@@ -69,21 +73,54 @@ const HOW_IT_WORKS = [
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchDistrict, setSearchDistrict] = useState('');
   const [filterType, setFilterType] = useState('all');
-  const [searchInput, setSearchInput] = useState('');
   const [stats, setStats] = useState({ properties: 0, tenancies: 0, users: 0, locations: 0 });
   const [popularLocations, setPopularLocations] = useState<string[]>([]);
   const navigate = useNavigate();
 
-  useEffect(() => { fetchProperties(); fetchStats(); }, [searchDistrict, filterType]);
+  const [selectedCountry, setSelectedCountry] = useState('UG');
+  const [selectedRegion, setSelectedRegion] = useState('__all__');
+  const [areaInput, setAreaInput] = useState('');
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [regionLabel, setRegionLabel] = useState('District');
+  const [loadingRegions, setLoadingRegions] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/regions/countries`)
+      .then(r => r.json())
+      .then((data: Country[]) => setCountries(data))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCountry) { setRegions([]); return; }
+    setLoadingRegions(true);
+    fetch(`${API}/regions/regions?country_id=${selectedCountry}&active_only=true`)
+      .then(r => r.json())
+      .then((data: Region[]) => {
+        setRegions(data);
+        setSelectedRegion('__all__');
+        if (data.length > 0) {
+          const label = data[0].admin_level || 'District';
+          setRegionLabel(label.charAt(0).toUpperCase() + label.slice(1));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingRegions(false));
+  }, [selectedCountry]);
+
+  useEffect(() => { fetchProperties(); }, [selectedCountry, selectedRegion, areaInput, filterType]);
+  useEffect(() => { fetchStats(); }, []);
   useEffect(() => { fetchPopularLocations(); }, []);
 
   const fetchProperties = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: '9' });
-      if (searchDistrict && searchDistrict !== 'all') params.set('state', searchDistrict);
+      if (selectedCountry) params.set('country', selectedCountry);
+      if (selectedRegion && selectedRegion !== '__all__') params.set('region_id', selectedRegion);
+      if (areaInput) params.set('state', areaInput);
       if (filterType && filterType !== 'all') params.set('property_type', filterType);
       const res = await apiGet<{ items: any[]; total: number }>(`/properties/public?${params}`);
       setProperties(res.items.map((p: any) => ({ ...p, rent_amount: p.monthly_rent || p.rent_amount })));
@@ -127,7 +164,16 @@ export default function HomePage() {
     }
   };
 
-  const handleSearch = () => setSearchDistrict(searchInput);
+  const handleSearch = () => {
+    // trigger re-fetch via effect deps (selectedCountry/selectedRegion/areaInput already drive fetchProperties)
+  };
+
+  const handleChipClick = (city: string) => {
+    setAreaInput(city);
+    // try to auto-select a matching region
+    const match = regions.find(r => r.name.toLowerCase() === city.toLowerCase());
+    if (match) setSelectedRegion(match.id);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -150,19 +196,46 @@ export default function HomePage() {
           </p>
 
           {/* Search bar */}
-          <div className="bg-card rounded-2xl shadow-2xl p-3 flex flex-col sm:flex-row gap-2 max-w-2xl mx-auto">
+          <div className="bg-card rounded-2xl shadow-2xl p-3 flex flex-col sm:flex-row gap-2 max-w-3xl mx-auto">
+            <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+              <SelectTrigger className="w-full sm:w-36 border-0 border-b sm:border-b-0 sm:border-r border-border rounded-none sm:rounded-none bg-transparent h-12">
+                <div className="flex items-center gap-1.5">
+                  <Globe className="h-4 w-4 text-accent shrink-0" />
+                  <SelectValue placeholder="Country" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {countries.map(c => (
+                  <SelectItem key={c.iso2} value={c.iso2}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedRegion} onValueChange={setSelectedRegion} disabled={loadingRegions || regions.length === 0}>
+              <SelectTrigger className="w-full sm:w-40 border-0 border-b sm:border-b-0 sm:border-r border-border rounded-none sm:rounded-none bg-transparent h-12">
+                <SelectValue placeholder={loadingRegions ? 'Loading…' : regionLabel} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All {regionLabel}s</SelectItem>
+                {regions.map(r => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <div className="flex-1 flex items-center gap-3 px-4">
               <MapPin className="h-5 w-5 text-accent shrink-0" />
               <Input
-                placeholder="Enter state, city or area..."
-                value={searchInput}
-                onChange={e => setSearchInput(e.target.value)}
+                placeholder="Area, city or neighbourhood…"
+                value={areaInput}
+                onChange={e => setAreaInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
                 className="border-0 shadow-none focus-visible:ring-0 bg-transparent text-foreground placeholder:text-muted-foreground text-base"
               />
             </div>
+
             <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full sm:w-44 border-0 border-l sm:border-l border-border rounded-none sm:rounded-none bg-transparent">
+              <SelectTrigger className="w-full sm:w-40 border-0 border-l sm:border-l border-border rounded-none sm:rounded-none bg-transparent h-12">
                 <SelectValue placeholder="Any type" />
               </SelectTrigger>
               <SelectContent>
@@ -171,6 +244,7 @@ export default function HomePage() {
                 <SelectItem value="Office Space">Office Space</SelectItem>
               </SelectContent>
             </Select>
+
             <Button
               onClick={handleSearch}
               className="gradient-primary text-primary-foreground px-8 h-12 font-semibold gap-2 rounded-xl text-base"
@@ -185,7 +259,7 @@ export default function HomePage() {
             {popularLocations.map(d => (
               <button
                 key={d}
-                onClick={() => { setSearchInput(d); setSearchDistrict(d); }}
+                onClick={() => handleChipClick(d)}
                 className="text-xs text-primary-foreground/70 hover:text-primary-foreground bg-primary-foreground/10 hover:bg-primary-foreground/20 px-3 py-1.5 rounded-full transition-all"
               >
                 {d}
@@ -219,7 +293,7 @@ export default function HomePage() {
           <div>
             <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Browse Listings</p>
             <h2 className="font-display text-4xl font-bold text-foreground leading-tight">
-              {searchDistrict ? `Homes in ${searchDistrict}` : 'Available Properties'}
+              {areaInput ? `Homes in ${areaInput}` : selectedRegion ? `Homes in ${regions.find(r => r.id === selectedRegion)?.name || ''}` : 'Available Properties'}
             </h2>
             <p className="text-muted-foreground mt-2">
               {properties.length} {properties.length !== 1 ? 'properties' : 'property'} matching your search
@@ -246,7 +320,7 @@ export default function HomePage() {
             <Home className="h-16 w-16 mx-auto mb-4 opacity-20" />
             <p className="text-xl font-display font-semibold text-foreground">No properties found</p>
             <p className="text-sm mt-2">Try searching a different state or clearing filters</p>
-            <Button className="mt-5 gradient-primary text-primary-foreground" onClick={() => { setSearchDistrict(''); setSearchInput(''); setFilterType('all'); }}>
+            <Button className="mt-5 gradient-primary text-primary-foreground" onClick={() => { setSelectedCountry('UG'); setSelectedRegion(''); setAreaInput(''); setFilterType('all'); }}>
               Clear Filters
             </Button>
           </div>
@@ -441,7 +515,7 @@ export default function HomePage() {
             <Button
               size="lg"
               className="bg-gold text-gold-foreground hover:bg-gold/90 font-semibold px-10"
-              onClick={() => navigate('/register')}
+              onClick={() => navigate('/signup')}
             >
               Get Started Free
             </Button>

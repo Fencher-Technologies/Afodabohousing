@@ -652,7 +652,9 @@ class PropertyService(BaseService):
         boost_ids: list[str] = []
         if boost_map:
             boost_ids = list(boost_map)
-            boosted_resp = self.supabase.table(self._table).select("*").in_("id", boost_ids).execute()
+            boosted_query = _filtered("*")
+            boosted_query = boosted_query.in_("id", boost_ids)
+            boosted_resp = boosted_query.execute()
             by_id = {r["id"]: r for r in (boosted_resp.data or [])}
             boosted_rows = [
                 by_id[i] for i in sorted(boost_ids, key=lambda i: boost_map[i], reverse=True)

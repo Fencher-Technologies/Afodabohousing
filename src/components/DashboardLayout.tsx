@@ -8,17 +8,25 @@ import { getCurrentSubscription } from '@/services/subscriptions';
 
 const COLLAPSED_KEY = 'sidebar_collapsed';
 
+const getFromLocalStorage = (key: string, fallback: string = ''): string => {
+  try { return window?.localStorage?.getItem(key) || fallback; } catch { return fallback; }
+};
+
+const saveToLocalStorage = (key: string, value: string): void => {
+  try { if (window?.localStorage) window.localStorage.setItem(key, value); } catch {}
+};
+
 export default function DashboardLayout() {
   const { role } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === 'true');
+  const [collapsed, setCollapsed] = useState(() => getFromLocalStorage(COLLAPSED_KEY) === 'true');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sub, setSub] = useState<any>(null);
 
   useEffect(() => {
-    localStorage.setItem(COLLAPSED_KEY, String(collapsed));
+    saveToLocalStorage(COLLAPSED_KEY, String(collapsed));
   }, [collapsed]);
 
   useEffect(() => {
