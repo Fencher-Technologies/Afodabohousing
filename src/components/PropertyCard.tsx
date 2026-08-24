@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Bed, Bath, Sofa, Sparkles, Heart } from 'lucide-react';
+import { MapPin, Bed, Bath, Sofa, Sparkles, Heart, Phone, Mail } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { isPropertyBoosted } from '@/services/property-boosts';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +15,7 @@ interface Property {
   rent_amount: number; rent_period: string; bedrooms: number; bathrooms: number;
   sitting_rooms: number; state: string | null; city: string | null;
   area: string | null; images: string[] | null; rent_currency?: string | null;
+  manager_phone?: string | null; manager_email?: string | null;
 }
 
 const fallbackImages = [prop1, prop2, prop3];
@@ -156,6 +157,22 @@ function PropertyCard({ property, index = 0, bookmarks, onToggleBookmark }: Prop
               {property.rent_period}
             </span>
           </div>
+
+          {/* Manager Contact */}
+          {(property.manager_phone || property.manager_email) && (
+            <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+              {property.manager_phone && (
+                <a href={`tel:${property.manager_phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
+                  <Phone className="h-3 w-3" /> {property.manager_phone}
+                </a>
+              )}
+              {property.manager_email && (
+                <a href={`mailto:${property.manager_email}?subject=Inquiry: ${encodeURIComponent(property.title)}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors ml-auto">
+                  <Mail className="h-3 w-3" /> Email
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </Link>
