@@ -26,7 +26,7 @@ const STATUS_LABEL: Record<string, { label: string; className: string }> = {
 
 export default function AgreementFlowCard({ leaseId }: AgreementFlowCardProps) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { toast } = useToast();
   const [state, setState] = useState<{ loading: boolean; data: any; error: boolean }>({ loading: true, data: null, error: false });
   const [agreed, setAgreed] = useState(false);
@@ -57,7 +57,7 @@ export default function AgreementFlowCard({ leaseId }: AgreementFlowCardProps) {
   const statusInfo = consentDoc?.status ? STATUS_LABEL[consentDoc.status] ?? { label: consentDoc.status, className: 'bg-muted text-muted-foreground border-border' } : null;
   const managerConsent = state.data?.manager ?? null;
   const tenantConsent = state.data?.tenant ?? null;
-  const isTenant = user?.role === 'tenant';
+  const isTenant = role === 'tenant';
   const myConsentData = isTenant ? tenantConsent : managerConsent;
   const otherPartyData = isTenant ? managerConsent : tenantConsent;
   const hasConsented = myConsentData?.consent_status === 'approved';
@@ -107,11 +107,11 @@ export default function AgreementFlowCard({ leaseId }: AgreementFlowCardProps) {
           <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-xs mx-auto">
             {hasDoc && !hasContent
               ? 'This agreement was created but the content is missing. Contact your manager to resolve this.'
-              : user?.role === 'tenant'
+              : isTenant
                 ? 'No agreement has been created yet. Your manager will create one when ready.'
                 : 'Create a digital agreement for this tenancy using the in-app builder.'}
           </p>
-          {user?.role !== 'tenant' && (
+          {!isTenant && (
             <Button size="sm" onClick={() => navigate(`/dashboard/manager/agreements/create/${leaseId}`)} className="gap-1.5">
               <Plus className="h-4 w-4" />
               {hasDoc && !hasContent ? 'Cancel & Create New' : 'Create Agreement'}
@@ -151,7 +151,7 @@ export default function AgreementFlowCard({ leaseId }: AgreementFlowCardProps) {
         <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/tenant/agreement/${leaseId}/history`)} className="gap-1.5 text-xs">
           <History className="h-3.5 w-3.5" /> History
         </Button>
-        {user?.role !== 'tenant' && (
+        {!isTenant && (
           <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/manager/agreements/create/${leaseId}?mode=edit`)} className="gap-1.5 text-xs">
             <FileText className="h-3.5 w-3.5" /> Edit
           </Button>
@@ -211,7 +211,7 @@ export default function AgreementFlowCard({ leaseId }: AgreementFlowCardProps) {
         </div>
       </div>
 
-      {user?.role !== 'tenant' && (
+      {!isTenant && (
         <div className="flex gap-2 mt-4 pt-4 border-t border-border">
           <Button variant="outline" size="sm" onClick={handleCancel} disabled={cancelling} className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10">
             {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
