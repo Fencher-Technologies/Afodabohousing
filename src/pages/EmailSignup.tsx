@@ -3,9 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Lock, Check, User } from 'lucide-react';
+import { Mail, Check, User } from 'lucide-react';
 import logoImg from '@/assets/axis-logo.png';
 import heroBg from '@/assets/hero-bg.jpg';
 
@@ -58,7 +59,12 @@ export default function EmailSignup() {
       toast({ title: 'Account created', description: 'You can now sign in', variant: 'default' });
       navigate('/login');
     } catch (e: any) {
-      setError(e.message || 'Signup failed');
+      const msg = e.message || 'Signup failed';
+      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
+        setError('An account with this email already exists. Please sign in instead.');
+      } else {
+        setError(msg);
+      }
     }
     setLoading(false);
   };
@@ -111,13 +117,10 @@ export default function EmailSignup() {
             <div>
               <Label>Password</Label>
               <div className="relative mt-1.5">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="password"
+                <PasswordInput
                   value={form.password}
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                   placeholder="••••••••"
-                  className="pl-9"
                   required
                 />
               </div>
@@ -143,7 +146,16 @@ export default function EmailSignup() {
                 <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
               </span>
             </label>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                <p className="text-destructive text-sm">{error}</p>
+                {error.includes('already exists') && (
+                  <Link to="/login" className="text-primary text-sm font-semibold hover:underline mt-1 inline-block">
+                    Go to Sign In →
+                  </Link>
+                )}
+              </div>
+            )}
             <Button type="submit" disabled={loading} className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
               {loading ? 'Creating account...' : <><Check className="h-4 w-4" /> Create Account</>}
             </Button>
