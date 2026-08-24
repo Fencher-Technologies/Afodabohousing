@@ -4,8 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Home, CalendarDays, DollarSign, Save, Mail, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-const API = import.meta.env.VITE_API_URL || '';
+import { apiGet } from '@/services/api';
 
 export interface TenancyFormData {
   property_id?: string;
@@ -49,20 +48,17 @@ export default function TenancyForm({ mode, initialData, onSave, onCancel, savin
     setResolving(true);
     setResolvedTenant(null);
     try {
-      const token = localStorage.getItem('sb-access-token') || '';
-      const res = await fetch(`${API}/tenants/resolve-by-email?email=${encodeURIComponent(tenantEmail.trim())}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Tenant not found');
-      }
-      const tenant: Tenant = await res.json();
+      const tenant = await apiGet<Tenant>(`/tenants/resolve-by-email?email=${encodeURIComponent(tenantEmail.trim())}`);
       setResolvedTenant(tenant);
       setForm(f => ({ ...f, tenant_id: tenant.id, tenant_email: tenantEmail.trim() }));
       toast({ title: 'Tenant found', description: `${tenant.first_name} ${tenant.last_name}` });
     } catch (e: any) {
-      toast({ title: 'Tenant not found', description: e.message || 'No registered user matched that email', variant: 'destructive' });
+      const msg = e.message || 'Tenant not found';
+      if (msg.includes('404') || msg.toLowerCase().includes('no registered user')) {
+        toast({ title: 'Tenant not found', description: 'No registered user matched that email', variant: 'destructive' });
+      } else {
+        toast({ title: 'Error', description: msg, variant: 'destructive' });
+      }
     }
     setResolving(false);
   };
