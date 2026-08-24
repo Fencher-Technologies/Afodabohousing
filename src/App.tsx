@@ -29,6 +29,7 @@ const TermsPage = lazy(() => import("./pages/Terms"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ForgotPin = lazy(() => import("./pages/ForgotPin"));
 const PhoneAuth = lazy(() => import("./pages/PhoneAuth"));
+const EmailSignup = lazy(() => import("./pages/EmailSignup"));
 const GettingStarted = lazy(() => import("./pages/GettingStarted"));
 const PhoneOtp = lazy(() => import("./pages/PhoneOtp"));
 const PhonePinSetup = lazy(() => import("./pages/PhonePinSetup"));
@@ -118,6 +119,7 @@ const App = () => (
               {/* Public routes (no sidebar) */}
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<EmailSignup />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/accept-invite" element={<AcceptInvitePage />} />
               <Route path="/properties" element={<PropertiesPage />} />
