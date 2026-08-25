@@ -517,9 +517,10 @@ async def _reconcile_pesapal_order(supabase, row: dict, kind: str) -> bool:
 
     table = "manager_subscriptions" if kind == "subscription" else "property_boosts"
     payload = {"status": status}
+    if kind == "subscription" and status == "failed":
+        payload["payment_status"] = "failed"
     if status == "completed":
         payload["payment_status"] = "completed"
-        payload["transaction_id"] = tracking_id
         if kind == "boost":
             from services.boost import get_boost_service
             activated = get_boost_service(supabase).activate_by_reference(
