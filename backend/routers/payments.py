@@ -380,11 +380,11 @@ def delete_payment(
 async def initiate_pesapal_payment(
     data: PesapalInitiateRequest,
     current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
 ) -> PesapalInitiateResponse:
     try:
         token = await pesapal.get_auth_token()
-        ipn_url = settings.pesapal_ipn_url or data.callback_url
-        ipn_id = await pesapal.register_ipn(token, ipn_url)
+        ipn_id = pesapal.get_ipn_id(supabase)
         order_id = pesapal.make_order_id("pay", data.payment_id)
 
         payload = await pesapal.submit_order(
