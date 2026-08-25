@@ -44,6 +44,6 @@ export async function getCurrentSubscription(): Promise<ManagerSubscription | nu
   return apiGet('/subscriptions/current');
 }
 
-export async function createSubscription(planId: string, phoneNumber?: string, callbackUrl?: string): Promise<SubscriptionCreateResponse> {
-  return apiPost('/subscriptions/create', { plan_id: planId, phone_number: phoneNumber, callback_url: callbackUrl });
+export async function createSubscription(planId: string, phoneNumber?: string, callbackUrl?: string, currency?: string): Promise<SubscriptionCreateResponse> {
+  return apiPost('/subscriptions/create', { plan_id: planId, phone_number: phoneNumber, callback_url: callbackUrl, currency });
 }

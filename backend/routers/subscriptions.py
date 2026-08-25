@@ -150,8 +150,10 @@ async def create_subscription(
                 detail="You already have a pending payment for this plan. Complete or cancel it before starting another.",
             )
 
-    reference = str(uuid4())
-    amount = int(plan["price_ugx"])
+    cur = (data.currency or "UGX").upper()
+    if cur not in ("UGX", "USD"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Currency must be UGX or USD")
+    amount = int(plan["price_ugx"]) if cur == "UGX" else float(plan["price_usd"])
 
     profile = profile or {}
     first_name = ((profile.get("full_name") or "").split() or [current_user.email])[0]
@@ -180,7 +182,7 @@ async def create_subscription(
             token=token,
             order_id=order_id,
             amount=float(amount),
-            currency="UGX",
+            currency=cur,
             description=f"Axis - {plan['name']} Subscription",
             callback_url=callback_url,
             ipn_id=ipn_id,
@@ -220,7 +222,7 @@ async def create_subscription(
         subscription_id=subscription_id,
         plan_id=data.plan_id,
         amount=float(amount),
-        currency="UGX",
+        currency=cur,
         payment_reference=reference,
         redirect_url=redirect_url,
         message="Redirecting to Pesapal to complete payment.",

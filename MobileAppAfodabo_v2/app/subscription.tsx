@@ -23,6 +23,7 @@ export default function SubscriptionScreen() {
   const { subscription } = useAuth();
   const { data: plansData, refetch: refetchPlans } = useSubscriptionPlans();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<"UGX" | "USD">("UGX");
   const { refreshing, onRefresh } = useRefresh({ refetches: [refetchPlans] });
 
   const plans = plansData || [];
@@ -34,7 +35,7 @@ export default function SubscriptionScreen() {
       Alert.alert("Select a plan", "Please choose a subscription plan to continue.");
       return;
     }
-    router.push(`/subscription-payment?plan=${selectedPlan}`);
+    router.push(`/subscription-payment?plan=${selectedPlan}&currency=${currency}`);
   };
 
   return (
@@ -98,6 +99,12 @@ export default function SubscriptionScreen() {
           )}
         </Card>
 
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Pressable onPress={() => setCurrency("UGX")} style={[styles.currencyToggle, currency === "UGX" && styles.currencyToggleActive]}><Text style={[styles.currencyToggleText, currency === "UGX" && styles.currencyToggleTextActive]}>UGX — Mobile Money</Text></Pressable>
+          <Pressable onPress={() => setCurrency("USD")} style={[styles.currencyToggle, currency === "USD" && styles.currencyToggleActive]}><Text style={[styles.currencyToggleText, currency === "USD" && styles.currencyToggleTextActive]}>USD — Card</Text></Pressable>
+        </View>
+        <Text style={{ fontSize: FontSize.caption, color: Colors.textMuted, textAlign: "center" }}>Default UGX. USD for international/virtual cards. Pesapal accepts both.</Text>
+
         {/* Plans */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
@@ -134,8 +141,8 @@ export default function SubscriptionScreen() {
                     <Text style={styles.planName}>{plan.name}</Text>
                     {isCurrent && <Badge label="Current" tone="muted" size="sm" />}
                   </View>
-                  <Text style={styles.planPrice}>${plan.price_usd}</Text>
-                  <Text style={styles.planPriceUgx}>UGX {plan.price_ugx.toLocaleString()}</Text>
+                  <Text style={[styles.planPrice, currency === "USD" && { color: Colors.primary }]}>${plan.price_usd} USD</Text>
+                  <Text style={[styles.planPriceUgx, currency === "UGX" && { color: Colors.primary, fontWeight: FontWeight.bold }]}>UGX {plan.price_ugx.toLocaleString()}</Text>
                   <View style={styles.planBenefits}>
                     {plan.benefits.map((benefit) => (
                       <View key={benefit} style={styles.benefitRow}>
@@ -181,6 +188,10 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     gap: Spacing.lg,
   },
+  currencyToggle: { flex: 1, paddingVertical: 10, borderRadius: Radii.pill, borderWidth: 1.5, borderColor: Colors.border, alignItems: "center", backgroundColor: Colors.surface },
+  currencyToggleActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  currencyToggleText: { fontSize: FontSize.caption, fontWeight: FontWeight.bold, color: Colors.textMuted },
+  currencyToggleTextActive: { color: Colors.textOnPrimary },
   statusCard: {
     gap: Spacing.md,
   },

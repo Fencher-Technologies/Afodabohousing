@@ -105,7 +105,8 @@ class ManagerDetailResponse(UserResponse):
 
 
 class AdminConfirmSubscriptionRequest(BaseModel):
-    paid_amount: float
+    paid_amount: float | None = None
+    confirmation_code: str | None = None
 
 
 class DashboardStats(BaseModel):
@@ -768,15 +769,16 @@ def get_user_detail(
 
 
 @router.post("/subscriptions/{subscription_id}/confirm", response_model=ManagerSubscriptionResponse)
-def confirm_subscription_payment(
+async def confirm_subscription_payment(
     subscription_id: str,
     data: AdminConfirmSubscriptionRequest,
     current_user: CurrentUser = Depends(require_super_admin),
     supabase: Client = Depends(get_service_client),
 ) -> ManagerSubscriptionResponse:
-    """Super-admin safety valve: confirm a subscription after verifying the
-    payment on Pesapal's dashboard (paid before the webhook fixes). Reuses the
-    same amount-guarded activation as the live webhook.
+    """Super-admin: confirm via paid_amount OR Pesapal confirmation_code.
+
+    If confirmation_code (orderTrackingId) is supplied, the amount is fetched
+    from Pesapal GetTransactionStatus so the admin does not need to type it.
     """
     sub = (
         supabase.table("manager_subscriptions")
@@ -789,12 +791,63 @@ def confirm_subscription_payment(
         raise HTTPException(status_code=404, detail="Subscription not found")
 
     reference = sub.data[0].get("payment_reference")
-    result = get_subscription_service(supabase).confirm_subscription(reference, data.paid_amount)
+    paid_amount = data.paid_amount
+    if data.confirmation_code and data.confirmation_code.strip():
+        try:
+            from services.pesapal import get_auth_token, get_transaction_status
+            token = await get_auth_token()
+            td = await get_transaction_status(token, data.confirmation_code.strip())
+            # Pesapal returns amount as float; use it as authoritative paid_amount
+            paid_amount = td.get("amount", paid_amount)
+            if td.get("payment_status_description", "").upper() not in ("COMPLETED",):
+                raise HTTPException(status_code=400, detail=f"Pesapal status is {td.get('payment_status_description')}, not COMPLETED")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Pesapal verification failed: {e}")
+    if paid_amount is None:
+        raise HTTPException(status_code=400, detail="Provide paid_amount or confirmation_code")
+    result = get_subscription_service(supabase).confirm_subscription(reference, float(paid_amount))
     if not result:
         raise HTTPException(
             status_code=400,
             detail="Payment verification failed: amount mismatch or subscription not pending",
         )
+    return result
+
+
+@router.post("/boosts/{boost_id}/confirm", response_model=dict)
+async def confirm_boost_payment(
+    boost_id: str,
+    data: AdminConfirmSubscriptionRequest,
+    current_user: CurrentUser = Depends(require_super_admin),
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    """Super-admin: confirm a pending boost via paid_amount or Pesapal confirmation_code."""
+    from services.boost import get_boost_service
+    pending = supabase.table("property_boosts").select("transaction_id").eq("id", boost_id).limit(1).execute()
+    if not pending.data:
+        raise HTTPException(status_code=404, detail="Boost not found")
+    ref = pending.data[0].get("transaction_id")
+    paid_amount = data.paid_amount
+    if data.confirmation_code and data.confirmation_code.strip():
+        try:
+            from services.pesapal import get_auth_token, get_transaction_status
+            token = await get_auth_token()
+            td = await get_transaction_status(token, data.confirmation_code.strip())
+            paid_amount = td.get("amount", paid_amount)
+            if td.get("payment_status_description", "").upper() not in ("COMPLETED",):
+                raise HTTPException(status_code=400, detail=f"Pesapal status is {td.get('payment_status_description')}, not COMPLETED")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Pesapal verification failed: {e}")
+    if paid_amount is None:
+        raise HTTPException(status_code=400, detail="Provide paid_amount or confirmation_code")
+    svc = get_boost_service(supabase)
+    result = svc.activate_by_reference(ref, data.confirmation_code or ref, float(paid_amount))
+    if not result:
+        raise HTTPException(status_code=400, detail="Boost verification failed: amount mismatch or not pending")
     return result
 
 

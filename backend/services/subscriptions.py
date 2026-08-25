@@ -132,14 +132,16 @@ class SubscriptionService:
         if not plan:
             return None
 
-        # Amount verification: only the exact plan price activates the sub.
+        # Amount verification: accept either UGX or USD plan price (dual-currency checkout).
+        # Pesapal forwards amount in the currency submitted; we check both.
         if paid_amount is not None:
-            expected = float(plan["price_ugx"])
-            if abs(float(paid_amount) - expected) > 1.0:
+            ugx = float(plan["price_ugx"])
+            usd = float(plan.get("price_usd") or 0)
+            if abs(float(paid_amount) - ugx) > 1.0 and abs(float(paid_amount) - usd) > 0.05:
                 now = datetime.now(UTC)
                 logger.warning(
-                    "Subscription %s amount mismatch: paid=%s expected=%s",
-                    sub["id"], paid_amount, expected,
+                    "Subscription %s amount mismatch: paid=%s expected UGX=%s USD=%s",
+                    sub["id"], paid_amount, ugx, usd,
                 )
                 self.supabase.table("manager_subscriptions").update(
                     {"status": "failed", "payment_status": "failed", "updated_at": now.isoformat()}
