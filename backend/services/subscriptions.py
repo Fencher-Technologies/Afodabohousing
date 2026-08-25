@@ -59,6 +59,22 @@ class SubscriptionService:
         return self.to_response(raw)
 
     def get_current_subscription_raw(self, manager_id: str) -> dict | None:
+        now = datetime.now(UTC).isoformat()
+        try:
+            active = (
+                self.supabase.table("manager_subscriptions")
+                .select("*")
+                .eq("manager_id", manager_id)
+                .eq("status", "active")
+                .gt("expires_at", now)
+                .order("expires_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if active.data:
+                return active.data[0]
+        except Exception:
+            pass
         result = (
             self.supabase.table("manager_subscriptions")
             .select("*")
