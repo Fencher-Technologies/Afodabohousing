@@ -255,7 +255,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
   const isOverdue = daysLeft !== null && daysLeft < 0;
   const isDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
   const property = activeLease?.properties;
-  const propertyCurrency = property?.rent_currency || activeLease?.rent_currency || 'USD';
+  const propertyCurrency = property?.rent_currency || activeLease?.rent_currency || 'UGX';
 
   const monthRent = activeLease?.monthly_rent || property?.monthly_rent || property?.rent_amount || 0;
   const totalPaid = payments.filter(p => p.status === 'confirmed').reduce((s: number, p: any) => s + p.amount, 0);

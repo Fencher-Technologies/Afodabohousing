@@ -695,7 +695,7 @@ export default function ManagerDashboard() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-foreground truncate">{p.title}</p>
-                              <p className="text-xs text-muted-foreground">{p.state || p.city} · {(p.rent_amount || 0).toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">{p.state || (p as any).district || p.city || '—'} · UGX {(p.rent_amount || 0).toLocaleString()}</p>
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize shrink-0 ${statusBadge(p.status)}`}>{p.status}</span>
                             {p.is_boosted && (
@@ -811,9 +811,9 @@ export default function ManagerDashboard() {
                                   </div>
                                 </div>
                               </td>
-                              <td className="py-3.5 px-4 text-muted-foreground">{p.state || p.city}{p.area ? ` · ${p.area}` : ''}</td>
+                              <td className="py-3.5 px-4 text-muted-foreground">{p.state || (p as any).district || p.city || '—'}{p.area ? ` · ${p.area}` : ''}</td>
                               <td className="py-3.5 px-4">
-                                  <span className="font-bold text-foreground">{(p.rent_amount || 0).toLocaleString()}</span>
+                                  <span className="font-bold text-foreground">UGX {(p.rent_amount || 0).toLocaleString()}</span>
                                 <span className="text-xs text-muted-foreground ml-1 capitalize">/{p.rent_period.slice(0, 2)}</span>
                               </td>
                               <td className="py-3.5 px-4">
@@ -903,7 +903,7 @@ export default function ManagerDashboard() {
                                 <span className="text-sm text-foreground">{t.property_title || '-'}</span>
                               </td>
                               <td className="py-3.5 px-4">
-                                <span className="font-bold text-foreground">{(t.monthly_rent || 0).toLocaleString()}</span>
+                                <span className="font-bold text-foreground">UGX {(t.monthly_rent || 0).toLocaleString()}</span>
                               </td>
                               <td className="py-3.5 px-4">
                                 <div className="text-sm text-foreground">{format(new Date(t.end_date), 'MMM dd, yyyy')}</div>
@@ -1030,7 +1030,7 @@ export default function ManagerDashboard() {
                                 <span className="font-semibold text-foreground">{p.tenant_name || 'Unknown'}</span>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 font-bold text-foreground">{(p.amount || 0).toLocaleString()}</td>
+                            <td className="py-3.5 px-4 font-bold text-foreground">UGX {(p.amount || 0).toLocaleString()}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{p.period_start} – {p.period_end}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs max-w-[160px] truncate">{p.notes || '—'}</td>

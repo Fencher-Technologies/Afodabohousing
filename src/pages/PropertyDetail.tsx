@@ -88,6 +88,7 @@ export default function PropertyDetailPage() {
   const [sending, setSending] = useState(false);
   const [saved, setSaved] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [regionName, setRegionName] = useState<string>('');
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -100,6 +101,14 @@ export default function PropertyDetailPage() {
         if (res.ok) {
           const prop = await res.json();
           setProperty(prop);
+          if (!prop.state && prop.region_id) {
+            try {
+              const r = await fetch(`${API}/regions/regions?active_only=true`);
+              const all = await r.json();
+              const found = (all as any[]).find(x => x.id === prop.region_id);
+              if (found) setRegionName(found.name);
+            } catch {}
+          }
         }
       } catch (e) {
         console.error('Failed to fetch property:', e);
@@ -148,7 +157,7 @@ export default function PropertyDetailPage() {
     `https://www.openstreetmap.org/directions?to=${encodeURIComponent(buildOSMQuery(p))}`;
 
   const getOSMEmbedUrl = (p: Property) => {
-    const q = encodeURIComponent(`${p.state || p.city}${countryName ? `, ${countryName}` : ''}`);
+    const q = encodeURIComponent(`${displayState || p.state || p.city}${countryName ? `, ${countryName}` : ''}`);
     return `https://nominatim.openstreetmap.org/search?q=${q}&format=html`;
   };
 
@@ -192,10 +201,12 @@ export default function PropertyDetailPage() {
     );
   }
 
+  const displayState = property.state || regionName || property.city || '';
+  const displayCurrency = property.rent_currency || 'UGX';
   const images = property.images?.length ? property.images : fallbackImages;
   const totalImages = images.length;
   const periodLabel = { monthly: 'per month', quarterly: 'per quarter', annually: 'per year' }[property.rent_period] || '';
-  const fullLocation = [property.address, property.area, property.city, property.state].filter(Boolean).join(', ');
+  const fullLocation = [property.address, property.area, property.city, displayState].filter(Boolean).join(', ');
   const availableUnits = units.filter(u => u.status === 'available');
   const isBoosted = isPropertyBoosted(property);
 
@@ -299,12 +310,12 @@ export default function PropertyDetailPage() {
               <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-2xl p-5 border border-primary/20">
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-display font-bold text-primary">
-                    {formatCurrency(property.rent_amount, property.rent_currency)}
+                    {formatCurrency(property.rent_amount, displayCurrency)}
                   </span>
                   <span className="text-lg text-muted-foreground">{periodLabel}</span>
                 </div>
                 <div className="text-sm text-muted-foreground mt-1.5 capitalize">
-                  Paid {property.rent_period} in {property.rent_currency}
+                  Paid {property.rent_period} in {displayCurrency}
                   {units.length > 0 && (
                     <span className="ml-3 text-accent font-semibold">
                       {availableUnits.length}/{units.length} units available
@@ -418,7 +429,7 @@ export default function PropertyDetailPage() {
 
                         <div className="flex items-center justify-between pt-2 border-t border-border">
                           <div>
-                            <span className="text-xl font-bold text-primary font-display">{formatCurrency(unit.rent_amount, unit.rent_currency)}</span>
+                            <span className="text-xl font-bold text-primary font-display">{formatCurrency(unit.rent_amount, 'UGX')}</span>
                             <span className="text-muted-foreground text-xs ml-1">/mo</span>
                           </div>
                           {unit.status === 'available' ? (
@@ -541,7 +552,7 @@ export default function PropertyDetailPage() {
                       <div className="bg-secondary rounded-xl p-3 text-sm mt-3">
                         <p className="font-semibold text-foreground">{property.title}</p>
                         <p className="text-muted-foreground text-xs mt-0.5">
-                          {property.state}{property.city ? `, ${property.city}` : ''}
+                          {displayState}{property.city ? `, ${property.city}` : ''}
                         </p>
                       </div>
                       <form onSubmit={handleSendMessage} className="space-y-4 mt-2">
@@ -592,9 +603,9 @@ export default function PropertyDetailPage() {
                 <h4 className="font-semibold text-sm text-foreground">Quick Details</h4>
                 {[
                   { label: 'Type', val: typeLabels[property.property_type] || property.property_type },
-                  { label: 'State', val: property.state },
+                  { label: 'District', val: displayState || '—' },
                   { label: 'Rent Period', val: property.rent_period, capitalize: true },
-                  { label: 'Currency', val: property.rent_currency },
+                  { label: 'Currency', val: 'UGX' },
                   ...(units.length > 0 ? [{ label: 'Total Units', val: String(units.length) }, { label: 'Available', val: String(availableUnits.length) }] : [
                     { label: 'Bedrooms', val: String(property.bedrooms) },
                     { label: 'Bathrooms', val: String(property.bathrooms) },

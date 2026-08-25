@@ -128,7 +128,7 @@ export default function ManagerTenantDetail() {
     .reduce((s: number, p: any) => s + Number(p.amount), 0);
 
   const leaseProp = activeLease?.properties ?? {};
-  const propertyCurrency = leaseProp.rent_currency || activeLease?.rent_currency || 'USD';
+  const propertyCurrency = leaseProp.rent_currency || activeLease?.rent_currency || 'UGX';
   const balanceDue = Math.max(0, (activeLease?.monthly_rent ?? 0) - totalPaid);
   const daysLeft = activeLease ? differenceInDays(new Date(activeLease.end_date), new Date()) : null;
   const isOverdue = balanceDue > 0 && (daysLeft !== null && daysLeft < 0);

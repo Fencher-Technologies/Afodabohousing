@@ -116,7 +116,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
   }, []);
 
   const handleCountryChange = (iso: string) => {
-    const currency = CURRENCY_MAP[iso] || 'USD';
+    const currency = CURRENCY_MAP[iso] || 'UGX';
     setForm(f => ({ ...f, country: iso, region_id: '', rent_currency: currency }));
     setDeprecatedWarning('');
   };
