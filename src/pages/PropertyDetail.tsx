@@ -331,9 +331,9 @@ export default function PropertyDetailPage() {
                 <h2 className="font-display font-bold text-xl mb-4">Property Details</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
-                    { icon: <Bed className="h-5 w-5" />, label: 'Bedrooms', val: property.bedrooms },
-                    { icon: <Bath className="h-5 w-5" />, label: 'Bathrooms', val: property.bathrooms },
-                    { icon: <Sofa className="h-5 w-5" />, label: 'Sitting Rooms', val: property.sitting_rooms },
+                    { icon: <Bed className="h-5 w-5" />, label: 'Bedrooms', val: property.bedrooms ?? 1 },
+                    { icon: <Bath className="h-5 w-5" />, label: 'Bathrooms', val: property.bathrooms ?? 1 },
+                    { icon: <Sofa className="h-5 w-5" />, label: 'Sitting Rooms', val: (property as any).sitting_rooms ?? 1 },
                     ...((property.kitchens ?? 0) > 0 ? [{ icon: <ChefHat className="h-5 w-5" />, label: 'Kitchens', val: property.kitchens }] : []),
                   ].map(r => (
                     <div key={r.label} className="bg-card border border-border rounded-2xl p-5 text-center shadow-sm hover:shadow-md transition-shadow">
@@ -607,8 +607,8 @@ export default function PropertyDetailPage() {
                   { label: 'Rent Period', val: property.rent_period, capitalize: true },
                   { label: 'Currency', val: 'UGX' },
                   ...(units.length > 0 ? [{ label: 'Total Units', val: String(units.length) }, { label: 'Available', val: String(availableUnits.length) }] : [
-                    { label: 'Bedrooms', val: String(property.bedrooms) },
-                    { label: 'Bathrooms', val: String(property.bathrooms) },
+                    { label: 'Bedrooms', val: String(property.bedrooms ?? 1) },
+                    { label: 'Bathrooms', val: String((property as any).bathrooms ?? 1) },
                   ]),
                 ].map(r => (
                   <div key={r.label} className="flex justify-between text-sm">
