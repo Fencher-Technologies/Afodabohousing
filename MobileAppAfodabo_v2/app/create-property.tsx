@@ -36,6 +36,7 @@ const ALL_AMENITIES: Amenity[] = [
 ];
 
 const DEFAULT_COUNTRY = "UG";
+const CURRENCY_MAP: Record<string, string> = { UG: "UGX", KE: "KES", TZ: "TZS", US: "USD", GB: "GBP", NG: "NGN", GH: "GHS", ZA: "ZAR", RW: "RWF" };
 
 export default function CreatePropertyScreen() {
   const { subscription } = useAuth();
@@ -149,8 +150,11 @@ export default function CreatePropertyScreen() {
         property_type: category === "commercial" ? "Office Space" : "Residential",
         property_type_slug: type || null,
         monthly_rent: Number(rent),
-        bedrooms: Number(beds) || 0,
-        bathrooms: Number(baths) || 0,
+        rent_currency: CURRENCY_MAP[country] || "UGX",
+        bedrooms: Number(beds) || 1,
+        bathrooms: Number(baths) || 1,
+        sitting_rooms: 1,
+        kitchens: 1,
         square_feet: squareFeet ? Number(squareFeet) : null,
         security_deposit: deposit ? Number(deposit) : 0,
         latitude: locationCoords?.lat ?? null,

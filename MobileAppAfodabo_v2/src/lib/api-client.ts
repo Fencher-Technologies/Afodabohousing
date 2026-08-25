@@ -111,6 +111,7 @@ async function doRefreshAccessToken(): Promise<string | null> {
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
+  _retry503 = 0,
 ): Promise<T> {
   const token = await getStoredToken();
   console.log("[DEBUG_AUTH] API request —", endpoint, "hasToken:", !!token);
@@ -127,6 +128,11 @@ async function request<T>(
     ...options,
     headers,
   });
+
+  if (response.status === 503 && _retry503 < 2) {
+    await new Promise(r => setTimeout(r, 800 * (_retry503 + 1)));
+    return request<T>(endpoint, options, _retry503 + 1);
+  }
 
   if (response.status === 401 && token) {
     console.log("[DEBUG_AUTH] API request — 401, attempting token refresh for:", endpoint);
