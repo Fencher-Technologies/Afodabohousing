@@ -301,7 +301,7 @@ async def initiate_boost(
         customer_phone = ""
 
     base_url = str(data.callback_url or "").rstrip("/")
-    callback_url = f"{base_url}{BOOST_CALLBACK_URL}"
+    callback_url = base_url if base_url.endswith(BOOST_CALLBACK_URL) else f"{base_url}{BOOST_CALLBACK_URL}"
 
     try:
         token = await get_auth_token()
@@ -311,7 +311,7 @@ async def initiate_boost(
             token=token,
             order_id=order_id,
             amount=float(amount),
-            currency=prop.data.get("rent_currency") or "USD",
+            currency="UGX",
             description=f"Boost {prop_title} ({data.duration_days} days)",
             callback_url=callback_url,
             ipn_id=ipn_id,
@@ -355,5 +355,5 @@ def default_boost_price(supabase: Client = Depends(get_service_client)) -> Boost
     return BoostPriceResponse(
         duration_days=7,
         amount=float(calculate_boost_price(supabase, 7)),
-        currency="USD",
+        currency="UGX",
     )

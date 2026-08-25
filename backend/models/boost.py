@@ -57,7 +57,7 @@ class BoostPriceRequest(BaseModel):
 class BoostPriceResponse(BaseModel):
     duration_days: int
     amount: float
-    currency: str = "USD"
+    currency: str = "UGX"
 
 
 class InitiateBoostRequest(BaseModel):
@@ -79,4 +79,4 @@ class BoostPackage(BaseModel):
     days: int
     price: int
     label: str
-    currency: str = "USD"
+    currency: str = "UGX"

@@ -90,7 +90,7 @@ async def check_rent_reminders(supabase=None, today: date | None = None, dispatc
             to_email = tenant.get("email")
             property_title = prop.get("title") if prop else None
             amount = arrears
-            currency = (prop or {}).get("rent_currency") or "USD"
+            currency = (prop or {}).get("rent_currency") or "UGX"
 
             if days_until_due == 1:
                 title = "Rent due tomorrow"

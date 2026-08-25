@@ -170,7 +170,7 @@ async def create_subscription(
     subscription_id = str(result.data[0]["id"])
 
     base_url = (data.callback_url or "").rstrip("/")
-    callback_url = f"{base_url}{SUBSCRIPTION_CALLBACK_URL}"
+    callback_url = base_url if base_url.endswith(SUBSCRIPTION_CALLBACK_URL) else f"{base_url}{SUBSCRIPTION_CALLBACK_URL}"
 
     try:
         token = await get_auth_token()
@@ -180,7 +180,7 @@ async def create_subscription(
             token=token,
             order_id=order_id,
             amount=float(amount),
-            currency="USD",
+            currency="UGX",
             description=f"Axis - {plan['name']} Subscription",
             callback_url=callback_url,
             ipn_id=ipn_id,
@@ -220,7 +220,7 @@ async def create_subscription(
         subscription_id=subscription_id,
         plan_id=data.plan_id,
         amount=float(amount),
-        currency="USD",
+        currency="UGX",
         payment_reference=reference,
         redirect_url=redirect_url,
         message="Redirecting to Pesapal to complete payment.",
