@@ -322,7 +322,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
   const now = new Date();
   const curMonth = now.getMonth();
 
-  // TODO: Replace with real Supabase queries when backend endpoints exist
   // Stat card trend percentages (mock)
   const propertyTrend = 12;
   const managerTrend = -3;
@@ -330,7 +329,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
   const rentTrend = 15;
 
   // Sparkline data for stat cards (mock — last 8 periods)
-  // TODO: query from payments/tenancies tables
   const propertySparkline = [12, 14, 13, 15, 16, 15, 17, 18];
   const managerSparkline = [8, 9, 9, 10, 10, 9, 10, 10];
   const tenantSparkline = [24, 26, 28, 30, 32, 35, 38, 42];
@@ -339,7 +337,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
   const subRevenueSparkline = [150000, 150000, 200000, 200000, 250000, 250000, 300000, 400000];
 
   // Rent Collection Trend — multi-line per property/manager
-  // TODO: query Supabase for monthly collection grouped by property
   const rentTrendLines = [
     { name: 'Ntinda Apts', data: MONTHS.slice(0, curMonth + 1).map((_, i) => 3000000 + Math.random() * 2000000) },
     { name: 'Bukoto Heights', data: MONTHS.slice(0, curMonth + 1).map((_, i) => 2500000 + Math.random() * 1500000) },
@@ -352,7 +349,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
   const rangeLabel = `${MONTHS[Math.max(0, curMonth - 5)]} – ${MONTHS[curMonth]} ${now.getFullYear()}`;
 
   // Revenue Breakdown — donut
-  // TODO: query by property or manager
   const revenueShares: RevenueShare[] = [
     { name: 'Ntinda Apts', value: 45000000, color: CHART_COLORS[0] },
     { name: 'Bukoto Heights', value: 32000000, color: CHART_COLORS[1] },
@@ -363,7 +359,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
   const totalRevenue = revenueShares.reduce((s, r) => s + r.value, 0);
 
   // Bar chart — New Tenant Registrations
-  // TODO: query from tenants table grouped by created_at
   const genBarData = (len: number) => Array.from({ length: len }, (_, i) => ({
     label: len <= 7 ? `Day ${i + 1}` : MONTHS[i] || `M${i + 1}`,
     value: Math.floor(Math.random() * 20 + 5),
@@ -373,17 +368,14 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
     : genBarData(curMonth + 1);
 
   // Bar chart — Active Leases
-  // TODO: query from tenancies/leases table
   const leasesData = leasesFilter === 'today' ? genBarData(7)
     : leasesFilter === 'week' ? genBarData(7)
     : genBarData(curMonth + 1);
 
   // Pending Manager Invites
-  // TODO: query from invitations table
   const pendingInvitesData = [{ label: 'Pending', value: 3 }, { label: 'Accepted', value: 7 }, { label: 'Expired', value: 1 }];
 
   // Recent Activity
-  // TODO: replace with real data from activity_log or events table
   const recentActivity: ActivityRow[] = [
     { id: '1', name: 'Sarah Nakato', action: 'Lease Signed — Ntinda Apts', status: 'completed', timestamp: '2 hours ago' },
     { id: '2', name: 'John Mukasa', action: 'Payment Made — 450,000', status: 'completed', timestamp: '4 hours ago' },
@@ -394,7 +386,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
   ];
 
   // Audit Log
-  // TODO: replace with real data from audit_logs table
   const auditLog: AuditEntry[] = [
     { id: '1', icon: <Shield className="h-3.5 w-3.5" />, description: 'Role changed: John Mukasa → house_manager', time: '1 hour ago' },
     { id: '2', icon: <Mail className="h-3.5 w-3.5" />, description: 'Invite sent to grace@example.com', time: '3 hours ago' },
