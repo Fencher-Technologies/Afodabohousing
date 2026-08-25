@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ArrowLeft, Save, Home, MapPin, DollarSign, Image, Upload, X, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -235,22 +236,27 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
         <h2 className="font-bold text-sm flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Location</h2>
 
         <div>
-          <p className="text-sm font-semibold mb-2">Country</p>
-          <select value={form.country} onChange={e => handleCountryChange(e.target.value)}
-            className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm" required>
-            <option value="">Select country...</option>
-            {countries.map(c => <option key={c.iso2} value={c.iso2}>{c.name}</option>)}
-          </select>
+          <p className="text-sm font-semibold mb-2">Country — type to search e.g. "Ug" or "ka"</p>
+          <SearchableSelect
+            options={countries.map(c => ({ value: c.iso2, label: c.name }))}
+            value={form.country}
+            onValueChange={v => handleCountryChange(v)}
+            placeholder="Select country..."
+            emptyText="No country matches your search."
+            disabled={countries.length === 0}
+          />
         </div>
 
         <div>
-          <p className="text-sm font-semibold mb-2">{regionLabel}</p>
-          <select value={form.region_id} onChange={e => setForm(f => ({ ...f, region_id: e.target.value }))}
-            className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm" required
-            disabled={!form.country || loadingRegions}>
-            <option value="">{loadingRegions ? 'Loading...' : `Select ${regionLabel.toLowerCase()}...`}</option>
-            {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
+          <p className="text-sm font-semibold mb-2">{regionLabel} — type "ka" for Kampala, etc.</p>
+          <SearchableSelect
+            options={regions.map(r => ({ value: r.id, label: r.name }))}
+            value={form.region_id}
+            onValueChange={v => setForm(f => ({ ...f, region_id: v }))}
+            placeholder={loadingRegions ? 'Loading...' : `Select ${regionLabel.toLowerCase()}...`}
+            emptyText={loadingRegions ? 'Loading...' : `No ${regionLabel.toLowerCase()} matches.`}
+            disabled={!form.country || loadingRegions}
+          />
           {deprecatedWarning && (
             <p className="text-xs text-amber-500 mt-1 flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" /> {deprecatedWarning}
