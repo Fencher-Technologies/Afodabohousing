@@ -323,7 +323,7 @@ export default function PropertyDetailPage() {
                     { icon: <Bed className="h-5 w-5" />, label: 'Bedrooms', val: property.bedrooms },
                     { icon: <Bath className="h-5 w-5" />, label: 'Bathrooms', val: property.bathrooms },
                     { icon: <Sofa className="h-5 w-5" />, label: 'Sitting Rooms', val: property.sitting_rooms },
-                    { icon: <ChefHat className="h-5 w-5" />, label: 'Kitchens', val: property.kitchens },
+                    ...((property.kitchens ?? 0) > 0 ? [{ icon: <ChefHat className="h-5 w-5" />, label: 'Kitchens', val: property.kitchens }] : []),
                   ].map(r => (
                     <div key={r.label} className="bg-card border border-border rounded-2xl p-5 text-center shadow-sm hover:shadow-md transition-shadow">
                       <div className="text-accent mx-auto mb-2 flex justify-center">{r.icon}</div>
