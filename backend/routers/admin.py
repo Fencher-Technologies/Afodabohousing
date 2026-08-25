@@ -905,11 +905,19 @@ def update_user_status(
     return {"message": f"User status updated to {data.status}", "user_id": user_id, "status": data.status}
 
 
+_STATS_CACHE: dict[str, object] = {"at": 0.0, "data": None}
+_STATS_TTL = 60.0
+
+
 @router.get("/stats", response_model=DashboardStats)
 def get_dashboard_stats(
     current_user: CurrentUser = Depends(require_super_admin),
     supabase: Client = Depends(get_service_client),
 ) -> DashboardStats:
+    import time as _t
+    now_mono = _t.monotonic()
+    if _STATS_CACHE["data"] is not None and now_mono - float(_STATS_CACHE["at"]) < _STATS_TTL:
+        return _STATS_CACHE["data"]  # type: ignore
     # ── User counts ──
     total_managers = _count(supabase, "profiles", role="house_manager")
     total_tenants = _count(supabase, "profiles", role="tenant")
@@ -999,7 +1007,7 @@ def get_dashboard_stats(
     except Exception:
         pass
 
-    return DashboardStats(
+    result = DashboardStats(
         total_managers=total_managers,
         total_tenants=total_tenants,
         active_managers=active_managers,
@@ -1018,3 +1026,6 @@ def get_dashboard_stats(
         subscription_revenue_this_month=sub_revenue_month,
         subscription_growth_pct=sub_growth,
     )
+    _STATS_CACHE["data"] = result
+    _STATS_CACHE["at"] = now_mono
+    return result
