@@ -150,6 +150,7 @@ async def create_subscription(
                 detail="You already have a pending payment for this plan. Complete or cancel it before starting another.",
             )
 
+    reference = str(uuid4())
     cur = (data.currency or "UGX").upper()
     if cur not in ("UGX", "USD"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Currency must be UGX or USD")
