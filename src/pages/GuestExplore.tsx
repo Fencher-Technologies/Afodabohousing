@@ -220,10 +220,10 @@ export default function GuestExplore() {
         {showFilters && (
           <div className="bg-card border border-border rounded-xl p-4 sm:p-5 mb-6 shadow-sm">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-              {/* Location — searchable */}
+              {/* Location */}
               <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Location — type "ka" for Kampala, etc.</label>
-                <Input list="district-suggestions" placeholder="City, area, or district — type to filter" value={district} onChange={e => setDistrict(e.target.value)} />
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Location</label>
+                <Input list="district-suggestions" placeholder="City, area, or district" value={district} onChange={e => setDistrict(e.target.value)} />
                 <datalist id="district-suggestions">
                   {districtOptions.map(d => <option key={d} value={d} />)}
                 </datalist>

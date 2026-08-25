@@ -141,8 +141,7 @@ export default function SubscriptionScreen() {
                     <Text style={styles.planName}>{plan.name}</Text>
                     {isCurrent && <Badge label="Current" tone="muted" size="sm" />}
                   </View>
-                  <Text style={[styles.planPrice, currency === "USD" && { color: Colors.primary }]}>${plan.price_usd} USD</Text>
-                  <Text style={[styles.planPriceUgx, currency === "UGX" && { color: Colors.primary, fontWeight: FontWeight.bold }]}>UGX {plan.price_ugx.toLocaleString()}</Text>
+                  <Text style={styles.planPrice}>UGX {plan.price_ugx.toLocaleString()}</Text>
                   <View style={styles.planBenefits}>
                     {plan.benefits.map((benefit) => (
                       <View key={benefit} style={styles.benefitRow}>

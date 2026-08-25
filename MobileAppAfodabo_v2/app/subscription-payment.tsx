@@ -272,19 +272,15 @@ export default function SubscriptionPaymentScreen() {
             </View>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, currency === "USD" && { color: Colors.primary, fontWeight: "700" }]}>Price (USD)</Text>
-            <Text style={[styles.summaryValue, currency === "USD" && { color: Colors.primary }]}>${selectedPlan.price_usd}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, currency === "UGX" && { color: Colors.primary, fontWeight: "700" }]}>Price (UGX)</Text>
-            <Text style={[styles.summaryValue, currency === "UGX" && { color: Colors.primary }]}>UGX {selectedPlan.price_ugx.toLocaleString()}</Text>
+            <Text style={styles.summaryLabel}>Price (UGX)</Text>
+            <Text style={styles.summaryValue}>UGX {selectedPlan.price_ugx.toLocaleString()}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryTotal}>Total ({currency})</Text>
-            <Text style={styles.summaryTotalValue}>{currency === "UGX" ? `UGX ${selectedPlan.price_ugx.toLocaleString()}` : `$${selectedPlan.price_usd} USD`}</Text>
+            <Text style={styles.summaryTotal}>Total (UGX)</Text>
+            <Text style={styles.summaryTotalValue}>UGX {selectedPlan.price_ugx.toLocaleString()}</Text>
           </View>
-          <Text style={{ fontSize: FontSize.caption, color: Colors.textMuted }}>{currency === "UGX" ? "Mobile money + local cards" : "International & virtual cards"} via Pesapal</Text>
+          <Text style={{ fontSize: FontSize.caption, color: Colors.textMuted }}>Mobile money, local & international cards via Pesapal</Text>
         </Card>
 
         {/* Benefits */}

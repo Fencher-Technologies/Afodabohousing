@@ -499,19 +499,21 @@ async def sync_geonames():
 
 def start_scheduler():
     settings = get_settings()
+    logging.getLogger("apscheduler.scheduler").setLevel(logging.WARNING)
+    if not scheduler.running:
+        scheduler.start()
     if settings.environment == "production":
-        scheduler.add_job(check_rent_reminders, "cron", hour=8, minute=0)
-        scheduler.add_job(check_tenancy_expiry, "cron", hour=6, minute=0)
-        scheduler.add_job(check_boost_expiry, "cron", hour=6, minute=30)
-        scheduler.add_job(expire_subscriptions, "cron", hour=0, minute=15)
-        scheduler.add_job(sync_geonames, "cron", day=1, hour=3, minute=0)
+        scheduler.add_job(check_rent_reminders, "cron", hour=8, minute=0, replace_existing=True)
+        scheduler.add_job(check_tenancy_expiry, "cron", hour=6, minute=0, replace_existing=True)
+        scheduler.add_job(check_boost_expiry, "cron", hour=6, minute=30, replace_existing=True)
+        scheduler.add_job(expire_subscriptions, "cron", hour=0, minute=15, replace_existing=True)
+        scheduler.add_job(sync_geonames, "cron", day=1, hour=3, minute=0, replace_existing=True)
     else:
-        scheduler.add_job(check_rent_reminders, "interval", hours=6)
-        scheduler.add_job(check_tenancy_expiry, "interval", hours=12)
-        scheduler.add_job(check_boost_expiry, "interval", hours=12)
-        scheduler.add_job(expire_subscriptions, "interval", hours=12)
-        scheduler.add_job(sync_geonames, "interval", hours=24 * 30)
-    scheduler.start()
+        scheduler.add_job(check_rent_reminders, "interval", hours=6, replace_existing=True)
+        scheduler.add_job(check_tenancy_expiry, "interval", hours=12, replace_existing=True)
+        scheduler.add_job(check_boost_expiry, "interval", hours=12, replace_existing=True)
+        scheduler.add_job(expire_subscriptions, "interval", hours=12, replace_existing=True)
+        scheduler.add_job(sync_geonames, "interval", hours=24 * 30, replace_existing=True)
     logger.info("Background scheduler started")
 
 

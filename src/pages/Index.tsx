@@ -250,13 +250,13 @@ export default function HomePage() {
             </Button>
           </div>
 
-          {/* Popular locations — driven by live listing counts across all countries */}
+          {/* Popular locations — up to 10 commonly searched districts */}
           <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {popularLocations.map(d => (
+            {popularLocations.slice(0, 10).map(d => (
               <button
                 key={d}
                 onClick={() => handleChipClick(d)}
-                className="text-xs text-primary-foreground/70 hover:text-primary-foreground bg-primary-foreground/10 hover:bg-primary-foreground/20 px-3 py-1.5 rounded-full transition-all"
+                className="text-xs bg-accent text-accent-foreground hover:bg-accent/90 px-3 py-1.5 rounded-full transition-all font-medium"
               >
                 {d}
               </button>

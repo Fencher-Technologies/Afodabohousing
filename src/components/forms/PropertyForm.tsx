@@ -236,23 +236,26 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
         <h2 className="font-bold text-sm flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Location</h2>
 
         <div>
-          <p className="text-sm font-semibold mb-2">Country — type to search e.g. "Ug" or "ka"</p>
+          <p className="text-sm font-semibold mb-2">Country</p>
           <SearchableSelect
             options={countries.map(c => ({ value: c.iso2, label: c.name }))}
             value={form.country}
             onValueChange={v => handleCountryChange(v)}
             placeholder="Select country..."
-            emptyText="No country matches your search."
+            emptyText="No country matches."
             disabled={countries.length === 0}
           />
         </div>
 
         <div>
-          <p className="text-sm font-semibold mb-2">{regionLabel} — type "ka" for Kampala, etc.</p>
+          <p className="text-sm font-semibold mb-2">{regionLabel}</p>
           <SearchableSelect
             options={regions.map(r => ({ value: r.id, label: r.name }))}
             value={form.region_id}
-            onValueChange={v => setForm(f => ({ ...f, region_id: v }))}
+            onValueChange={v => {
+              const reg = regions.find(r => r.id === v)
+              setForm(f => ({ ...f, region_id: v, state: reg ? reg.name : f.state }))
+            }}
             placeholder={loadingRegions ? 'Loading...' : `Select ${regionLabel.toLowerCase()}...`}
             emptyText={loadingRegions ? 'Loading...' : `No ${regionLabel.toLowerCase()} matches.`}
             disabled={!form.country || loadingRegions}
@@ -300,7 +303,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-5">
         <h2 className="font-bold text-sm flex items-center gap-2"><DollarSign className="h-4 w-4 text-primary" /> Pricing</h2>
         <div>
-          <p className="text-sm font-semibold mb-2">Rent Amount ({form.rent_currency || 'UGX'})</p>
+          <p className="text-sm font-semibold mb-2">Rent Amount (UGX)</p>
           <Input type="number" min={0} value={form.monthly_rent || ''} onChange={e => setForm(f => ({ ...f, monthly_rent: Number(e.target.value) }))}
             required placeholder="e.g. 500000" className="rounded-lg h-11" />
         </div>

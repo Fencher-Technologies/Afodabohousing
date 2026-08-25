@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Heart, MapPin, Home, DollarSign, Search, Star } from 'lucide-react';
 import { addBookmark, removeBookmark } from '@/services/bookmarks';
@@ -17,12 +18,25 @@ export default function TenantBrowse() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'available' | 'bookmarked'>('all');
+  const [district, setDistrict] = useState<string>('__all__');
+  const [regions, setRegions] = useState<{ id: string; name: string }[]>([]);
+  const [loadingRegions, setLoadingRegions] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) { navigate('/login'); return; }
     fetchData();
   }, [user, authLoading]);
+
+  useEffect(() => {
+    const API = import.meta.env.VITE_API_URL || '';
+    setLoadingRegions(true);
+    fetch(`${API}/regions/regions?country_id=UG&active_only=true`)
+      .then(r => r.json())
+      .then((data: any[]) => setRegions(data.map(d => ({ id: d.id, name: d.name }))))
+      .catch(() => {})
+      .finally(() => setLoadingRegions(false));
+  }, []);
 
   const fetchData = async () => {
     const { data: props } = await supabase
@@ -57,8 +71,11 @@ export default function TenantBrowse() {
     }
   };
 
+  const districtOptions = [{ value: '__all__', label: 'All Districts' }, ...regions.map(r => ({ value: r.name, label: r.name }))];
+
   const filtered = properties.filter(p => {
     if (filter === 'bookmarked' && !bookmarked.has(p.id)) return false;
+    if (district !== '__all__' && (p.state || '').toLowerCase() !== district.toLowerCase() && (p.city || '').toLowerCase() !== district.toLowerCase()) return false;
     if (!search) return true;
     const s = search.toLowerCase();
     return (p.title || '').toLowerCase().includes(s) ||
@@ -92,6 +109,9 @@ export default function TenantBrowse() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search by title, district, area..." value={search}
               onChange={e => setSearch(e.target.value)} className="pl-9 rounded-lg h-10" />
+          </div>
+          <div className="w-48">
+            <SearchableSelect options={districtOptions} value={district} onValueChange={setDistrict} placeholder="District" emptyText="No district matches." disabled={loadingRegions} />
           </div>
           <div className="flex gap-2">
             {(['all', 'available', 'bookmarked'] as const).map(f => (
@@ -135,7 +155,7 @@ export default function TenantBrowse() {
                 <div className="p-4">
                   <h3 className="font-bold text-foreground truncate">{p.title}</h3>
                   <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                    <MapPin className="h-3 w-3" /> {p.state}{p.area ? `, ${p.area}` : ''}
+                    <MapPin className="h-3 w-3 text-accent shrink-0" /> {p.state || (p as any).city || (p as any).district || '—'}{p.area ? `, ${p.area}` : ''}
                   </p>
                   <div className="flex items-center justify-between mt-3">
                     <p className="font-bold text-primary">{(p.rent_amount || 0).toLocaleString()}<span className="text-xs text-muted-foreground font-normal">/{p.rent_period || 'mo'}</span></p>

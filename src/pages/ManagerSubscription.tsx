@@ -193,8 +193,7 @@ export default function ManagerSubscription() {
                         <h3 className="font-bold text-lg">{plan.name}</h3>
                         {isCurrent && <Badge variant="outline" className="text-xs">Current</Badge>}
                       </div>
-                      <p className={`text-3xl font-bold ${currency === 'USD' ? 'text-primary' : 'text-muted-foreground text-xl'}`}>${plan.price_usd} <span className="text-sm font-normal">USD</span></p>
-                      <p className={`text-sm ${currency === 'UGX' ? 'text-primary font-bold text-base' : 'text-muted-foreground'}`}>UGX {plan.price_ugx.toLocaleString()} / {plan.duration_days} days</p>
+                      <p className="text-3xl font-bold text-primary">UGX {plan.price_ugx.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">/ {plan.duration_days} days</span></p>
                       {plan.benefits.length > 0 && (
                         <div className="mt-4 space-y-2">
                           {plan.benefits.map((b, i) => (
@@ -214,7 +213,7 @@ export default function ManagerSubscription() {
             {selectedPlan && (
               <Button onClick={handlePay} disabled={activating} className="w-full h-12 rounded-xl font-bold text-base gap-2 bg-gold hover:bg-gold/90 text-gold-foreground">
                 {activating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Crown className="h-5 w-5" />}
-                {activating ? 'Redirecting...' : currency === 'UGX' ? `Pay UGX ${selectedPlan.price_ugx.toLocaleString()} via Pesapal` : `Pay $${selectedPlan.price_usd} USD via Pesapal`}
+                {activating ? 'Redirecting...' : `Pay UGX ${selectedPlan.price_ugx.toLocaleString()} via Pesapal`}
               </Button>
             )}
 

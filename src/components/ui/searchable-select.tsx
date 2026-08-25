@@ -30,7 +30,7 @@ export function SearchableSelect({ options, value, onValueChange, placeholder = 
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
-          <CommandInput placeholder={`Type to search — e.g. "ka" for Kampala...`} />
+          <CommandInput placeholder="Search..." />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
