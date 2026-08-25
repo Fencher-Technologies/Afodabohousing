@@ -2,7 +2,7 @@ from uuid import UUID
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from postgrest.exceptions import APIError
 from supabase import Client
@@ -64,6 +64,7 @@ def list_properties(
 
 @router.get("/public", response_model=PaginatedResponse)
 def list_public_properties(
+    response: Response,
     state: str | None = Query(None),
     country: str | None = Query(None),
     region_id: str | None = Query(None),
@@ -72,8 +73,9 @@ def list_public_properties(
     min_price: float | None = Query(None, ge=0),
     max_price: float | None = Query(None, ge=0),
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=50),
 ) -> PaginatedResponse:
+    response.headers["Cache-Control"] = "public, max-age=30, stale-while-revalidate=60"
     svc = PropertyService(get_service_client())
     try:
         properties_data, total = svc.get_public_listings(

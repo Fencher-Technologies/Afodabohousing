@@ -26,7 +26,7 @@ export default function TenantBrowse() {
     if (authLoading) return;
     if (!user) { navigate('/login'); return; }
     fetchData();
-  }, [user, authLoading]);
+  }, [user, authLoading, district]);
 
   useEffect(() => {
     const API = import.meta.env.VITE_API_URL || '';
@@ -39,12 +39,17 @@ export default function TenantBrowse() {
   }, []);
 
   const fetchData = async () => {
-    const { data: props } = await supabase
-      .from('properties')
-      .select('*')
-      .eq('status', 'available')
-      .order('created_at', { ascending: false });
-    setProperties(props || []);
+    const API = import.meta.env.VITE_API_URL || '';
+    try {
+      const params = new URLSearchParams({ limit: '20', country: 'UG' });
+      if (district !== '__all__') params.set('state', district);
+      const res = await fetch(`${API}/properties/public?${params}`);
+      const data = await res.json();
+      setProperties(data.items || []);
+    } catch {
+      const { data: props } = await supabase.from('properties').select('id,title,state,city,area,rent_amount,rent_period,bedrooms,bathrooms,images,amenities').eq('status', 'available').order('created_at', { ascending: false }).limit(20);
+      setProperties(props || []);
+    }
 
     const { data: bm } = await supabase
       .from('bookmarks')

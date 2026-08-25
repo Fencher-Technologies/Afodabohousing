@@ -1,4 +1,5 @@
 import logging
+import time as _time
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -88,6 +89,20 @@ def _normalize_property(p: dict[str, Any]) -> dict[str, Any]:
     return p
 
 
+_REGION_IDS_CACHE: dict[str, tuple[float, list[str]]] = {}
+
+
+def _cached_region_ids(country: str, supabase: Client) -> list[str]:
+    now = _time.monotonic()
+    hit = _REGION_IDS_CACHE.get(country)
+    if hit and now - hit[0] < 300:
+        return hit[1]
+    resp = supabase.table("regions").select("id").eq("country_id", country).is_("deprecated_at", "null").execute()
+    ids = [r["id"] for r in (resp.data or [])]
+    _REGION_IDS_CACHE[country] = (now, ids)
+    return ids
+
+
 def _enrich_with_boost_info(
     props: list[dict[str, Any]], supabase: Client
 ) -> list[dict[str, Any]]:
@@ -103,7 +118,7 @@ def _enrich_with_boost_info(
     now = datetime.now(UTC).isoformat()
     result = (
         supabase.table("property_boosts")
-        .select("*")
+        .select("property_id,expires_at,duration_days")
         .in_("property_id", property_ids)
         .eq("status", "active")
         .gt("expires_at", now)
@@ -594,7 +609,7 @@ class PropertyService(BaseService):
     def get_public_listings(
         self,
         skip: int = 0,
-        limit: int = 100,
+        limit: int = 20,
         state: str | None = None,
         country: str | None = None,
         region_id: str | None = None,
@@ -604,17 +619,9 @@ class PropertyService(BaseService):
         min_price: float | None = None,
         max_price: float | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
-        # If filtering by country, fetch matching region IDs first
         region_ids_for_country: list[str] | None = None
         if country:
-            regions_resp = (
-                self.supabase.table("regions")
-                .select("id")
-                .eq("country_id", country)
-                .is_("deprecated_at", "null")
-                .execute()
-            )
-            region_ids_for_country = [r["id"] for r in (regions_resp.data or [])]
+            region_ids_for_country = _cached_region_ids(country, self.supabase)
 
         def _filtered(columns: str, count: str | None = None):
             query = self.supabase.table(self._table).select(columns, count=count).eq("is_active", True)
