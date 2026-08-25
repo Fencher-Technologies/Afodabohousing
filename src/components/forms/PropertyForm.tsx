@@ -293,8 +293,11 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
           {(['bedrooms', 'sitting_rooms', 'bathrooms'] as const).map(field => (
             <div key={field}>
               <p className="text-sm font-semibold mb-2 capitalize">{field.replace('_', ' ')}</p>
-              <Input type="number" min={0} value={form[field]} onChange={e => setForm(f2 => ({ ...f2, [field]: Number(e.target.value) }))}
-                className="rounded-lg h-11" />
+              <Input type="number" min={1} value={form[field]} onChange={e => {
+                const v = e.target.value === '' ? 1 : Math.max(1, Number(e.target.value) || 1)
+                setForm(f2 => ({ ...f2, [field]: v }))
+              }}
+                className="rounded-lg h-11" required />
             </div>
           ))}
         </div>

@@ -34,7 +34,7 @@ class RentalUnitCreate(BaseModel):
     floor_level: str | None = None
     bedrooms: int = 1
     bathrooms: int = 1
-    sitting_rooms: int = 0
+    sitting_rooms: int = 1
     kitchens: int = 1
     rent_amount: Decimal
     rent_currency: str = "USD"

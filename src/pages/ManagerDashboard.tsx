@@ -91,7 +91,7 @@ export default function ManagerDashboard() {
   const [tenancySource, setTenancySource] = useState<'tenancies' | 'leases'>('tenancies');
 
   const [unitForm, setUnitForm] = useState({
-    unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 0,
+    unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 1,
     kitchens: 1, rent_amount: 0, description: '',
   });
 
@@ -270,7 +270,7 @@ export default function ManagerDashboard() {
     if (error) { toast({ title: 'Error adding unit', description: cleanDbError(error), variant: 'destructive' }); return; }
     toast({ title: 'Unit added!', description: `Unit ${unitForm.unit_number} is now listed.` });
     setUnitDialogOpen(false);
-    setUnitForm({ unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 0, kitchens: 1, rent_amount: 0, description: '' });
+    setUnitForm({ unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 1, kitchens: 1, rent_amount: 0, description: '' });
     setSelectedPropertyForUnit('');
   };
 
@@ -1230,10 +1230,10 @@ export default function ManagerDashboard() {
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Unit Number / Name</Label><Input value={unitForm.unit_number} onChange={e => setUnitForm(f => ({ ...f, unit_number: e.target.value }))} placeholder="e.g. A1, 2B, Room 5" required className="mt-1" /></div>
               <div><Label>Floor Level</Label><Input value={unitForm.floor_level} onChange={e => setUnitForm(f => ({ ...f, floor_level: e.target.value }))} placeholder="e.g. Ground, 1st" className="mt-1" /></div>
-              <div><Label>Bedrooms</Label><Input type="number" min={0} value={unitForm.bedrooms} onChange={e => setUnitForm(f => ({ ...f, bedrooms: Number(e.target.value) }))} className="mt-1" /></div>
-              <div><Label>Bathrooms</Label><Input type="number" min={0} value={unitForm.bathrooms} onChange={e => setUnitForm(f => ({ ...f, bathrooms: Number(e.target.value) }))} className="mt-1" /></div>
-              <div><Label>Sitting Rooms</Label><Input type="number" min={0} value={unitForm.sitting_rooms} onChange={e => setUnitForm(f => ({ ...f, sitting_rooms: Number(e.target.value) }))} className="mt-1" /></div>
-              <div><Label>Kitchens</Label><Input type="number" min={0} value={unitForm.kitchens} onChange={e => setUnitForm(f => ({ ...f, kitchens: Number(e.target.value) }))} className="mt-1" /></div>
+              <div><Label>Bedrooms</Label><Input type="number" min={1} value={unitForm.bedrooms} onChange={e => setUnitForm(f => ({ ...f, bedrooms: Math.max(1, Number(e.target.value) || 1) }))} required className="mt-1" /></div>
+              <div><Label>Bathrooms</Label><Input type="number" min={1} value={unitForm.bathrooms} onChange={e => setUnitForm(f => ({ ...f, bathrooms: Math.max(1, Number(e.target.value) || 1) }))} required className="mt-1" /></div>
+              <div><Label>Sitting Rooms</Label><Input type="number" min={1} value={unitForm.sitting_rooms} onChange={e => setUnitForm(f => ({ ...f, sitting_rooms: Math.max(1, Number(e.target.value) || 1) }))} required className="mt-1" /></div>
+              <div><Label>Kitchens</Label><Input type="number" min={1} value={unitForm.kitchens} onChange={e => setUnitForm(f => ({ ...f, kitchens: Math.max(1, Number(e.target.value) || 1) }))} className="mt-1" /></div>
               <div className="col-span-2"><Label>Rent Amount</Label><Input type="number" min={0} value={unitForm.rent_amount || ''} onChange={e => setUnitForm(f => ({ ...f, rent_amount: Number(e.target.value) }))} required placeholder="e.g. 450000" className="mt-1" /></div>
             </div>
             <div><Label>Notes</Label><Textarea value={unitForm.description} onChange={e => setUnitForm(f => ({ ...f, description: e.target.value }))} rows={2} className="mt-1" placeholder="Any specific details about this unit..." /></div>
