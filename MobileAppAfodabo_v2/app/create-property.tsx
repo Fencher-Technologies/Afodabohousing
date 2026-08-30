@@ -27,6 +27,8 @@ import { useCreateProperty } from "@/src/hooks/useProperties";
 import { useCountries, useRegions } from "@/src/hooks/useGeoLocation";
 import { usePropertyCategories, usePropertyTypes } from "@/src/hooks/usePropertyTypes";
 import { ensureImagesUploaded } from "@/src/services/properties";
+import { ApiError } from "@/src/lib/api-client";
+import { COUNTRIES, currencyForCountry } from "@/src/data/countries";
 import type { Amenity } from "@/src/types";
 import { formatAmenity } from "@/src/utils/format";
 
@@ -36,7 +38,8 @@ const ALL_AMENITIES: Amenity[] = [
 ];
 
 const DEFAULT_COUNTRY = "UG";
-const CURRENCY_MAP: Record<string, string> = { UG: "UGX", KE: "KES", TZ: "TZS", US: "USD", GB: "GBP", NG: "NGN", GH: "GHS", ZA: "ZAR", RW: "RWF" };
+/** Maximum photos per property listing. */
+const MAX_IMAGES = 10;
 
 export default function CreatePropertyScreen() {
   const { subscription } = useAuth();
@@ -66,9 +69,18 @@ export default function CreatePropertyScreen() {
   const { data: categories = [] } = usePropertyCategories();
   const { data: types = [] } = usePropertyTypes(category || undefined);
 
-  const countryOptions = useMemo(() =>
-    countries.map((c) => ({ label: c.name, value: c.iso2 })),
-    [countries],
+  const currency = currencyForCountry(country);
+
+  // Worldwide list bundled with the app; any server-side countries that are
+  // missing locally are appended so nothing the backend offers is lost.
+  const countryOptions = useMemo(() => {
+    const base = COUNTRIES.map((c) => ({ label: c.name, value: c.iso2 }));
+    const known = new Set(COUNTRIES.map((c) => c.iso2));
+    const extra = countries
+      .filter((c) => !known.has(c.iso2))
+      .map((c) => ({ label: c.name, value: c.iso2 }));
+    return [...base, ...extra];
+  }, [countries],
   );
 
   const regionOptions = useMemo(() =>
@@ -112,14 +124,35 @@ export default function CreatePropertyScreen() {
   };
 
   const pickImages = async () => {
+    const remaining = MAX_IMAGES - images.length;
+    if (remaining <= 0) {
+      Alert.alert(
+        "Photo limit reached",
+        `You can add up to ${MAX_IMAGES} photos per property. Remove a photo to add another.`,
+      );
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
+      selectionLimit: remaining,
       quality: 0.8,
     });
     if (!result.canceled) {
-      setImages((prev) => [...prev, ...result.assets.map((a) => a.uri)]);
+      const picked = result.assets.map((a) => a.uri);
+      const accepted = picked.slice(0, remaining);
+      if (picked.length > remaining) {
+        Alert.alert(
+          "Photo limit applied",
+          `Only ${remaining} more photo${remaining === 1 ? "" : "s"} could be added. The limit is ${MAX_IMAGES} photos per property.`,
+        );
+      }
+      setImages((prev) => [...prev, ...accepted]);
     }
+  };
+
+  const removeImage = (uri: string) => {
+    setImages((prev) => prev.filter((u) => u !== uri));
   };
 
   const handleSubmit = async () => {
@@ -150,7 +183,7 @@ export default function CreatePropertyScreen() {
         property_type: category === "commercial" ? "Office Space" : "Residential",
         property_type_slug: type || null,
         monthly_rent: Number(rent),
-        rent_currency: CURRENCY_MAP[country] || "UGX",
+        rent_currency: currency,
         bedrooms: Number(beds) || 1,
         bathrooms: Number(baths) || 1,
         sitting_rooms: 1,
@@ -165,11 +198,14 @@ export default function CreatePropertyScreen() {
       };
 
       await createMutation.mutateAsync(payload);
-      Alert.alert("Success", "Property listed successfully!", [
+      Alert.alert("Success", "Property listed successfully.", [
         { text: "OK", onPress: () => router.back() },
       ]);
-    } catch {
-      Alert.alert("Error", "Could not list property. Please try again.");
+    } catch (e) {
+      Alert.alert(
+        "Could not list property",
+        e instanceof ApiError ? e.message : "Something went wrong. Please try again.",
+      );
     }
   };
 
@@ -193,6 +229,7 @@ export default function CreatePropertyScreen() {
             options={countryOptions}
             onSelect={handleCountryChange}
             placeholder="Select country"
+            searchable
           />
           <View style={{ height: Spacing.md }} />
           <SelectField
@@ -200,7 +237,9 @@ export default function CreatePropertyScreen() {
             value={district}
             options={regionOptions}
             onSelect={handleRegionSelect}
-            placeholder="Select district"
+            placeholder="Select or type district"
+            searchable
+            allowCustom
           />
           <View style={{ height: Spacing.md }} />
           <InputField label="City/Area" value={city} onChangeText={setCity} placeholder="e.g. Kololo" />
@@ -251,11 +290,11 @@ export default function CreatePropertyScreen() {
             placeholder="Select type"
           />
           <View style={{ height: Spacing.md }} />
-          <InputField label="Rent per Month (UGX)" value={rent} onChangeText={setRent} placeholder="0" keyboardType="numeric" />
+          <InputField label={`Rent per Month (${currency})`} value={rent} onChangeText={setRent} placeholder="0" keyboardType="numeric" />
           <View style={{ height: Spacing.md }} />
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <InputField label="Deposit (UGX)" value={deposit} onChangeText={setDeposit} placeholder="0" keyboardType="numeric" />
+              <InputField label={`Deposit (${currency})`} value={deposit} onChangeText={setDeposit} placeholder="0" keyboardType="numeric" />
             </View>
             <View style={{ width: Spacing.md }} />
             <View style={{ flex: 1 }}>
@@ -338,17 +377,33 @@ export default function CreatePropertyScreen() {
             <ImagePlus size={18} color={Colors.primary} />
             <Text style={styles.sectionTitle}>Images</Text>
           </View>
-          <View style={{ height: Spacing.md }} />
+          <Text style={styles.limitNotice}>
+            {`You can add up to ${MAX_IMAGES} photos. ${images.length} of ${MAX_IMAGES} added.`}
+          </Text>
+          <View style={{ height: Spacing.sm }} />
           {images.length > 0 && (
             <View style={styles.imageList}>
               {images.map((uri, i) => (
                 <View key={`${uri}-${i}`} style={styles.imageItem}>
                   <Image source={{ uri }} style={styles.imagePreview} contentFit="cover" />
+                  <Button
+                    label="Remove"
+                    onPress={() => removeImage(uri)}
+                    variant="ghost"
+                    tone="danger"
+                    size="sm"
+                  />
                 </View>
               ))}
             </View>
           )}
-          <Button label={images.length > 0 ? "Add More Images" : "Pick Images"} onPress={pickImages} variant="outline" fullWidth />
+          <Button
+            label={images.length > 0 ? "Add More Images" : "Pick Images"}
+            onPress={pickImages}
+            variant="outline"
+            fullWidth
+            disabled={images.length >= MAX_IMAGES}
+          />
         </Card>
 
         <View style={{ height: Spacing.xl }} />
@@ -393,6 +448,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.sm,
+  },
+  limitNotice: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    marginTop: Spacing.xs,
   },
   imageList: {
     flexDirection: "row",

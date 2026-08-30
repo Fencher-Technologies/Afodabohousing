@@ -18,6 +18,7 @@ import {
 import type { ReactNode } from "react";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing, ToneColors, Shadows } from "@/constants/theme";
+import { Image } from "expo-image";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
 import { Badge } from "@/src/components/Badge";
@@ -167,6 +168,13 @@ export default function ManagerDashboardScreen() {
     <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
       {/* Hero header */}
       <View style={styles.hero}>
+        <Image
+          source={require("@/assets/images/axis-logo.png")}
+          style={styles.brandLogo}
+          contentFit="contain"
+          cachePolicy="memory-disk"
+          accessibilityLabel="Axis Housing"
+        />
         <View style={styles.heroTop}>
           <View style={{ flex: 1 }}>
             <Text style={styles.greeting}>
@@ -363,6 +371,11 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
     gap: Spacing.md,
     backgroundColor: Colors.bg,
+  },
+  brandLogo: {
+    width: 96,
+    height: 30,
+    marginBottom: Spacing.sm,
   },
   heroTop: {
     flexDirection: "row",

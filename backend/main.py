@@ -34,6 +34,7 @@ from routers import (
     phone_auth_router,
     properties_router,
     property_types_router,
+    receipts_router,
     regions_router,
     rental_units_router,
     reports_router,
@@ -396,6 +397,7 @@ app.include_router(messages_router)
 app.include_router(payment_verifications_router)
 app.include_router(payments_router)
 app.include_router(phone_auth_router)
+app.include_router(receipts_router)
 app.include_router(rental_units_router)
 app.include_router(reports_router)
 app.include_router(saved_phones_router)

@@ -25,6 +25,7 @@ import { Badge } from "@/src/components/Badge";
 import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
 import { AgreementFlow } from "@/src/components/AgreementFlow";
+import { LogoHeader } from "@/src/components/LogoHeader";
 import { TermHelpSheet } from "@/src/components/TermHelpSheet";
 import { useAuth } from "@/src/context/auth-context";
 import { LoadingState } from "@/src/components/LoadingState";
@@ -45,14 +46,31 @@ export default function MyTenancyScreen() {
 
   const leases = tenanciesData?.items ?? [];
 
-  const activeLease = useMemo(
-    () => leases.find((l) => l.effective_status === "active" || l.status === "active"),
-    [leases],
+  const activeLease = useMemo(() => {
+    const active = leases.find((l) => l.effective_status === "active" || l.status === "active");
+    if (active) return active;
+    // No active lease yet: fall back to the most recent non-terminated lease.
+    // Agreements are often issued before the lease start date, and the tenant
+    // must still be able to see and sign them.
+    const candidates = leases.filter(
+      (l) => l.effective_status !== "terminated" && l.status !== "terminated",
+    );
+    if (!candidates.length) return undefined;
+    return [...candidates].sort((a, b) =>
+      String(b.start_date ?? "").localeCompare(String(a.start_date ?? "")),
+    )[0];
+  }, [leases],
   );
 
   const previousLeases = useMemo(
-    () => leases.filter((l) => l.effective_status !== "active" && l.status !== "active"),
-    [leases],
+    () =>
+      leases.filter(
+        (l) =>
+          l.id !== activeLease?.id &&
+          l.effective_status !== "active" &&
+          l.status !== "active",
+      ),
+    [leases, activeLease],
   );
 
   const lease = activeLease;
@@ -79,9 +97,7 @@ export default function MyTenancyScreen() {
   if (!tenancy) {
     return (
       <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
-        <View style={styles.header}>
-          <Text style={styles.title}>My Tenancy</Text>
-        </View>
+        <LogoHeader title="My Tenancy" />
         <EmptyState
           icon={<Home size={32} color={Colors.primary} />}
           title="You currently do not have an active tenancy."
@@ -150,9 +166,7 @@ export default function MyTenancyScreen() {
 
   return (
     <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Tenancy</Text>
-      </View>
+      <LogoHeader title="My Tenancy" />
 
       <View style={styles.content}>
         {/* Status Card */}

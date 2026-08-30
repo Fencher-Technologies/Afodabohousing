@@ -144,6 +144,38 @@ export function AgreementFlow({
 
   const isLoading = consentState.isLoading;
 
+  // A failed fetch must never masquerade as "no agreement": tenants were
+  // shown "The manager has not yet created an agreement" when the request
+  // simply errored. Offer an explicit retry instead.
+  if (consentState.isError) {
+    return (
+      <Card padding="md">
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.iconWrap}>
+              <FileText size={18} color={Colors.info} />
+            </View>
+            <Text style={styles.title}>Tenancy Agreement</Text>
+          </View>
+        </View>
+        <View style={styles.emptyState}>
+          <XCircle size={28} color={Colors.danger} />
+          <Text style={styles.emptyTitle}>Could not load the agreement</Text>
+          <Text style={styles.emptyBody}>
+            Check your connection and try again.
+          </Text>
+          <Button
+            label="Retry"
+            variant="outline"
+            size="sm"
+            onPress={() => consentState.refetch()}
+            loading={consentState.isRefetching}
+          />
+        </View>
+      </Card>
+    );
+  }
+
   if (isLoading) {
     return (
       <Card padding="md">
