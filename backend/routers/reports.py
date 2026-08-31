@@ -68,6 +68,11 @@ class TenantReportItem(BaseModel):
     balance_due: float
     tenant_credit: float
     lease_id: str
+    # False when the lease has no rent_effective_date anchor, so
+    # _compute_rent_financials returned an all-None position. Clients must show
+    # "not tracked yet" rather than a confident 0.00 — the float coercions above
+    # flatten None to 0 and would otherwise read as "nothing owed".
+    money_position_known: bool = False
 
 
 class TenantReportResponse(BaseModel):
@@ -202,6 +207,9 @@ def tenants_report(
             balance_due=float(l.get("balance_due") or 0),
             tenant_credit=float(l.get("tenant_credit") or 0),
             lease_id=str(l.get("id")),
+            money_position_known=(
+                l.get("arrears_amount") is not None or l.get("balance_due") is not None
+            ),
         )
         for l in leases
     ]
