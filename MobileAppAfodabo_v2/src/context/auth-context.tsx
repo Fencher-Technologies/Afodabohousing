@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 
 import { api, clearTokens, getStoredToken, onTokensCleared, setRefreshToken, setStoredToken } from "../lib/api-client";
 import { debugAuth } from "../lib/debug";
+import { toAppRole } from "../lib/roles";
 import { authService } from "../services/auth";
 import { subscriptionsService } from "../services/subscriptions";
 import type { Subscription, User, UserRole } from "../types";
@@ -104,7 +105,7 @@ function useAuthInner() {
 
                 if (meData) {
                   const effectiveRole = profileData?.role || meData.role || "tenant";
-                  const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
+                  const role = toAppRole(effectiveRole);
                   const freshUser: User = {
                     id: meData.id,
                     email: meData.email,
@@ -176,7 +177,7 @@ function useAuthInner() {
               // profile is best-effort
             }
             const effectiveRole = profileRole || me.role || "tenant";
-            const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
+            const role = toAppRole(effectiveRole);
             const userData: User = {
               id: me.id,
               email: me.email,
@@ -261,7 +262,7 @@ function useAuthInner() {
     }
 
     const effectiveRole = profileRole || result.role || "tenant";
-    const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
+    const role = toAppRole(effectiveRole);
 
     const userData: User = {
       id: result.user_id || result.user?.id as string || "",
@@ -424,7 +425,7 @@ function useAuthInner() {
       const profileRole = profile?.role;
       debugAuth("refreshAuth - /auth/me result:", { id: me.id, role: me.role });
       const effectiveRole = profileRole || me.role || "tenant";
-      const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
+      const role = toAppRole(effectiveRole);
       const userData: User = {
         id: me.id,
         email: me.email,
