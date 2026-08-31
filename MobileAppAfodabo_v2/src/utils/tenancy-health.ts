@@ -9,14 +9,13 @@
  */
 
 import type { HealthStatus } from "@/src/types";
-import { daysUntil } from "./format";
 
 export function calculateHealth(tenancy: {
   status: string;
   rent_end_date: string | null;
 }): HealthStatus {
   if (tenancy.status === "terminated") return "bad";
-  const remaining = daysUntil(tenancy.rent_end_date);
+  const remaining = daysLeft(tenancy.rent_end_date);
   if (remaining === null) return "bad";
   if (remaining < 0) return "bad"; // expired
   if (remaining < 30) return "warn";

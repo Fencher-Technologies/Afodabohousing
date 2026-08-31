@@ -12,6 +12,8 @@ import { Card } from "@/src/components/Card";
 import { Button } from "@/src/components/Button";
 import { PageHeader } from "@/src/components/PageHeader";
 import { useSubscriptionPlans, useCreateSubscription } from "@/src/hooks/useSubscriptions";
+import { useAuth } from "@/src/context/auth-context";
+import { useQueryClient } from "@tanstack/react-query";
 
 const POLL_INTERVAL_MS = 5000;
 const POLL_TIMEOUT_MS = 120000;
@@ -23,6 +25,8 @@ export default function SubscriptionPaymentScreen() {
   const currency = (paramCurrency === "USD" ? "USD" : "UGX") as "UGX" | "USD";
   const { data: plans } = useSubscriptionPlans();
   const createSubscription = useCreateSubscription();
+  const { refreshAuth } = useAuth();
+  const queryClient = useQueryClient();
   const selectedPlan = plans?.find((p) => p.id === plan);
   const [status, setStatus] = useState<PaymentStatus>("idle");
   const [responseMessage, setResponseMessage] = useState("");
@@ -61,6 +65,10 @@ export default function SubscriptionPaymentScreen() {
         if (res.status === "active" || res.status === "completed" || res.payment_status === "completed") {
           stopPolling();
           setStatus("success");
+          // Refresh the cached subscription before leaving this screen so the
+          // access gate lifts immediately instead of waiting for the next sign-in.
+          queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
+          refreshAuth().catch(() => {});
           setTimeout(() => router.replace("/subscription"), 2000);
         } else if (res.status === "failed" || res.status === "cancelled" || res.status === "expired") {
           stopPolling();
@@ -155,6 +163,7 @@ export default function SubscriptionPaymentScreen() {
             ref={webViewRef}
             source={{ uri: paymentUrl }}
             style={styles.webView}
+            originWhitelist={["https://*"]}
             onNavigationStateChange={handleNavigationStateChange}
             startInLoadingState={true}
             renderLoading={() => (

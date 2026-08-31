@@ -69,6 +69,7 @@ export function fromBackendLease(l: BackendLease): Tenancy {
   // Money ledger is the source of truth: `expected_rent` is the server alias
   // for `rent_accrued` (money accrued since the effective date), `contract_rent`
   // is informational only (contract months).
+  const moneyPositionKnown = l.arrears_amount != null || l.balance_due != null;
   const balanceDue = l.arrears_amount ?? l.balance_due ?? 0;
   const expectedRent = l.expected_rent ?? l.rent_accrued ?? 0;
   const tenantCredit = l.advance_amount ?? l.tenant_credit ?? 0;
@@ -123,6 +124,7 @@ export function fromBackendLease(l: BackendLease): Tenancy {
     rent_days_remaining: l.rent_days_remaining ?? null,
     rent_days_in_arrears: l.rent_days_in_arrears ?? null,
     next_payment_due_date: l.next_payment_due_date ?? null,
+    money_position_known: moneyPositionKnown,
   };
 }
 

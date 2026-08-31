@@ -520,8 +520,8 @@ function TenantsReport({
                 <Text style={styles.cellSub}>{t.tenant_phone ?? t.tenant_email ?? "—"}</Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={[styles.cellText, t.balance_due > 0 && styles.danger]}>
-                  {formatUGX(t.balance_due)}
+                <Text style={[styles.cellText, t.money_position_known && t.balance_due > 0 && styles.danger]}>
+                  {t.money_position_known ? formatUGX(t.balance_due) : "—"}
                 </Text>
                 <Text style={styles.cellSub}>{t.status}</Text>
               </View>

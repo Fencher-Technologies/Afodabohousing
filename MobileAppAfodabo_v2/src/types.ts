@@ -162,6 +162,10 @@ export interface Tenancy {
   rent_days_remaining: number | null;
   rent_days_in_arrears: number | null;
   next_payment_due_date: string | null;
+  // False when the server returned no money-position fields at all (null
+  // arrears/balance flattened to 0 below). Consumers should treat the
+  // arrears display as unknown rather than "0.00 owed" in that case.
+  money_position_known: boolean;
 }
 
 // ─── Agreement Types ────────────────────────────────────────────────────
