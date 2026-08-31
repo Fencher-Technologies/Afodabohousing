@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
-import { Alert, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Modal } from "react-native";
+import { StyleSheet, Text, TextInput, View, Pressable, ScrollView, Modal } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Plus, Users, Search, AlertTriangle, CheckCircle2, Clock, Wallet, Filter, X, ChevronDown, XCircle } from "lucide-react-native";
 

@@ -1,5 +1,5 @@
 /**
- * Root Layout — wraps app in providers and conditionally routes by auth state.
+ * Root Layout - wraps app in providers and conditionally routes by auth state.
  */
 
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +12,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/theme";
 import { AuthProvider, useAuth } from "@/src/context/auth-context";
+import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 import { LoadingState } from "@/src/components/LoadingState";
+import { debugAuth } from "@/src/lib/debug";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -33,29 +35,29 @@ function RootLayoutNav() {
     SplashScreen.hideAsync();
 
     if (isLoading) return;
-    console.log("[DEBUG_AUTH] layout effect — isLoading:", isLoading, "user:", user?.id, "role:", user?.role, "onboarding:", hasSeenOnboarding);
+    debugAuth("layout effect - isLoading:", isLoading, "user:", user?.id, "role:", user?.role, "onboarding:", hasSeenOnboarding);
 
     if (!user) {
-      console.log("[DEBUG_AUTH] layout — user is null, clearing React Query cache");
+      debugAuth("layout - user is null, clearing React Query cache");
       // TODO: Replace queryClient.clear() with targeted cache invalidation
       // once query keys are structured for user-specific data.
       queryClient.clear();
     }
 
     if (!hasSeenOnboarding) {
-      console.log("[DEBUG_AUTH] layout — redirecting to /onboarding");
+      debugAuth("layout - redirecting to /onboarding");
       router.replace("/onboarding");
     } else if (!user) {
-      console.log("[DEBUG_AUTH] layout — redirecting to /guest/explore");
+      debugAuth("layout - redirecting to /guest/explore");
       router.replace("/guest/explore");
     } else if (user.role === "manager") {
-      console.log("[DEBUG_AUTH] layout — redirecting to /manager/home");
+      debugAuth("layout - redirecting to /manager/home");
       router.replace("/manager/home");
     } else if (user.role === "tenant") {
-      console.log("[DEBUG_AUTH] layout — redirecting to /tenant/my-tenancy");
+      debugAuth("layout - redirecting to /tenant/my-tenancy");
       router.replace("/tenant/my-tenancy");
     } else {
-      console.log("[DEBUG_AUTH] layout — unknown role:", user.role, "redirecting to /guest/explore");
+      debugAuth("layout - unknown role:", user.role, "redirecting to /guest/explore");
       router.replace("/guest/explore");
     }
   }, [user, isLoading, hasSeenOnboarding, queryClient]);
@@ -111,9 +113,11 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <StatusBar style="dark" backgroundColor={Colors.bg} />
-          <AuthProvider>
-            <RootLayoutNav />
-          </AuthProvider>
+          <ErrorBoundary>
+            <AuthProvider>
+              <RootLayoutNav />
+            </AuthProvider>
+          </ErrorBoundary>
         </GestureHandlerRootView>
       </SafeAreaProvider>
     </QueryClientProvider>

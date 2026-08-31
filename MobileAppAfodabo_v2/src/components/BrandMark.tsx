@@ -1,6 +1,6 @@
-import { Image } from "expo-image";
+import { Image, ImageStyle } from "expo-image";
 import React from "react";
-import { StyleProp, ViewStyle } from "react-native";
+import { StyleProp } from "react-native";
 
 // Single logo implementation for the whole app. Every header renders the
 // brand through this component so sizing, caching and accessibility stay
@@ -14,7 +14,7 @@ const SIZES = {
 
 type Props = {
   size?: keyof typeof SIZES;
-  style?: StyleProp<ViewStyle>;
+  style?: StyleProp<ImageStyle>;
 };
 
 export function BrandMark({ size = "md", style }: Props) {

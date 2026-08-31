@@ -378,7 +378,7 @@ export default function CreatePropertyScreen() {
                   <Button
                     label={formatAmenity(a)}
                     onPress={() => toggleAmenity(a)}
-                    variant={selected ? "primary" : "outline"}
+                    variant={selected ? "solid" : "outline"}
                     tone={selected ? "accent" : "primary"}
                     size="sm"
                   />

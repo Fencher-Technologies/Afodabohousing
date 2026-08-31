@@ -526,6 +526,8 @@ export interface FinancialSummary {
   expired_tenancies: number;
   terminated_tenancies: number;
   occupancy_rate: number;
+  overdue_tenancies?: number;
+  collected_this_month?: number;
 }
 
 export interface DuePaymentItem {

@@ -43,6 +43,40 @@ def _get_user_with_retry(supabase: Client, token: str):
     return supabase.auth.get_user(token)
 
 
+def _lookup_profile(supabase: Client, user_id: str) -> dict:
+    """Fetch the profiles row (role, status) for a user. Returns {} on failure."""
+    try:
+        result = (
+            supabase.table("profiles")
+            .select("role, status")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        if result.data:
+            return result.data[0]
+    except Exception:
+        logger.error("Failed to load profile for user %s", user_id, exc_info=True)
+    return {}
+
+
+def _lookup_role(supabase: Client, user_id: str) -> str | None:
+    """Resolve the application role: profiles table first, get_user_role RPC
+    as fallback (the same source /auth/me trusts, so guards and user-facing
+    role never disagree)."""
+    profile = _lookup_profile(supabase, user_id)
+    if profile.get("role"):
+        return profile["role"]
+    try:
+        result = supabase.rpc("get_user_role", {"_user_id": user_id}).execute()
+        data = result.data if hasattr(result, "data") else result
+        role = data[0] if isinstance(data, list) and data else data
+        if role:
+            return role
+    except Exception:
+        logger.warning("get_user_role RPC failed for %s", user_id)
+    return None
+
+
 def _resolve_user_via_supabase(token: str, supabase: Client) -> CurrentUser:
     try:
         response = _get_user_with_retry(supabase, token)
@@ -85,8 +119,18 @@ def _resolve_user_via_supabase(token: str, supabase: Client) -> CurrentUser:
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     supabase: Client = Depends(get_supabase_client),
+    service: Client = Depends(get_service_client),
 ) -> CurrentUser:
     user = _resolve_user_via_supabase(credentials.credentials, supabase)
+    # Populate the real application role and account status from the profiles
+    # table. Without this, role stays at the Supabase sentinel "authenticated"
+    # and every role check downstream (tenant lease fetch, super_admin bypass,
+    # exports scoping) silently takes the wrong branch.
+    profile = _lookup_profile(service, user.id)
+    if profile.get("role"):
+        user.role = profile["role"]
+    if profile.get("status"):
+        user.status = profile["status"]
     set_sentry_user(user)
     return user
 
@@ -96,37 +140,30 @@ def get_optional_user(
         HTTPBearer(auto_error=False)
     ),
     supabase: Client = Depends(get_supabase_client),
+    service: Client = Depends(get_service_client),
 ) -> CurrentUser | None:
     if not credentials:
         return None
 
     try:
-        return get_current_user(credentials, supabase)
+        return get_current_user(credentials, supabase, service)
     except HTTPException:
         return None
+
+
+def _effective_role(current_user: CurrentUser, supabase: Client) -> str | None:
+    """Role for guard checks: the one resolved at authentication time, with a
+    fresh lookup only if authentication left the sentinel in place."""
+    if current_user.role and current_user.role != "authenticated":
+        return current_user.role
+    return _lookup_role(supabase, current_user.id)
 
 
 def require_admin(
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_service_client),
 ) -> CurrentUser:
-    role = None
-    try:
-        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
-        data = result.data if hasattr(result, "data") else result
-        role = data[0] if isinstance(data, list) and data else data
-    except Exception:
-        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
-
-    if role != "admin":
-        try:
-            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
-            if result.data:
-                role = result.data[0].get("role")
-        except Exception:
-            logger.error("Failed to check admin role from profiles table", exc_info=True)
-
-    if role != "admin":
+    if _effective_role(current_user, supabase) != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
@@ -137,7 +174,9 @@ def require_admin(
 def require_active_user(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
-    if current_user.status != "active":
+    # "pending" accounts (phone-registered managers awaiting approval) keep
+    # read access; suspended and rejected accounts are blocked.
+    if current_user.status not in ("active", "pending"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is not active. Please contact your administrator.",
@@ -149,23 +188,7 @@ def require_super_admin(
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_service_client),
 ) -> CurrentUser:
-    role = None
-    try:
-        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
-        data = result.data if hasattr(result, "data") else result
-        role = data[0] if isinstance(data, list) and data else data
-    except Exception:
-        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
-
-    if role != "super_admin":
-        try:
-            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
-            if result.data:
-                role = result.data[0].get("role")
-        except Exception:
-            logger.error("Failed to check super_admin role from profiles table", exc_info=True)
-
-    if role != "super_admin":
+    if _effective_role(current_user, supabase) != "super_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Super admin access required",
@@ -177,23 +200,7 @@ def require_manager(
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_service_client),
 ) -> CurrentUser:
-    role = None
-    try:
-        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
-        data = result.data if hasattr(result, "data") else result
-        role = data[0] if isinstance(data, list) and data else data
-    except Exception:
-        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
-
-    if role != "house_manager":
-        try:
-            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
-            if result.data:
-                role = result.data[0].get("role")
-        except Exception:
-            logger.error("Failed to check house_manager role from profiles table", exc_info=True)
-
-    if role != "house_manager":
+    if _effective_role(current_user, supabase) != "house_manager":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="House manager access required",
@@ -205,23 +212,7 @@ def require_super_admin_or_manager(
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_service_client),
 ) -> CurrentUser:
-    role = None
-    try:
-        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
-        data = result.data if hasattr(result, "data") else result
-        role = data[0] if isinstance(data, list) and data else data
-    except Exception:
-        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
-
-    if role not in ("super_admin", "house_manager"):
-        try:
-            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
-            if result.data:
-                role = result.data[0].get("role")
-        except Exception:
-            logger.error("Failed to check role from profiles table", exc_info=True)
-
-    if role not in ("super_admin", "house_manager"):
+    if _effective_role(current_user, supabase) not in ("super_admin", "house_manager"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Super admin or house manager access required",
@@ -238,23 +229,9 @@ def require_active_subscription(
     Tenants and non-manager roles pass through untouched. A manager is
     blocked (403) when they have no subscription row, when the subscription
     status is not active, or when the subscription has expired by time
-    (status still active but expires_at is in the past — resolved lazily).
+    (status still active but expires_at is in the past - resolved lazily).
     """
-    role = None
-    try:
-        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
-        data = result.data if hasattr(result, "data") else result
-        role = data[0] if isinstance(data, list) and data else data
-    except Exception:
-        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
-
-    if role not in ("super_admin", "house_manager"):
-        try:
-            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
-            if result.data:
-                role = result.data[0].get("role")
-        except Exception:
-            logger.error("Failed to check role from profiles table", exc_info=True)
+    role = _effective_role(current_user, supabase)
 
     if role not in ("super_admin", "house_manager"):
         return current_user
@@ -274,23 +251,7 @@ def require_tenant(
     current_user: CurrentUser = Depends(get_current_user),
     supabase: Client = Depends(get_service_client),
 ) -> CurrentUser:
-    role = None
-    try:
-        result = supabase.rpc("get_user_role", {"_user_id": current_user.id}).execute()
-        data = result.data if hasattr(result, "data") else result
-        role = data[0] if isinstance(data, list) and data else data
-    except Exception:
-        logger.warning("get_user_role RPC failed for %s, falling back to profiles table", current_user.id)
-
-    if role != "tenant":
-        try:
-            result = supabase.table("profiles").select("role").eq("user_id", current_user.id).execute()
-            if result.data:
-                role = result.data[0].get("role")
-        except Exception:
-            logger.error("Failed to check tenant role from profiles table", exc_info=True)
-
-    if role != "tenant":
+    if _effective_role(current_user, supabase) != "tenant":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tenant access required",
