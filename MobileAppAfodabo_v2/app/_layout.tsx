@@ -13,6 +13,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Colors } from "@/constants/theme";
 import { AuthProvider, useAuth } from "@/src/context/auth-context";
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
+import { ToastProvider } from "@/src/components/Toast";
 import { LoadingState } from "@/src/components/LoadingState";
 import { debugAuth } from "@/src/lib/debug";
 
@@ -114,9 +115,11 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <StatusBar style="dark" backgroundColor={Colors.bg} />
           <ErrorBoundary>
-            <AuthProvider>
-              <RootLayoutNav />
-            </AuthProvider>
+            <ToastProvider>
+              <AuthProvider>
+                <RootLayoutNav />
+              </AuthProvider>
+            </ToastProvider>
           </ErrorBoundary>
         </GestureHandlerRootView>
       </SafeAreaProvider>

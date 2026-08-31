@@ -148,7 +148,7 @@ export default function ManagerTenanciesScreen() {
             <Text style={styles.summaryLabel}>Expiring</Text>
           </View>
           <View style={[styles.summaryItem, styles.summaryOverdue]}>
-            <Text style={[styles.summaryValue, { color: "#FFFFFF" }]}>{expiredCount}</Text>
+            <Text style={[styles.summaryValue, { color: Colors.textOnPrimary }]}>{expiredCount}</Text>
             <Text style={styles.summaryLabel}>Expired</Text>
           </View>
         </View>

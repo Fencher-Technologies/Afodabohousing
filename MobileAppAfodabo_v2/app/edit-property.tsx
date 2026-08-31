@@ -20,6 +20,7 @@ import { useCountries, useRegions } from "@/src/hooks/useGeoLocation";
 import { usePropertyCategories, usePropertyTypes } from "@/src/hooks/usePropertyTypes";
 import { ensureImagesUploaded, MAX_PROPERTY_IMAGES } from "@/src/services/properties";
 import { ApiError } from "@/src/lib/api-client";
+import { useToast } from "@/src/components/Toast";
 import { COUNTRIES, currencyForCountry } from "@/src/data/countries";
 import type { Amenity } from "@/src/types";
 import { formatAmenity } from "@/src/utils/format";
@@ -36,6 +37,8 @@ export default function EditPropertyScreen() {
   const { data: property, isLoading } = useProperty(id);
   const { subscription } = useAuth();
   const updateMutation = useUpdateProperty();
+  const toast = useToast();
+  const [errors, setErrors] = useState<Partial<Record<"title" | "rent" | "district" | "location", string>>>({});
 
   const [showGate, setShowGate] = useState(false);
   const [title, setTitle] = useState("");
@@ -136,10 +139,7 @@ export default function EditPropertyScreen() {
   const pickImages = async () => {
     const remaining = MAX_PROPERTY_IMAGES - images.length;
     if (remaining <= 0) {
-      Alert.alert(
-        "Photo limit reached",
-        `You can add up to ${MAX_PROPERTY_IMAGES} photos per property. Remove a photo to add another.`,
-      );
+      toast.show(`Photo limit reached. You can add up to ${MAX_PROPERTY_IMAGES} photos per property.`, "info");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -152,10 +152,7 @@ export default function EditPropertyScreen() {
       const picked = result.assets.map((a) => a.uri);
       const accepted = picked.slice(0, remaining);
       if (picked.length > remaining) {
-        Alert.alert(
-          "Photo limit applied",
-          `Only ${remaining} more photo${remaining === 1 ? "" : "s"} could be added. The limit is ${MAX_PROPERTY_IMAGES} photos per property.`,
-        );
+        toast.show(`Only ${remaining} more photo${remaining === 1 ? "" : "s"} added. The limit is ${MAX_PROPERTY_IMAGES}.`, "info");
       }
       setImages((prev) => [...prev, ...accepted]);
     }
@@ -184,14 +181,17 @@ export default function EditPropertyScreen() {
       setShowGate(true);
       return;
     }
-    if (!title.trim() || !district.trim() || !rent.trim()) {
-      Alert.alert("Missing fields", "Title, district, and rent are required.");
-      return;
-    }
-    if (!locationCoords) {
-      Alert.alert("Missing location", "Please add the property location on the map.");
-      return;
-    }
+    const titleMsg = title.trim() ? undefined : "Give the property a title.";
+    const rentN = Number(rent);
+    const rentMsg = !rent.trim()
+      ? "Enter the monthly rent."
+      : !(rentN > 0)
+        ? "Rent must be a number greater than 0."
+        : undefined;
+    const districtMsg = district.trim() ? undefined : "Select or type the district.";
+    const locationMsg = locationCoords ? undefined : "Add the property location on the map.";
+    setErrors({ title: titleMsg, rent: rentMsg, district: districtMsg, location: locationMsg });
+    if (titleMsg || rentMsg || districtMsg || locationMsg) return;
 
     try {
       const upload = images.length > 0 ? await ensureImagesUploaded(images) : { urls: [], failed: [] };
@@ -208,9 +208,9 @@ export default function EditPropertyScreen() {
       }
       await saveProperty(upload.urls);
     } catch (e) {
-      Alert.alert(
-        "Could not update property",
+      toast.show(
         e instanceof ApiError ? e.message : "Something went wrong. Please try again.",
+        "error",
       );
     }
   };
@@ -241,13 +241,12 @@ export default function EditPropertyScreen() {
       };
 
       await updateMutation.mutateAsync({ id: id!, data: { ...data, images: uploadedImages } });
-      Alert.alert("Saved", "Property updated successfully.", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      toast.show("Property updated successfully.", "success");
+      router.back();
     } catch (e) {
-      Alert.alert(
-        "Could not update property",
-        e instanceof ApiError ? e.message : "Something went wrong. Please try again.",
+      toast.show(
+        e instanceof ApiError ? e.message : "Could not update property. Please try again.",
+        "error",
       );
     }
   };
@@ -269,7 +268,16 @@ export default function EditPropertyScreen() {
       <View style={styles.content}>
         <Text style={styles.sectionLabel}>Property Details</Text>
 
-        <InputField label="Title" value={title} onChangeText={setTitle} placeholder="e.g. Sunrise Apartments" />
+        <InputField
+          label="Title"
+          value={title}
+          onChangeText={(v) => {
+            setTitle(v);
+            if (errors.title && v.trim()) setErrors((prev) => ({ ...prev, title: undefined }));
+          }}
+          error={errors.title}
+          placeholder="e.g. Sunrise Apartments"
+        />
         <View style={{ height: Spacing.md }} />
         <SelectField
           label="Country"
@@ -284,10 +292,14 @@ export default function EditPropertyScreen() {
           label="District / Region"
           value={district}
           options={regionOptions}
-          onSelect={handleRegionSelect}
+          onSelect={(v) => {
+            handleRegionSelect(v);
+            if (v.trim()) setErrors((prev) => ({ ...prev, district: undefined }));
+          }}
           placeholder="Select or type district"
           searchable
           allowCustom
+          error={errors.district}
         />
         <View style={{ height: Spacing.md }} />
         <InputField label="City/Area" value={city} onChangeText={setCity} placeholder="e.g. Kololo" />
@@ -298,9 +310,11 @@ export default function EditPropertyScreen() {
         <LocationPicker
           onLocationChange={(lat, lng) => {
             setLocationCoords(lat && lng ? { lat, lng } : null);
+            if (lat && lng) setErrors((prev) => ({ ...prev, location: undefined }));
           }}
           initialLat={locationCoords?.lat}
           initialLng={locationCoords?.lng}
+          error={errors.location ?? ""}
         />
         <View style={{ height: Spacing.md }} />
         <SelectField
@@ -319,7 +333,17 @@ export default function EditPropertyScreen() {
           placeholder="Select type"
         />
         <View style={{ height: Spacing.md }} />
-        <InputField label="Rent (UGX)" value={rent} onChangeText={setRent} placeholder="0" keyboardType="numeric" />
+        <InputField
+          label={`Rent per Month (${currencyForCountry(country)})`}
+          value={rent}
+          onChangeText={(v) => {
+            setRent(v);
+            if (errors.rent && Number(v) > 0) setErrors((prev) => ({ ...prev, rent: undefined }));
+          }}
+          error={errors.rent}
+          placeholder="0"
+          keyboardType="numeric"
+        />
 
         <View style={{ height: Spacing.lg }} />
         <Text style={styles.sectionLabel}>Unit Details</Text>

@@ -242,6 +242,7 @@ export function AgreementFlow({
             {role === "manager" && !readOnly && (
               <Button
                 label={hasDoc && !hasContent ? "Cancel & Create New" : "Create Agreement"}
+                accessibilityHint={hasDoc && !hasContent ? "Cancels the current agreement and starts a new one. This cannot be undone." : "Starts a new agreement for this tenancy"}
                 onPress={() => {
                   if (hasDoc && !hasContent) {
                     handleCancelAndCreateNew();
@@ -428,6 +429,7 @@ export function AgreementFlow({
             variant="outline"
             tone="danger"
             size="sm"
+            accessibilityHint="Cancels this agreement. This cannot be undone."
             loading={cancelAgreement.isPending}
             leftIcon={<XCircle size={16} color={Colors.danger} />}
           />

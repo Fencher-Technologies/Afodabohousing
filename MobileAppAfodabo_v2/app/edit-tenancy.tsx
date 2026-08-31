@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, View, Alert } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Calendar, FileText } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { SelectField } from "@/src/components/SelectField";
+import { DatePickerField } from "@/src/components/DatePickerField";
 import { PageHeader } from "@/src/components/PageHeader";
+import { useToast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/auth-context";
 import { useTenancy, useUpdateTenancy } from "@/src/hooks/useTenancies";
 import { usePropertyList } from "@/src/hooks/useProperties";
@@ -17,61 +18,37 @@ import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 
-const MONTHS = [
-  { label: "January", value: "01" },
-  { label: "February", value: "02" },
-  { label: "March", value: "03" },
-  { label: "April", value: "04" },
-  { label: "May", value: "05" },
-  { label: "June", value: "06" },
-  { label: "July", value: "07" },
-  { label: "August", value: "08" },
-  { label: "September", value: "09" },
-  { label: "October", value: "10" },
-  { label: "November", value: "11" },
-  { label: "December", value: "12" },
-];
-
 const STATUS_OPTIONS = [
   { label: "Active", value: "active" },
   { label: "Terminated", value: "terminated" },
 ];
 
-function pad2(n: string): string {
-  return n.length === 1 ? "0" + n : n;
-}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function splitDate(iso?: string): { day: string; month: string; year: string } {
-  if (!iso) return { day: "", month: "", year: "" };
-  const [year, month, day] = iso.split("-");
-  return { day: day || "", month: month || "", year: year || "" };
-}
+type FieldKey = "email" | "property" | "rent" | "dates";
+type FieldErrors = Partial<Record<FieldKey, string>>;
 
 export default function EditTenancyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user, subscription } = useAuth();
+  const { subscription } = useAuth();
   const { data: lease, isLoading } = useTenancy(id || "");
   const { data: propertiesData } = usePropertyList();
   const updateTenancy = useUpdateTenancy();
   const resolveTenant = useResolveTenantByEmail();
+  const toast = useToast();
 
   const [showGate, setShowGate] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
 
   const initial = useMemo(() => {
     if (!lease) return null;
-    const start = splitDate(lease.start_date);
-    const end = splitDate(lease.end_date);
     return {
       tenantEmail: lease.tenant_email ?? "",
       propertyId: lease.property_id,
       unitLabel: lease.unit_label ?? "",
       rentAmount: String(lease.monthly_rent ?? ""),
-      startDay: start.day,
-      startMonth: start.month,
-      startYear: start.year,
-      endDay: end.day,
-      endMonth: end.month,
-      endYear: end.year,
+      startDate: lease.start_date ?? "",
+      endDate: lease.end_date ?? "",
       initialBalance: String(lease.security_deposit ?? ""),
       status: lease.status,
     };
@@ -81,38 +58,20 @@ export default function EditTenancyScreen() {
   const [propertyId, setPropertyId] = useState(initial?.propertyId ?? "");
   const [unitLabel, setUnitLabel] = useState(initial?.unitLabel ?? "");
   const [rentAmount, setRentAmount] = useState(initial?.rentAmount ?? "");
-  const [startDay, setStartDay] = useState(initial?.startDay ?? "");
-  const [startMonth, setStartMonth] = useState(initial?.startMonth ?? "");
-  const [startYear, setStartYear] = useState(initial?.startYear ?? "");
-  const [endDay, setEndDay] = useState(initial?.endDay ?? "");
-  const [endMonth, setEndMonth] = useState(initial?.endMonth ?? "");
-  const [endYear, setEndYear] = useState(initial?.endYear ?? "");
+  const [startDate, setStartDate] = useState(initial?.startDate ?? "");
+  const [endDate, setEndDate] = useState(initial?.endDate ?? "");
   const [initialBalance, setInitialBalance] = useState(initial?.initialBalance ?? "");
   const [status, setStatus] = useState(initial?.status ?? "active");
 
   const properties = propertiesData?.items || [];
-
-  const startDate = useMemo(() => {
-    if (startDay && startMonth && startYear) return `${startYear}-${startMonth}-${pad2(startDay)}`;
-    return "";
-  }, [startDay, startMonth, startYear]);
-
-  const endDate = useMemo(() => {
-    if (endDay && endMonth && endYear) return `${endYear}-${endMonth}-${pad2(endDay)}`;
-    return "";
-  }, [endDay, endMonth, endYear]);
 
   const isDirty = !!initial && (
     tenantEmail !== (initial.tenantEmail ?? "") ||
     propertyId !== initial.propertyId ||
     unitLabel !== (initial.unitLabel ?? "") ||
     rentAmount !== initial.rentAmount ||
-    startDay !== initial.startDay ||
-    startMonth !== initial.startMonth ||
-    startYear !== initial.startYear ||
-    endDay !== initial.endDay ||
-    endMonth !== initial.endMonth ||
-    endYear !== initial.endYear ||
+    startDate !== initial.startDate ||
+    endDate !== initial.endDate ||
     initialBalance !== initial.initialBalance ||
     status !== initial.status
   );
@@ -127,23 +86,37 @@ export default function EditTenancyScreen() {
     );
   }
 
+  const setFieldError = (key: FieldKey, message?: string) =>
+    setErrors((prev) => ({ ...prev, [key]: message }));
+
+  const validateAll = (): boolean => {
+    const emailMsg = !tenantEmail.trim()
+      ? "Enter the tenant's email address."
+      : !EMAIL_RE.test(tenantEmail.trim())
+        ? "That does not look like a valid email address."
+        : undefined;
+    const propertyMsg = propertyId ? undefined : "Select the property this tenancy belongs to.";
+    const n = Number(rentAmount);
+    const rentMsg = !rentAmount.trim()
+      ? "Enter the monthly rent."
+      : !(n > 0)
+        ? "Rent must be a number greater than 0."
+        : undefined;
+    const datesMsg = !startDate || !endDate
+      ? "Both a start and an end date are required."
+      : endDate <= startDate
+        ? "The end date must be after the start date."
+        : undefined;
+    setErrors({ email: emailMsg, property: propertyMsg, rent: rentMsg, dates: datesMsg });
+    return !emailMsg && !propertyMsg && !rentMsg && !datesMsg;
+  };
+
   const handleSubmit = async () => {
     if (subscription?.status !== "active") {
       setShowGate(true);
       return;
     }
-    if (!tenantEmail.trim() || !propertyId || !rentAmount.trim()) {
-      Alert.alert("Missing fields", "Please fill in tenant email, property, and rent amount.");
-      return;
-    }
-    if (!startDate || !endDate) {
-      Alert.alert("Missing dates", "Please provide both a start and end date.");
-      return;
-    }
-    if (new Date(endDate) <= new Date(startDate)) {
-      Alert.alert("Invalid dates", "The end date must be after the start date.");
-      return;
-    }
+    if (!validateAll()) return;
 
     try {
       await resolveTenant.mutateAsync(tenantEmail.trim());
@@ -157,9 +130,10 @@ export default function EditTenancyScreen() {
           status,
         },
       });
-      Alert.alert("Success", "Tenancy updated successfully!", [{ text: "OK", onPress: () => router.back() }]);
+      toast.show("Tenancy updated successfully.", "success");
+      router.back();
     } catch (e) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Could not update tenancy. Please try again.");
+      toast.show(e instanceof Error ? e.message : "Could not update tenancy. Please try again.", "error");
     }
   };
 
@@ -183,7 +157,11 @@ export default function EditTenancyScreen() {
         <InputField
           label="Tenant Email"
           value={tenantEmail}
-          onChangeText={setTenantEmail}
+          onChangeText={(v) => {
+            setTenantEmail(v);
+            if (errors.email && v.trim()) setFieldError("email");
+          }}
+          error={errors.email}
           placeholder="tenant@example.com"
           keyboardType="email-address"
           autoCapitalize="none"
@@ -196,47 +174,49 @@ export default function EditTenancyScreen() {
           label="Property"
           value={propertyId}
           options={properties.map((p) => ({ label: p.title, value: p.id }))}
-          onSelect={setPropertyId}
+          onSelect={(v) => {
+            setPropertyId(v);
+            if (v) setFieldError("property");
+          }}
           placeholder="Select property"
+          error={errors.property}
         />
         <View style={{ height: Spacing.md }} />
         <InputField label="Unit Label" value={unitLabel} onChangeText={setUnitLabel} placeholder="e.g. A1, Shop 1" />
 
         <View style={{ height: Spacing.lg }} />
         <Text style={styles.sectionLabel}>Lease Terms</Text>
-        <InputField label="Rent Amount (UGX)" value={rentAmount} onChangeText={setRentAmount} placeholder="0" keyboardType="numeric" />
+        <InputField
+          label="Rent Amount (UGX)"
+          value={rentAmount}
+          onChangeText={(v) => {
+            setRentAmount(v);
+            if (errors.rent && Number(v) > 0) setFieldError("rent");
+          }}
+          error={errors.rent}
+          placeholder="0"
+          keyboardType="numeric"
+        />
 
         <View style={{ height: Spacing.md }} />
-        <Text style={styles.dateSectionLabel}>Start Date</Text>
-        <View style={styles.dateRow}>
-          <View style={{ flex: 1 }}>
-            <InputField label="Day" value={startDay} onChangeText={setStartDay} placeholder="DD" keyboardType="numeric" />
-          </View>
-          <View style={{ width: Spacing.sm }} />
-          <View style={{ flex: 2 }}>
-            <SelectField label="Month" value={startMonth} options={MONTHS} onSelect={setStartMonth} placeholder="Month" />
-          </View>
-          <View style={{ width: Spacing.sm }} />
-          <View style={{ flex: 1.2 }}>
-            <InputField label="Year" value={startYear} onChangeText={setStartYear} placeholder="YYYY" keyboardType="numeric" />
-          </View>
-        </View>
-
+        <DatePickerField
+          label="Start Date"
+          value={startDate}
+          onChange={(v) => {
+            setStartDate(v);
+            if (errors.dates) setFieldError("dates");
+          }}
+        />
         <View style={{ height: Spacing.md }} />
-        <Text style={styles.dateSectionLabel}>End Date</Text>
-        <View style={styles.dateRow}>
-          <View style={{ flex: 1 }}>
-            <InputField label="Day" value={endDay} onChangeText={setEndDay} placeholder="DD" keyboardType="numeric" />
-          </View>
-          <View style={{ width: Spacing.sm }} />
-          <View style={{ flex: 2 }}>
-            <SelectField label="Month" value={endMonth} options={MONTHS} onSelect={setEndMonth} placeholder="Month" />
-          </View>
-          <View style={{ width: Spacing.sm }} />
-          <View style={{ flex: 1.2 }}>
-            <InputField label="Year" value={endYear} onChangeText={setEndYear} placeholder="YYYY" keyboardType="numeric" />
-          </View>
-        </View>
+        <DatePickerField
+          label="End Date"
+          value={endDate}
+          onChange={(v) => {
+            setEndDate(v);
+            if (errors.dates) setFieldError("dates");
+          }}
+          error={errors.dates}
+        />
 
         <View style={{ height: Spacing.md }} />
         <InputField label="Initial Balance / Deposit (UGX)" value={initialBalance} onChangeText={setInitialBalance} placeholder="0" keyboardType="numeric" />
@@ -247,7 +227,7 @@ export default function EditTenancyScreen() {
         <View style={{ height: Spacing.xl }} />
         <Button label="Save Changes" onPress={handleSubmit} fullWidth size="lg" loading={updateTenancy.isPending} disabled={updateTenancy.isPending} />
         <View style={{ height: Spacing.md }} />
-        <Button label="Cancel" onPress={handleBack} variant="outline" fullWidth />
+        <Button label="Cancel" onPress={handleBack} variant="outline" fullWidth accessibilityHint="Discards unsaved changes and goes back" />
       </View>
 
       <View style={{ height: 100 }} />
@@ -282,15 +262,5 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: Spacing.xs,
     lineHeight: 18,
-  },
-  dateSectionLabel: {
-    fontSize: FontSize.h3,
-    fontWeight: FontWeight.bold,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.xs,
-  },
-  dateRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
   },
 });
