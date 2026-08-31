@@ -466,15 +466,58 @@ def _lease_with_anchor(mock_supabase, anchor):
     )
 
 
+def _lease_unanchored(mock_supabase, start):
+    """Leases table with no billing anchor but a known start_date.
+
+    Reads for rent_effective_date return empty (unanchored lease); other
+    reads return the lease row; the update write is captured so tests can
+    assert the auto-anchor value that would be persisted.
+    """
+    builder = MagicMock()
+    no_anchor = MagicMock()
+    no_anchor.data = []
+    lease_row = MagicMock()
+    lease_row.data = [{"start_date": start, "monthly_rent": 1500000}]
+
+    def _select(cols="*", *args, **kwargs):
+        q = MagicMock()
+        q.eq.return_value.execute.return_value = (
+            no_anchor if "rent_effective_date" in cols else lease_row
+        )
+        return q
+
+    builder.select.side_effect = _select
+    update_resp = MagicMock()
+    update_resp.data = [{"id": PID_LEASE}]
+    builder.update.return_value.eq.return_value.is_.return_value.execute.return_value = (
+        update_resp
+    )
+    orig_table = mock_supabase.table
+    ctx = patch.object(
+        mock_supabase,
+        "table",
+        side_effect=lambda name: builder if name == "leases" else orig_table(name),
+    )
+    return builder, ctx
+
+
 class TestPaymentAnchorGate:
-    def test_confirmed_rent_requires_anchor(self, mock_supabase):
+    def test_confirmed_rent_auto_anchors_from_start_date(self, mock_supabase):
+        # New contract: a confirmed rent payment on an unanchored lease no
+        # longer raises; it writes the billing anchor, sourced from the lease
+        # start_date, then computes coverage as usual.
         svc = PaymentService(mock_supabase)
-        with _lease_with_anchor(mock_supabase, None):
-            with pytest.raises(ValueError):
-                svc.create(PaymentCreate(
-                    lease_id=PID_LEASE, tenant_id=PID_TENANT, amount=1500000,
-                    payment_type="rent",
-                ))
+        leases_mock, ctx = _lease_unanchored(mock_supabase, "2026-01-01")
+        with ctx:
+            payment = svc.create(PaymentCreate(
+                lease_id=PID_LEASE, tenant_id=PID_TENANT, amount=1500000,
+                payment_type="rent",
+            ))
+        leases_mock.update.assert_called_once_with(
+            {"rent_effective_date": "2026-01-01"}
+        )
+        assert payment["coverage_days"] == 30
+        assert payment["frozen_monthly_rent"] == 1500000
 
     def test_confirmed_rent_writes_coverage_with_anchor(self, mock_supabase):
         svc = PaymentService(mock_supabase)
@@ -504,18 +547,23 @@ class TestPaymentAnchorGate:
             ))
         assert payment.get("coverage_days") is None
 
-    def test_endpoint_rejects_confirmed_rent_without_anchor(
+    def test_endpoint_accepts_confirmed_rent_and_sets_anchor(
         self, tenant_client: TestClient, mock_supabase
     ):
-        with _lease_with_anchor(mock_supabase, None):
+        # New contract: the endpoint accepts the payment (201) and the lease
+        # gains a rent_effective_date, anchored to its start_date.
+        leases_mock, ctx = _lease_unanchored(mock_supabase, "2026-01-01")
+        with ctx:
             resp = tenant_client.post("/payments", json={
                 "lease_id": PID_LEASE,
                 "amount": 1500000,
                 "payment_type": "rent",
                 "due_date": "2026-04-01",
             })
-        assert resp.status_code == 400
-        assert "rent effective date" in resp.json()["detail"].lower()
+        assert resp.status_code == 201
+        leases_mock.update.assert_called_once_with(
+            {"rent_effective_date": "2026-01-01"}
+        )
 
     def test_endpoint_allows_confirmed_rent_with_anchor(
         self, tenant_client: TestClient, mock_supabase

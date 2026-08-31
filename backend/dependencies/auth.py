@@ -174,8 +174,13 @@ def require_admin(
 def require_active_user(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
-    # "pending" accounts (phone-registered managers awaiting approval) keep
-    # read access; suspended and rejected accounts are blocked.
+    # Deliberate policy: "pending" accounts (phone-registered managers
+    # awaiting approval) are allowed through. Every endpoint using this guard
+    # is a read, account self-service, or the subscription purchase flow a
+    # pending manager needs in order to activate. Business-data writes (e.g.
+    # POST/PATCH /payments) sit behind require_active_subscription, which an
+    # unapproved manager cannot satisfy. Suspended and rejected accounts are
+    # blocked here.
     if current_user.status not in ("active", "pending"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
