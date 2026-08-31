@@ -12,6 +12,7 @@ import { FloatingBackButton } from "@/src/components/FloatingBackButton";
 import { authService } from "@/src/services/auth";
 import { setStoredToken } from "@/src/lib/api-client";
 import { useAuth } from "@/src/context/auth-context";
+import { toAppRole, toBackendRole } from "@/src/lib/roles";
 
 export default function PinSetupScreen() {
   const { phone, verifyToken, role } = useLocalSearchParams<{ phone: string; verifyToken: string; role: string }>();
@@ -23,9 +24,12 @@ export default function PinSetupScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const isManager = role === "manager" || role === "house_manager";
+  // Was a fifth, divergent copy of the role mapping: it recognised only
+  // "manager"/"house_manager", so "landlord" and "super_admin" were silently
+  // set up as tenants. Routed through the shared helper so it cannot drift.
+  const isManager = toAppRole(role) === "manager";
   const roleLabel = isManager ? "Property Manager" : "Tenant";
-  const normalizedRole = isManager ? "house_manager" : "tenant";
+  const normalizedRole = toBackendRole(role);
 
   const handleCreateAccount = async () => {
     if (!fullName.trim()) {
