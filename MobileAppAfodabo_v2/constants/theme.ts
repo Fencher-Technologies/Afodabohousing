@@ -13,13 +13,17 @@ export const Colors = {
   primary: "#7A1230",
   primaryDeep: "#480018",
   primarySoft: "#F6E9ED",
-  primaryMuted: "#A96A7C",
+  primaryMuted: "#9D5A6C",
 
-  gold: "#480018",
-  goldSoft: "#F3E6EB",
+  // Premium (boosts, subscription): a genuine brass that stands apart from
+  // the burgundy primary, so revenue features keep their own visual weight.
+  gold: "#9C7A24",
+  goldSoft: "#F6EFDD",
 
-  accent: "#353E45",
-  accentSoft: "#E9EBED",
+  // Secondary action / link colour: a brighter burgundy that still draws the
+  // eye next to charcoal body text.
+  accent: "#9A1B3E",
+  accentSoft: "#F6E3E9",
 
   // Semantic
   success: "#2E7D52",
@@ -43,11 +47,11 @@ export const Colors = {
   textSecondary: "#5A636B",
   textMuted: "#8A9096",
   textOnPrimary: "#FFFFFF",
-  textOnGold: "#FFFFFF",
+  textOnGold: "#232A31",
 
   // Tab bar
   tabActive: "#7A1230",
-  tabInactive: "#9AA39E",
+  tabInactive: "#9AA0A6",
 
   // Health
   healthGood: "#2E7D52",

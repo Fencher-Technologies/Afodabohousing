@@ -20,16 +20,36 @@ export async function uploadPropertyImage(uri: string): Promise<string> {
   return result.url;
 }
 
-export async function ensureImagesUploaded(images: string[]): Promise<string[]> {
-  const results = await Promise.all(
-    images.map(async (uri) => {
-      if (uri.startsWith("file://")) {
-        return uploadPropertyImage(uri);
-      }
-      return uri;
-    })
-  );
-  return results;
+/** Maximum photos per property listing, shared by create and edit screens. */
+export const MAX_PROPERTY_IMAGES = 10;
+
+export interface ImageUploadResult {
+  urls: string[];
+  failed: string[];
+}
+
+/**
+ * Upload local images sequentially and report partial failures.
+ *
+ * Sequential beats Promise.all here on slow mobile connections: ten parallel
+ * uploads saturate the link and time out together, which is why whole image
+ * sets were being lost. A failed photo no longer discards the rest.
+ */
+export async function ensureImagesUploaded(images: string[]): Promise<ImageUploadResult> {
+  const urls: string[] = [];
+  const failed: string[] = [];
+  for (const uri of images.slice(0, MAX_PROPERTY_IMAGES)) {
+    if (!uri.startsWith("file://")) {
+      urls.push(uri);
+      continue;
+    }
+    try {
+      urls.push(await uploadPropertyImage(uri));
+    } catch {
+      failed.push(uri);
+    }
+  }
+  return { urls, failed };
 }
 
 export const propertiesService = {

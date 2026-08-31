@@ -1494,17 +1494,36 @@ class PaymentService(BaseService):
                 start = (
                     lease_row.data[0].get("start_date") if lease_row.data else None
                 )
-                anchor = start or date.today().isoformat()
+                # Fallback order: lease start date, then the tenant's actual
+                # payment date, then today. Anchoring is set-once, so the
+                # payment date is a truer billing start than the server's
+                # clock for legacy leases.
+                anchor = start or (payload.get("paid_date") or date.today().isoformat())[:10]
                 try:
-                    self.supabase.table("leases").update(
+                    result = self.supabase.table("leases").update(
                         {"rent_effective_date": anchor}
                     ).eq("id", str(data.lease_id)).is_(
                         "rent_effective_date", "null"
                     ).execute()
+                    if result.data:
+                        logger.warning(
+                            "Auto-anchored lease %s rent_effective_date=%s (source=%s) "
+                            "while recording a payment. This is permanent and resets "
+                            "arrears history.",
+                            data.lease_id,
+                            anchor,
+                            "start_date" if start else "payment_date",
+                        )
+                    else:
+                        logger.error(
+                            "Failed to anchor lease %s; balances will stay uncomputed",
+                            data.lease_id,
+                        )
                 except Exception:
-                    # Anchoring is best-effort; coverage computation below
-                    # does not depend on the column being persisted.
-                    pass
+                    logger.exception(
+                        "Failed to anchor lease %s; balances will stay uncomputed",
+                        data.lease_id,
+                    )
             if "coverage_days" not in payload:
                 coverage, frozen = self._coverage_for(data.lease_id, payload.get("amount"))
                 if coverage is not None:

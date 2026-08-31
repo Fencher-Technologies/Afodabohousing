@@ -1,74 +1,53 @@
-/**
- * LogoHeader, brand header shown at the top of the app's main pages.
- * Renders the Axis logo with an optional page title beneath it.
- */
-
+import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Image } from "expo-image";
-import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
-import type { ReactNode } from "react";
 
-const AXIS_LOGO = require("@/assets/images/axis-logo.png");
+import { BrandMark } from "@/src/components/BrandMark";
+import { Colors } from "@/constants/theme";
 
-interface LogoHeaderProps {
+// Branded page header: Axis logo on top, optional title/subtitle below.
+// Used on screens that do not take PageHeader (e.g. full-bleed flows).
+
+type Props = {
   title?: string;
   subtitle?: string;
-  rightAction?: ReactNode;
-}
+  rightAction?: React.ReactNode;
+};
 
-export function LogoHeader({ title, subtitle, rightAction }: LogoHeaderProps) {
+export function LogoHeader({ title, subtitle, rightAction }: Props) {
   return (
-    <View style={styles.container}>
-      <View style={styles.row}>
-        <Image
-          source={AXIS_LOGO}
-          style={styles.logo}
-          contentFit="contain"
-          cachePolicy="memory-disk"
-          accessibilityLabel="Axis Housing"
-        />
-        {rightAction ? <View style={styles.right}>{rightAction}</View> : null}
+    <View style={styles.wrap}>
+      <View style={styles.topRow}>
+        <BrandMark size="md" />
+        {rightAction ? <View style={styles.action}>{rightAction}</View> : null}
       </View>
-      {title ? (
-        <View style={styles.titleWrap}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        </View>
-      ) : null}
+      {title ? <Text style={styles.title}>{title}</Text> : null}
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xs,
+  wrap: {
+    gap: 6,
   },
-  row: {
+  topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  logo: {
-    width: 108,
-    height: 34,
-  },
-  right: {
-    minWidth: 34,
-    alignItems: "flex-end",
-  },
-  titleWrap: {
-    marginTop: Spacing.sm,
-    gap: 2,
+  action: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   title: {
-    fontSize: FontSize.display,
-    fontWeight: FontWeight.bold,
+    fontSize: 22,
+    fontWeight: "700",
     color: Colors.textPrimary,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: FontSize.caption,
+    fontSize: 14,
+    lineHeight: 20,
     color: Colors.textMuted,
   },
 });

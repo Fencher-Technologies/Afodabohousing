@@ -39,9 +39,9 @@
     --accent: 343 70% 35%;
     --accent-foreground: 0 0% 100%;
 
-    /* Gold, retained token, revalued to the deep burgundy of the logo */
-    --gold: 340 100% 14%;
-    --gold-foreground: 0 0% 100%;
+    /* Gold, brass for premium surfaces (#9C7A24) */
+    --gold: 43 63% 38%;
+    --gold-foreground: 206 13% 15%;
 
     /* Status */
     /* Destructive stays visually distinct from the burgundy accent */
@@ -54,9 +54,9 @@
     --warning: 32 95% 44%;
     --warning-foreground: 0 0% 100%;
 
-    /* Borders */
-    --border: 220 24% 90%;
-    --input: 220 24% 90%;
+    /* Borders, warm taupe so cards sit naturally on the cream background */
+    --border: 38 32% 87%;
+    --input: 38 32% 87%;
     --ring: 343 74% 27%;
 
     /* Radius */
@@ -94,16 +94,16 @@
     --muted-foreground: 210 8% 58%;
     --accent: 343 60% 48%;
     --accent-foreground: 0 0% 100%;
-    --gold: 343 45% 40%;
-    --gold-foreground: 0 0% 100%;
+    --gold: 43 55% 55%;
+    --gold-foreground: 206 13% 12%;
     --destructive: 6 60% 50%;
     --destructive-foreground: 0 0% 100%;
     --success: 147 40% 38%;
     --success-foreground: 0 0% 100%;
     --warning: 32 80% 48%;
     --warning-foreground: 0 0% 100%;
-    --border: 206 13% 18%;
-    --input: 206 13% 18%;
+    --border: 34 14% 20%;
+    --input: 34 14% 20%;
     --ring: 343 60% 38%;
     --sidebar-background: 206 13% 6%;
     --sidebar-foreground: 36 24% 92%;

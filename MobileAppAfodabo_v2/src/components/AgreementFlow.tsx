@@ -88,16 +88,37 @@ export function AgreementFlow({
     setShowConfirmDialog(true);
   };
 
+  // auth-context normalises full_name to "" (never null), so a `?? "Tenant"`
+  // fallback never fires and an empty string would be posted, which the
+  // backend rejects (signed_name has min_length=1).
+  const signatureName = (user?.full_name ?? "").trim();
+
   const confirmSign = async () => {
     setShowConfirmDialog(false);
+    if (!signatureName) {
+      Alert.alert(
+        "Add your name first",
+        "A signature must carry your name, and your account does not have one set. Add it in your profile, then sign.",
+        [
+          { text: "Not now", style: "cancel" },
+          { text: "Edit Profile", onPress: () => router.push("/edit-profile") },
+        ],
+      );
+      return;
+    }
     try {
       await consentAgreement.mutateAsync({
         leaseId,
-        signedName: user?.full_name ?? "Tenant",
+        signedName: signatureName,
       });
       Alert.alert("Signed", "Your signature has been recorded.");
-    } catch {
-      Alert.alert("Error", "Could not record your signature.");
+    } catch (e) {
+      Alert.alert(
+        "Could not sign",
+        e && typeof e === "object" && "message" in e
+          ? String((e as { message: string }).message)
+          : "Could not record your signature.",
+      );
     }
   };
 
@@ -114,7 +135,11 @@ export function AgreementFlow({
         {
           text: "Yes, Cancel",
           style: "destructive",
-          onPress: () => cancelAgreement.mutate(leaseId),
+          onPress: () =>
+            cancelAgreement.mutate(leaseId, {
+              onError: () =>
+                Alert.alert("Error", "Could not cancel the agreement. Please try again."),
+            }),
         },
       ],
     );
@@ -136,6 +161,8 @@ export function AgreementFlow({
           onPress: () =>
             cancelAgreement.mutate(leaseId, {
               onSuccess: () => router.push(`/create-agreement?leaseId=${leaseId}`),
+              onError: () =>
+                Alert.alert("Error", "Could not cancel the agreement. Please try again."),
             }),
         },
       ],
@@ -422,7 +449,7 @@ export function AgreementFlow({
               Your name will be recorded as:
             </Text>
             <Text style={[styles.dialogName, SMALL_CAPS]}>
-              {user?.full_name ?? "Unknown"}
+              {signatureName || "No name on your account"}
             </Text>
             <Text style={styles.dialogHint}>
               This constitutes your electronic signature and is legally binding.

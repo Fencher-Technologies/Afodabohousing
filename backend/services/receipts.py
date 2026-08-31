@@ -34,25 +34,26 @@ class ReceiptService:
             seq = self.supabase.rpc("get_next_receipt_number").execute()
             seq_val = seq.data if hasattr(seq, "data") else None
             if isinstance(seq_val, int) and seq_val > 0:
-                return f"RCP-{year}-{str(seq_val).zfill(4)}"
+                return f"RCP-{year}-{str(seq_val).zfill(6)}"
         except Exception as e:
             logger.warning("get_next_receipt_number RPC failed, falling back: %s", e)
         # Fallback: derive from the highest existing number this year.
+        # Numbers are parsed numerically (not string-sorted, which breaks
+        # past 9,999) and padded to 6 digits so string sorting keeps working
+        # up to RCP-YYYY-999999.
         result = (
             self.supabase.table(self._table)
             .select("receipt_number")
             .like("receipt_number", f"RCP-{year}-%")
-            .order("receipt_number", desc=True)
-            .limit(1)
             .execute()
         )
-        next_val = 1
-        if result.data:
+        highest = 0
+        for row in result.data or []:
             try:
-                next_val = int(str(result.data[0]["receipt_number"]).rsplit("-", 1)[-1]) + 1
-            except (ValueError, IndexError):
-                next_val = len(result.data) + 1
-        return f"RCP-{year}-{str(next_val).zfill(4)}"
+                highest = max(highest, int(str(row["receipt_number"]).rsplit("-", 1)[-1]))
+            except (ValueError, IndexError, KeyError):
+                continue
+        return f"RCP-{year}-{str(highest + 1).zfill(6)}"
 
     # ─── Snapshot helpers ───────────────────────────────────────────────
 
@@ -162,21 +163,32 @@ class ReceiptService:
             "coverage_days": payment.get("coverage_days"),
             "status": "active",
         }
-        try:
-            result = self.supabase.table(self._table).insert(payload).execute()
-            return result.data[0] if result.data else None
-        except Exception as e:
-            # A concurrent insert on the same payment loses the unique race;
-            # return the winner's receipt instead of failing the request.
-            logger.warning("Receipt insert failed, re-reading: %s", e)
-            retry = (
-                self.supabase.table(self._table)
-                .select("*")
-                .eq("payment_id", str(payment_id))
-                .limit(1)
-                .execute()
-            )
-            return retry.data[0] if retry.data else None
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                result = self.supabase.table(self._table).insert(payload).execute()
+                return result.data[0] if result.data else None
+            except Exception as e:
+                last_error = e
+                # Either a concurrent insert on the same payment won the
+                # unique race (return the winner), or two writers computed
+                # the same fallback number (recompute and retry).
+                existing = (
+                    self.supabase.table(self._table)
+                    .select("*")
+                    .eq("payment_id", str(payment_id))
+                    .limit(1)
+                    .execute()
+                )
+                if existing.data:
+                    return existing.data[0]
+                if attempt < 2:
+                    payload["receipt_number"] = self._next_receipt_number()
+        logger.error(
+            "Receipt insert failed after 3 attempts for payment %s: %s",
+            payment_id, last_error,
+        )
+        return None
 
     # ─── Reads ───────────────────────────────────────────────
 

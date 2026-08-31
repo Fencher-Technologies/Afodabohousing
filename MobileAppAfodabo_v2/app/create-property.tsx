@@ -26,7 +26,7 @@ import { useAuth } from "@/src/context/auth-context";
 import { useCreateProperty } from "@/src/hooks/useProperties";
 import { useCountries, useRegions } from "@/src/hooks/useGeoLocation";
 import { usePropertyCategories, usePropertyTypes } from "@/src/hooks/usePropertyTypes";
-import { ensureImagesUploaded } from "@/src/services/properties";
+import { ensureImagesUploaded, MAX_PROPERTY_IMAGES } from "@/src/services/properties";
 import { ApiError } from "@/src/lib/api-client";
 import { COUNTRIES, currencyForCountry } from "@/src/data/countries";
 import type { Amenity } from "@/src/types";
@@ -38,8 +38,7 @@ const ALL_AMENITIES: Amenity[] = [
 ];
 
 const DEFAULT_COUNTRY = "UG";
-/** Maximum photos per property listing. */
-const MAX_IMAGES = 10;
+const MAX_IMAGES = MAX_PROPERTY_IMAGES;
 
 export default function CreatePropertyScreen() {
   const { subscription } = useAuth();
@@ -136,7 +135,7 @@ export default function CreatePropertyScreen() {
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
       selectionLimit: remaining,
-      quality: 0.8,
+      quality: 0.6,
     });
     if (!result.canceled) {
       const picked = result.assets.map((a) => a.uri);
@@ -171,8 +170,29 @@ export default function CreatePropertyScreen() {
     setLocationError("");
 
     try {
-      const uploadedImages = images.length > 0 ? await ensureImagesUploaded(images) : null;
+      const upload = images.length > 0 ? await ensureImagesUploaded(images) : { urls: [], failed: [] };
+      if (upload.failed.length > 0) {
+        Alert.alert(
+          "Some photos failed to upload",
+          `${upload.failed.length} photo${upload.failed.length === 1 ? "" : "s"} could not be uploaded. Save the property with the ${upload.urls.length} that succeeded, or cancel and retry.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Save Anyway", onPress: () => submitProperty(upload.urls) },
+          ],
+        );
+        return;
+      }
+      await submitProperty(upload.urls);
+    } catch (e) {
+      Alert.alert(
+        "Could not list property",
+        e instanceof ApiError ? e.message : "Something went wrong. Please try again.",
+      );
+    }
+  };
 
+  const submitProperty = async (uploadedImages: string[]) => {
+    try {
       const payload: Record<string, unknown> = {
         title: title.trim(),
         country,
@@ -194,10 +214,9 @@ export default function CreatePropertyScreen() {
         longitude: locationCoords?.lng ?? null,
         description: description.trim() || null,
         amenities: amenities.length > 0 ? amenities : null,
-        images: uploadedImages,
       };
 
-      await createMutation.mutateAsync(payload);
+      await createMutation.mutateAsync({ ...payload, images: uploadedImages.length > 0 ? uploadedImages : null });
       Alert.alert("Success", "Property listed successfully.", [
         { text: "OK", onPress: () => router.back() },
       ]);

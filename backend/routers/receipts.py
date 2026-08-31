@@ -1,7 +1,7 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from supabase import Client
 
 from dependencies.auth import CurrentUser, get_current_user
@@ -83,6 +83,41 @@ def get_receipt(
     if _owns_receipt_lease(supabase, receipt, current_user.id):
         return receipt
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+
+@router.get("/{receipt_id}/pdf")
+def get_receipt_pdf(
+    receipt_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
+    service: ReceiptService = Depends(get_receipt_svc),
+):
+    """Download a printable PDF of the receipt. Tenant of the receipt or the
+    lease manager."""
+    receipt = service.get_by_id(receipt_id)
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    tenant_id = _tenant_id_for_user(supabase, current_user.id)
+    allowed = (tenant_id and str(receipt.get("tenant_id")) == str(tenant_id)) or _owns_receipt_lease(
+        supabase, receipt, current_user.id
+    )
+    if not allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    from services.receipt_pdf import build_receipt_pdf
+
+    try:
+        pdf_bytes = build_receipt_pdf(receipt)
+    except Exception as e:
+        logger.error("Receipt PDF generation failed for %s: %s", receipt_id, e)
+        raise HTTPException(status_code=500, detail="Failed to generate receipt PDF")
+
+    number = receipt.get("receipt_number", "receipt")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="receipt-{number}.pdf"'},
+    )
 
 
 @router.post("/{receipt_id}/void")
