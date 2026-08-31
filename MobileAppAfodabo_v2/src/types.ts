@@ -442,6 +442,10 @@ export interface TenantReportItem {
   balance_due: number;
   tenant_credit: number;
   lease_id: string;
+  // False when the lease has no rent_effective_date anchor, so the server
+  // could not compute a money position. The numeric fields above are 0 in that
+  // case, which must not be shown as "nothing owed".
+  money_position_known: boolean;
 }
 
 export interface TenantReportResponse {
