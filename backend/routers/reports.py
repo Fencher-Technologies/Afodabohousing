@@ -400,7 +400,7 @@ def financial_summary(
             supabase.table("payments")
             .select("amount, paid_date, created_at, status")
             .in_("lease_id", lease_ids)
-            .eq("status", "confirmed")
+            .in_("status", ["confirmed", "completed"])
             .execute()
         )
         for p in payments.data or []:
