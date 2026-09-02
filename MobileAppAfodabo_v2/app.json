@@ -1,7 +1,6 @@
 {
   "expo": {
     "name": "Axis",
-    "owner": "ayesigayonah",
     "slug": "f40vwt2jqz6u76jdi0j1n",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -59,9 +58,6 @@
     "extra": {
       "router": {
         "origin": "https://rork.com/"
-      },
-      "eas": {
-        "projectId": "59e9a595-3c64-40fe-8687-81dc12c8d7bd"
       }
     }
   }
