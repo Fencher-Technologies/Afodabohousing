@@ -1,6 +1,6 @@
 name: Expo Build
 on:
-  workflow_dispatch: # Allows you to trigger this manually
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,7 +12,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-size: 18
+          node-version: 18
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Recreate Keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > MobileAppAfodabo_v2/my-release-key.keystore
 
       - name: Install Expo CLI and EAS CLI
         run: npm install -g expo-cli eas-cli
@@ -22,7 +35,19 @@ jobs:
           cd MobileAppAfodabo_v2
           npm install
 
-      - name: Build Android App (Local Mode)
+      - name: Build Android App (Local Mode on Runner)
+        working-directory: MobileAppAfodabo_v2
+        env:
+          ANDROID_KEYSTORE_PATH: my-release-key.keystore
+          ANDROID_KEYSTORE_PASSWORD: changeit123
+          ANDROID_KEY_ALIAS: my-key-alias
+          ANDROID_KEY_PASSWORD: changeit123
         run: |
-          cd MobileAppAfodabo_v2
           eas build --local --platform android --profile preview --non-interactive
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-preview-build
+          path: MobileAppAfodabo_v2/*.apk
+          if-no-files-found: error
