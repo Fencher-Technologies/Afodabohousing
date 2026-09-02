@@ -38,6 +38,7 @@ jobs:
       - name: Build Android App (Local Mode on Runner)
         working-directory: MobileAppAfodabo_v2
         env:
+          EXPO_TOKEN: _VpSvXcqcV1UA8csXv4f5EBZw4GlW2GGVOGPGac4
           ANDROID_KEYSTORE_PATH: my-release-key.keystore
           ANDROID_KEYSTORE_PASSWORD: changeit123
           ANDROID_KEY_ALIAS: my-key-alias
