@@ -1,0 +1,28 @@
+name: Expo Build
+on:
+  workflow_dispatch: # Allows you to trigger this manually
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-size: 18
+
+      - name: Install Expo CLI and EAS CLI
+        run: npm install -g expo-cli eas-cli
+
+      - name: Install Project Dependencies
+        run: |
+          cd MobileAppAfodabo_v2
+          npm install
+
+      - name: Build Android App (Local Mode)
+        run: |
+          cd MobileAppAfodabo_v2
+          eas build --local --platform android --profile preview --non-interactive
