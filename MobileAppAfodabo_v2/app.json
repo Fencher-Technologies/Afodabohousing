@@ -8,7 +8,7 @@
     "icon": "./assets/images/axis-icon.png",
     "scheme": "axis",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.axis.app"
