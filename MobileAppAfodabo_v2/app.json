@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Axis",
-    "owner": "alindapraise85s-team",
-    "slug": "f40vwt2jqz6u76jdi0j1n",
+    "name": "AfodaboApp",
+    "owner": "ayesigayonahs-organization",
+    "slug": "afodaboapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/axis-icon.png",
@@ -61,7 +61,7 @@
         "origin": "https://rork.com/"
       },
       "eas": {
-        "projectId": "040a92c0-3f42-4d42-b77f-b70163109d91"
+        "projectId": "f8c6c1bf-b032-41b4-ad53-7776f9f8d509"
       }
     }
   }
