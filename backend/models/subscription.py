@@ -61,13 +61,14 @@ class SubscriptionCreateRequest(BaseModel):
     plan_id: str
     phone_number: str | None = None
     callback_url: str | None = None
+    currency: str | None = None
 
 
 class SubscriptionCreateResponse(BaseModel):
     subscription_id: str
     plan_id: str
     amount: float
-    currency: str = "USD"
+    currency: str = "UGX"
     payment_reference: str
     redirect_url: str | None = None
     message: str

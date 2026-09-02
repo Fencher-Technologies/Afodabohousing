@@ -1,185 +1,252 @@
-# mypy: ignore-errors
-from __future__ import annotations
-
-from dataclasses import dataclass
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
-from html import escape
-from io import BytesIO
 from typing import Any
+from uuid import UUID
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from supabase import Client
 
-
-@dataclass(frozen=True)
-class ReceiptData:
-    payment: dict[str, Any]
-    lease: dict[str, Any]
-    tenant: dict[str, Any]
-    property: dict[str, Any]
-    manager: dict[str, Any] | None
-
-    @property
-    def receipt_number(self) -> str:
-        payment_id = str(self.payment["id"])
-        basis = self.payment.get("paid_date") or self.payment.get("created_at") or datetime.now(UTC).date().isoformat()
-        compact_date = str(basis)[:10].replace("-", "")
-        return f"AFD-{compact_date}-{payment_id[-8:].upper()}"
+logger = logging.getLogger(__name__)
 
 
-def _format_money(value: Any) -> str:
-    amount = Decimal(str(value or 0))
-    return f"{amount:,.0f}"
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()
 
 
-def _format_date(value: Any) -> str:
-    if not value:
-        return "Not recorded"
-    return str(value)[:10]
+class ReceiptService:
+    """Generates and serves payment receipts.
 
+    A receipt is an immutable snapshot of a confirmed payment, created
+    automatically when a payment is confirmed (verification approval or a
+    manager-recorded payment). Receipts are numbered per calendar year:
+    RCP-2026-0001, RCP-2026-0002, ...
+    """
 
-def _tenant_name(receipt: ReceiptData) -> str:
-    tenant = receipt.tenant
-    return f"{tenant.get('first_name', '')} {tenant.get('last_name', '')}".strip()
+    def __init__(self, supabase: Client):
+        self.supabase = supabase
+        self._table = "receipts"
 
+    # ─── Numbering ──────────────────────────────────────────────────────
 
-def _property_label(receipt: ReceiptData) -> str:
-    prop = receipt.property
-    parts = [
-        prop.get("title") or prop.get("address"),
-        prop.get("address"),
-        prop.get("city"),
-    ]
-    return ", ".join(str(part) for part in parts if part)
-
-
-def _manager_label(receipt: ReceiptData) -> str:
-    manager = receipt.manager or {}
-    prop = receipt.property
-    name = manager.get("full_name") or manager.get("email") or "Property manager"
-    email = prop.get("manager_email") or manager.get("email")
-    phone = prop.get("manager_phone") or manager.get("phone")
-    contact = " | ".join(str(part) for part in [email, phone] if part)
-    return f"{name} ({contact})" if contact else str(name)
-
-
-def build_receipt_html(receipt: ReceiptData) -> str:
-    rows = [
-        ("Receipt number", receipt.receipt_number),
-        ("Tenant", _tenant_name(receipt)),
-        ("Property", _property_label(receipt)),
-        ("Manager", _manager_label(receipt)),
-        ("Amount", _format_money(receipt.payment.get("amount"))),
-        ("Payment date", _format_date(receipt.payment.get("paid_date") or receipt.payment.get("created_at"))),
-        ("Payment method", receipt.payment.get("payment_method") or "Not recorded"),
-        ("Payment status", receipt.payment.get("status") or "Not recorded"),
-        ("Transaction ID", receipt.payment.get("transaction_id") or "Not recorded"),
-    ]
-    table_rows = "\n".join(
-        f"<tr><th>{escape(label)}</th><td>{escape(str(value))}</td></tr>" for label, value in rows
-    )
-    issued_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Receipt {escape(receipt.receipt_number)}</title>
-  <style>
-    body {{ font-family: Arial, sans-serif; margin: 40px; color: #1f2933; }}
-    header {{ border-bottom: 2px solid #0f766e; margin-bottom: 28px; padding-bottom: 16px; }}
-    h1 {{ font-size: 28px; margin: 0 0 6px; }}
-    .brand {{ color: #0f766e; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }}
-    table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
-    th, td {{ border-bottom: 1px solid #d9e2ec; padding: 12px 10px; text-align: left; }}
-    th {{ width: 34%; color: #52606d; font-weight: 700; }}
-    .amount {{ font-size: 22px; font-weight: 700; color: #0f766e; }}
-    footer {{ margin-top: 36px; color: #627d98; font-size: 12px; }}
-    @media print {{ body {{ margin: 18mm; }} }}
-  </style>
-</head>
-<body>
-  <header>
-    <div class="brand">Axis</div>
-    <h1>Rent Payment Receipt</h1>
-    <div>Issued {escape(issued_at)}</div>
-  </header>
-  <section>
-    <div class="amount">{escape(_format_money(receipt.payment.get("amount")))}</div>
-    <table>{table_rows}</table>
-  </section>
-  <footer>This receipt was generated digitally by Axis.</footer>
-</body>
-</html>"""
-
-
-def build_receipt_pdf(receipt: ReceiptData) -> bytes:
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=18 * mm,
-        leftMargin=18 * mm,
-        topMargin=18 * mm,
-        bottomMargin=18 * mm,
-        title=f"Receipt {receipt.receipt_number}",
-    )
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        "ReceiptTitle",
-        parent=styles["Title"],
-        fontName="Helvetica-Bold",
-        fontSize=24,
-        leading=30,
-        textColor=colors.HexColor("#0F766E"),
-        spaceAfter=6,
-    )
-    meta_style = ParagraphStyle(
-        "ReceiptMeta",
-        parent=styles["Normal"],
-        fontSize=10,
-        leading=14,
-        textColor=colors.HexColor("#52606D"),
-    )
-    story = [
-        Paragraph("Axis", meta_style),
-        Paragraph("Rent Payment Receipt", title_style),
-        Paragraph(f"Receipt number: {receipt.receipt_number}", meta_style),
-        Spacer(1, 10 * mm),
-    ]
-    rows = [
-        ["Tenant", _tenant_name(receipt)],
-        ["Property", _property_label(receipt)],
-        ["Manager", _manager_label(receipt)],
-        ["Amount", _format_money(receipt.payment.get("amount"))],
-        ["Payment date", _format_date(receipt.payment.get("paid_date") or receipt.payment.get("created_at"))],
-        ["Payment method", receipt.payment.get("payment_method") or "Not recorded"],
-        ["Payment status", receipt.payment.get("status") or "Not recorded"],
-        ["Transaction ID", receipt.payment.get("transaction_id") or "Not recorded"],
-    ]
-    table = Table(rows, colWidths=[42 * mm, 118 * mm], hAlign="LEFT")
-    table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F0F7F6")),
-                ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#334E68")),
-                ("TEXTCOLOR", (1, 0), (1, -1), colors.HexColor("#102A43")),
-                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-                ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
-                ("FONTSIZE", (0, 0), (-1, -1), 10),
-                ("LEADING", (0, 0), (-1, -1), 14),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#D9E2EC")),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-                ("TOPPADDING", (0, 0), (-1, -1), 8),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-            ]
+    def _next_receipt_number(self) -> str:
+        year = datetime.now(UTC).year
+        try:
+            seq = self.supabase.rpc("get_next_receipt_number").execute()
+            seq_val = seq.data if hasattr(seq, "data") else None
+            if isinstance(seq_val, int) and seq_val > 0:
+                return f"RCP-{year}-{str(seq_val).zfill(6)}"
+        except Exception as e:
+            logger.warning("get_next_receipt_number RPC failed, falling back: %s", e)
+        # Fallback: derive from the highest existing number this year.
+        # Numbers are parsed numerically (not string-sorted, which breaks
+        # past 9,999) and padded to 6 digits so string sorting keeps working
+        # up to RCP-YYYY-999999.
+        result = (
+            self.supabase.table(self._table)
+            .select("receipt_number")
+            .like("receipt_number", f"RCP-{year}-%")
+            .execute()
         )
-    )
-    story.extend([table, Spacer(1, 12 * mm), Paragraph("Generated digitally by Axis.", meta_style)])
-    doc.build(story)
-    return buffer.getvalue()
+        highest = 0
+        for row in result.data or []:
+            try:
+                highest = max(highest, int(str(row["receipt_number"]).rsplit("-", 1)[-1]))
+            except (ValueError, IndexError, KeyError):
+                continue
+        return f"RCP-{year}-{str(highest + 1).zfill(6)}"
+
+    # ─── Snapshot helpers ───────────────────────────────────────────────
+
+    def _snapshot_context(self, payment: dict[str, Any]) -> dict[str, Any]:
+        lease_id = payment.get("lease_id")
+        tenant_id = payment.get("tenant_id")
+        ctx: dict[str, Any] = {
+            "tenant_name": None,
+            "property_title": None,
+            "property_address": None,
+            "manager_name": None,
+            "unit_label": None,
+        }
+        lease = None
+        if lease_id:
+            lr = (
+                self.supabase.table("leases")
+                .select("id, property_id, owner_id, tenant_id, unit_label")
+                .eq("id", str(lease_id))
+                .execute()
+            )
+            lease = lr.data[0] if lr.data else None
+        if not tenant_id and lease:
+            tenant_id = lease.get("tenant_id")
+        if tenant_id:
+            tr = (
+                self.supabase.table("tenants")
+                .select("first_name, last_name")
+                .eq("id", str(tenant_id))
+                .execute()
+            )
+            if tr.data:
+                t = tr.data[0]
+                ctx["tenant_name"] = (
+                    f"{t.get('first_name') or ''} {t.get('last_name') or ''}".strip() or None
+                )
+        if lease:
+            ctx["unit_label"] = lease.get("unit_label")
+            if lease.get("property_id"):
+                pr = (
+                    self.supabase.table("properties")
+                    .select("title, address, city")
+                    .eq("id", str(lease["property_id"]))
+                    .execute()
+                )
+                if pr.data:
+                    p = pr.data[0]
+                    ctx["property_title"] = p.get("title")
+                    address_parts = [p.get("address"), p.get("city")]
+                    ctx["property_address"] = ", ".join(x for x in address_parts if x) or None
+            if lease.get("owner_id"):
+                mr = (
+                    self.supabase.table("profiles")
+                    .select("full_name")
+                    .eq("user_id", str(lease["owner_id"]))
+                    .execute()
+                )
+                if mr.data:
+                    ctx["manager_name"] = mr.data[0].get("full_name")
+        return ctx
+
+    # ─── Creation ───────────────────────────────────────────────────────
+
+    def create_for_payment(self, payment: dict[str, Any]) -> dict[str, Any] | None:
+        """Create a receipt for a confirmed payment. Idempotent: returns the
+        existing receipt when one already exists for the payment.
+        """
+        payment_id = payment.get("id")
+        if not payment_id:
+            return None
+        if payment.get("status") not in ("confirmed", "completed"):
+            return None
+
+        existing = (
+            self.supabase.table(self._table)
+            .select("*")
+            .eq("payment_id", str(payment_id))
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            return existing.data[0]
+
+        ctx = self._snapshot_context(payment)
+        amount = payment.get("amount")
+        try:
+            amount_value = float(Decimal(str(amount)))
+        except Exception:
+            amount_value = 0.0
+
+        payload = {
+            "receipt_number": self._next_receipt_number(),
+            "payment_id": str(payment_id),
+            "lease_id": str(payment.get("lease_id")) if payment.get("lease_id") else None,
+            "tenant_id": str(payment.get("tenant_id")) if payment.get("tenant_id") else None,
+            "tenant_name": ctx["tenant_name"],
+            "property_title": ctx["property_title"],
+            "property_address": ctx["property_address"],
+            "unit_label": ctx["unit_label"],
+            "manager_name": ctx["manager_name"],
+            "amount": amount_value,
+            "currency": payment.get("currency") or "UGX",
+            "payment_method": payment.get("payment_method") or payment.get("method"),
+            "payment_type": payment.get("payment_type") or "rent",
+            "payment_date": payment.get("paid_date") or payment.get("due_date"),
+            "transaction_reference": payment.get("transaction_id"),
+            "coverage_days": payment.get("coverage_days"),
+            "status": "active",
+        }
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                result = self.supabase.table(self._table).insert(payload).execute()
+                return result.data[0] if result.data else None
+            except Exception as e:
+                last_error = e
+                # Either a concurrent insert on the same payment won the
+                # unique race (return the winner), or two writers computed
+                # the same fallback number (recompute and retry).
+                existing = (
+                    self.supabase.table(self._table)
+                    .select("*")
+                    .eq("payment_id", str(payment_id))
+                    .limit(1)
+                    .execute()
+                )
+                if existing.data:
+                    return existing.data[0]
+                if attempt < 2:
+                    payload["receipt_number"] = self._next_receipt_number()
+        logger.error(
+            "Receipt insert failed after 3 attempts for payment %s: %s",
+            payment_id, last_error,
+        )
+        return None
+
+    # ─── Reads ───────────────────────────────────────────────
+
+    def get_by_id(self, receipt_id: UUID) -> dict[str, Any] | None:
+        result = (
+            self.supabase.table(self._table)
+            .select("*")
+            .eq("id", str(receipt_id))
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    def list_for_tenant(self, tenant_id: str, status_filter: str | None = None) -> list[dict[str, Any]]:
+        query = (
+            self.supabase.table(self._table)
+            .select("*")
+            .eq("tenant_id", tenant_id)
+            .order("created_at", desc=True)
+        )
+        if status_filter:
+            query = query.eq("status", status_filter)
+        result = query.execute()
+        return result.data or []
+
+    def list_for_owner(self, owner_id: str, status_filter: str | None = None) -> list[dict[str, Any]]:
+        leases = (
+            self.supabase.table("leases")
+            .select("id")
+            .eq("owner_id", owner_id)
+            .execute()
+        )
+        lease_ids = [l["id"] for l in (leases.data or [])]
+        if not lease_ids:
+            return []
+        query = (
+            self.supabase.table(self._table)
+            .select("*")
+            .in_("lease_id", lease_ids)
+            .order("created_at", desc=True)
+        )
+        if status_filter:
+            query = query.eq("status", status_filter)
+        result = query.execute()
+        return result.data or []
+
+    # ─── Void ─────────────────────────────────────────────────
+
+    def void(self, receipt_id: UUID, actor_user_id: str) -> dict[str, Any]:
+        now = _now_iso()
+        result = (
+            self.supabase.table(self._table)
+            .update({"status": "voided", "voided_at": now, "voided_by": str(actor_user_id)})
+            .eq("id", str(receipt_id))
+            .eq("status", "active")
+            .execute()
+        )
+        return result.data[0] if result.data else {}
+
+
+def get_receipt_service(supabase: Client) -> ReceiptService:
+    return ReceiptService(supabase)

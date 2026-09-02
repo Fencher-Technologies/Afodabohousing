@@ -8,6 +8,7 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { isMobileDevice } from '@/lib/utils';
 import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell, Star, TrendingUp, Smartphone, Download, Globe } from 'lucide-react';
@@ -195,33 +196,28 @@ export default function HomePage() {
             Search verified rentals worldwide. Connect with trusted house managers, sign digital agreements and manage rent elegantly.
           </p>
 
-          {/* Search bar */}
+          {/* Search bar — searchable dropdowns */}
           <div className="bg-card rounded-2xl shadow-2xl p-3 flex flex-col sm:flex-row gap-2 max-w-3xl mx-auto">
-            <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-              <SelectTrigger className="w-full sm:w-36 border-0 border-b sm:border-b-0 sm:border-r border-border rounded-none sm:rounded-none bg-transparent h-12">
-                <div className="flex items-center gap-1.5">
-                  <Globe className="h-4 w-4 text-accent shrink-0" />
-                  <SelectValue placeholder="Country" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                {countries.map(c => (
-                  <SelectItem key={c.iso2} value={c.iso2}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="w-full sm:w-40">
+              <SearchableSelect
+                options={countries.map(c => ({ value: c.iso2, label: c.name }))}
+                value={selectedCountry}
+                onValueChange={setSelectedCountry}
+                placeholder="Country"
+                emptyText="No country matches."
+              />
+            </div>
 
-            <Select value={selectedRegion} onValueChange={setSelectedRegion} disabled={loadingRegions || regions.length === 0}>
-              <SelectTrigger className="w-full sm:w-40 border-0 border-b sm:border-b-0 sm:border-r border-border rounded-none sm:rounded-none bg-transparent h-12">
-                <SelectValue placeholder={loadingRegions ? 'Loading…' : regionLabel} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">All {regionLabel}s</SelectItem>
-                {regions.map(r => (
-                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="w-full sm:w-48">
+              <SearchableSelect
+                options={[{ value: "__all__", label: `All ${regionLabel}s` }, ...regions.map(r => ({ value: r.id, label: r.name }))]}
+                value={selectedRegion}
+                onValueChange={setSelectedRegion}
+                placeholder={loadingRegions ? 'Loading…' : regionLabel}
+                emptyText="No district matches."
+                disabled={loadingRegions || regions.length === 0}
+              />
+            </div>
 
             <div className="flex-1 flex items-center gap-3 px-4">
               <MapPin className="h-5 w-5 text-accent shrink-0" />
@@ -254,13 +250,13 @@ export default function HomePage() {
             </Button>
           </div>
 
-          {/* Popular locations — driven by live listing counts across all countries */}
+          {/* Popular locations — up to 10 commonly searched districts */}
           <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {popularLocations.map(d => (
+            {popularLocations.slice(0, 10).map(d => (
               <button
                 key={d}
                 onClick={() => handleChipClick(d)}
-                className="text-xs text-primary-foreground/70 hover:text-primary-foreground bg-primary-foreground/10 hover:bg-primary-foreground/20 px-3 py-1.5 rounded-full transition-all"
+                className="text-xs bg-accent text-accent-foreground hover:bg-accent/90 px-3 py-1.5 rounded-full transition-all font-medium"
               >
                 {d}
               </button>

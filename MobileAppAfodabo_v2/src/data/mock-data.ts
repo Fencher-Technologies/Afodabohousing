@@ -253,6 +253,7 @@ export const mockTenancies: Tenancy[] = [
     agreement_status: "consented",
     agreement_document: "agreement_ten_001.pdf",
     health: "warn",
+    money_position_known: true,
   },
   {
     id: "ten-002",
@@ -277,6 +278,7 @@ export const mockTenancies: Tenancy[] = [
     agreement_status: "consented",
     agreement_document: "agreement_ten_002.pdf",
     health: "good",
+    money_position_known: true,
   },
   {
     id: "ten-003",
@@ -301,6 +303,7 @@ export const mockTenancies: Tenancy[] = [
     agreement_status: "consented",
     agreement_document: "agreement_ten_003.pdf",
     health: "bad",
+    money_position_known: true,
   },
   {
     id: "ten-004",
@@ -325,6 +328,7 @@ export const mockTenancies: Tenancy[] = [
     agreement_status: "consented",
     agreement_document: "agreement_ten_004.pdf",
     health: "good",
+    money_position_known: true,
   },
   {
     id: "ten-005",
@@ -349,6 +353,7 @@ export const mockTenancies: Tenancy[] = [
     agreement_status: "pending",
     agreement_document: null,
     health: "bad",
+    money_position_known: true,
   },
   {
     id: "ten-006",
@@ -373,6 +378,7 @@ export const mockTenancies: Tenancy[] = [
     agreement_status: "consented",
     agreement_document: "agreement_ten_006.pdf",
     health: "warn",
+    money_position_known: true,
   },
 ];
 

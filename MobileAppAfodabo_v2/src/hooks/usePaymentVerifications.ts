@@ -35,6 +35,9 @@ export function useApproveVerification() {
       qc.invalidateQueries({ queryKey: ["payments"] });
       qc.invalidateQueries({ queryKey: ["tenancies"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      // A receipt is issued on approval; without this the tenant waits out
+      // the receipts staleTime before seeing it.
+      qc.invalidateQueries({ queryKey: ["receipts"] });
     },
   });
 }

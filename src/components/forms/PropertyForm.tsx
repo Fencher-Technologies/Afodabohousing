@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ArrowLeft, Save, Home, MapPin, DollarSign, Image, Upload, X, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -115,7 +116,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
   }, []);
 
   const handleCountryChange = (iso: string) => {
-    const currency = CURRENCY_MAP[iso] || 'USD';
+    const currency = CURRENCY_MAP[iso] || 'UGX';
     setForm(f => ({ ...f, country: iso, region_id: '', rent_currency: currency }));
     setDeprecatedWarning('');
   };
@@ -236,21 +237,29 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
 
         <div>
           <p className="text-sm font-semibold mb-2">Country</p>
-          <select value={form.country} onChange={e => handleCountryChange(e.target.value)}
-            className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm" required>
-            <option value="">Select country...</option>
-            {countries.map(c => <option key={c.iso2} value={c.iso2}>{c.name}</option>)}
-          </select>
+          <SearchableSelect
+            options={countries.map(c => ({ value: c.iso2, label: c.name }))}
+            value={form.country}
+            onValueChange={v => handleCountryChange(v)}
+            placeholder="Select country..."
+            emptyText="No country matches."
+            disabled={countries.length === 0}
+          />
         </div>
 
         <div>
           <p className="text-sm font-semibold mb-2">{regionLabel}</p>
-          <select value={form.region_id} onChange={e => setForm(f => ({ ...f, region_id: e.target.value }))}
-            className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm" required
-            disabled={!form.country || loadingRegions}>
-            <option value="">{loadingRegions ? 'Loading...' : `Select ${regionLabel.toLowerCase()}...`}</option>
-            {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
+          <SearchableSelect
+            options={regions.map(r => ({ value: r.id, label: r.name }))}
+            value={form.region_id}
+            onValueChange={v => {
+              const reg = regions.find(r => r.id === v)
+              setForm(f => ({ ...f, region_id: v, state: reg ? reg.name : f.state }))
+            }}
+            placeholder={loadingRegions ? 'Loading...' : `Select ${regionLabel.toLowerCase()}...`}
+            emptyText={loadingRegions ? 'Loading...' : `No ${regionLabel.toLowerCase()} matches.`}
+            disabled={!form.country || loadingRegions}
+          />
           {deprecatedWarning && (
             <p className="text-xs text-amber-500 mt-1 flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" /> {deprecatedWarning}
@@ -284,8 +293,11 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
           {(['bedrooms', 'sitting_rooms', 'bathrooms'] as const).map(field => (
             <div key={field}>
               <p className="text-sm font-semibold mb-2 capitalize">{field.replace('_', ' ')}</p>
-              <Input type="number" min={0} value={form[field]} onChange={e => setForm(f2 => ({ ...f2, [field]: Number(e.target.value) }))}
-                className="rounded-lg h-11" />
+              <Input type="number" min={1} value={form[field]} onChange={e => {
+                const v = e.target.value === '' ? 1 : Math.max(1, Number(e.target.value) || 1)
+                setForm(f2 => ({ ...f2, [field]: v }))
+              }}
+                className="rounded-lg h-11" required />
             </div>
           ))}
         </div>
@@ -294,7 +306,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-5">
         <h2 className="font-bold text-sm flex items-center gap-2"><DollarSign className="h-4 w-4 text-primary" /> Pricing</h2>
         <div>
-          <p className="text-sm font-semibold mb-2">Rent Amount ({form.rent_currency || 'UGX'})</p>
+          <p className="text-sm font-semibold mb-2">Rent Amount (UGX)</p>
           <Input type="number" min={0} value={form.monthly_rent || ''} onChange={e => setForm(f => ({ ...f, monthly_rent: Number(e.target.value) }))}
             required placeholder="e.g. 500000" className="rounded-lg h-11" />
         </div>

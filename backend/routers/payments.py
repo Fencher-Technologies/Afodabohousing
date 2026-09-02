@@ -136,6 +136,25 @@ def _enrich_payments(supabase: Client, payments: list[dict]) -> list[dict]:
     return payments
 
 
+
+
+def _maybe_issue_receipt(payment: dict) -> None:
+    """Auto-issue a receipt when a rent payment is confirmed.
+
+    Runs for both verification approvals (handled in the verification
+    service) and payments the manager records directly without any tenant
+    proof. Receipt creation is idempotent per payment, so calling it in
+    several places is safe. Failures never block the payment response.
+    """
+    if not payment or payment.get("status") not in ("confirmed", "completed"):
+        return
+    try:
+        from services.receipts import ReceiptService
+
+        ReceiptService(get_service_client()).create_for_payment(payment)
+    except Exception as e:
+        logger.warning("Receipt generation failed for payment %s: %s", payment.get("id"), e)
+
 @router.get("", response_model=PaginatedResponse)
 def list_payments(
     skip: int = Query(0, ge=0),
@@ -266,6 +285,7 @@ def create_payment(
             payment = service.create(PaymentCreate(**payload))
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
+    _maybe_issue_receipt(payment)
     return PaymentResponse(**_enrich_payments(supabase, [payment])[0])
 
 
@@ -301,6 +321,9 @@ def update_payment(
         if not lease.data or str(lease.data[0]["owner_id"]) != str(current_user.id):
             raise HTTPException(status_code=403, detail="Access denied")
     result = service.update(payment_id, data)
+
+    if data.status in ("confirmed", "completed"):
+        _maybe_issue_receipt(result)
 
     if data.status in ("confirmed", "rejected"):
         lease = (
@@ -517,9 +540,10 @@ async def _reconcile_pesapal_order(supabase, row: dict, kind: str) -> bool:
 
     table = "manager_subscriptions" if kind == "subscription" else "property_boosts"
     payload = {"status": status}
+    if kind == "subscription" and status == "failed":
+        payload["payment_status"] = "failed"
     if status == "completed":
         payload["payment_status"] = "completed"
-        payload["transaction_id"] = tracking_id
         if kind == "boost":
             from services.boost import get_boost_service
             activated = get_boost_service(supabase).activate_by_reference(

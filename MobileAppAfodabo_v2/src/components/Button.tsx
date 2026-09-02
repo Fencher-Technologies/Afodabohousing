@@ -23,6 +23,7 @@ interface ButtonProps {
   fullWidth?: boolean;
   flex?: boolean;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 const sizeConfig: Record<ButtonSize, { height: number; fontSize: number; px: number }> = {
@@ -44,6 +45,7 @@ export function Button({
   fullWidth = false,
   flex = false,
   accessibilityLabel,
+  accessibilityHint,
 }: ButtonProps) {
   const cfg = sizeConfig[size];
   const isDisabled = disabled || loading;
@@ -75,6 +77,7 @@ export function Button({
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: isDisabled }}
       style={({ pressed }) => [
         styles.base,

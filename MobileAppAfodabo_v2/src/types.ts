@@ -15,7 +15,7 @@ export interface User {
   avatar_url?: string;
 }
 
-export type PropertyType = "apartment" | "house" | "studio" | "shop" | "single_room";
+export type PropertyType = string;
 export type PropertyStatus = "active" | "inactive";
 export type RentPeriod = "monthly" | "quarterly" | "annually";
 export type Amenity =
@@ -40,7 +40,9 @@ export interface BackendProperty {
   state: string;
   zip_code: string;
   country: string | null;
+  region_id: string | null;
   property_type: string;
+  property_type_slug?: string | null;
   bedrooms: number;
   bathrooms: number;
   square_feet: number | null;
@@ -96,6 +98,8 @@ export interface Property {
   status: PropertyStatus;
   lat?: number;
   lng?: number;
+  country?: string | null;
+  region_id?: string | null;
   manager_email?: string;
   manager_phone?: string;
   square_feet?: number;
@@ -158,6 +162,10 @@ export interface Tenancy {
   rent_days_remaining: number | null;
   rent_days_in_arrears: number | null;
   next_payment_due_date: string | null;
+  // False when the server returned no money-position fields at all (null
+  // arrears/balance flattened to 0 below). Consumers should treat the
+  // arrears display as unknown rather than "0.00 owed" in that case.
+  money_position_known: boolean;
 }
 
 // ─── Agreement Types ────────────────────────────────────────────────────
@@ -434,6 +442,10 @@ export interface TenantReportItem {
   balance_due: number;
   tenant_credit: number;
   lease_id: string;
+  // False when the lease has no rent_effective_date anchor, so the server
+  // could not compute a money position. The numeric fields above are 0 in that
+  // case, which must not be shown as "nothing owed".
+  money_position_known: boolean;
 }
 
 export interface TenantReportResponse {
@@ -522,6 +534,8 @@ export interface FinancialSummary {
   expired_tenancies: number;
   terminated_tenancies: number;
   occupancy_rate: number;
+  overdue_tenancies?: number;
+  collected_this_month?: number;
 }
 
 export interface DuePaymentItem {

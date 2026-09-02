@@ -17,6 +17,7 @@ class Property(BaseModel):
     country: str | None = None
     region_id: UUID | None = None  # FK to regions table (GeoNames-sourced)
     property_type: str
+    property_type_slug: str | None = None
     bedrooms: int
     bathrooms: float
     square_feet: int | None = None
@@ -43,6 +44,7 @@ class PropertyCreate(BaseModel):
     zip_code: str | None = None
     country: str | None = None
     property_type: str
+    property_type_slug: str | None = None
     bedrooms: int = 1
     bathrooms: float = 1.0
     square_feet: int | None = None
@@ -69,6 +71,7 @@ class PropertyUpdate(BaseModel):
     country: str | None = None
     region_id: UUID | None = None
     property_type: str | None = None
+    property_type_slug: str | None = None
     bedrooms: int | None = None
     bathrooms: float | None = None
     square_feet: int | None = None
@@ -97,6 +100,7 @@ class PropertyResponse(BaseModel):
     country: str | None = None
     region_id: UUID | None = None
     property_type: str
+    property_type_slug: str | None = None
     bedrooms: int
     bathrooms: float
     square_feet: int | None = None

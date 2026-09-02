@@ -15,6 +15,8 @@ from .payment_verifications import router as payment_verifications_router
 from .payments import router as payments_router
 from .phone_auth import router as phone_auth_router
 from .properties import router as properties_router
+from .property_types_router import router as property_types_router
+from .receipts import router as receipts_router
 from .rental_units import router as rental_units_router
 from .reports import router as reports_router
 from .saved_phones import router as saved_phones_router
@@ -42,6 +44,8 @@ __all__ = [
     "payments_router",
     "phone_auth_router",
     "properties_router",
+    "receipts_router",
+    "property_types_router",
     "rental_units_router",
     "reports_router",
     "saved_phones_router",

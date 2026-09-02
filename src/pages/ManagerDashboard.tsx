@@ -91,7 +91,7 @@ export default function ManagerDashboard() {
   const [tenancySource, setTenancySource] = useState<'tenancies' | 'leases'>('tenancies');
 
   const [unitForm, setUnitForm] = useState({
-    unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 0,
+    unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 1,
     kitchens: 1, rent_amount: 0, description: '',
   });
 
@@ -270,7 +270,7 @@ export default function ManagerDashboard() {
     if (error) { toast({ title: 'Error adding unit', description: cleanDbError(error), variant: 'destructive' }); return; }
     toast({ title: 'Unit added!', description: `Unit ${unitForm.unit_number} is now listed.` });
     setUnitDialogOpen(false);
-    setUnitForm({ unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 0, kitchens: 1, rent_amount: 0, description: '' });
+    setUnitForm({ unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 1, kitchens: 1, rent_amount: 0, description: '' });
     setSelectedPropertyForUnit('');
   };
 
@@ -695,7 +695,7 @@ export default function ManagerDashboard() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-foreground truncate">{p.title}</p>
-                              <p className="text-xs text-muted-foreground">{p.state || p.city} · {(p.rent_amount || 0).toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">{p.state || (p as any).district || p.city || '—'} · UGX {(p.rent_amount || 0).toLocaleString()}</p>
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize shrink-0 ${statusBadge(p.status)}`}>{p.status}</span>
                             {p.is_boosted && (
@@ -811,9 +811,9 @@ export default function ManagerDashboard() {
                                   </div>
                                 </div>
                               </td>
-                              <td className="py-3.5 px-4 text-muted-foreground">{p.state || p.city}{p.area ? ` · ${p.area}` : ''}</td>
+                              <td className="py-3.5 px-4 text-muted-foreground">{p.state || (p as any).district || p.city || '—'}{p.area ? ` · ${p.area}` : ''}</td>
                               <td className="py-3.5 px-4">
-                                  <span className="font-bold text-foreground">{(p.rent_amount || 0).toLocaleString()}</span>
+                                  <span className="font-bold text-foreground">UGX {(p.rent_amount || 0).toLocaleString()}</span>
                                 <span className="text-xs text-muted-foreground ml-1 capitalize">/{p.rent_period.slice(0, 2)}</span>
                               </td>
                               <td className="py-3.5 px-4">
@@ -903,7 +903,7 @@ export default function ManagerDashboard() {
                                 <span className="text-sm text-foreground">{t.property_title || '-'}</span>
                               </td>
                               <td className="py-3.5 px-4">
-                                <span className="font-bold text-foreground">{(t.monthly_rent || 0).toLocaleString()}</span>
+                                <span className="font-bold text-foreground">UGX {(t.monthly_rent || 0).toLocaleString()}</span>
                               </td>
                               <td className="py-3.5 px-4">
                                 <div className="text-sm text-foreground">{format(new Date(t.end_date), 'MMM dd, yyyy')}</div>
@@ -1030,7 +1030,7 @@ export default function ManagerDashboard() {
                                 <span className="font-semibold text-foreground">{p.tenant_name || 'Unknown'}</span>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 font-bold text-foreground">{(p.amount || 0).toLocaleString()}</td>
+                            <td className="py-3.5 px-4 font-bold text-foreground">UGX {(p.amount || 0).toLocaleString()}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{p.period_start} – {p.period_end}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs max-w-[160px] truncate">{p.notes || '—'}</td>
@@ -1230,10 +1230,10 @@ export default function ManagerDashboard() {
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Unit Number / Name</Label><Input value={unitForm.unit_number} onChange={e => setUnitForm(f => ({ ...f, unit_number: e.target.value }))} placeholder="e.g. A1, 2B, Room 5" required className="mt-1" /></div>
               <div><Label>Floor Level</Label><Input value={unitForm.floor_level} onChange={e => setUnitForm(f => ({ ...f, floor_level: e.target.value }))} placeholder="e.g. Ground, 1st" className="mt-1" /></div>
-              <div><Label>Bedrooms</Label><Input type="number" min={0} value={unitForm.bedrooms} onChange={e => setUnitForm(f => ({ ...f, bedrooms: Number(e.target.value) }))} className="mt-1" /></div>
-              <div><Label>Bathrooms</Label><Input type="number" min={0} value={unitForm.bathrooms} onChange={e => setUnitForm(f => ({ ...f, bathrooms: Number(e.target.value) }))} className="mt-1" /></div>
-              <div><Label>Sitting Rooms</Label><Input type="number" min={0} value={unitForm.sitting_rooms} onChange={e => setUnitForm(f => ({ ...f, sitting_rooms: Number(e.target.value) }))} className="mt-1" /></div>
-              <div><Label>Kitchens</Label><Input type="number" min={0} value={unitForm.kitchens} onChange={e => setUnitForm(f => ({ ...f, kitchens: Number(e.target.value) }))} className="mt-1" /></div>
+              <div><Label>Bedrooms</Label><Input type="number" min={1} value={unitForm.bedrooms} onChange={e => setUnitForm(f => ({ ...f, bedrooms: Math.max(1, Number(e.target.value) || 1) }))} required className="mt-1" /></div>
+              <div><Label>Bathrooms</Label><Input type="number" min={1} value={unitForm.bathrooms} onChange={e => setUnitForm(f => ({ ...f, bathrooms: Math.max(1, Number(e.target.value) || 1) }))} required className="mt-1" /></div>
+              <div><Label>Sitting Rooms</Label><Input type="number" min={1} value={unitForm.sitting_rooms} onChange={e => setUnitForm(f => ({ ...f, sitting_rooms: Math.max(1, Number(e.target.value) || 1) }))} required className="mt-1" /></div>
+              <div><Label>Kitchens</Label><Input type="number" min={1} value={unitForm.kitchens} onChange={e => setUnitForm(f => ({ ...f, kitchens: Math.max(1, Number(e.target.value) || 1) }))} className="mt-1" /></div>
               <div className="col-span-2"><Label>Rent Amount</Label><Input type="number" min={0} value={unitForm.rent_amount || ''} onChange={e => setUnitForm(f => ({ ...f, rent_amount: Number(e.target.value) }))} required placeholder="e.g. 450000" className="mt-1" /></div>
             </div>
             <div><Label>Notes</Label><Textarea value={unitForm.description} onChange={e => setUnitForm(f => ({ ...f, description: e.target.value }))} rows={2} className="mt-1" placeholder="Any specific details about this unit..." /></div>

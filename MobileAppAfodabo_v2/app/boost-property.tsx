@@ -224,6 +224,7 @@ export default function BoostPropertyScreen() {
             ref={webViewRef}
             source={{ uri: paymentUrl }}
             style={styles.webView}
+            originWhitelist={["https://*"]}
             onNavigationStateChange={handleNavigationStateChange}
             startInLoadingState={true}
             renderLoading={() => (

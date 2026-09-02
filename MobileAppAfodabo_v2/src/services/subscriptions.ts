@@ -43,9 +43,10 @@ export const subscriptionsService = {
   getCurrent: () =>
     api.get<ManagerSubscriptionResponse | null>("/subscriptions/current"),
 
-  create: (plan_id: string, callback_url?: string) =>
+  create: (plan_id: string, callback_url?: string, currency: string = "UGX") =>
     api.post<SubscriptionCreateResponse>("/subscriptions/create", {
       plan_id,
       callback_url,
+      currency,
     }),
 };

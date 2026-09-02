@@ -19,6 +19,7 @@ export default function ManagerSubscription() {
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<Step>('plans');
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [currency, setCurrency] = useState<'UGX' | 'USD'>('UGX');
   const [activating, setActivating] = useState(false);
   const calledRef = useRef(false);
 
@@ -57,7 +58,7 @@ export default function ManagerSubscription() {
     if (!selectedPlan) return;
     setActivating(true);
     try {
-      const result = await createSubscription(selectedPlan.id, undefined, window.location.origin);
+      const result = await createSubscription(selectedPlan.id, undefined, window.location.origin, currency);
       if (result.redirect_url) doRedirect(result.redirect_url);
     } catch (err: any) {
       toast({ title: 'Payment failed', description: err.message || 'Could not initiate payment', variant: 'destructive' });
@@ -151,6 +152,12 @@ export default function ManagerSubscription() {
               </div>
             )}
 
+            <div className="flex gap-2 justify-center">
+              <button onClick={() => setCurrency('UGX')} className={`flex-1 py-2.5 rounded-xl font-bold text-sm border-2 transition-colors ${currency === 'UGX' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}>UGX — Mobile Money</button>
+              <button onClick={() => setCurrency('USD')} className={`flex-1 py-2.5 rounded-xl font-bold text-sm border-2 transition-colors ${currency === 'USD' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}>USD — Card (Virtual)</button>
+            </div>
+            <p className="text-xs text-center text-muted-foreground">Default is UGX. Pesapal accepts both — UGX for mobile money, USD for international/virtual cards.</p>
+
             {plans.filter(p => p.is_active).length === 0 ? (
               <div className="text-center py-16 bg-card border border-border rounded-xl">
                 <Crown className="h-16 w-16 text-muted-foreground/20 mx-auto mb-4" />
@@ -186,8 +193,7 @@ export default function ManagerSubscription() {
                         <h3 className="font-bold text-lg">{plan.name}</h3>
                         {isCurrent && <Badge variant="outline" className="text-xs">Current</Badge>}
                       </div>
-                      <p className="text-3xl font-bold text-primary">${plan.price_usd}</p>
-                      <p className="text-sm text-muted-foreground">{plan.price_ugx.toLocaleString()} / {plan.duration_days} days</p>
+                      <p className="text-3xl font-bold text-primary">UGX {plan.price_ugx.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">/ {plan.duration_days} days</span></p>
                       {plan.benefits.length > 0 && (
                         <div className="mt-4 space-y-2">
                           {plan.benefits.map((b, i) => (
@@ -207,7 +213,7 @@ export default function ManagerSubscription() {
             {selectedPlan && (
               <Button onClick={handlePay} disabled={activating} className="w-full h-12 rounded-xl font-bold text-base gap-2 bg-gold hover:bg-gold/90 text-gold-foreground">
                 {activating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Crown className="h-5 w-5" />}
-                {activating ? 'Redirecting...' : `Pay using Pesapal — ${selectedPlan.price_ugx.toLocaleString()}`}
+                {activating ? 'Redirecting...' : `Pay UGX ${selectedPlan.price_ugx.toLocaleString()} via Pesapal`}
               </Button>
             )}
 

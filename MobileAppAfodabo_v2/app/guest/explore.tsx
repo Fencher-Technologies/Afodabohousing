@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, View, Pressable, FlatList, ScrollView } from "react-native";
+import { StyleSheet, Text, View, Pressable, FlatList } from "react-native";
 import { router } from "expo-router";
 import { Compass, MapPin, SlidersHorizontal, RotateCcw } from "lucide-react-native";
 
@@ -15,23 +15,9 @@ import { InputField } from "@/src/components/InputField";
 import { Button } from "@/src/components/Button";
 import { usePublicProperties } from "@/src/hooks/useProperties";
 import { useRefresh } from "@/src/hooks/useRefresh";
-import type { Amenity, Property, PropertyType } from "@/src/types";
-
-const POPULAR_DISTRICTS = ["Kampala", "Wakiso", "Mukono", "Entebbe", "Jinja", "Mbarara"];
-
-const DISTRICT_OPTIONS = [
-  { label: "All Districts", value: "" },
-  ...POPULAR_DISTRICTS.map((d) => ({ label: d, value: d })),
-];
-
-const PROPERTY_TYPE_OPTIONS: { label: string; value: PropertyType | "" }[] = [
-  { label: "All Types", value: "" },
-  { label: "Apartment", value: "apartment" },
-  { label: "House", value: "house" },
-  { label: "Studio", value: "studio" },
-  { label: "Single Room", value: "single_room" },
-  { label: "Shop / Office", value: "shop" },
-];
+import { useCountries, useRegions } from "@/src/hooks/useGeoLocation";
+import { usePropertyCategories } from "@/src/hooks/usePropertyTypes";
+import type { Amenity, Property } from "@/src/types";
 
 const BEDROOM_OPTIONS = [
   { label: "Any", value: "" },
@@ -63,8 +49,9 @@ const AMENITIES: Amenity[] = [
 
 export default function ExploreScreen() {
   const [query, setQuery] = useState("");
+  const [country, setCountry] = useState("");
   const [district, setDistrict] = useState("");
-  const [propertyType, setPropertyType] = useState<PropertyType | "">("");
+  const [category, setCategory] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [bedrooms, setBedrooms] = useState("");
@@ -72,15 +59,47 @@ export default function ExploreScreen() {
   const [selectedAmenities, setSelectedAmenities] = useState<Amenity[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Backend-supported filters go to the API; the rest are applied client-side.
+  const { data: countries = [] } = useCountries();
+  const { data: regions = [] } = useRegions(country);
+  const { data: categories = [] } = usePropertyCategories();
+
+  const categoryOptions = useMemo(() => [
+    { label: "All Categories", value: "" },
+    ...categories.map((c) => ({ label: c.label, value: c.slug })),
+  ], [categories]);
+
+  const countryOptions = useMemo(() => [
+    { label: "All Countries", value: "" },
+    ...countries.map((c) => ({ label: c.name, value: c.iso2 })),
+  ], [countries]);
+
+  const uniqueRegions = useMemo(() => {
+    const seen = new Set<string>();
+    return regions.filter((r) => {
+      if (seen.has(r.name)) return false;
+      seen.add(r.name);
+      return true;
+    });
+  }, [regions]);
+
+  const districtOptions = useMemo(() => [
+    { label: "All Districts", value: "" },
+    ...uniqueRegions.map((r) => ({ label: r.name, value: r.name })),
+  ], [uniqueRegions]);
+
+  const handleCountryChange = (iso: string) => {
+    setCountry(iso);
+    setDistrict("");
+  };
+
   const apiParams = useMemo(
     () => ({
       state: district || undefined,
-      property_type: propertyType || undefined,
+      property_type: category ? (category === "commercial" ? "Office Space" : "Residential") : undefined,
       min_price: minPrice ? Number(minPrice) : undefined,
       max_price: maxPrice ? Number(maxPrice) : undefined,
     }),
-    [district, propertyType, minPrice, maxPrice],
+    [district, category, minPrice, maxPrice],
   );
 
   const { data, isLoading, error, refetch } = usePublicProperties(apiParams);
@@ -112,11 +131,12 @@ export default function ExploreScreen() {
   }, [properties, query, bedrooms, bathrooms, selectedAmenities]);
 
   const hasActiveFilters =
-    !!district || !!propertyType || !!minPrice || !!maxPrice || !!bedrooms || !!bathrooms || selectedAmenities.length > 0;
+    !!country || !!district || !!category || !!minPrice || !!maxPrice || !!bedrooms || !!bathrooms || selectedAmenities.length > 0;
 
   const resetFilters = () => {
+    setCountry("");
     setDistrict("");
-    setPropertyType("");
+    setCategory("");
     setMinPrice("");
     setMaxPrice("");
     setBedrooms("");
@@ -138,11 +158,11 @@ export default function ExploreScreen() {
       <View style={styles.hero}>
         <View style={styles.heroBadge}>
           <Compass size={14} color={Colors.accent} />
-          <Text style={styles.heroBadgeText}>Global Rental Marketplace</Text>
+          <Text style={styles.heroBadgeText}>GLOBAL RENTAL MARKETPLACE</Text>
         </View>
         <Text style={styles.heroTitle}>Find Your Perfect Home</Text>
         <Text style={styles.heroSubtitle}>
-          Browse verified rental properties worldwide
+          Browse verified rental properties in your preferred location.
         </Text>
       </View>
 
@@ -154,31 +174,29 @@ export default function ExploreScreen() {
         />
       </View>
 
-      {/* Popular districts */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Popular Districts</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chips}
-        >
-          {POPULAR_DISTRICTS.map((d) => {
-            const active = district === d;
-            return (
-              <Pressable
-                key={d}
-                onPress={() => setDistrict(active ? "" : d)}
-                style={[styles.chip, active && styles.chipActive]}
-                accessibilityRole="button"
-                accessibilityLabel={`Filter by ${d}`}
-              >
-                <MapPin size={13} color={active ? Colors.textOnPrimary : Colors.textMuted} />
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{d}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+      {/* District chips — all unique regions for selected country */}
+      {country ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Districts</Text>
+          <View style={styles.districtChips}>
+            {uniqueRegions.map((r) => {
+              const active = district === r.name;
+              return (
+                <Pressable
+                  key={r.id}
+                  onPress={() => setDistrict(active ? "" : r.name)}
+                  style={[styles.chip, active && styles.chipActive]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Filter by ${r.name}`}
+                >
+                  <MapPin size={13} color={active ? Colors.textOnPrimary : Colors.textMuted} />
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{r.name}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
 
       {/* Filter toggle */}
       <Pressable
@@ -210,25 +228,34 @@ export default function ExploreScreen() {
           <View style={styles.filterRow}>
             <View style={styles.filterCol}>
               <SelectField
-                label="District"
-                value={district}
-                options={DISTRICT_OPTIONS}
-                onSelect={setDistrict}
-                placeholder="All districts"
+                label="Country"
+                value={country}
+                options={countryOptions}
+                onSelect={handleCountryChange}
+                placeholder="All Countries"
               />
             </View>
             <View style={styles.filterCol}>
               <SelectField
-                label="Property Type"
-                value={propertyType}
-                options={PROPERTY_TYPE_OPTIONS}
-                onSelect={(v) => setPropertyType(v as PropertyType | "")}
-                placeholder="All types"
+                label="District"
+                value={district}
+                options={districtOptions}
+                onSelect={setDistrict}
+                placeholder="All Districts"
               />
             </View>
           </View>
 
           <View style={styles.filterRow}>
+            <View style={styles.filterCol}>
+              <SelectField
+                label="Category"
+                value={category}
+                options={categoryOptions}
+                onSelect={(v) => setCategory(v)}
+                placeholder="All Categories"
+              />
+            </View>
             <View style={styles.filterCol}>
               <InputField
                 label="Min Price (UGX)"
@@ -238,6 +265,9 @@ export default function ExploreScreen() {
                 keyboardType="numeric"
               />
             </View>
+          </View>
+
+          <View style={styles.filterRow}>
             <View style={styles.filterCol}>
               <InputField
                 label="Max Price (UGX)"
@@ -247,9 +277,6 @@ export default function ExploreScreen() {
                 keyboardType="numeric"
               />
             </View>
-          </View>
-
-          <View style={styles.filterRow}>
             <View style={styles.filterCol}>
               <SelectField
                 label="Min Bedrooms"
@@ -259,6 +286,9 @@ export default function ExploreScreen() {
                 placeholder="Any"
               />
             </View>
+          </View>
+
+          <View style={styles.filterRow}>
             <View style={styles.filterCol}>
               <SelectField
                 label="Min Bathrooms"
@@ -268,6 +298,7 @@ export default function ExploreScreen() {
                 placeholder="Any"
               />
             </View>
+            <View style={styles.filterCol} />
           </View>
 
           <Text style={styles.filterSectionLabel}>Amenities</Text>
@@ -385,7 +416,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
     paddingHorizontal: Spacing.xs,
   },
-  chips: {
+  districtChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.sm,
     paddingHorizontal: Spacing.xs,
   },

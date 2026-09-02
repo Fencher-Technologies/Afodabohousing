@@ -7,28 +7,68 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+vendor
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.ruff_cache
+backend/.venv
+backend/.coverage
+coverage
+.nyc_output
+test-results
+
+# Build output
 dist
 dist-ssr
-*.local
+build
+.next
+out
+.cache
+*.tmp
+*.temp
+*.cache
+*.swp
+*.bak
+*_old.*
+*_backup.*
+*_copy.*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.iml
+.project
 
+# Secrets
 .env
+.env.local
 backend/.env
-backend/**/__pycache__
-__pycache__/
+*.pem
+*.key
+*.cert
+credentials.json
+serviceAccountKey.json
+
+# Docs - large binaries not needed in repo
 docs/Integration_Guide.docx
 Afodabo_Housing_Backend_Documentation.docx
+AXIS-2.pdf
+*.pdf
 
 mobile/.expo/
 mobile/android/
@@ -37,5 +77,4 @@ afodabo-housing-mobile/.expo/
 afodabo-housing-mobile/android/
 afodabo-housing-mobile/ios/
 .opencode
-.gitignore
 backend/.coverage

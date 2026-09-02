@@ -1,4 +1,5 @@
 import logging
+import time as _time
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -31,6 +32,12 @@ _MOBILE_TO_ENUM = {
     "studio": "Residential",
     "single_room": "Residential",
     "shop": "Office Space",
+}
+
+
+_CATEGORY_TO_ENUM = {
+    "residential": "Residential",
+    "commercial": "Office Space",
 }
 
 
@@ -82,6 +89,20 @@ def _normalize_property(p: dict[str, Any]) -> dict[str, Any]:
     return p
 
 
+_REGION_IDS_CACHE: dict[str, tuple[float, list[str]]] = {}
+
+
+def _cached_region_ids(country: str, supabase: Client) -> list[str]:
+    now = _time.monotonic()
+    hit = _REGION_IDS_CACHE.get(country)
+    if hit and now - hit[0] < 300:
+        return hit[1]
+    resp = supabase.table("regions").select("id").eq("country_id", country).is_("deprecated_at", "null").execute()
+    ids = [r["id"] for r in (resp.data or [])]
+    _REGION_IDS_CACHE[country] = (now, ids)
+    return ids
+
+
 def _enrich_with_boost_info(
     props: list[dict[str, Any]], supabase: Client
 ) -> list[dict[str, Any]]:
@@ -97,7 +118,7 @@ def _enrich_with_boost_info(
     now = datetime.now(UTC).isoformat()
     result = (
         supabase.table("property_boosts")
-        .select("*")
+        .select("property_id,expires_at,duration_days")
         .in_("property_id", property_ids)
         .eq("status", "active")
         .gt("expires_at", now)
@@ -519,6 +540,26 @@ class PropertyService(BaseService):
         super().__init__(supabase)
         self._table = "properties"
 
+    def _resolve_property_type_from_slug(self, payload: dict[str, Any]) -> None:
+        """If property_type_slug is present, derive property_type ENUM from catalog."""
+        slug = payload.get("property_type_slug")
+        if not slug:
+            return
+        resp = (
+            self.supabase.table("property_types")
+            .select("category_slug")
+            .eq("slug", slug)
+            .limit(1)
+            .execute()
+        )
+        if resp.data:
+            cat = resp.data[0]["category_slug"]
+            payload["property_type"] = _CATEGORY_TO_ENUM.get(cat, "Residential")
+        else:
+            normalized = _normalize_property_type(payload.get("property_type"))
+            if normalized:
+                payload["property_type"] = normalized
+
     @with_retry
     def get_all(
         self, owner_id: UUID, skip: int = 0, limit: int = 100
@@ -568,26 +609,19 @@ class PropertyService(BaseService):
     def get_public_listings(
         self,
         skip: int = 0,
-        limit: int = 100,
+        limit: int = 20,
         state: str | None = None,
         country: str | None = None,
         region_id: str | None = None,
         property_type: str | None = None,
+        property_type_slug: str | None = None,
         rent_period: str | None = None,
         min_price: float | None = None,
         max_price: float | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
-        # If filtering by country, fetch matching region IDs first
         region_ids_for_country: list[str] | None = None
         if country:
-            regions_resp = (
-                self.supabase.table("regions")
-                .select("id")
-                .eq("country_id", country)
-                .is_("deprecated_at", "null")
-                .execute()
-            )
-            region_ids_for_country = [r["id"] for r in (regions_resp.data or [])]
+            region_ids_for_country = _cached_region_ids(country, self.supabase)
 
         def _filtered(columns: str, count: str | None = None):
             query = self.supabase.table(self._table).select(columns, count=count).eq("is_active", True)
@@ -604,6 +638,8 @@ class PropertyService(BaseService):
                     query = query.eq("region_id", "__none__")
             if property_type:
                 query = query.eq("property_type", property_type)
+            if property_type_slug:
+                query = query.eq("property_type_slug", property_type_slug)
             if min_price is not None:
                 query = query.gte("monthly_rent", min_price)
             if max_price is not None:
@@ -690,6 +726,7 @@ class PropertyService(BaseService):
         payload["owner_id"] = str(owner_id)
         if not payload.get("zip_code"):
             payload["zip_code"] = ""
+        self._resolve_property_type_from_slug(payload)
         normalized = _normalize_property_type(payload.get("property_type"))
         if normalized:
             payload["property_type"] = normalized
@@ -701,6 +738,7 @@ class PropertyService(BaseService):
         self, property_id: UUID, data: PropertyUpdate, owner_id: UUID
     ) -> dict[str, Any] | None:
         payload = data.model_dump(exclude_none=True, mode="json")
+        self._resolve_property_type_from_slug(payload)
         normalized = _normalize_property_type(payload.get("property_type"))
         if normalized:
             payload["property_type"] = normalized
@@ -1442,9 +1480,50 @@ class PaymentService(BaseService):
             )
             anchor = (lease.data[0].get("rent_effective_date") if lease.data else None)
             if not anchor:
-                raise ValueError(
-                    "Set the rent effective date before recording rent payments."
+                # Auto-anchor the billing start instead of rejecting the
+                # payment: rent accrues from the lease start date (fallback:
+                # today). The conditional update only writes when the column
+                # is still empty, so a concurrent writer can never lose its
+                # value.
+                lease_row = (
+                    self.supabase.table("leases")
+                    .select("start_date")
+                    .eq("id", str(data.lease_id))
+                    .execute()
                 )
+                start = (
+                    lease_row.data[0].get("start_date") if lease_row.data else None
+                )
+                # Fallback order: lease start date, then the tenant's actual
+                # payment date, then today. Anchoring is set-once, so the
+                # payment date is a truer billing start than the server's
+                # clock for legacy leases.
+                anchor = start or (payload.get("paid_date") or date.today().isoformat())[:10]
+                try:
+                    result = self.supabase.table("leases").update(
+                        {"rent_effective_date": anchor}
+                    ).eq("id", str(data.lease_id)).is_(
+                        "rent_effective_date", "null"
+                    ).execute()
+                    if result.data:
+                        logger.warning(
+                            "Auto-anchored lease %s rent_effective_date=%s (source=%s) "
+                            "while recording a payment. This is permanent and resets "
+                            "arrears history.",
+                            data.lease_id,
+                            anchor,
+                            "start_date" if start else "payment_date",
+                        )
+                    else:
+                        logger.error(
+                            "Failed to anchor lease %s; balances will stay uncomputed",
+                            data.lease_id,
+                        )
+                except Exception:
+                    logger.exception(
+                        "Failed to anchor lease %s; balances will stay uncomputed",
+                        data.lease_id,
+                    )
             if "coverage_days" not in payload:
                 coverage, frozen = self._coverage_for(data.lease_id, payload.get("amount"))
                 if coverage is not None:

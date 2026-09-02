@@ -62,6 +62,7 @@ def _build_query(
     status_filter: str | None = None,
     state_filter: str | None = None,
     property_type_filter: str | None = None,
+    property_type_slug_filter: str | None = None,
     skip: int = 0,
     limit: int = 10000,
 ):
@@ -86,6 +87,8 @@ def _build_query(
         query = query.ilike("state", f"%{state_filter}%")
     if property_type_filter and resource == "properties":
         query = query.eq("property_type", property_type_filter)
+    if property_type_slug_filter and resource == "properties":
+        query = query.eq("property_type_slug", property_type_slug_filter)
 
     query = query.order("created_at", desc=True).range(skip, skip + limit - 1)
     return query.execute()

@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
-import { Alert, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Modal } from "react-native";
+import { StyleSheet, Text, TextInput, View, Pressable, ScrollView, Modal } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Plus, Users, Search, AlertTriangle, CheckCircle2, Clock, Wallet, Filter, X, ChevronDown, XCircle } from "lucide-react-native";
 
@@ -99,21 +99,10 @@ export default function ManagerTenanciesScreen() {
     );
   }, []);
 
-  // The effective date is set-once (locked after the first rent payment), so a
-  // manager must set it before recording rent — otherwise rent coverage
-  // tracking would be permanently unavailable for this lease.
+  // The backend anchors rent_effective_date automatically on the first
+  // confirmed payment, so recording is never blocked. SetEffectiveDateModal
+  // remains available for managers who want to choose the anchor deliberately.
   const handleRecordPayment = useCallback((tenancy: Tenancy) => {
-    if (!tenancy.rent_effective_date) {
-      Alert.alert(
-        "Enable Rent Tracking",
-        "Set an effective date before recording the first rent payment. The date anchors rent coverage (paid until, days remaining, days in arrears) and can only be set once.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Set Date", onPress: () => router.push(`/tenancy-detail?id=${tenancy.id}`) },
-        ],
-      );
-      return;
-    }
     setPaymentModalTenancyId(tenancy.id);
   }, []);
 
@@ -159,7 +148,7 @@ export default function ManagerTenanciesScreen() {
             <Text style={styles.summaryLabel}>Expiring</Text>
           </View>
           <View style={[styles.summaryItem, styles.summaryOverdue]}>
-            <Text style={[styles.summaryValue, { color: "#FFFFFF" }]}>{expiredCount}</Text>
+            <Text style={[styles.summaryValue, { color: Colors.textOnPrimary }]}>{expiredCount}</Text>
             <Text style={styles.summaryLabel}>Expired</Text>
           </View>
         </View>

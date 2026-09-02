@@ -2,7 +2,7 @@ from uuid import UUID
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from postgrest.exceptions import APIError
 from supabase import Client
@@ -64,22 +64,32 @@ def list_properties(
 
 @router.get("/public", response_model=PaginatedResponse)
 def list_public_properties(
+    response: Response,
     state: str | None = Query(None),
     country: str | None = Query(None),
     region_id: str | None = Query(None),
     property_type: str | None = Query(None),
+    property_type_slug: str | None = Query(None),
     min_price: float | None = Query(None, ge=0),
     max_price: float | None = Query(None, ge=0),
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=50),
 ) -> PaginatedResponse:
+    response.headers["Cache-Control"] = "public, max-age=30, stale-while-revalidate=60"
     svc = PropertyService(get_service_client())
-    properties_data, total = svc.get_public_listings(
-        skip=skip, limit=limit, state=state,
-        country=country, region_id=region_id,
-        property_type=property_type,
-        min_price=min_price, max_price=max_price,
-    )
+    try:
+        properties_data, total = svc.get_public_listings(
+            skip=skip, limit=limit, state=state,
+            country=country, region_id=region_id,
+            property_type=property_type,
+            property_type_slug=property_type_slug,
+            min_price=min_price, max_price=max_price,
+        )
+    except Exception as e:
+        msg = str(e)
+        if "Temporary failure in name resolution" in msg or "ConnectError" in type(e).__name__ or "ReadError" in type(e).__name__:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database temporarily unavailable, please retry")
+        raise
     return PaginatedResponse(
         items=[PropertyResponse(**p) for p in properties_data],
         total=total,

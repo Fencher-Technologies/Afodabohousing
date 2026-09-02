@@ -25,6 +25,7 @@ import { Badge } from "@/src/components/Badge";
 import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
 import { AgreementFlow } from "@/src/components/AgreementFlow";
+import { LogoHeader } from "@/src/components/LogoHeader";
 import { TermHelpSheet } from "@/src/components/TermHelpSheet";
 import { useAuth } from "@/src/context/auth-context";
 import { LoadingState } from "@/src/components/LoadingState";
@@ -45,14 +46,31 @@ export default function MyTenancyScreen() {
 
   const leases = tenanciesData?.items ?? [];
 
-  const activeLease = useMemo(
-    () => leases.find((l) => l.effective_status === "active" || l.status === "active"),
-    [leases],
+  const activeLease = useMemo(() => {
+    const active = leases.find((l) => l.effective_status === "active" || l.status === "active");
+    if (active) return active;
+    // No active lease yet: fall back to the most recent non-terminated lease.
+    // Agreements are often issued before the lease start date, and the tenant
+    // must still be able to see and sign them.
+    const candidates = leases.filter(
+      (l) => l.effective_status !== "terminated" && l.status !== "terminated",
+    );
+    if (!candidates.length) return undefined;
+    return [...candidates].sort((a, b) =>
+      String(b.start_date ?? "").localeCompare(String(a.start_date ?? "")),
+    )[0];
+  }, [leases],
   );
 
   const previousLeases = useMemo(
-    () => leases.filter((l) => l.effective_status !== "active" && l.status !== "active"),
-    [leases],
+    () =>
+      leases.filter(
+        (l) =>
+          l.id !== activeLease?.id &&
+          l.effective_status !== "active" &&
+          l.status !== "active",
+      ),
+    [leases, activeLease],
   );
 
   const lease = activeLease;
@@ -79,9 +97,7 @@ export default function MyTenancyScreen() {
   if (!tenancy) {
     return (
       <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
-        <View style={styles.header}>
-          <Text style={styles.title}>My Tenancy</Text>
-        </View>
+        <LogoHeader title="My Tenancy" />
         <EmptyState
           icon={<Home size={32} color={Colors.primary} />}
           title="You currently do not have an active tenancy."
@@ -146,13 +162,11 @@ export default function MyTenancyScreen() {
     });
   };
 
-  const hasBalance = tenancy.balance_due > 0;
+  const hasBalance = tenancy.money_position_known && tenancy.balance_due > 0;
 
   return (
     <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Tenancy</Text>
-      </View>
+      <LogoHeader title="My Tenancy" />
 
       <View style={styles.content}>
         {/* Status Card */}
@@ -251,7 +265,11 @@ export default function MyTenancyScreen() {
           <View style={styles.summaryGrid}>
             <SummaryItem label="Expected Rent So Far" value={formatUGX(tenancy.expected_rent)} />
             <SummaryItem label="Total Paid" value={formatUGX(tenancy.total_paid)} tone="success" />
-            <SummaryItem label="Outstanding" value={formatUGX(tenancy.balance_due)} tone={tenancy.balance_due > 0 ? "danger" : undefined} />
+            <SummaryItem
+              label="Outstanding"
+              value={tenancy.money_position_known ? formatUGX(tenancy.balance_due) : "Unavailable"}
+              tone={hasBalance ? "danger" : undefined}
+            />
             {tenancy.tenant_credit > 0 ? (
               <SummaryItem label="Your Credit" value={formatUGX(tenancy.tenant_credit)} tone="accent" />
             ) : (
@@ -269,7 +287,7 @@ export default function MyTenancyScreen() {
             <Text style={styles.balanceTitle}>Balance Due</Text>
           </View>
           <Text style={[styles.balanceAmount, hasBalance && styles.balanceDue]}>
-            {formatUGX(tenancy.balance_due)}
+            {tenancy.money_position_known ? formatUGX(tenancy.balance_due) : "Unavailable"}
           </Text>
           {hasBalance && (
             <Text style={styles.balanceDueDate}>
@@ -283,7 +301,7 @@ export default function MyTenancyScreen() {
               Rent covered until {formatDate(tenancy.paid_until_date)}
             </Text>
           )}
-          {!hasBalance && !tenancy.rent_effective_date && (
+          {tenancy.money_position_known && !hasBalance && !tenancy.rent_effective_date && (
             <Text style={styles.balanceClear}>You&apos;re all caught up</Text>
           )}
           <Pressable

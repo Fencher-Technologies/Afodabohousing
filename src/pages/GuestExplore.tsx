@@ -133,6 +133,12 @@ export default function GuestExplore() {
     return result;
   }, [properties, query, bedrooms, bathrooms, selectedAmenities]);
 
+  const districtOptions = useMemo(() => {
+    const set = new Set<string>()
+    properties.forEach(p => { if (p.state) set.add(p.state); if (p.district) set.add(p.district as string) })
+    return Array.from(set).sort().slice(0, 50)
+  }, [properties])
+
   const hasActiveFilters = !!district || !!propertyType || !!minPrice || !!maxPrice
     || !!bedrooms || !!bathrooms || selectedAmenities.length > 0;
 
@@ -217,7 +223,10 @@ export default function GuestExplore() {
               {/* Location */}
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Location</label>
-                <Input placeholder="City, area, or district" value={district} onChange={e => setDistrict(e.target.value)} />
+                <Input list="district-suggestions" placeholder="City, area, or district" value={district} onChange={e => setDistrict(e.target.value)} />
+                <datalist id="district-suggestions">
+                  {districtOptions.map(d => <option key={d} value={d} />)}
+                </datalist>
               </div>
 
               {/* Property type */}

@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
-import { OrDivider } from "@/src/components/OrDivider";
 import { FloatingBackButton } from "@/src/components/FloatingBackButton";
 import { useAuth } from "@/src/context/auth-context";
 
@@ -105,6 +104,12 @@ export default function LoginScreen() {
             size="lg"
           />
 
+          {/* PHONE-AUTH HIDDEN — phone sign-in preserved for future restore.
+              Matches the block already hidden in register.tsx. The /phone-signin
+              screen and the /auth/phone/* endpoints are intentionally left in
+              place: accounts created by phone hold a synthetic
+              phone_<digits>@axis.app email and a random password they were never
+              shown, so removing the backend would lock them out permanently.
           <OrDivider />
 
           <Button
@@ -114,6 +119,7 @@ export default function LoginScreen() {
             fullWidth
             size="lg"
           />
+          */}
 
           {error && <Text style={styles.errorText}>{error}</Text>}
         </View>

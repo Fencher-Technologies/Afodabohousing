@@ -12,6 +12,8 @@ import { Card } from "@/src/components/Card";
 import { Button } from "@/src/components/Button";
 import { PageHeader } from "@/src/components/PageHeader";
 import { useSubscriptionPlans, useCreateSubscription } from "@/src/hooks/useSubscriptions";
+import { useAuth } from "@/src/context/auth-context";
+import { useQueryClient } from "@tanstack/react-query";
 
 const POLL_INTERVAL_MS = 5000;
 const POLL_TIMEOUT_MS = 120000;
@@ -19,9 +21,12 @@ const POLL_TIMEOUT_MS = 120000;
 type PaymentStatus = "idle" | "processing" | "waiting_payment" | "success" | "failed" | "timeout";
 
 export default function SubscriptionPaymentScreen() {
-  const { plan } = useLocalSearchParams<{ plan: string }>();
+  const { plan, currency: paramCurrency } = useLocalSearchParams<{ plan: string; currency: string }>();
+  const currency = (paramCurrency === "USD" ? "USD" : "UGX") as "UGX" | "USD";
   const { data: plans } = useSubscriptionPlans();
   const createSubscription = useCreateSubscription();
+  const { refreshAuth } = useAuth();
+  const queryClient = useQueryClient();
   const selectedPlan = plans?.find((p) => p.id === plan);
   const [status, setStatus] = useState<PaymentStatus>("idle");
   const [responseMessage, setResponseMessage] = useState("");
@@ -60,6 +65,10 @@ export default function SubscriptionPaymentScreen() {
         if (res.status === "active" || res.status === "completed" || res.payment_status === "completed") {
           stopPolling();
           setStatus("success");
+          // Refresh the cached subscription before leaving this screen so the
+          // access gate lifts immediately instead of waiting for the next sign-in.
+          queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
+          refreshAuth().catch(() => {});
           setTimeout(() => router.replace("/subscription"), 2000);
         } else if (res.status === "failed" || res.status === "cancelled" || res.status === "expired") {
           stopPolling();
@@ -79,7 +88,7 @@ export default function SubscriptionPaymentScreen() {
   const handlePay = async () => {
     setStatus("processing");
     try {
-      const result = await createSubscription.mutateAsync({ plan_id: plan, callback_url: API_BASE_URL });
+      const result = await createSubscription.mutateAsync({ plan_id: plan, callback_url: API_BASE_URL, currency });
       paymentRefRef.current = result.payment_reference;
       if (result.redirect_url) {
         setResponseMessage(result.message || "Complete your payment in the Pesapal window.");
@@ -154,6 +163,7 @@ export default function SubscriptionPaymentScreen() {
             ref={webViewRef}
             source={{ uri: paymentUrl }}
             style={styles.webView}
+            originWhitelist={["https://*"]}
             onNavigationStateChange={handleNavigationStateChange}
             startInLoadingState={true}
             renderLoading={() => (
@@ -271,18 +281,15 @@ export default function SubscriptionPaymentScreen() {
             </View>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Price (USD)</Text>
-            <Text style={styles.summaryValue}>${selectedPlan.price_usd}</Text>
-          </View>
-          <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Price (UGX)</Text>
             <Text style={styles.summaryValue}>UGX {selectedPlan.price_ugx.toLocaleString()}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryTotal}>Total</Text>
+            <Text style={styles.summaryTotal}>Total (UGX)</Text>
             <Text style={styles.summaryTotalValue}>UGX {selectedPlan.price_ugx.toLocaleString()}</Text>
           </View>
+          <Text style={{ fontSize: FontSize.caption, color: Colors.textMuted }}>Mobile money, local & international cards via Pesapal</Text>
         </Card>
 
         {/* Benefits */}

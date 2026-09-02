@@ -1,9 +1,58 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 
 import { API_BASE_URL } from "../../constants/config";
+import { debugAuth } from "./debug";
 
 const STORAGE_KEY_TOKEN = "axis_access_token";
 const STORAGE_KEY_REFRESH = "axis_refresh_token";
+
+// Tokens live in the OS keychain/keystore via expo-secure-store. AsyncStorage
+// is only a legacy fallback: values written before this change are migrated
+// on first read, and SecureStore write failures (e.g. value over the ~2KB
+// keychain limit) fall back to AsyncStorage rather than losing the session.
+
+async function secureGet(key: string): Promise<string | null> {
+  try {
+    const value = await SecureStore.getItemAsync(key);
+    if (value !== null) return value;
+  } catch {
+    // SecureStore unavailable (e.g. web); fall through to legacy storage
+  }
+  const legacy = await AsyncStorage.getItem(key);
+  if (legacy !== null) {
+    try {
+      await SecureStore.setItemAsync(key, legacy);
+      await AsyncStorage.removeItem(key);
+    } catch {
+      // migration is best-effort; the value is still readable
+    }
+    return legacy;
+  }
+  return null;
+}
+
+async function secureSet(key: string, value: string): Promise<void> {
+  try {
+    await SecureStore.setItemAsync(key, value);
+    await AsyncStorage.removeItem(key);
+    return;
+  } catch {
+    // value too large for the keychain or store unavailable
+  }
+  await AsyncStorage.setItem(key, value);
+}
+
+async function secureDelete(keys: string[]): Promise<void> {
+  for (const key of keys) {
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch {
+      // already gone or store unavailable
+    }
+  }
+  await AsyncStorage.multiRemove(keys);
+}
 
 class ApiError extends Error {
   status: number;
@@ -18,11 +67,11 @@ class ApiError extends Error {
 }
 
 async function getStoredToken(): Promise<string | null> {
-  return AsyncStorage.getItem(STORAGE_KEY_TOKEN);
+  return secureGet(STORAGE_KEY_TOKEN);
 }
 
 async function setStoredToken(token: string): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY_TOKEN, token);
+  await secureSet(STORAGE_KEY_TOKEN, token);
 }
 
 function buildErrorMessage(errorData: unknown): string | null {
@@ -53,18 +102,18 @@ export function onTokensCleared(listener: () => void) {
 }
 
 async function clearTokens(options?: { suppressNotification?: boolean }): Promise<void> {
-  await AsyncStorage.multiRemove([STORAGE_KEY_TOKEN, STORAGE_KEY_REFRESH]);
+  await secureDelete([STORAGE_KEY_TOKEN, STORAGE_KEY_REFRESH]);
   if (!options?.suppressNotification) {
     _tokenListeners.forEach((fn) => fn());
   }
 }
 
 async function getRefreshToken(): Promise<string | null> {
-  return AsyncStorage.getItem(STORAGE_KEY_REFRESH);
+  return secureGet(STORAGE_KEY_REFRESH);
 }
 
 async function setRefreshToken(token: string): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY_REFRESH, token);
+  await secureSet(STORAGE_KEY_REFRESH, token);
 }
 
 let _refreshPromise: Promise<string | null> | null = null;
@@ -111,9 +160,10 @@ async function doRefreshAccessToken(): Promise<string | null> {
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
+  _retry503 = 0,
 ): Promise<T> {
   const token = await getStoredToken();
-  console.log("[DEBUG_AUTH] API request —", endpoint, "hasToken:", !!token);
+  debugAuth("API request -", endpoint, "hasToken:", !!token);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
@@ -128,18 +178,23 @@ async function request<T>(
     headers,
   });
 
+  if (response.status === 503 && _retry503 < 2) {
+    await new Promise(r => setTimeout(r, 800 * (_retry503 + 1)));
+    return request<T>(endpoint, options, _retry503 + 1);
+  }
+
   if (response.status === 401 && token) {
-    console.log("[DEBUG_AUTH] API request — 401, attempting token refresh for:", endpoint);
+    debugAuth("API request - 401, attempting token refresh for:", endpoint);
     const newToken = await refreshAccessToken();
     if (newToken) {
-      console.log("[DEBUG_AUTH] API request — token refreshed, retrying:", endpoint);
+      debugAuth("API request - token refreshed, retrying:", endpoint);
       headers["Authorization"] = `Bearer ${newToken}`;
       response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers,
       });
     } else {
-      console.log("[DEBUG_AUTH] API request — token refresh failed, throwing 401");
+      debugAuth("API request - token refresh failed, throwing 401");
       throw new ApiError("Your session has expired. Please sign in again.", 401);
     }
   }
@@ -153,22 +208,22 @@ async function request<T>(
     }
     const message =
       buildErrorMessage(errorData) ?? `Request failed with status ${response.status}`;
-    console.log("[DEBUG_AUTH] API response —", endpoint, "status:", response.status, "error:", message);
+    debugAuth("API response -", endpoint, "status:", response.status, "error:", message);
     throw new ApiError(message, response.status, errorData);
   }
 
   if (response.status === 204) {
-    console.log("[DEBUG_AUTH] API response —", endpoint, "status: 204 (no content)");
+    debugAuth("API response -", endpoint, "status: 204 (no content)");
     return undefined as T;
   }
 
   const contentType = response.headers.get("content-type");
   if (contentType?.includes("application/json")) {
-    console.log("[DEBUG_AUTH] API response —", endpoint, "status:", response.status, "content-type: json");
+    debugAuth("API response -", endpoint, "status:", response.status, "content-type: json");
     return response.json() as Promise<T>;
   }
 
-  console.log("[DEBUG_AUTH] API response —", endpoint, "status:", response.status, "content-type: non-json");
+  debugAuth("API response -", endpoint, "status:", response.status, "content-type: non-json");
   return undefined as T;
 }
 
@@ -231,4 +286,5 @@ export const api = {
     uploadFile<T>(endpoint, formData),
 };
 
-export { ApiError, clearTokens, getStoredToken, onTokensCleared, setRefreshToken, setStoredToken, STORAGE_KEY_REFRESH, STORAGE_KEY_TOKEN };
+// onTokensCleared is exported inline at its definition above.
+export { ApiError, clearTokens, getStoredToken, setRefreshToken, setStoredToken, STORAGE_KEY_REFRESH, STORAGE_KEY_TOKEN };

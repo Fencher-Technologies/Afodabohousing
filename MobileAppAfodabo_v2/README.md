@@ -1,4 +1,4 @@
-# Afodabo Housing Mobile App
+# Axis Housing Mobile App
 
 Native cross-platform mobile app built with Expo Router + React Native.
 
@@ -28,7 +28,7 @@ bun run start
 
 ## Backend Connection
 
-The mobile app connects to the Afodabo backend via `EXPO_PUBLIC_API_URL` in `.env`.
+The mobile app connects to the Axis backend via `EXPO_PUBLIC_API_URL` in `.env`.
 
 The default — and production — backend is the permanent Render deployment:
 

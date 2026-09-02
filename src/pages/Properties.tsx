@@ -51,7 +51,7 @@ export default function PropertiesPage() {
 
   const [countries, setCountries] = useState<Country[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
-  const [selectedCurrency, setSelectedCurrency] = useState('USD');
+  const [selectedCurrency, setSelectedCurrency] = useState('UGX');
 
   const [priceFilters, setPriceFilters] = useState({ min: minPrice, max: maxPrice });
   useEffect(() => {
@@ -78,8 +78,8 @@ export default function PropertiesPage() {
 
   // Sync currency when country changes
   useEffect(() => {
-    if (!country) { setSelectedCurrency('USD'); return; }
-    setSelectedCurrency(CURRENCY_MAP[country] || 'USD');
+    if (!country) { setSelectedCurrency('UGX'); return; }
+    setSelectedCurrency(CURRENCY_MAP[country] || 'UGX');
   }, [country]);
 
   useEffect(() => {

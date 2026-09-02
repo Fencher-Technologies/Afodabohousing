@@ -1,20 +1,29 @@
 /**
- * Afodabo Housing — Design Tokens
+ * Axis Housing, Design Tokens
  * Single source of truth for colors, spacing, radii, typography, shadows.
+ *
+ * Brand palette sampled from the Axis logo:
+ *   burgundy  #7A1230 (roofline accent, deep variant #480018)
+ *   charcoal  #353E45 (house body / wordmark)
+ *   cream     #F7F5F2 (page background)
  */
 
 export const Colors = {
   // Brand
-  primary: "#1A2332",
-  primaryDeep: "#15202B",
-  primarySoft: "#E8EDF5",
-  primaryMuted: "#536A8A",
+  primary: "#7A1230",
+  primaryDeep: "#480018",
+  primarySoft: "#F6E9ED",
+  primaryMuted: "#9D5A6C",
 
-  gold: "#C9A961",
-  goldSoft: "#F5EED9",
+  // Premium (boosts, subscription): a genuine brass that stands apart from
+  // the burgundy primary, so revenue features keep their own visual weight.
+  gold: "#9C7A24",
+  goldSoft: "#F6EFDD",
 
-  accent: "#D32F2F",
-  accentSoft: "#FDE8E8",
+  // Secondary action / link colour: a brighter burgundy that still draws the
+  // eye next to charcoal body text.
+  accent: "#9A1B3E",
+  accentSoft: "#F6E3E9",
 
   // Semantic
   success: "#2E7D52",
@@ -27,22 +36,22 @@ export const Colors = {
   infoSoft: "#E6F0F8",
 
   // Neutrals
-  bg: "#FAFAFC",
+  bg: "#F7F5F2",
   surface: "#FFFFFF",
-  surfaceAlt: "#F0F2F7",
-  border: "#E0E4EC",
-  borderStrong: "#C4CDD8",
+  surfaceAlt: "#F2EFEA",
+  border: "#E5E1DA",
+  borderStrong: "#D2CCC2",
 
   // Text
-  textPrimary: "#0A0F1A",
-  textSecondary: "#5A6370",
-  textMuted: "#8A9099",
+  textPrimary: "#232A31",
+  textSecondary: "#5A636B",
+  textMuted: "#8A9096",
   textOnPrimary: "#FFFFFF",
-  textOnGold: "#0A0F1A",
+  textOnGold: "#232A31",
 
   // Tab bar
-  tabActive: "#1A2332",
-  tabInactive: "#9AA3AE",
+  tabActive: "#7A1230",
+  tabInactive: "#9AA0A6",
 
   // Health
   healthGood: "#2E7D52",
@@ -60,11 +69,13 @@ export const Spacing = {
 } as const;
 
 export const Radii = {
-  pill: 999,
-  input: 12,
-  card: 16,
-  modal: 24,
-  button: 12,
+  // Retired the capsule look: everything that referenced `pill` now renders
+  // as a tidy rounded rectangle instead of a stadium shape.
+  pill: 10,
+  input: 10,
+  card: 12,
+  modal: 20,
+  button: 10,
   sm: 8,
 } as const;
 
@@ -87,21 +98,21 @@ export const FontWeight = {
 
 export const Shadows = {
   card: {
-    shadowColor: "#1A1F1C",
+    shadowColor: "#232A31",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
   modal: {
-    shadowColor: "#1A1F1C",
+    shadowColor: "#232A31",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
     shadowRadius: 20,
     elevation: 8,
   },
   fab: {
-    shadowColor: "#1A2332",
+    shadowColor: "#7A1230",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
@@ -117,7 +128,7 @@ export const ToneColors: Record<Tone, { fg: string; bg: string }> = {
   warning: { fg: Colors.warning, bg: Colors.warningSoft },
   danger: { fg: Colors.danger, bg: Colors.dangerSoft },
   info: { fg: Colors.info, bg: Colors.infoSoft },
-  gold: { fg: "#8A6D2F", bg: Colors.goldSoft },
+  gold: { fg: Colors.gold, bg: Colors.goldSoft },
   accent: { fg: Colors.accent, bg: Colors.accentSoft },
   muted: { fg: Colors.textSecondary, bg: Colors.surfaceAlt },
 };

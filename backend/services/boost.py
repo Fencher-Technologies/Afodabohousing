@@ -123,8 +123,10 @@ class BoostService(BaseService):
         # Keep transaction_id as the merchant reference — the status poll
         # looks boosts up by it. The Pesapal tracking id goes nowhere (the
         # webhook idempotency cache already dedupes by it).
+        now = datetime.now(UTC)
+        expires = now + timedelta(days=int(boost["duration_days"]))
         result = (
-            self.table.update({"status": "active"})
+            self.table.update({"status": "active", "started_at": now.isoformat(), "expires_at": expires.isoformat()})
             .eq("transaction_id", reference)
             .eq("status", "pending")
             .execute()
