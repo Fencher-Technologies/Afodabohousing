@@ -1,51 +1,42 @@
 name: Expo Build
 on:
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
-
+          node-version: 20
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-
       - name: Recreate Keystore
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > MobileAppAfodabo_v2/my-release-key.keystore
-
-      - name: Install Expo CLI and EAS CLI
-        run: npm install -g expo-cli eas-cli
-
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "${{ github.workspace }}/MobileAppAfodabo_v2/my-release-key.keystore"
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
       - name: Install Project Dependencies
         run: |
           cd MobileAppAfodabo_v2
           npm install
-
       - name: Build Android App (Local Mode on Runner)
         working-directory: MobileAppAfodabo_v2
         env:
           EXPO_TOKEN: _VpSvXcqcV1UA8csXv4f5EBZw4GlW2GGVOGPGac4
-          ANDROID_KEYSTORE_PATH: my-release-key.keystore
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/MobileAppAfodabo_v2/my-release-key.keystore
           ANDROID_KEYSTORE_PASSWORD: changeit123
           ANDROID_KEY_ALIAS: my-key-alias
           ANDROID_KEY_PASSWORD: changeit123
         run: |
           eas build --local --platform android --profile preview --non-interactive
-
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
