@@ -30,6 +30,7 @@ import { usePaymentList } from "@/src/hooks/usePayments";
 import { useTenancyList } from "@/src/hooks/useTenancies";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { useMySubmissions } from "@/src/hooks/usePaymentVerifications";
+import { useMyReceipts } from "@/src/hooks/useReceipts";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
 import { RentCoverageCard } from "@/src/components/RentCoverageCard";
 import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
@@ -41,8 +42,10 @@ export default function TenantPaymentsScreen() {
     data: submissions,
     refetch: refetchSubmissions,
   } = useMySubmissions();
+  const { data: receiptsData, refetch: refetchReceipts } = useMyReceipts();
+  const receipts = receiptsData?.items ?? [];
   const { refreshing, onRefresh } = useRefresh({
-    refetches: [refetch, refetchTenancies, refetchSubmissions],
+    refetches: [refetch, refetchTenancies, refetchSubmissions, refetchReceipts],
   });
 
   const lease = useMemo(() => {
@@ -111,6 +114,42 @@ export default function TenantPaymentsScreen() {
         )}
 
         {tenancy && <RentCoverageCard tenancy={tenancy} />}
+
+        {/* Receipts, issued automatically when the manager approves a payment */}
+        {receipts.length > 0 && (
+          <View>
+            <Text style={styles.sectionLabel}>Receipts</Text>
+            <Card padding="none" style={styles.receiptsCard}>
+              {receipts.map((r, i) => (
+                <View key={r.id}>
+                  <View style={styles.receiptRow}>
+                    <View style={styles.receiptIconWrap}>
+                      <Receipt size={18} color={Colors.primary} />
+                    </View>
+                    <View style={styles.paymentLeft}>
+                      <Text style={styles.paymentAmount}>{formatUGX(r.amount)}</Text>
+                      <Text style={styles.paymentMeta}>
+                        {r.receipt_number}
+                        {r.payment_date ? ` · ${formatDate(r.payment_date)}` : ""}
+                      </Text>
+                      {r.property_title ? (
+                        <Text style={styles.paymentMeta}>
+                          {r.property_title}{r.unit_label ? ` · Unit ${r.unit_label}` : ""}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Badge
+                      label={r.status === "active" ? "Receipt" : "Voided"}
+                      tone={r.status === "active" ? "primary" : "muted"}
+                      size="sm"
+                    />
+                  </View>
+                  {i < receipts.length - 1 && <View style={styles.divider} />}
+                </View>
+              ))}
+            </Card>
+          </View>
+        )}
 
         {/* History */}
         <Text style={styles.sectionLabel}>Payment History</Text>
@@ -335,6 +374,23 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     color: Colors.textMuted,
     marginTop: 2,
+  },
+  receiptsCard: {
+    marginTop: Spacing.xs,
+  },
+  receiptRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+  },
+  receiptIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
   },
   submitWrap: {
     marginHorizontal: Spacing.md,

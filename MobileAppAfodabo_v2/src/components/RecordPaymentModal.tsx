@@ -4,12 +4,15 @@
 
 import { X } from "lucide-react-native";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Button } from "./Button";
 import { InputField } from "./InputField";
+import { DatePickerField } from "./DatePickerField";
 import { SegmentedControl } from "./SegmentedControl";
 import { useCreatePayment } from "@/src/hooks/usePayments";
+import { todayLocalISO } from "@/src/lib/dates";
+import { useToast } from "./Toast";
 import { formatUGX } from "@/src/utils/format";
 import type { Tenancy, PaymentMethod } from "@/src/types";
 
@@ -22,11 +25,12 @@ interface RecordPaymentModalProps {
 
 export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: RecordPaymentModalProps) {
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(todayLocalISO());
   const [method, setMethod] = useState<PaymentMethod>("mobile_money");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const createPayment = useCreatePayment();
+  const toast = useToast();
 
   if (!tenancy) return null;
 
@@ -42,13 +46,9 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
   const coverageDays = dailyRate > 0 ? Math.floor(numericAmount / dailyRate) : 0;
 
   const handleRecord = async () => {
+    if (createPayment.isPending) return; // double-submit guard
     if (numericAmount <= 0) {
       setError("Amount must be greater than 0");
-      return;
-    }
-    const today = new Date().toISOString().split("T")[0];
-    if (date > today) {
-      setError("Date cannot be in the future");
       return;
     }
     setError(null);
@@ -68,12 +68,9 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
       setAmount("");
       setNotes("");
       onClose();
-      Alert.alert(
-        "Payment Updated",
-        `Payment for ${tenancy.tenant_name} of ${formatUGX(numericAmount)} has been updated successfully.`
-      );
+      toast.show(`Payment for ${tenancy.tenant_name} of ${formatUGX(numericAmount)} recorded.`, "success");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update payment. Please try again.");
+      setError(e instanceof Error ? e.message : "Failed to record payment. Please try again.");
     }
   };
 
@@ -91,7 +88,7 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
           <View style={styles.handle} />
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Update Payment</Text>
+              <Text style={styles.title}>Record Payment</Text>
               <Text style={styles.subtitle}>
                 {tenancy.tenant_name} · {tenancy.property_title} · Unit {tenancy.unit_label}
               </Text>
@@ -124,12 +121,11 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
 
             <View style={styles.gap} />
 
-            <InputField
-              label="Date"
+            <DatePickerField
+              label="Payment Date"
               value={date}
-              onChangeText={setDate}
-              placeholder="YYYY-MM-DD"
-              keyboardType="numeric"
+              onChange={setDate}
+              disableFuture
             />
 
             <View style={styles.gap} />
@@ -174,8 +170,8 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
             </View>
 
             <View style={styles.actions}>
-              <Button label="Cancel" onPress={handleClose} variant="ghost" flex />
-              <Button label="Update Payment" onPress={handleRecord} flex />
+              <Button label="Cancel" onPress={handleClose} variant="ghost" flex disabled={createPayment.isPending} />
+              <Button label="Record Payment" onPress={handleRecord} flex loading={createPayment.isPending} />
             </View>
           </ScrollView>
         </Pressable>

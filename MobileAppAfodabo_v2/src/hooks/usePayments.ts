@@ -11,6 +11,7 @@ export function usePaymentList(filters: { leaseId?: string; tenantId?: string } 
         lease_id: filters.leaseId,
         tenant_id: filters.tenantId,
       }),
+    staleTime: 30_000,
   });
 }
 

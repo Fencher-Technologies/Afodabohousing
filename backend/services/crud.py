@@ -1480,9 +1480,50 @@ class PaymentService(BaseService):
             )
             anchor = (lease.data[0].get("rent_effective_date") if lease.data else None)
             if not anchor:
-                raise ValueError(
-                    "Set the rent effective date before recording rent payments."
+                # Auto-anchor the billing start instead of rejecting the
+                # payment: rent accrues from the lease start date (fallback:
+                # today). The conditional update only writes when the column
+                # is still empty, so a concurrent writer can never lose its
+                # value.
+                lease_row = (
+                    self.supabase.table("leases")
+                    .select("start_date")
+                    .eq("id", str(data.lease_id))
+                    .execute()
                 )
+                start = (
+                    lease_row.data[0].get("start_date") if lease_row.data else None
+                )
+                # Fallback order: lease start date, then the tenant's actual
+                # payment date, then today. Anchoring is set-once, so the
+                # payment date is a truer billing start than the server's
+                # clock for legacy leases.
+                anchor = start or (payload.get("paid_date") or date.today().isoformat())[:10]
+                try:
+                    result = self.supabase.table("leases").update(
+                        {"rent_effective_date": anchor}
+                    ).eq("id", str(data.lease_id)).is_(
+                        "rent_effective_date", "null"
+                    ).execute()
+                    if result.data:
+                        logger.warning(
+                            "Auto-anchored lease %s rent_effective_date=%s (source=%s) "
+                            "while recording a payment. This is permanent and resets "
+                            "arrears history.",
+                            data.lease_id,
+                            anchor,
+                            "start_date" if start else "payment_date",
+                        )
+                    else:
+                        logger.error(
+                            "Failed to anchor lease %s; balances will stay uncomputed",
+                            data.lease_id,
+                        )
+                except Exception:
+                    logger.exception(
+                        "Failed to anchor lease %s; balances will stay uncomputed",
+                        data.lease_id,
+                    )
             if "coverage_days" not in payload:
                 coverage, frozen = self._coverage_for(data.lease_id, payload.get("amount"))
                 if coverage is not None:

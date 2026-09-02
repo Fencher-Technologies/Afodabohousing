@@ -11,6 +11,7 @@ import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme"
 import { Button } from "./Button";
 import { InputField } from "./InputField";
 import { useSetEffectiveDate } from "@/src/hooks/useTenancies";
+import { todayLocalISO } from "@/src/lib/dates";
 
 interface SetEffectiveDateModalProps {
   visible: boolean;
@@ -23,7 +24,7 @@ export function SetEffectiveDateModal({
   leaseId,
   onClose,
 }: SetEffectiveDateModalProps) {
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(todayLocalISO());
   const [error, setError] = useState<string | null>(null);
   const setEffectiveDate = useSetEffectiveDate();
 
@@ -35,7 +36,7 @@ export function SetEffectiveDateModal({
     setError(null);
     try {
       await setEffectiveDate.mutateAsync({ leaseId, rentEffectiveDate: date });
-      setDate(new Date().toISOString().split("T")[0]);
+      setDate(todayLocalISO());
       onClose();
       Alert.alert("Effective Date Set", "Rent coverage tracking is now active for this tenancy.");
     } catch (e) {

@@ -123,23 +123,12 @@ export default function TenancyDetailScreen() {
     );
   };
 
-  // The effective date is set-once and gates all confirmed rent payments, so a
-  // manager must set it before recording rent. Without it, rent coverage
-  // tracking would be permanently unavailable for this lease.
+  // The backend anchors rent_effective_date automatically on the first
+  // confirmed payment, so recording is never blocked. SetEffectiveDateModal
+  // remains available for managers who want to choose the anchor deliberately.
   const handleRecordPaymentPress = () => {
     if (isExpired) {
       setShowGate(true);
-      return;
-    }
-    if (!tenancy.rent_effective_date) {
-      Alert.alert(
-        "Enable Rent Tracking",
-        "Set an effective date before recording the first rent payment. The date anchors rent coverage (paid until, days remaining, days in arrears) and can only be set once.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Set Date", onPress: () => setShowEffectiveDateModal(true) },
-        ],
-      );
       return;
     }
     setShowPaymentModal(true);

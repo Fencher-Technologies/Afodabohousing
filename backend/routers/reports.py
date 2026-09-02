@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -67,6 +68,11 @@ class TenantReportItem(BaseModel):
     balance_due: float
     tenant_credit: float
     lease_id: str
+    # False when the lease has no rent_effective_date anchor, so
+    # _compute_rent_financials returned an all-None position. Clients must show
+    # "not tracked yet" rather than a confident 0.00 — the float coercions above
+    # flatten None to 0 and would otherwise read as "nothing owed".
+    money_position_known: bool = False
 
 
 class TenantReportResponse(BaseModel):
@@ -155,6 +161,8 @@ class FinancialSummary(BaseModel):
     expired_tenancies: int
     terminated_tenancies: int
     occupancy_rate: float
+    overdue_tenancies: int = 0
+    collected_this_month: float = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +207,9 @@ def tenants_report(
             balance_due=float(l.get("balance_due") or 0),
             tenant_credit=float(l.get("tenant_credit") or 0),
             lease_id=str(l.get("id")),
+            money_position_known=(
+                l.get("arrears_amount") is not None or l.get("balance_due") is not None
+            ),
         )
         for l in leases
     ]
@@ -380,7 +391,30 @@ def financial_summary(
     active = sum(1 for l in leases if l.get("effective_status") == "active")
     expired = sum(1 for l in leases if l.get("effective_status") == "expired")
     terminated = sum(1 for l in leases if l.get("effective_status") == "terminated")
+    overdue = sum(
+        1
+        for l in leases
+        if l.get("effective_status") != "terminated" and float(l.get("balance_due") or 0) > 0
+    )
     total = len(leases) or 1
+
+    # Collected-this-month across ALL of the manager's payments, so the
+    # dashboard stops computing totals from the first page of 100 rows.
+    month_start = datetime.now(UTC).date().replace(day=1).isoformat()
+    lease_ids = [str(l.get("id")) for l in leases if l.get("id")]
+    collected_month = 0.0
+    if lease_ids:
+        payments = (
+            supabase.table("payments")
+            .select("amount, paid_date, created_at, status")
+            .in_("lease_id", lease_ids)
+            .in_("status", ["confirmed", "completed"])
+            .execute()
+        )
+        for p in payments.data or []:
+            effective_date = (p.get("paid_date") or (p.get("created_at") or "")[:10] or "")
+            if effective_date >= month_start:
+                collected_month += float(p.get("amount") or 0)
 
     return FinancialSummary(
         total_expected=round(total_expected, 2),
@@ -391,6 +425,8 @@ def financial_summary(
         expired_tenancies=expired,
         terminated_tenancies=terminated,
         occupancy_rate=round((active / total) * 100, 2),
+        overdue_tenancies=overdue,
+        collected_this_month=round(collected_month, 2),
     )
 
 

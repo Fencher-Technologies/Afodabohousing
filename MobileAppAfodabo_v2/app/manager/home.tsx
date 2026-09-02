@@ -18,6 +18,7 @@ import {
 import type { ReactNode } from "react";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing, ToneColors, Shadows } from "@/constants/theme";
+import { BrandMark } from "@/src/components/BrandMark";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
 import { Badge } from "@/src/components/Badge";
@@ -167,6 +168,7 @@ export default function ManagerDashboardScreen() {
     <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
       {/* Hero header */}
       <View style={styles.hero}>
+        <BrandMark size="md" style={styles.brandLogo} />
         <View style={styles.heroTop}>
           <View style={{ flex: 1 }}>
             <Text style={styles.greeting}>
@@ -363,6 +365,9 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
     gap: Spacing.md,
     backgroundColor: Colors.bg,
+  },
+  brandLogo: {
+    marginBottom: Spacing.sm,
   },
   heroTop: {
     flexDirection: "row",

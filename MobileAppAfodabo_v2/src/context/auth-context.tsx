@@ -3,6 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState, useCallback, useEffect } from "react";
 
 import { api, clearTokens, getStoredToken, onTokensCleared, setRefreshToken, setStoredToken } from "../lib/api-client";
+import { debugAuth } from "../lib/debug";
+import { toAppRole } from "../lib/roles";
 import { authService } from "../services/auth";
 import { subscriptionsService } from "../services/subscriptions";
 import type { Subscription, User, UserRole } from "../types";
@@ -77,7 +79,7 @@ function useAuthInner() {
           AsyncStorage.getItem(ONBOARDING_KEY),
           AsyncStorage.getItem(SESSION_KEY),
         ]);
-        console.log("[DEBUG_AUTH] init — token exists:", !!token, "storedSession:", storedSessionRaw ? "present" : "null");
+        debugAuth("init - token exists:", !!token, "storedSession:", storedSessionRaw ? "present" : "null");
         if (onboard === "true") setHasSeenOnboarding(true);
 
         if (token) {
@@ -86,11 +88,11 @@ function useAuthInner() {
           if (cached) {
             // Fast path: render immediately from cache, validate in background
             const cachedUser = cachedSessionToUser(cached);
-            console.log("[DEBUG_AUTH] init — fast path, rendering from cache:", cachedUser.role);
+            debugAuth("init - fast path, rendering from cache:", cachedUser.role);
             setUser(cachedUser);
             setIsLoading(false);
 
-            // Background validation — non-blocking
+            // Background validation - non-blocking
             (async () => {
               try {
                 const [me, profile] = await Promise.allSettled([
@@ -103,7 +105,7 @@ function useAuthInner() {
 
                 if (meData) {
                   const effectiveRole = profileData?.role || meData.role || "tenant";
-                  const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
+                  const role = toAppRole(effectiveRole);
                   const freshUser: User = {
                     id: meData.id,
                     email: meData.email,
@@ -113,7 +115,7 @@ function useAuthInner() {
                     email_verified: meData.status === "active",
                     created_at: "",
                   };
-                  console.log("[DEBUG_AUTH] init — background validation succeeded:", freshUser.role);
+                  debugAuth("init - background validation succeeded:", freshUser.role);
                   setUser(freshUser);
                   await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({
                     id: freshUser.id,
@@ -147,21 +149,21 @@ function useAuthInner() {
                     }
                   }
                 } else if (me.status === "rejected" && (me.reason as { status?: number })?.status === 401) {
-                  // Session is genuinely expired — check if refresh works
-                  console.log("[DEBUG_AUTH] init — background validation 401, session invalid");
+                  // Session is genuinely expired - check if refresh works
+                  debugAuth("init - background validation 401, session invalid");
                   await clearTokens();
                   setUser(null);
                 } else {
-                  // Network error or server error — keep cached user
-                  console.log("[DEBUG_AUTH] init — background validation failed (network/server), keeping cache");
+                  // Network error or server error - keep cached user
+                  debugAuth("init - background validation failed (network/server), keeping cache");
                 }
               } catch {
-                console.log("[DEBUG_AUTH] init — background validation error, keeping cache");
+                debugAuth("init - background validation error, keeping cache");
               }
             })();
           } else {
             // Fallback: no valid cache, blocking validation
-            console.log("[DEBUG_AUTH] init — no cache, blocking validation");
+            debugAuth("init - no cache, blocking validation");
             const me = await authService.getMe();
             let fullName = "";
             let phone = "";
@@ -175,7 +177,7 @@ function useAuthInner() {
               // profile is best-effort
             }
             const effectiveRole = profileRole || me.role || "tenant";
-            const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
+            const role = toAppRole(effectiveRole);
             const userData: User = {
               id: me.id,
               email: me.email,
@@ -219,14 +221,14 @@ function useAuthInner() {
             }
           }
         } else {
-          console.log("[DEBUG_AUTH] init — no token, user stays null");
+          debugAuth("init - no token, user stays null");
         }
       } catch (e) {
-        console.log("[DEBUG_AUTH] init — error, clearing tokens:", e);
+        debugAuth("init - error, clearing tokens:", e);
         await clearTokens();
       } finally {
         setIsLoading(false);
-        console.log("[DEBUG_AUTH] init — complete, isLoading=false");
+        debugAuth("init - complete, isLoading=false");
       }
     })();
   }, []);
@@ -240,7 +242,7 @@ function useAuthInner() {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const result = await authService.signIn(email, password);
-    console.log("[DEBUG_AUTH] signIn — /auth/signin response:", { user_id: result.user_id, role: result.role, user_id_from_user: result.user?.id });
+    debugAuth("signIn - /auth/signin response:", { user_id: result.user_id, role: result.role, user_id_from_user: result.user?.id });
     await setStoredToken(result.access_token);
     if (result.refresh_token) {
       await setRefreshToken(result.refresh_token);
@@ -253,14 +255,14 @@ function useAuthInner() {
       fullName = profile.full_name || "";
       phone = profile.phone || "";
       profileRole = profile.role;
-      console.log("[DEBUG_AUTH] signIn — /auth/profile result:", { id: profile.id, role: profileRole, user_id: profile.user_id });
+      debugAuth("signIn - /auth/profile result:", { id: profile.id, role: profileRole, user_id: profile.user_id });
     } catch {
       // profile is best-effort; stay empty if unavailable
-      console.log("[DEBUG_AUTH] signIn — /auth/profile failed or unavailable");
+      debugAuth("signIn - /auth/profile failed or unavailable");
     }
 
     const effectiveRole = profileRole || result.role || "tenant";
-    const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
+    const role = toAppRole(effectiveRole);
 
     const userData: User = {
       id: result.user_id || result.user?.id as string || "",
@@ -271,8 +273,8 @@ function useAuthInner() {
       email_verified: true,
       created_at: "",
     };
-    console.log("[DEBUG_AUTH] signIn — effective role:", effectiveRole, "profileRole:", profileRole, "signinRole:", result.role);
-    console.log("[DEBUG_AUTH] signIn — setting user:", { id: userData.id, email: userData.email, role: userData.role });
+    debugAuth("signIn - effective role:", effectiveRole, "profileRole:", profileRole, "signinRole:", result.role);
+    debugAuth("signIn - setting user:", { id: userData.id, email: userData.email, role: userData.role });
     setUser(userData);
     await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({
       id: userData.id,
@@ -283,7 +285,7 @@ function useAuthInner() {
       email_verified: userData.email_verified,
       cached_at: Date.now(),
     }));
-    console.log("[DEBUG_AUTH] signIn — SESSION_KEY set to:", role);
+    debugAuth("signIn - SESSION_KEY set to:", role);
 
     if (role === "manager") {
       try {
@@ -301,17 +303,17 @@ function useAuthInner() {
             days_remaining: sub.days_remaining,
             payment_reference: sub.payment_reference,
           });
-          console.log("[DEBUG_AUTH] signIn — subscription loaded:", sub.plan_name, sub.status);
+          debugAuth("signIn - subscription loaded:", sub.plan_name, sub.status);
         } else {
-          console.log("[DEBUG_AUTH] signIn — no active subscription");
+          debugAuth("signIn - no active subscription");
         }
       } catch {
         // subscription fetch is best-effort
-        console.log("[DEBUG_AUTH] signIn — subscription fetch failed");
+        debugAuth("signIn - subscription fetch failed");
       }
     }
 
-    console.log("[DEBUG_AUTH] signIn — complete, returning userData");
+    debugAuth("signIn - complete, returning userData");
     return userData;
   }, []);
 
@@ -354,22 +356,22 @@ function useAuthInner() {
   }, []);
 
   const signOut = useCallback(async () => {
-    console.log("[DEBUG_AUTH] signOut — starting, user id:", user?.id, "role:", user?.role);
+    debugAuth("signOut - starting, user id:", user?.id, "role:", user?.role);
     try {
       await authService.signOut();
-      console.log("[DEBUG_AUTH] signOut — server session revoked");
+      debugAuth("signOut - server session revoked");
     } catch {
-      console.log("[DEBUG_AUTH] signOut — server signout failed (non-fatal)");
+      debugAuth("signOut - server signout failed (non-fatal)");
     }
-    console.log("[DEBUG_AUTH] signOut — clearing persisted tokens");
+    debugAuth("signOut - clearing persisted tokens");
     await clearTokens({ suppressNotification: true });
     await AsyncStorage.removeItem(SESSION_KEY);
     const tokenAfter = await getStoredToken();
-    console.log("[DEBUG_AUTH] signOut — token after clear:", tokenAfter);
-    console.log("[DEBUG_AUTH] signOut — clearing React state");
+    debugAuth("signOut - token cleared:", tokenAfter === null);
+    debugAuth("signOut - clearing React state");
     setUser(null);
     setSubscription(null);
-    console.log("[DEBUG_AUTH] signOut — complete");
+    debugAuth("signOut - complete");
   }, [user]);
 
   const markOnboardingSeen = useCallback(async () => {
@@ -394,12 +396,12 @@ function useAuthInner() {
   }, []);
 
   const refreshAuth = useCallback(async () => {
-    console.log("[DEBUG_AUTH] refreshAuth — starting");
+    debugAuth("refreshAuth - starting");
     try {
       const token = await getStoredToken();
-      console.log("[DEBUG_AUTH] refreshAuth — token exists:", !!token);
+      debugAuth("refreshAuth - token exists:", !!token);
       if (!token) {
-        console.log("[DEBUG_AUTH] refreshAuth — no token, setting user to null");
+        debugAuth("refreshAuth - no token, setting user to null");
         setUser(null);
         return null;
       }
@@ -412,7 +414,7 @@ function useAuthInner() {
       const profile = profileResult.status === "fulfilled" ? profileResult.value : null;
 
       if (!me) {
-        console.log("[DEBUG_AUTH] refreshAuth — /auth/me failed, clearing tokens");
+        debugAuth("refreshAuth - /auth/me failed, clearing tokens");
         await clearTokens();
         setUser(null);
         return null;
@@ -421,9 +423,9 @@ function useAuthInner() {
       const fullName = profile?.full_name || "";
       const phone = profile?.phone || "";
       const profileRole = profile?.role;
-      console.log("[DEBUG_AUTH] refreshAuth — /auth/me result:", { id: me.id, role: me.role });
+      debugAuth("refreshAuth - /auth/me result:", { id: me.id, role: me.role });
       const effectiveRole = profileRole || me.role || "tenant";
-      const role = (effectiveRole === "house_manager" || effectiveRole === "landlord" ? "manager" : effectiveRole === "tenant" ? "tenant" : "guest") as UserRole;
+      const role = toAppRole(effectiveRole);
       const userData: User = {
         id: me.id,
         email: me.email,
@@ -433,7 +435,7 @@ function useAuthInner() {
         email_verified: me.status === "active",
         created_at: "",
       };
-      console.log("[DEBUG_AUTH] refreshAuth — setting user:", { id: userData.id, role: userData.role });
+      debugAuth("refreshAuth - setting user:", { id: userData.id, role: userData.role });
       setUser(userData);
       await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({
         id: userData.id,
@@ -444,7 +446,7 @@ function useAuthInner() {
         email_verified: userData.email_verified,
         cached_at: Date.now(),
       }));
-      console.log("[DEBUG_AUTH] refreshAuth — SESSION_KEY set to:", role);
+      debugAuth("refreshAuth - SESSION_KEY set to:", role);
 
       if (role === "manager") {
         try {
@@ -462,18 +464,18 @@ function useAuthInner() {
               days_remaining: sub.days_remaining,
               payment_reference: sub.payment_reference,
             });
-            console.log("[DEBUG_AUTH] refreshAuth — subscription loaded:", sub.plan_name, sub.status);
+            debugAuth("refreshAuth - subscription loaded:", sub.plan_name, sub.status);
           } else {
-            console.log("[DEBUG_AUTH] refreshAuth — no active subscription");
+            debugAuth("refreshAuth - no active subscription");
           }
         } catch {
-          console.log("[DEBUG_AUTH] refreshAuth — subscription fetch failed");
+          debugAuth("refreshAuth - subscription fetch failed");
         }
       }
 
       return userData;
     } catch (e) {
-      console.log("[DEBUG_AUTH] refreshAuth — error, clearing tokens:", e);
+      debugAuth("refreshAuth - error, clearing tokens:", e);
       await clearTokens();
       setUser(null);
       return null;

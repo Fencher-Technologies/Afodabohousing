@@ -13,11 +13,13 @@ interface InputFieldProps {
   onChangeText: (text: string) => void;
   placeholder?: string;
   secureTextEntry?: boolean;
-  keyboardType?: "default" | "email-address" | "phone-pad" | "numeric" | "decimal-pad";
+  keyboardType?: "default" | "email-address" | "phone-pad" | "numeric" | "decimal-pad" | "number-pad";
   error?: string | null;
   multiline?: boolean;
   numberOfLines?: number;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  maxLength?: number;
+  onBlur?: () => void;
   leftIcon?: React.ReactNode;
   style?: ViewStyle;
   accessibilityLabel?: string;
@@ -34,6 +36,8 @@ export function InputField({
   multiline = false,
   numberOfLines = 1,
   autoCapitalize = "sentences",
+  maxLength,
+  onBlur,
   leftIcon,
   style,
   accessibilityLabel,
@@ -56,6 +60,8 @@ export function InputField({
           multiline={multiline}
           numberOfLines={multiline ? numberOfLines : undefined}
           autoCapitalize={autoCapitalize}
+          maxLength={maxLength}
+          onBlur={onBlur}
           style={styles.input}
           accessibilityLabel={accessibilityLabel ?? label}
           accessibilityValue={{ text: value }}

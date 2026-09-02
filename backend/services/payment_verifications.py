@@ -246,6 +246,27 @@ class PaymentVerificationService:
                 detail=f"Cannot approve a {submission['status']} verification request.",
             )
 
+        # Claim the submission first with a conditional update. If two
+        # reviewers act at once, only one claim succeeds; the other gets a
+        # clear 400 instead of a duplicated rent payment.
+        now = datetime.now(UTC)
+        claim = (
+            self.supabase.table(self._table)
+            .update({
+                "status": "approved",
+                "reviewed_by": reviewer_id,
+                "reviewed_at": now.isoformat(),
+            })
+            .eq("id", str(verification_id))
+            .eq("status", "pending")
+            .execute()
+        )
+        if not claim.data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This verification request was already processed.",
+            )
+
         try:
             payment = payment_service.create(
                 PaymentCreate(
@@ -262,20 +283,33 @@ class PaymentVerificationService:
                 )
             )
         except ValueError as e:
+            # Payment creation failed: release the claim so the manager can
+            # correct the data and approve again.
+            self.supabase.table(self._table).update(
+                {"status": "pending", "reviewed_by": None, "reviewed_at": None}
+            ).eq("id", str(verification_id)).execute()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e),
             )
+        except Exception:
+            self.supabase.table(self._table).update(
+                {"status": "pending", "reviewed_by": None, "reviewed_at": None}
+            ).eq("id", str(verification_id)).execute()
+            raise
 
-        now = datetime.now(UTC)
-        update_payload = {
-            "status": "approved",
-            "reviewed_by": reviewer_id,
-            "reviewed_at": now.isoformat(),
-        }
+        # Auto-issue the tenant-facing receipt for the confirmed payment.
+        receipt = None
+        try:
+            from services.receipts import ReceiptService
+
+            receipt = ReceiptService(self.supabase).create_for_payment(payment)
+        except Exception as e:
+            logger.warning("Receipt generation failed for payment %s: %s", payment.get("id"), e)
+
         result = (
             self.supabase.table(self._table)
-            .update(update_payload)
+            .select("*")
             .eq("id", str(verification_id))
             .execute()
         )
@@ -293,6 +327,8 @@ class PaymentVerificationService:
                         "verification_id": str(verification_id),
                         "payment_id": str(payment["id"]),
                         "amount": str(submission["amount"]),
+                        "receipt_id": str(receipt["id"]) if receipt else None,
+                        "receipt_number": receipt.get("receipt_number") if receipt else None,
                     },
                 )
             except Exception as e:

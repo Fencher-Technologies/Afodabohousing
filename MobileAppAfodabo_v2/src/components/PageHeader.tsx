@@ -1,11 +1,14 @@
 /**
- * PageHeader — consistent screen header with title, optional back, and action.
+ * PageHeader: consistent screen header with title, optional back, and action.
+ * The Axis brand mark is always rendered (next to the action when one exists),
+ * so every screen carries the brand regardless of header configuration.
  */
 
 import { ChevronLeft } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
+import { BrandMark } from "@/src/components/BrandMark";
 import type { ReactNode } from "react";
 
 interface PageHeaderProps {
@@ -14,6 +17,8 @@ interface PageHeaderProps {
   onBack?: () => void;
   rightAction?: ReactNode;
   large?: boolean;
+  /** Kept for backwards compatibility; the logo now renders unconditionally. */
+  showLogo?: boolean;
 }
 
 export function PageHeader({ title, subtitle, onBack, rightAction, large = false }: PageHeaderProps) {
@@ -38,7 +43,8 @@ export function PageHeader({ title, subtitle, onBack, rightAction, large = false
           </Text>
           {subtitle && <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>}
         </View>
-        {rightAction && <View style={styles.rightAction}>{rightAction}</View>}
+        <BrandMark size="sm" />
+        {rightAction ? <View style={styles.rightAction}>{rightAction}</View> : null}
       </View>
     </View>
   );
