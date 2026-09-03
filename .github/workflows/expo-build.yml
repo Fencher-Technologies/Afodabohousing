@@ -7,26 +7,56 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cd MobileAppAfodabo_v2
+          echo "EXPO_PUBLIC_API_URL=https://afodabohousing.onrender.com/" > .env
+
+      - name: Patch app.json (recent phones + disable New Architecture)
+        run: |
+          cd MobileAppAfodabo_v2
+          # minSdkVersion 28 = Android 9+ (blocks old devices)
+          # newArchEnabled false = fixes startup crash on many phones
+          jq '.expo.android.minSdkVersion = 28 | .expo.newArchEnabled = false' app.json > app.json.tmp
+          mv app.json.tmp app.json
+          echo "=== Patched app.json ==="
+          grep -E "minSdkVersion|newArchEnabled" app.json
+
+      - name: Patch eas.json with API URL
+        run: |
+          cd MobileAppAfodabo_v2
+          jq '.build.preview.env.EXPO_PUBLIC_API_URL = "https://afodabohousing.onrender.com/" | .build.production.env.EXPO_PUBLIC_API_URL = "https://afodabohousing.onrender.com/"' eas.json > eas.json.tmp
+          mv eas.json.tmp eas.json
+          echo "=== Patched eas.json ==="
+          cat eas.json
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
       - name: Recreate Keystore
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "${{ github.workspace }}/MobileAppAfodabo_v2/my-release-key.keystore"
+
       - name: Install EAS CLI
         run: npm install -g eas-cli
+
       - name: Install Project Dependencies
         run: |
           cd MobileAppAfodabo_v2
           npm install
+
       - name: Build Android App (Local Mode on Runner)
         working-directory: MobileAppAfodabo_v2
         env:
@@ -37,6 +67,7 @@ jobs:
           ANDROID_KEY_PASSWORD: changeit123
         run: |
           eas build --local --platform android --profile preview --non-interactive
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
