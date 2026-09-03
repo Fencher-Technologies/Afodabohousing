@@ -13,28 +13,30 @@ jobs:
           cd MobileAppAfodabo_v2
           echo "EXPO_PUBLIC_API_URL=https://afodabohousing.onrender.com/" > .env
 
-      - name: Patch app.json (recent phones + disable New Architecture)
-        run: |
-          cd MobileAppAfodabo_v2
-          # minSdkVersion 28 = Android 9+ (blocks old devices)
-          # newArchEnabled false = fixes startup crash on many phones
-          jq '.expo.android.minSdkVersion = 28 | .expo.newArchEnabled = false' app.json > app.json.tmp
-          mv app.json.tmp app.json
-          echo "=== Patched app.json ==="
-          grep -E "minSdkVersion|newArchEnabled" app.json
-
       - name: Patch eas.json with API URL
         run: |
           cd MobileAppAfodabo_v2
           jq '.build.preview.env.EXPO_PUBLIC_API_URL = "https://afodabohousing.onrender.com/" | .build.production.env.EXPO_PUBLIC_API_URL = "https://afodabohousing.onrender.com/"' eas.json > eas.json.tmp
           mv eas.json.tmp eas.json
-          echo "=== Patched eas.json ==="
-          cat eas.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Install Dependencies + expo-build-properties
+        run: |
+          cd MobileAppAfodabo_v2
+          npm install
+          npm install --save expo-build-properties
+
+      - name: Patch app.json for minSdkVersion (recent phones only)
+        run: |
+          cd MobileAppAfodabo_v2
+          jq '.plugins += [["expo-build-properties", {"android": {"minSdkVersion": 28}}]]' app.json > app.json.tmp
+          mv app.json.tmp app.json
+          echo "=== Patched app.json plugins ==="
+          jq '.plugins' app.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -52,15 +54,11 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Install Project Dependencies
-        run: |
-          cd MobileAppAfodabo_v2
-          npm install
-
       - name: Build Android App (Local Mode on Runner)
         working-directory: MobileAppAfodabo_v2
         env:
           EXPO_TOKEN: _VpSvXcqcV1UA8csXv4f5EBZw4GlW2GGVOGPGac4
+          NODE_ENV: production
           ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/MobileAppAfodabo_v2/my-release-key.keystore
           ANDROID_KEYSTORE_PASSWORD: changeit123
           ANDROID_KEY_ALIAS: my-key-alias
