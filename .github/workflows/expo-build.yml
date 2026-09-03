@@ -19,24 +19,29 @@ jobs:
           jq '.build.preview.env.EXPO_PUBLIC_API_URL = "https://afodabohousing.onrender.com/" | .build.production.env.EXPO_PUBLIC_API_URL = "https://afodabohousing.onrender.com/"' eas.json > eas.json.tmp
           mv eas.json.tmp eas.json
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Dependencies + expo-build-properties
+      - name: Install expo-build-properties plugin
         run: |
           cd MobileAppAfodabo_v2
-          npm install
           npm install --save expo-build-properties
 
       - name: Patch app.json for minSdkVersion (recent phones only)
         run: |
           cd MobileAppAfodabo_v2
-          jq '.plugins += [["expo-build-properties", {"android": {"minSdkVersion": 28}}]]' app.json > app.json.tmp
+          # Add expo-build-properties to .expo.plugins (NOT root .plugins)
+          jq '.expo.plugins += [["expo-build-properties", {"android": {"minSdkVersion": 28}}]]' app.json > app.json.tmp
           mv app.json.tmp app.json
-          echo "=== Patched app.json plugins ==="
-          jq '.plugins' app.json
+          echo "=== Patched app.json ==="
+          cat app.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Project Dependencies
+        run: |
+          cd MobileAppAfodabo_v2
+          npm install
 
       - name: Setup Java
         uses: actions/setup-java@v4
