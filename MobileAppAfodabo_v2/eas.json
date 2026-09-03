@@ -1,12 +1,20 @@
 {
-  "cli": { "appVersionSource": "local" },
+  "cli": {
+    "version": ">= 16.1.1"
+  },
   "build": {
     "preview": {
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://afodabohousing.onrender.com"
+      "android": {
+        "buildType": "apk"
       },
-      "android": { "buildType": "apk" }
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://afodabohousing.onrender.com/"
+      }
+    },
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://afodabohousing.onrender.com/"
+      }
     }
   }
 }
