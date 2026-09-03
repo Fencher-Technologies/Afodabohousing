@@ -5,6 +5,7 @@ import { Plus, Users, Search, AlertTriangle, CheckCircle2, Clock, Wallet, Filter
 
 import { Colors, FontSize, FontWeight, Radii, Spacing, Shadows } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
+import { BrandMark } from "@/src/components/BrandMark";
 import { Button } from "@/src/components/Button";
 import { SelectField } from "@/src/components/SelectField";
 import { TenancyCard } from "@/src/components/TenancyCard";
@@ -122,6 +123,7 @@ export default function ManagerTenanciesScreen() {
   return (
       <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
       <View style={styles.hero}>
+        <BrandMark size="sm" tone="light" />
         <View style={styles.heroTop}>
           <View>
             <Text style={styles.heroTitle}>Tenancies</Text>

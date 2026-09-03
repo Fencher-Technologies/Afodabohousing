@@ -20,6 +20,7 @@ import {
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
+import { BrandMark } from "@/src/components/BrandMark";
 import { Card } from "@/src/components/Card";
 import { Badge } from "@/src/components/Badge";
 import { CollapsibleSection } from "@/src/components/CollapsibleSection";
@@ -41,6 +42,7 @@ export default function TenantAccountScreen() {
   return (
     <Screen scroll>
       <View style={styles.header}>
+        <BrandMark size="sm" style={styles.brandLogo} />
         <Text style={styles.title}>Account</Text>
       </View>
 
@@ -130,6 +132,7 @@ function Divider() {
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
+  brandLogo: { marginBottom: Spacing.xs },
   title: { fontSize: FontSize.display, fontWeight: FontWeight.bold, color: Colors.textPrimary },
   content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
   profileCard: {

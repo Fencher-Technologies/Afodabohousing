@@ -22,6 +22,7 @@ import {
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
+import { BrandMark } from "@/src/components/BrandMark";
 import { Card } from "@/src/components/Card";
 import { Badge } from "@/src/components/Badge";
 import { CollapsibleSection } from "@/src/components/CollapsibleSection";
@@ -47,6 +48,7 @@ export default function ManagerAccountScreen() {
   return (
     <Screen scroll>
       <View style={styles.header}>
+        <BrandMark size="sm" style={styles.brandLogo} />
         <Text style={styles.title}>Account</Text>
       </View>
 
@@ -187,6 +189,9 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
+  },
+  brandLogo: {
+    marginBottom: Spacing.xs,
   },
   title: {
     fontSize: FontSize.display,

@@ -32,6 +32,7 @@ import {
 
 import { Colors, FontSize, FontWeight, Radii, Spacing, Shadows } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
+import { BrandMark } from "@/src/components/BrandMark";
 import { Card } from "@/src/components/Card";
 import { Button } from "@/src/components/Button";
 import { SelectField } from "@/src/components/SelectField";
@@ -309,6 +310,7 @@ export default function ReportsScreen() {
   return (
     <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
       <View style={styles.content}>
+        <BrandMark size="sm" />
         <Text style={styles.title}>Reports</Text>
         <Text style={styles.subtitle}>Financial overview of the tenancies you manage.</Text>
 

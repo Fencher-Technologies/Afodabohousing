@@ -16,7 +16,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/axis-adaptive.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#6B0F24"
       },
       "package": "com.axis.app",
       "permissions": [
@@ -47,7 +47,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/axis-splash-full.png",
-          "imageWidth": 200,
+          "imageWidth": 260,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }

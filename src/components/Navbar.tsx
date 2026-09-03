@@ -61,7 +61,7 @@ export default function Navbar() {
         <Link to="/" className="flex items-center gap-2.5 shrink-0">
             <img src={logoImg} alt="Axis" className="h-9 w-9 object-contain rounded-lg" />
             <div>
-              <div className="font-display font-bold text-sm sm:text-base text-primary leading-tight">Axis</div>
+              <div className="font-display font-bold text-sm sm:text-base text-primary leading-tight">Axis Housing</div>
               <div className="hidden sm:block text-muted-foreground text-xs leading-tight">Housing Made Easy</div>
             </div>
         </Link>

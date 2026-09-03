@@ -59,14 +59,14 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" backgroundColor="#1B4A38" />
+      <StatusBar style="light" backgroundColor={Colors.primary} />
       <FloatingBackButton onPress={() => router.back()} />
-      <LinearGradient colors={["#1B4A38", "#236048"]} style={styles.header}>
+      <LinearGradient colors={[Colors.primary, Colors.primaryDeep]} style={styles.header}>
         <View style={styles.logoWrap}>
-          <Image source={require("../assets/images/axis-logo.png")} style={styles.logoIcon} contentFit="contain" />
+          <Image source={require("../assets/images/axis-icon-badge.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
         <Text style={styles.appName}>Create Account</Text>
-        <Text style={styles.tagline}>Join Axis in under a minute</Text>
+        <Text style={styles.tagline}>Join Axis Housing in under a minute</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView
@@ -212,8 +212,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   logoIcon: {
-    width: 84,
-    height: 63,
+    width: 80,
+    height: 80,
   },
   appName: { fontSize: FontSize.display, fontWeight: FontWeight.bold, color: "#FFFFFF" },
   tagline: { fontSize: FontSize.body, color: "rgba(255,255,255,0.7)" },

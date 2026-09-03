@@ -5,6 +5,7 @@ import { Compass, MapPin, SlidersHorizontal, RotateCcw } from "lucide-react-nati
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
+import { BrandMark } from "@/src/components/BrandMark";
 import { PropertyCard } from "@/src/components/PropertyCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { LoadingState } from "@/src/components/LoadingState";
@@ -156,10 +157,7 @@ export default function ExploreScreen() {
     <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
       {/* Hero header */}
       <View style={styles.hero}>
-        <View style={styles.heroBadge}>
-          <Compass size={14} color={Colors.accent} />
-          <Text style={styles.heroBadgeText}>GLOBAL RENTAL MARKETPLACE</Text>
-        </View>
+        <BrandMark size="md" style={styles.brandLogo} />
         <Text style={styles.heroTitle}>Find Your Perfect Home</Text>
         <Text style={styles.heroSubtitle}>
           Browse verified rental properties in your preferred location.
@@ -374,22 +372,8 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  heroBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    backgroundColor: Colors.accentSoft,
-    borderRadius: Radii.pill,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.md,
+  brandLogo: {
     marginBottom: Spacing.sm,
-  },
-  heroBadgeText: {
-    fontSize: FontSize.micro,
-    fontWeight: FontWeight.semibold,
-    color: Colors.accent,
-    textTransform: "uppercase",
   },
   heroTitle: {
     fontSize: FontSize.display,

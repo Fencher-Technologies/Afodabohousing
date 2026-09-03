@@ -12,16 +12,23 @@ const SIZES = {
   md: { width: 108, height: 34 },
 } as const;
 
+const SOURCES = {
+  dark: require("@/assets/images/axis-logo.png"),
+  light: require("@/assets/images/axis-logo-white.png"),
+} as const;
+
 type Props = {
   size?: keyof typeof SIZES;
+  /** "dark" (default) for light backgrounds, "light" for dark/brand headers. */
+  tone?: keyof typeof SOURCES;
   style?: StyleProp<ImageStyle>;
 };
 
-export function BrandMark({ size = "md", style }: Props) {
+export function BrandMark({ size = "md", tone = "dark", style }: Props) {
   const dims = SIZES[size];
   return (
     <Image
-      source={require("@/assets/images/axis-logo.png")}
+      source={SOURCES[tone]}
       style={[{ width: dims.width, height: dims.height }, style]}
       contentFit="contain"
       cachePolicy="memory-disk"

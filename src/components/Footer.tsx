@@ -53,7 +53,7 @@ export default function Footer() {
             <ScrollLink to="/" className="flex items-center gap-3 mb-5">
               <img src={logoImg} alt="Axis" className="h-12 w-12 object-contain rounded-lg" />
               <div>
-                <div className="font-display font-bold text-xl text-primary-foreground leading-tight">Axis</div>
+                <div className="font-display font-bold text-xl text-primary-foreground leading-tight">Axis Housing</div>
                 <div className="text-primary-foreground/60 text-xs">Housing Made Easy</div>
               </div>
             </ScrollLink>

@@ -8,6 +8,7 @@ import { Info, ChevronRight, ShieldCheck, FileText, Headphones, Home } from "luc
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
+import { BrandMark } from "@/src/components/BrandMark";
 import { Card } from "@/src/components/Card";
 import { Button } from "@/src/components/Button";
 import { CollapsibleSection } from "@/src/components/CollapsibleSection";
@@ -17,6 +18,7 @@ export default function GuestAccountScreen() {
   return (
     <Screen scroll>
       <View style={styles.hero}>
+        <BrandMark size="md" style={styles.brandLogo} />
         <View style={styles.heroIconWrap}>
           <Home size={32} color={Colors.primary} />
         </View>
@@ -78,6 +80,9 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: Spacing.xl,
     gap: Spacing.md,
+  },
+  brandLogo: {
+    marginBottom: Spacing.xs,
   },
   heroIconWrap: {
     width: 72,

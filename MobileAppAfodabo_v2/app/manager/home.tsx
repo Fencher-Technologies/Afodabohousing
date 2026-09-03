@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, Text, View, Pressable, FlatList } from "react-native";
 import { router } from "expo-router";
 import {
@@ -17,7 +17,7 @@ import {
 } from "lucide-react-native";
 import type { ReactNode } from "react";
 
-import { Colors, FontSize, FontWeight, Radii, Spacing, ToneColors, Shadows } from "@/constants/theme";
+import { Colors, FontSize, FontWeight, Radii, Spacing, Shadows } from "@/constants/theme";
 import { BrandMark } from "@/src/components/BrandMark";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
@@ -30,7 +30,6 @@ import { useOwnerSubmissions } from "@/src/hooks/usePaymentVerifications";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
 import { formatUGX } from "@/src/utils/format";
-import type { AlertItem } from "@/src/types";
 
 function greetingForHour(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -75,36 +74,6 @@ export default function ManagerDashboardScreen() {
   );
   const needsAttentionCount = needsAttention.length;
 
-  const alerts: AlertItem[] = useMemo(() => {
-    const items: AlertItem[] = [];
-    if (needsAttentionCount > 0) {
-      items.push({
-        id: "outstanding",
-        tone: "danger",
-        count: needsAttentionCount,
-        label: "Outstanding",
-        action_label: "View",
-      });
-    }
-    if ((stats?.pending_review_count ?? 0) > 0) {
-      items.push({
-        id: "pending",
-        tone: "warning",
-        count: stats?.pending_review_count ?? 0,
-        label: "Pending review",
-        action_label: "Review",
-      });
-    }
-    items.push({
-      id: "tenancies",
-      tone: "info",
-      count: stats?.total_tenancies || 0,
-      label: "Tenancies",
-      action_label: "View",
-    });
-    return items;
-  }, [needsAttentionCount, stats]);
-
   const statsCards = useMemo(() => [
     { label: "Active\nTenants", value: stats?.active_tenants ?? 0, icon: <Users size={18} color={Colors.primary} />, tone: "primary" as const },
     { label: "Outstanding", value: needsAttentionCount, icon: <AlertTriangle size={18} color={Colors.danger} />, tone: "danger" as const },
@@ -136,28 +105,6 @@ export default function ManagerDashboardScreen() {
     [searchQuery, tenancies]
   );
 
-  const handleAlertPress = useCallback((alert: AlertItem) => {
-    router.push("/manager/tenancies");
-  }, []);
-
-  const renderAlert = ({ item }: { item: AlertItem }) => {
-    const colors = ToneColors[item.tone];
-    return (
-      <Pressable
-        onPress={() => handleAlertPress(item)}
-        style={({ pressed }) => [styles.alertPill, { backgroundColor: colors.bg, opacity: pressed ? 0.8 : 1 }]}
-        accessibilityRole="button"
-        accessibilityLabel={`${item.count} ${item.label}`}
-      >
-        <View style={[styles.alertDot, { backgroundColor: colors.fg }]} />
-        <Text style={[styles.alertText, { color: colors.fg }]}>
-          {item.count} {item.label}
-        </Text>
-        <ChevronRight size={16} color={colors.fg} />
-      </Pressable>
-    );
-  };
-
   if (isLoading) {
     return <LoadingState message="Loading dashboard…" />;
   }
@@ -179,12 +126,12 @@ export default function ManagerDashboardScreen() {
 
           <Pressable
             onPress={() => router.push("/subscription")}
-            style={[styles.subBadge, isSubActive ? styles.subBadgeActive : styles.subBadgeExpired]}
+            style={styles.subLink}
             accessibilityRole="button"
             accessibilityLabel={`Subscription: ${isSubActive ? `${subscription?.days_remaining} days left` : "Expired"}`}
           >
             <Crown size={14} color={Colors.accent} />
-            <Text style={[styles.subBadgeText, { color: Colors.accent }]}>
+            <Text style={styles.subLinkText}>
               {isSubActive ? `${subscription?.days_remaining}d left` : "Expired"}
             </Text>
           </Pressable>
@@ -247,18 +194,6 @@ export default function ManagerDashboardScreen() {
           <Text style={styles.searchEmptyText}>No matches for “{searchQuery}”</Text>
         </View>
       )}
-
-      {/* Alerts */}
-      <View style={styles.section}>
-        <FlatList
-          data={alerts}
-          keyExtractor={(item) => item.id}
-          renderItem={renderAlert}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: Spacing.sm }}
-        />
-      </View>
 
       {/* Stats */}
       <View style={styles.section}>
@@ -385,26 +320,16 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     marginTop: 2,
   },
-  subBadge: {
+  subLink: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs + 2,
-    borderRadius: Radii.pill,
-    borderWidth: 1.5,
+    paddingVertical: Spacing.xs,
   },
-  subBadgeActive: {
-    backgroundColor: Colors.accentSoft,
-    borderColor: Colors.accent,
-  },
-  subBadgeExpired: {
-    backgroundColor: Colors.accentSoft,
-    borderColor: Colors.accent,
-  },
-  subBadgeText: {
-    fontSize: FontSize.micro,
-    fontWeight: FontWeight.bold,
+  subLinkText: {
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.semibold,
+    color: Colors.accent,
   },
   searchWrap: {
     borderRadius: Radii.input,
@@ -488,23 +413,8 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 2,
   },
-  alertPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    borderRadius: Radii.pill,
-  },
-  alertDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  alertText: {
-    fontSize: FontSize.caption,
-    fontWeight: FontWeight.semibold,
-  },
+  // The horizontal alert chips were removed: they read as decorative
+  // "AI-style" pills and duplicated the Needs Attention banner below.
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",

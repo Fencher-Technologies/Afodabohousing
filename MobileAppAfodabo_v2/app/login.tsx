@@ -44,16 +44,16 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" backgroundColor="#1A2332" />
+      <StatusBar style="light" backgroundColor={Colors.primary} />
       <FloatingBackButton onPress={() => router.back()} />
       <LinearGradient
-        colors={["#1A2332", "#15202B"]}
+        colors={[Colors.primary, Colors.primaryDeep]}
         style={styles.header}
       >
         <View style={styles.logoWrap}>
-          <Image source={require("../assets/images/icon.png")} style={styles.logoIcon} contentFit="contain" />
+          <Image source={require("../assets/images/axis-icon-badge.png")} style={styles.logoIcon} contentFit="contain" />
         </View>
-        <Text style={styles.appName}>Axis</Text>
+        <Text style={styles.appName}>Axis Housing</Text>
         <Text style={styles.tagline}>Housing Made Easy</Text>
       </LinearGradient>
 

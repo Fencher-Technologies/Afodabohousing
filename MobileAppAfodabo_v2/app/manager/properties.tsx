@@ -5,6 +5,7 @@ import { Plus, Building2, Home, CheckCircle2, XCircle } from "lucide-react-nativ
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
+import { BrandMark } from "@/src/components/BrandMark";
 import { Button } from "@/src/components/Button";
 import { PropertyCard } from "@/src/components/PropertyCard";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -57,6 +58,7 @@ export default function ManagerPropertiesScreen() {
   return (
     <Screen scroll onRefresh={onRefresh} refreshing={refreshing}>
       <View style={styles.header}>
+        <BrandMark size="sm" style={styles.brandLogo} />
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.title}>Properties</Text>
@@ -143,6 +145,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
     gap: Spacing.md,
+  },
+  brandLogo: {
+    marginBottom: -Spacing.sm,
   },
   headerRow: {
     flexDirection: "row",
