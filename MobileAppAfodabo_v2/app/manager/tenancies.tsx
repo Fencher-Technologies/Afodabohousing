@@ -141,12 +141,12 @@ export default function ManagerTenanciesScreen() {
         </View>
 
         <View style={styles.summaryRow}>
-          <View style={[styles.summaryItem, { backgroundColor: "rgba(46,125,82,0.18)" }]}>
-            <Text style={[styles.summaryValue, { color: "#E4F4EC" }]}>{currentCount}</Text>
+          <View style={[styles.summaryItem, { backgroundColor: "rgba(255,255,255,0.14)" }]}>
+            <Text style={[styles.summaryValue, { color: Colors.textOnPrimary }]}>{currentCount}</Text>
             <Text style={styles.summaryLabel}>Current</Text>
           </View>
-          <View style={[styles.summaryItem, { backgroundColor: "rgba(217,119,6,0.20)" }]}>
-            <Text style={[styles.summaryValue, { color: "#FEF3E2" }]}>{expiringCount}</Text>
+          <View style={[styles.summaryItem, { backgroundColor: "rgba(255,255,255,0.14)" }]}>
+            <Text style={[styles.summaryValue, { color: Colors.textOnPrimary }]}>{expiringCount}</Text>
             <Text style={styles.summaryLabel}>Expiring</Text>
           </View>
           <View style={[styles.summaryItem, styles.summaryOverdue]}>
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   summaryOverdue: {
-    backgroundColor: "rgba(192,57,43,0.22)",
+    backgroundColor: "rgba(255,255,255,0.14)",
   },
   summaryValue: {
     fontSize: FontSize.title,

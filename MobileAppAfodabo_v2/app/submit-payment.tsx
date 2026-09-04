@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
   pendingCard: {
     width: "100%",
     gap: Spacing.sm,
-    backgroundColor: Colors.accentSoft,
+    backgroundColor: Colors.surfaceAlt,
     borderWidth: 1,
     borderColor: Colors.accent,
   },

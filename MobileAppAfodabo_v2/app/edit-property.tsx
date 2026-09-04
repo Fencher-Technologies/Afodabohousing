@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderStrong,
   },
   amenityChipSelected: {
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     borderColor: Colors.primary,
   },
   amenityChipText: {

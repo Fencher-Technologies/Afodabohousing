@@ -286,11 +286,11 @@ const styles = StyleSheet.create({
   },
   planCardSelected: {
     borderColor: Colors.primary,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   planCardPopular: {
     borderColor: Colors.gold,
-    backgroundColor: Colors.accentSoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   popularBadge: {
     position: "absolute",

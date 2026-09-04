@@ -154,10 +154,10 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
   },
   highlightOk: {
-    backgroundColor: Colors.successSoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   highlightArrears: {
-    backgroundColor: Colors.dangerSoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   highlightMuted: {
     backgroundColor: Colors.surfaceAlt,

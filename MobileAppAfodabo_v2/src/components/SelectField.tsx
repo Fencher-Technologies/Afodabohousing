@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
   },
-  optionSelected: { backgroundColor: Colors.primarySoft },
+  optionSelected: { backgroundColor: Colors.surfaceAlt },
   optionText: {
     fontSize: FontSize.body,
     color: Colors.textPrimary,

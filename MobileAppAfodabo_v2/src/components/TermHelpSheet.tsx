@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   noteWrap: {
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radii.card,
     padding: Spacing.md,
     marginTop: Spacing.sm,

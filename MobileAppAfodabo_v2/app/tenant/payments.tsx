@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.accentSoft,
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radii.card,
     padding: Spacing.md,
     borderWidth: 1,

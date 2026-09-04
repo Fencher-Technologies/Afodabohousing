@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  markerActive: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  markerActive: { borderColor: Colors.primary, backgroundColor: Colors.surfaceAlt },
   markerDone: { borderColor: Colors.primary, backgroundColor: Colors.primary },
   markerText: {
     fontSize: FontSize.caption,

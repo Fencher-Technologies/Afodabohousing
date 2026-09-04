@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   },
   packageCardSelected: {
     borderColor: Colors.gold,
-    backgroundColor: Colors.goldSoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   packageRow: {
     flexDirection: "row",

@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     padding: Spacing.sm,
     borderRadius: Radii.card,
-    backgroundColor: Colors.dangerSoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   rejectionText: {
     flex: 1,

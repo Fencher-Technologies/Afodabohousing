@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   },
   balanceRow: {
     flexDirection: "row",
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radii.card,
     padding: Spacing.md,
     marginBottom: Spacing.md,

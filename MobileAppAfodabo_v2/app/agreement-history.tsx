@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   activeCard: {
     borderLeftWidth: 4,
     borderLeftColor: Colors.primary,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   versionHeader: {
     flexDirection: "row",
