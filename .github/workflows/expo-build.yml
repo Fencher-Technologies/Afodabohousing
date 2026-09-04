@@ -11,12 +11,12 @@ jobs:
       - name: Create .env file
         run: |
           cd MobileAppAfodabo_v2
-          echo "EXPO_PUBLIC_API_URL=https://afodabohousing.onrender.com/" > .env
+          echo "EXPO_PUBLIC_API_URL=https://afodabohousing.onrender.com" > .env
 
       - name: Patch eas.json with API URL
         run: |
           cd MobileAppAfodabo_v2
-          jq '.build.preview.env.EXPO_PUBLIC_API_URL = "https://afodabohousing.onrender.com/" | .build.production.env.EXPO_PUBLIC_API_URL = "https://afodabohousing.onrender.com/"' eas.json > eas.json.tmp
+          jq '.build.preview.env.EXPO_PUBLIC_API_URL = "https://afodabohousing.onrender.com" | .build.production.env.EXPO_PUBLIC_API_URL = "https://afodabohousing.onrender.com/"' eas.json > eas.json.tmp
           mv eas.json.tmp eas.json
 
       - name: Install expo-build-properties plugin
