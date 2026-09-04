@@ -52,6 +52,7 @@ export default {
         gold: {
           DEFAULT: "hsl(var(--gold))",
           foreground: "hsl(var(--gold-foreground))",
+          light: "hsl(var(--gold-light))",
         },
         cream: {
           DEFAULT: "hsl(36 33% 93%)",

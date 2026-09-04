@@ -3,7 +3,7 @@ import Footer from '@/components/Footer';
 import PageHero from '@/components/PageHero';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import logoImg from '@/assets/axis-logo.png';
+import logoImg from '@/assets/axis-lockup.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Shield, Users, MapPin, Star, Award, Building2, HeartHandshake } from 'lucide-react';
 
@@ -75,7 +75,7 @@ export default function AboutPage() {
             </ul>
           </div>
           <div className="bg-card border border-border rounded-3xl p-8 shadow-card">
-            <img src={logoImg} alt="Axis" className="h-24 w-24 mx-auto mb-6 rounded-2xl" />
+            <img src={logoImg} alt="Axis Housing" className="h-16 w-auto mx-auto mb-6" />
             <div className="grid grid-cols-2 gap-5">
               {[
                 { val: 'Global', label: 'Reach' },
@@ -94,7 +94,7 @@ export default function AboutPage() {
       </section>
 
       {/* Values */}
-      <section className="bg-secondary py-20">
+      <section className="bg-secondary pattern-rose py-20">
         <div className="container">
           <div className="text-center mb-14">
             <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">What We Stand For</p>

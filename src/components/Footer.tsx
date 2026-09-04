@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import logoImg from '@/assets/axis-logo.png';
+import logoImg from '@/assets/axis-lockup-white.png';
 import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 
 const LINKS = {
@@ -50,27 +50,23 @@ export default function Footer() {
 
           {/* Brand column */}
           <div className="lg:col-span-2">
-            <ScrollLink to="/" className="flex items-center gap-3 mb-5">
-              <img src={logoImg} alt="Axis" className="h-12 w-12 object-contain rounded-lg" />
-              <div>
-                <div className="font-display font-bold text-xl text-primary-foreground leading-tight">Axis Housing</div>
-                <div className="text-primary-foreground/60 text-xs">Housing Made Easy</div>
-              </div>
+            <ScrollLink to="/" className="inline-block mb-5">
+              <img src={logoImg} alt="Axis Housing" className="h-10 w-auto" />
             </ScrollLink>
             <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6 max-w-xs">
               Connecting tenants with verified house managers worldwide. Find your perfect home, generate agreements, and manage rent in one platform.
             </p>
             <div className="space-y-2.5 text-sm">
               <a href="mailto:info@axishousing.com" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
-                <Mail className="h-4 w-4 text-accent shrink-0" />
+                <Mail className="h-4 w-4 text-gold-light shrink-0" />
                 info@axishousing.com
               </a>
               <a href="tel:+256788100145" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
-                <Phone className="h-4 w-4 text-accent shrink-0" />
+                <Phone className="h-4 w-4 text-gold-light shrink-0" />
                 +256 788 100 145
               </a>
               <div className="flex items-center gap-2.5 text-primary-foreground/70">
-                <MapPin className="h-4 w-4 text-accent shrink-0" />
+                <MapPin className="h-4 w-4 text-gold-light shrink-0" />
                 Kampala, Uganda
               </div>
             </div>
@@ -87,7 +83,7 @@ export default function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="h-9 w-9 rounded-full bg-primary-foreground/10 hover:bg-accent flex items-center justify-center transition-colors"
+                  className="h-9 w-9 rounded-full bg-primary-foreground/15 text-primary-foreground hover:bg-gold hover:text-primary flex items-center justify-center transition-colors"
                 >
                   <Icon className="h-4 w-4" />
                 </a>

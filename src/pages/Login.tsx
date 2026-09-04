@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
 import { useToast } from '@/hooks/use-toast';
-import logoImg from '@/assets/axis-logo.png';
+import logoImg from '@/assets/axis-lockup.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Smartphone, MessageSquare, KeyRound } from 'lucide-react';
 
@@ -157,12 +157,8 @@ export default function LoginPage() {
       {/* LEFT PANEL */}
       <div className="flex-1 flex flex-col justify-center px-6 py-12 bg-background max-w-[520px]">
         <div className="mx-auto w-full max-w-sm">
-          <Link to="/" className="flex items-center gap-3 mb-10">
-            <img src={logoImg} alt="Axis" className="h-11 w-11 rounded-xl" />
-            <div>
-              <div className="font-display font-bold text-lg text-primary leading-tight">Axis</div>
-              <div className="text-muted-foreground text-xs">Housing Made Easy</div>
-            </div>
+          <Link to="/" className="inline-block mb-10">
+            <img src={logoImg} alt="Axis Housing" className="h-11 w-auto" />
           </Link>
 
           {resetting ? (

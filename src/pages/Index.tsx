@@ -56,41 +56,6 @@ function Reveal({ children, className = '', delay = 0 }: { children: ReactNode; 
   );
 }
 
-/* ---------------------------------------------------------------------------
- * Beams — thin diagonal light strokes that drift slowly across dark sections.
- * They echo the upward arrow in the Axis mark.
- * ------------------------------------------------------------------------ */
-const BEAMS = [
-  { top: '8%',  left: '-12%', width: '62vw', rot: '-22deg', dur: '17s', delay: '0s',   op: 0.30 },
-  { top: '24%', left: '18%',  width: '44vw', rot: '-36deg', dur: '23s', delay: '4s',   op: 0.18 },
-  { top: '46%', left: '-6%',  width: '52vw', rot: '-16deg', dur: '20s', delay: '8s',   op: 0.24 },
-  { top: '62%', left: '30%',  width: '40vw', rot: '-44deg', dur: '26s', delay: '2s',   op: 0.14 },
-  { top: '78%', left: '-14%', width: '58vw', rot: '-28deg', dur: '21s', delay: '11s',  op: 0.22 },
-  { top: '88%', left: '22%',  width: '36vw', rot: '-12deg', dur: '25s', delay: '6s',   op: 0.16 },
-];
-
-function Beams() {
-  return (
-    <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-      {BEAMS.map((b, i) => (
-        <span
-          key={i}
-          className="beam"
-          style={{
-            top: b.top,
-            left: b.left,
-            width: b.width,
-            ['--beam-rot' as string]: b.rot,
-            ['--beam-dur' as string]: b.dur,
-            ['--beam-delay' as string]: b.delay,
-            ['--beam-op' as string]: b.op,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 const WHY_AXIS = [
   {
     icon: <Shield className="h-5 w-5" />,
@@ -315,8 +280,7 @@ export default function HomePage() {
           fetchPriority="high"
           className="absolute inset-0 w-full h-full object-cover duotone-img"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#480018] via-[#480018]/55 to-[#480018]/25" />
-        <Beams />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#3A0012] via-[#480018]/80 to-[#2A000E]/60" />
 
         <div className="relative z-10 w-full max-w-6xl mx-auto px-5 sm:px-8 pb-14 pt-40">
           <Reveal>
@@ -431,7 +395,6 @@ export default function HomePage() {
           STATS — deep burgundy band, hairline-divided serif numbers
           ============================================================ */}
       <section className="relative bg-[#480018] overflow-hidden">
-        <Beams />
         <div className="relative max-w-6xl mx-auto px-5 sm:px-8 py-16 grid grid-cols-2 md:grid-cols-4 gap-y-10">
           {[
             { val: stats.properties > 0 ? `${stats.properties}+` : '10+', label: 'Active Listings', sub: 'Verified and ready' },
@@ -456,9 +419,8 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-5 sm:px-8 py-20">
         <Reveal>
           <div className="flex items-center gap-4 mb-3">
-            <span className="font-display text-accent text-sm tracking-[0.25em]">01</span>
-            <span className="h-px flex-1 bg-foreground/15" />
             <span className="text-accent font-semibold text-xs uppercase tracking-[0.25em]">Browse Listings</span>
+            <span className="h-px flex-1 bg-foreground/15" />
           </div>
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
             <div>
@@ -503,15 +465,14 @@ export default function HomePage() {
       {/* ============================================================
           WHY AXIS — sticky editorial heading + hairline feature list
           ============================================================ */}
-      <section className="bg-secondary border-y border-border" id="why">
+      <section className="bg-secondary pattern-rose border-y border-border" id="why">
         <div className="max-w-6xl mx-auto px-5 sm:px-8 py-24 grid lg:grid-cols-5 gap-14">
           <div className="lg:col-span-2">
             <div className="lg:sticky lg:top-28">
               <Reveal>
                 <div className="flex items-center gap-4 mb-6">
-                  <span className="font-display text-accent text-sm tracking-[0.25em]">02</span>
-                  <span className="h-px w-16 bg-foreground/15" />
                   <span className="text-accent font-semibold text-xs uppercase tracking-[0.25em]">Why Axis</span>
+                  <span className="h-px w-16 bg-foreground/15" />
                 </div>
                 <h2 className="font-display text-4xl sm:text-5xl text-foreground leading-[1.05] text-balance">
                   Everything about renting, finally in one place.
@@ -532,7 +493,6 @@ export default function HomePage() {
             {WHY_AXIS.map((f, i) => (
               <Reveal key={f.title} delay={i * 0.06}>
                 <div className={`flex gap-6 py-7 ${i > 0 ? 'border-t rule-ink' : ''}`}>
-                  <span className="font-display text-accent/60 text-sm pt-1 w-8 shrink-0">{String(i + 1).padStart(2, '0')}</span>
                   <div className="text-primary pt-1 shrink-0">{f.icon}</div>
                   <div>
                     <h3 className="font-display text-2xl text-foreground mb-2">{f.title}</h3>
@@ -553,8 +513,7 @@ export default function HomePage() {
           <img src={showcaseInterior} alt="A bright Axis-managed apartment interior" className="absolute inset-0 w-full h-full object-cover duotone-img" />
         </div>
         <div className="relative bg-[#480018] overflow-hidden flex items-center">
-          <Beams />
-          <div className="relative px-6 sm:px-12 py-16 lg:py-24 max-w-xl">
+            <div className="relative px-6 sm:px-12 py-16 lg:py-24 max-w-xl">
             <Reveal>
               <p className="flex items-center gap-3 text-cream/70 text-xs font-semibold tracking-[0.28em] uppercase mb-6">
                 <ArrowUpRight className="h-4 w-4 text-gold" strokeWidth={2.5} />
@@ -584,9 +543,8 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-5 sm:px-8 py-24">
           <Reveal>
             <div className="flex items-center gap-4 mb-3">
-              <span className="font-display text-gold text-sm tracking-[0.25em]">03</span>
-              <span className="h-px flex-1 bg-background/20" />
               <span className="text-gold font-semibold text-xs uppercase tracking-[0.25em]">Tailored for You</span>
+              <span className="h-px flex-1 bg-background/20" />
             </div>
             <h2 className="font-display text-4xl sm:text-5xl leading-tight mb-16 max-w-xl">
               Get started in minutes.
@@ -617,9 +575,8 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-5 sm:px-8 py-24" id="how-it-works">
         <Reveal>
           <div className="flex items-center gap-4 mb-3">
-            <span className="font-display text-accent text-sm tracking-[0.25em]">04</span>
-            <span className="h-px flex-1 bg-foreground/15" />
             <span className="text-accent font-semibold text-xs uppercase tracking-[0.25em]">Simple Process</span>
+            <span className="h-px flex-1 bg-foreground/15" />
           </div>
           <h2 className="font-display text-4xl sm:text-5xl text-foreground leading-tight mb-16 max-w-xl">
             How it works
@@ -656,13 +613,12 @@ export default function HomePage() {
       {/* ============================================================
           TESTIMONIALS — serif pull quotes
           ============================================================ */}
-      <section className="bg-secondary border-y border-border">
+      <section className="bg-secondary pattern-rose border-y border-border">
         <div className="max-w-6xl mx-auto px-5 sm:px-8 py-24">
           <Reveal>
             <div className="flex items-center gap-4 mb-3">
-              <span className="font-display text-accent text-sm tracking-[0.25em]">05</span>
-              <span className="h-px flex-1 bg-foreground/15" />
               <span className="text-accent font-semibold text-xs uppercase tracking-[0.25em]">What Our Users Say</span>
+              <span className="h-px flex-1 bg-foreground/15" />
             </div>
             <h2 className="font-display text-4xl sm:text-5xl text-foreground leading-tight mb-16">
               Trusted across Uganda
@@ -692,8 +648,7 @@ export default function HomePage() {
       {/* APK DOWNLOAD */}
       {isMobileDevice() && <section className="max-w-6xl mx-auto px-5 sm:px-8 py-16">
         <div className="relative bg-primary rounded-3xl overflow-hidden">
-          <Beams />
-          <div className="relative p-8 md:p-12 flex flex-col md:flex-row items-center gap-8">
+            <div className="relative p-8 md:p-12 flex flex-col md:flex-row items-center gap-8">
             <div className="bg-cream/10 text-cream rounded-2xl p-5 shrink-0">
               <Smartphone className="h-12 w-12" />
             </div>
@@ -716,8 +671,7 @@ export default function HomePage() {
           ============================================================ */}
       <section className="max-w-6xl mx-auto px-5 sm:px-8 pb-24">
         <div className="relative gradient-primary rounded-3xl overflow-hidden">
-          <Beams />
-          <div className="relative px-6 py-16 md:p-20 text-center">
+            <div className="relative px-6 py-16 md:p-20 text-center">
             <Reveal>
               <p className="flex items-center justify-center gap-3 text-cream/70 text-xs font-semibold tracking-[0.28em] uppercase mb-6">
                 <ArrowUpRight className="h-4 w-4 text-gold" strokeWidth={2.5} />

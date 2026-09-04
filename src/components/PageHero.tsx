@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import heroBg from '@/assets/hero-bg.jpg';
 
 /* ---------------------------------------------------------------------------
@@ -6,8 +6,7 @@ import heroBg from '@/assets/hero-bg.jpg';
  *
  * Every interior page gets the same cinematic treatment: a burgundy-duotone
  * photograph that slowly settles (Ken Burns), a charcoal-to-deep-burgundy
- * shade gradient for legibility, drifting beam lines echoing the logo arrow,
- * and a gold mini-title with rule prefix instead of a pill.
+ * shade gradient for legibility, a gold mini-title with rule prefix instead of a pill.
  * ------------------------------------------------------------------------ */
 
 interface PageHeroProps {
@@ -43,21 +42,7 @@ export default function PageHero({
       </div>
       <div className="page-hero-shade" />
 
-      {/* Beam lines */}
-      <span
-        className="beam"
-        style={{ top: '18%', left: '-12%', width: '55%', '--beam-rot': '-16deg', '--beam-dur': '17s', '--beam-op': '0.28' } as CSSProperties}
-      />
-      <span
-        className="beam"
-        style={{ top: '48%', right: '-15%', width: '48%', '--beam-rot': '-32deg', '--beam-dur': '22s', '--beam-delay': '-7s', '--beam-op': '0.2' } as CSSProperties}
-      />
-      <span
-        className="beam"
-        style={{ bottom: '12%', left: '8%', width: '40%', '--beam-rot': '-22deg', '--beam-dur': '19s', '--beam-delay': '-12s', '--beam-op': '0.24' } as CSSProperties}
-      />
-
-      <div className={`relative z-10 container py-20 md:py-24 ${centered ? 'text-center' : ''}`}>
+<div className={`relative z-10 container py-20 md:py-24 ${centered ? 'text-center' : ''}`}>
         {overline && (
           <p className={`mini-title ${centered ? 'mini-title-centered' : ''}`}>{overline}</p>
         )}

@@ -118,7 +118,7 @@ export default function ContactPage() {
             </div>
 
             {/* Quick links */}
-            <div className="bg-secondary border border-border rounded-2xl p-6">
+            <div className="bg-secondary pattern-rose border border-border rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-4">
                 <HeadphonesIcon className="h-5 w-5 text-accent" />
                 <h3 className="font-display font-bold text-lg">Quick Links</h3>

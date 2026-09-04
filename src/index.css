@@ -282,20 +282,17 @@
   .rule-ink { border-color: hsl(var(--foreground) / 0.14); }
 
   /* ---- Beam lines: thin diagonal strokes echoing the logo arrow ---- */
-  @keyframes beam-drift {
-    0%   { transform: translate3d(-6%, 4%, 0) rotate(var(--beam-rot, -24deg)); opacity: 0; }
-    12%  { opacity: var(--beam-op, 0.35); }
-    88%  { opacity: var(--beam-op, 0.35); }
-    100% { transform: translate3d(7%, -5%, 0) rotate(var(--beam-rot, -24deg)); opacity: 0; }
-  }
-  .beam {
-    position: absolute;
-    height: 1.5px;
-    background: linear-gradient(90deg, transparent, hsl(36 33% 93% / 0.85), transparent);
-    transform-origin: center;
-    animation: beam-drift var(--beam-dur, 16s) linear infinite;
-    animation-delay: var(--beam-delay, 0s);
-    pointer-events: none;
+
+  /* ---- Soft rose sections: faint diagonal pinstripe so large tinted
+     areas read as a designed surface, not a flat fill ---- */
+  .pattern-rose {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      hsl(343 74% 27% / 0.05) 0px,
+      hsl(343 74% 27% / 0.05) 1px,
+      transparent 1px,
+      transparent 14px
+    );
   }
 
   /* ---- Location marquee ---- */
@@ -325,10 +322,10 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .reveal { opacity: 1; transform: none; transition: none; }
-    .beam, .marquee-track, .kenburns { animation: none; }
+    .marquee-track, .kenburns { animation: none; }
   }
 
-  /* ---- Page hero: duotone photograph, slow Ken Burns settle, beam lines ---- */
+  /* ---- Page hero: duotone photograph, slow Ken Burns settle ---- */
   .page-hero {
     position: relative;
     overflow: hidden;
@@ -339,9 +336,9 @@
     inset: 0;
     background: linear-gradient(
       180deg,
-      hsl(206 13% 10% / 0.42) 0%,
-      hsl(343 60% 20% / 0.30) 45%,
-      hsl(343 80% 12% / 0.78) 100%
+      hsl(206 13% 7% / 0.74) 0%,
+      hsl(343 68% 14% / 0.66) 45%,
+      hsl(343 85% 8% / 0.94) 100%
     );
     pointer-events: none;
   }
