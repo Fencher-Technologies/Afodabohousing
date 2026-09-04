@@ -83,28 +83,28 @@ export default function Navbar() {
             {propertiesOpen && (
               <div className="absolute top-full left-0 mt-1.5 w-64 bg-card border border-border rounded-2xl shadow-lg overflow-hidden py-2">
                 <Link to="/properties" className="flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors">
-                  <div className="bg-primary/10 text-primary rounded-lg p-1.5"><Building2 className="h-4 w-4" /></div>
+                  <Building2 className="h-4 w-4 text-primary shrink-0" />
                   <div>
                     <div className="text-sm font-semibold text-foreground">Browse All Properties</div>
                     <div className="text-xs text-muted-foreground">Verified listings worldwide</div>
                   </div>
                 </Link>
                 <Link to="/properties?state=Central" className="flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors">
-                  <div className="bg-accent/10 text-accent rounded-lg p-1.5"><MapPin className="h-4 w-4" /></div>
+                  <MapPin className="h-4 w-4 text-accent shrink-0" />
                   <div>
                     <div className="text-sm font-semibold text-foreground">Kampala</div>
                     <div className="text-xs text-muted-foreground">Capital city listings</div>
                   </div>
                 </Link>
                 <Link to="/properties?state=Central" className="flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors">
-                  <div className="bg-accent/10 text-accent rounded-lg p-1.5"><MapPin className="h-4 w-4" /></div>
+                  <MapPin className="h-4 w-4 text-accent shrink-0" />
                   <div>
                     <div className="text-sm font-semibold text-foreground">Wakiso</div>
                     <div className="text-xs text-muted-foreground">Entebbe, Kajjansi area</div>
                   </div>
                 </Link>
                 <Link to="/properties?state=Western" className="flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors">
-                  <div className="bg-accent/10 text-accent rounded-lg p-1.5"><MapPin className="h-4 w-4" /></div>
+                  <MapPin className="h-4 w-4 text-accent shrink-0" />
                   <div>
                     <div className="text-sm font-semibold text-foreground">Mbarara</div>
                     <div className="text-xs text-muted-foreground">Regional Listings</div>

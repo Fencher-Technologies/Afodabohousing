@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
+import PageHero from '@/components/PageHero';
 import PropertyCard from '@/components/PropertyCard';
+import propertyFacade from '@/assets/property-1.jpg';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -135,27 +137,29 @@ export default function PropertiesPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="bg-primary py-10">
-        <div className="container">
-          <h1 className="font-display text-3xl font-bold text-primary-foreground mb-4">Browse Properties</h1>
-          <div className="bg-card rounded-xl p-3 flex flex-col sm:flex-row gap-3 max-w-2xl">
-            <div className="flex-1 flex items-center gap-2 px-3">
-              <MapPin className="h-4 w-4 text-accent shrink-0" />
-              <Input
-                placeholder="State, city, or area…"
-                value={stateInput}
-                onChange={e => setStateInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="border-0 shadow-none focus-visible:ring-0 bg-transparent"
-              />
-            </div>
-            <Button onClick={handleSearch} className="gradient-primary text-primary-foreground gap-2">
-              <Search className="h-4 w-4" />
-              Search
-            </Button>
+      <PageHero
+        overline="Verified Listings"
+        title="Browse Properties"
+        align="left"
+        image={propertyFacade}
+      >
+        <div className="bg-card rounded-xl p-3 flex flex-col sm:flex-row gap-3 max-w-2xl mt-6">
+          <div className="flex-1 flex items-center gap-2 px-3">
+            <MapPin className="h-4 w-4 text-accent shrink-0" />
+            <Input
+              placeholder="State, city, or area…"
+              value={stateInput}
+              onChange={e => setStateInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              className="border-0 shadow-none focus-visible:ring-0 bg-transparent"
+            />
           </div>
+          <Button onClick={handleSearch} className="gradient-primary text-primary-foreground gap-2">
+            <Search className="h-4 w-4" />
+            Search
+          </Button>
         </div>
-      </div>
+      </PageHero>
 
       <div className="container py-8">
         <div className="flex flex-col lg:flex-row gap-8">

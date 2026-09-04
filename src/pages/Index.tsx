@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { apiGet } from '@/services/api';
@@ -9,10 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Badge } from '@/components/ui/badge';
 import { isMobileDevice } from '@/lib/utils';
-import { Search, MapPin, Shield, Home, MessageSquare, ArrowRight, CheckCircle, CreditCard, Bell, Star, TrendingUp, Smartphone, Download, Globe } from 'lucide-react';
-import heroBg from '@/assets/hero-bg.jpg';
+import {
+  Search, MapPin, Shield, Home, MessageSquare, ArrowRight, ArrowUpRight,
+  CreditCard, Star, Smartphone, Download, Building2,
+  Wallet, MapPinned, BellRing, User, Users,
+} from 'lucide-react';
+import heroMain from '@/assets/hero-main.jpg';
+import showcaseInterior from '@/assets/showcase-interior.jpg';
 
 const API = import.meta.env.VITE_API_URL || '';
 interface Country { iso2: string; name: string; }
@@ -25,51 +29,170 @@ interface Property {
   area: string | null; images: string[] | null; monthly_rent?: number;
 }
 
-const FEATURES = [
+/* ---------------------------------------------------------------------------
+ * Scroll reveal — elements rise and settle as they enter the viewport.
+ * ------------------------------------------------------------------------ */
+function Reveal({ children, className = '', delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.classList.add('is-visible');
+          io.disconnect();
+        }
+      },
+      { threshold: 0.12 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className={`reveal ${className}`} style={{ ['--reveal-delay' as string]: `${delay}s` }}>
+      {children}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * Beams — thin diagonal light strokes that drift slowly across dark sections.
+ * They echo the upward arrow in the Axis mark.
+ * ------------------------------------------------------------------------ */
+const BEAMS = [
+  { top: '8%',  left: '-12%', width: '62vw', rot: '-22deg', dur: '17s', delay: '0s',   op: 0.30 },
+  { top: '24%', left: '18%',  width: '44vw', rot: '-36deg', dur: '23s', delay: '4s',   op: 0.18 },
+  { top: '46%', left: '-6%',  width: '52vw', rot: '-16deg', dur: '20s', delay: '8s',   op: 0.24 },
+  { top: '62%', left: '30%',  width: '40vw', rot: '-44deg', dur: '26s', delay: '2s',   op: 0.14 },
+  { top: '78%', left: '-14%', width: '58vw', rot: '-28deg', dur: '21s', delay: '11s',  op: 0.22 },
+  { top: '88%', left: '22%',  width: '36vw', rot: '-12deg', dur: '25s', delay: '6s',   op: 0.16 },
+];
+
+function Beams() {
+  return (
+    <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+      {BEAMS.map((b, i) => (
+        <span
+          key={i}
+          className="beam"
+          style={{
+            top: b.top,
+            left: b.left,
+            width: b.width,
+            ['--beam-rot' as string]: b.rot,
+            ['--beam-dur' as string]: b.dur,
+            ['--beam-delay' as string]: b.delay,
+            ['--beam-op' as string]: b.op,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const WHY_AXIS = [
   {
-    icon: <Shield className="h-6 w-6" />,
+    icon: <Shield className="h-5 w-5" />,
     title: 'Verified Listings',
     desc: 'Every property is reviewed and verified before going live. No fake or misleading listings, guaranteed.',
   },
   {
-    icon: <MessageSquare className="h-6 w-6" />,
+    icon: <MessageSquare className="h-5 w-5" />,
     title: 'Direct Messaging',
     desc: 'Communicate directly with house managers without sharing personal numbers until you are ready.',
   },
   {
-    icon: <Home className="h-6 w-6" />,
+    icon: <Home className="h-5 w-5" />,
     title: 'Tenancy Management',
     desc: 'Digital agreements, rent tracking, payment history and reminders, all automated for you.',
   },
   {
-    icon: <CreditCard className="h-6 w-6" />,
+    icon: <CreditCard className="h-5 w-5" />,
     title: 'Flexible Payments',
     desc: 'Pay rent via mobile money (MTN, Airtel) or card. Upload proof instantly. Automated SMS confirmation.',
   },
 ];
 
-
-
-const HOW_IT_WORKS = [
+const ROLES = [
   {
-    step: '01',
-    emoji: '🔍',
+    icon: <User className="h-5 w-5" />,
+    title: 'Tenants',
+    points: [
+      'Browse and bookmark verified properties',
+      'Pay rent via MTN/Airtel or card',
+      'Track payments and tenancy progress',
+      'Request maintenance and get updates',
+      'Sign agreements digitally',
+    ],
+  },
+  {
+    icon: <Building2 className="h-5 w-5" />,
+    title: 'House Managers',
+    points: [
+      'List properties with GPS and photos',
+      'Manage tenants, leases, and units',
+      'Review and confirm payments instantly',
+      'Send SMS rent reminders automatically',
+      'Export CSV/XLSX/PDF reports',
+    ],
+  },
+  {
+    icon: <Users className="h-5 w-5" />,
+    title: 'Free Users',
+    points: [
+      'Browse all properties with full details',
+      'Save bookmarks and compare listings',
+      'Contact managers directly via phone/email',
+      'Get GPS directions to any property',
+      'Free to join — no commitment needed',
+    ],
+  },
+];
+
+const STEPS = [
+  {
+    numeral: '01',
     title: 'Search by Location',
     desc: 'Browse thousands of verified rentals filtered by state, type, number of rooms, price range and available amenities.',
   },
   {
-    step: '02',
-    emoji: '📞',
+    numeral: '02',
     title: 'Contact the Manager',
     desc: 'Message or call house managers directly from the listing. View photos, room details and get GPS directions via OpenStreetMap.',
   },
   {
-    step: '03',
-    emoji: '🏡',
+    numeral: '03',
     title: 'Move In and Manage',
     desc: 'Sign a digital tenancy agreement, pay rent via mobile money or card, receive SMS confirmations and track everything from your dashboard.',
   },
 ];
+
+const CALLOUTS = [
+  {
+    icon: <BellRing className="h-5 w-5" />,
+    title: 'SMS Notifications',
+    desc: 'Instant SMS alerts for rent reminders, payment confirmations and account updates.',
+  },
+  {
+    icon: <Wallet className="h-5 w-5" />,
+    title: 'Mobile Money & Cards',
+    desc: 'MTN Mobile Money, Airtel Money, Visa or Mastercard. All major Ugandan payment methods.',
+  },
+  {
+    icon: <MapPinned className="h-5 w-5" />,
+    title: 'OpenStreetMap Directions',
+    desc: 'Precise GPS directions to any listed property using OpenStreetMap. No extra apps needed.',
+  },
+];
+
+const TESTIMONIALS = [
+  { name: 'Namukasa Grace', role: 'House Manager, Wakiso', quote: 'I listed my 3 properties in under 10 minutes. Tenants contact me directly and I confirm payments instantly. Excellent platform.', rating: 5 },
+  { name: 'Ssekandi James', role: 'Tenant, Kampala', quote: 'Found my apartment in Bukoto within two days. The map feature made it easy to check the location before visiting. Very convenient.', rating: 5 },
+  { name: 'Auma Christine', role: 'Tenant, Gulu', quote: 'Even in Gulu we have listings! I was relocating from Kampala and Axis made the search stress-free. Highly recommend.', rating: 5 },
+];
+
+const FALLBACK_LOCATIONS = ['Kampala', 'Wakiso', 'Entebbe', 'Jinja', 'Mbarara', 'Gulu', 'Mbale', 'Arua', 'Fort Portal', 'Masaka'];
 
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -176,130 +299,184 @@ export default function HomePage() {
     if (match) setSelectedRegion(match.id);
   };
 
+  const marqueeLocations = popularLocations.length > 0 ? popularLocations : FALLBACK_LOCATIONS;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* HERO */}
-      <section className="relative min-h-[660px] flex items-center justify-center">
-        <img src={heroBg} alt="" fetchPriority="high" className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 gradient-hero" />
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto pt-8 md:pt-0">
-          <Badge className="bg-accent text-accent-foreground mb-4 text-xs font-semibold tracking-widest uppercase px-3 py-1.5 whitespace-normal text-center leading-snug max-w-xs sm:max-w-none mx-auto block sm:inline-block">
-            Housing Made Easy
-          </Badge>
-          <h1 className="font-display text-5xl md:text-7xl font-bold text-primary-foreground mb-6 leading-tight tracking-tight">
-            Find Your Perfect<br />
-            <span className="text-gold">Home, Anywhere</span>
-          </h1>
-          <p className="text-primary-foreground/85 text-xl mb-10 max-w-2xl mx-auto leading-relaxed">
-            Search verified rentals worldwide. Connect with trusted house managers, sign digital agreements and manage rent elegantly.
-          </p>
+      {/* ============================================================
+          HERO — full-bleed duotone photography, drifting beam lines
+          ============================================================ */}
+      <section className="relative min-h-[94vh] flex items-end overflow-hidden duotone-wrap">
+        <img
+          src={heroMain}
+          alt=""
+          fetchPriority="high"
+          className="absolute inset-0 w-full h-full object-cover duotone-img"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#480018] via-[#480018]/55 to-[#480018]/25" />
+        <Beams />
 
-          {/* Search bar — searchable dropdowns */}
-          <div className="bg-card rounded-2xl shadow-2xl p-3 flex flex-col sm:flex-row gap-2 max-w-3xl mx-auto">
-            <div className="w-full sm:w-40">
-              <SearchableSelect
-                options={countries.map(c => ({ value: c.iso2, label: c.name }))}
-                value={selectedCountry}
-                onValueChange={setSelectedCountry}
-                placeholder="Country"
-                emptyText="No country matches."
-              />
-            </div>
+        <div className="relative z-10 w-full max-w-6xl mx-auto px-5 sm:px-8 pb-14 pt-40">
+          <Reveal>
+            <p className="flex items-center gap-3 text-cream/70 text-xs sm:text-sm font-semibold tracking-[0.28em] uppercase mb-6">
+              <ArrowUpRight className="h-4 w-4 text-gold" strokeWidth={2.5} />
+              Axis Housing — Housing Made Easy
+            </p>
+          </Reveal>
+          <Reveal delay={0.08}>
+            <h1 className="font-display text-cream text-[13.5vw] sm:text-7xl lg:text-[92px] leading-[0.98] tracking-tight text-balance max-w-4xl">
+              Find a home that<br className="hidden sm:block" />
+              <span className="italic text-gold"> fits your life.</span>
+            </h1>
+          </Reveal>
+          <Reveal delay={0.16}>
+            <p className="text-cream/70 text-lg sm:text-xl mt-6 max-w-xl leading-relaxed">
+              Search verified rentals, connect with trusted house managers, sign digital agreements and manage rent — all in one place.
+            </p>
+          </Reveal>
 
-            <div className="w-full sm:w-48">
-              <SearchableSelect
-                options={[{ value: "__all__", label: `All ${regionLabel}s` }, ...regions.map(r => ({ value: r.id, label: r.name }))]}
-                value={selectedRegion}
-                onValueChange={setSelectedRegion}
-                placeholder={loadingRegions ? 'Loading…' : regionLabel}
-                emptyText="No district matches."
-                disabled={loadingRegions || regions.length === 0}
-              />
-            </div>
+          {/* Search — kept functional, restyled */}
+          <Reveal delay={0.24}>
+            <div className="bg-card rounded-2xl shadow-2xl p-3 flex flex-col sm:flex-row gap-2 max-w-3xl mt-10">
+              <div className="w-full sm:w-40">
+                <SearchableSelect
+                  options={countries.map(c => ({ value: c.iso2, label: c.name }))}
+                  value={selectedCountry}
+                  onValueChange={setSelectedCountry}
+                  placeholder="Country"
+                  emptyText="No country matches."
+                />
+              </div>
 
-            <div className="flex-1 flex items-center gap-3 px-4">
-              <MapPin className="h-5 w-5 text-accent shrink-0" />
-              <Input
-                placeholder="Area, city or neighbourhood…"
-                value={areaInput}
-                onChange={e => setAreaInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="border-0 shadow-none focus-visible:ring-0 bg-transparent text-foreground placeholder:text-muted-foreground text-base"
-              />
-            </div>
+              <div className="w-full sm:w-48">
+                <SearchableSelect
+                  options={[{ value: '__all__', label: `All ${regionLabel}s` }, ...regions.map(r => ({ value: r.id, label: r.name }))]}
+                  value={selectedRegion}
+                  onValueChange={setSelectedRegion}
+                  placeholder={loadingRegions ? 'Loading…' : regionLabel}
+                  emptyText="No district matches."
+                  disabled={loadingRegions || regions.length === 0}
+                />
+              </div>
 
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full sm:w-40 border-0 border-l sm:border-l border-border rounded-none sm:rounded-none bg-transparent h-12">
-                <SelectValue placeholder="Any type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="Residential">Residential</SelectItem>
-                <SelectItem value="Office Space">Office Space</SelectItem>
-              </SelectContent>
-            </Select>
+              <div className="flex-1 flex items-center gap-3 px-4">
+                <MapPin className="h-5 w-5 text-accent shrink-0" />
+                <Input
+                  placeholder="Area, city or neighbourhood…"
+                  value={areaInput}
+                  onChange={e => setAreaInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  className="border-0 shadow-none focus-visible:ring-0 bg-transparent text-foreground placeholder:text-muted-foreground text-base"
+                />
+              </div>
 
-            <Button
-              onClick={handleSearch}
-              className="gradient-primary text-primary-foreground px-8 h-12 font-semibold gap-2 rounded-xl text-base"
-            >
-              <Search className="h-4 w-4" />
-              Search
-            </Button>
-          </div>
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-full sm:w-40 border-0 border-l sm:border-l border-border rounded-none sm:rounded-none bg-transparent h-12">
+                  <SelectValue placeholder="Any type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="Residential">Residential</SelectItem>
+                  <SelectItem value="Office Space">Office Space</SelectItem>
+                </SelectContent>
+              </Select>
 
-          {/* Popular locations — up to 10 commonly searched districts */}
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {popularLocations.slice(0, 10).map(d => (
-              <button
-                key={d}
-                onClick={() => handleChipClick(d)}
-                className="text-xs bg-accent text-accent-foreground hover:bg-accent/90 px-3 py-1.5 rounded-full transition-all font-medium"
+              <Button
+                onClick={handleSearch}
+                className="gradient-primary text-primary-foreground px-8 h-12 font-semibold gap-2 rounded-xl text-base"
               >
-                {d}
-              </button>
-            ))}
-          </div>
+                <Search className="h-4 w-4" />
+                Search
+              </Button>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.32}>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {marqueeLocations.slice(0, 6).map(d => (
+                <button
+                  key={d}
+                  onClick={() => handleChipClick(d)}
+                  className="text-xs border border-cream/30 text-cream/70 hover:text-cream hover:border-cream/60 px-3 py-1.5 rounded-full transition-colors font-medium"
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </Reveal>
         </div>
       </section>
 
-      {/* STATS */}
-      <section className="bg-primary py-12">
-        <div className="container grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+      {/* ============================================================
+          LOCATION MARQUEE
+          ============================================================ */}
+      <section className="bg-primary py-4 overflow-hidden border-y border-[#480018]">
+        <div className="marquee-track">
+          {[0, 1].map(copy => (
+            <span key={copy} className="inline-flex items-center" aria-hidden={copy === 1}>
+              {marqueeLocations.map((loc, i) => (
+                <span key={`${copy}-${i}`} className="inline-flex items-center">
+                  <span className="text-cream font-display text-lg mx-6">{loc}</span>
+                  <ArrowUpRight className="h-4 w-4 text-gold" strokeWidth={2.5} />
+                </span>
+              ))}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      {/* ============================================================
+          STATS — deep burgundy band, hairline-divided serif numbers
+          ============================================================ */}
+      <section className="relative bg-[#480018] overflow-hidden">
+        <Beams />
+        <div className="relative max-w-6xl mx-auto px-5 sm:px-8 py-16 grid grid-cols-2 md:grid-cols-4 gap-y-10">
           {[
             { val: stats.properties > 0 ? `${stats.properties}+` : '10+', label: 'Active Listings', sub: 'Verified and ready' },
             { val: stats.locations > 0 ? `${stats.locations}+` : '10+', label: 'Locations Covered', sub: 'Worldwide' },
             { val: stats.tenancies > 0 ? `${stats.tenancies}+` : '2+', label: 'Active Tenancies', sub: 'Happy tenants' },
             { val: stats.users > 0 ? `${stats.users}+` : '5+', label: 'Registered Users', sub: 'Growing community' },
-          ].map(s => (
-            <div key={s.label} className="space-y-1">
-              <div className="text-gold text-4xl font-display font-bold">{s.val}</div>
-              <div className="text-primary-foreground font-semibold text-sm">{s.label}</div>
-              <div className="text-primary-foreground/60 text-xs">{s.sub}</div>
-            </div>
+          ].map((s, i) => (
+            <Reveal key={s.label} delay={i * 0.08} className={i > 0 ? 'md:border-l rule-cream md:pl-8' : ''}>
+              <div className="space-y-1.5">
+                <div className="text-gold text-5xl lg:text-6xl font-display">{s.val}</div>
+                <div className="text-cream font-semibold text-sm">{s.label}</div>
+                <div className="text-cream/70 text-xs">{s.sub}</div>
+              </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
-      {/* PROPERTIES */}
-      <section className="container py-16">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
-          <div>
-            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Browse Listings</p>
-            <h2 className="font-display text-4xl font-bold text-foreground leading-tight">
-              {areaInput ? `Homes in ${areaInput}` : selectedRegion ? `Homes in ${regions.find(r => r.id === selectedRegion)?.name || ''}` : 'Available Properties'}
-            </h2>
-            <p className="text-muted-foreground mt-2">
-              {properties.length} {properties.length !== 1 ? 'properties' : 'property'} matching your search
-            </p>
+      {/* ============================================================
+          PROPERTIES
+          ============================================================ */}
+      <section className="max-w-6xl mx-auto px-5 sm:px-8 py-20">
+        <Reveal>
+          <div className="flex items-center gap-4 mb-3">
+            <span className="font-display text-accent text-sm tracking-[0.25em]">01</span>
+            <span className="h-px flex-1 bg-foreground/15" />
+            <span className="text-accent font-semibold text-xs uppercase tracking-[0.25em]">Browse Listings</span>
           </div>
-          <Button variant="outline" onClick={() => navigate('/properties')} className="gap-2 self-start md:self-auto">
-            View All Properties
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </div>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+            <div>
+              <h2 className="font-display text-4xl sm:text-5xl text-foreground leading-tight">
+                {areaInput ? `Homes in ${areaInput}` : selectedRegion !== '__all__' ? `Homes in ${regions.find(r => r.id === selectedRegion)?.name || ''}` : 'Available Properties'}
+              </h2>
+              <p className="text-muted-foreground mt-3">
+                {properties.length} {properties.length !== 1 ? 'properties' : 'property'} matching your search
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/properties')}
+              className="link-reveal text-accent font-semibold inline-flex items-center gap-1.5 self-start md:self-auto"
+            >
+              View all properties <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </Reveal>
 
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -314,7 +491,7 @@ export default function HomePage() {
         ) : (
           <div className="text-center py-24 text-muted-foreground">
             <Home className="h-16 w-16 mx-auto mb-4 opacity-20" />
-            <p className="text-xl font-display font-semibold text-foreground">No properties found</p>
+            <p className="text-xl font-display text-foreground">No properties found</p>
             <p className="text-sm mt-2">Try searching a different state or clearing filters</p>
             <Button className="mt-5 gradient-primary text-primary-foreground" onClick={() => { setSelectedCountry('UG'); setSelectedRegion(''); setAreaInput(''); setFilterType('all'); }}>
               Clear Filters
@@ -323,176 +500,210 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* WHY AXIS */}
-      <section className="bg-secondary py-20" id="why">
-        <div className="container">
-          <div className="text-center mb-14">
-            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Why Choose Us</p>
-            <h2 className="font-display text-4xl font-bold text-foreground">
-              Built for Everyone
-            </h2>
-            <p className="text-muted-foreground mt-3 max-w-xl mx-auto text-lg">
-              Whether you are looking for a home or managing properties, Axis gives you the tools to succeed.
-            </p>
+      {/* ============================================================
+          WHY AXIS — sticky editorial heading + hairline feature list
+          ============================================================ */}
+      <section className="bg-secondary border-y border-border" id="why">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 py-24 grid lg:grid-cols-5 gap-14">
+          <div className="lg:col-span-2">
+            <div className="lg:sticky lg:top-28">
+              <Reveal>
+                <div className="flex items-center gap-4 mb-6">
+                  <span className="font-display text-accent text-sm tracking-[0.25em]">02</span>
+                  <span className="h-px w-16 bg-foreground/15" />
+                  <span className="text-accent font-semibold text-xs uppercase tracking-[0.25em]">Why Axis</span>
+                </div>
+                <h2 className="font-display text-4xl sm:text-5xl text-foreground leading-[1.05] text-balance">
+                  Everything about renting, finally in one place.
+                </h2>
+                <p className="text-muted-foreground mt-5 text-lg leading-relaxed">
+                  Whether you are looking for a home or managing properties, Axis gives you the tools to do it properly.
+                </p>
+                <button
+                  onClick={() => navigate('/signup')}
+                  className="link-reveal text-accent font-semibold inline-flex items-center gap-1.5 mt-8"
+                >
+                  Create a free account <ArrowRight className="h-4 w-4" />
+                </button>
+              </Reveal>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {FEATURES.map(f => (
-              <div
-                key={f.title}
-                className="bg-card rounded-2xl p-8 shadow-card border border-border hover:shadow-lg hover:-translate-y-1 transition-all group"
+          <div className="lg:col-span-3">
+            {WHY_AXIS.map((f, i) => (
+              <Reveal key={f.title} delay={i * 0.06}>
+                <div className={`flex gap-6 py-7 ${i > 0 ? 'border-t rule-ink' : ''}`}>
+                  <span className="font-display text-accent/60 text-sm pt-1 w-8 shrink-0">{String(i + 1).padStart(2, '0')}</span>
+                  <div className="text-primary pt-1 shrink-0">{f.icon}</div>
+                  <div>
+                    <h3 className="font-display text-2xl text-foreground mb-2">{f.title}</h3>
+                    <p className="text-muted-foreground leading-relaxed">{f.desc}</p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          SHOWCASE — duotone interior photography + brand manifesto
+          ============================================================ */}
+      <section className="grid lg:grid-cols-2">
+        <div className="relative min-h-[340px] lg:min-h-[520px] duotone-wrap overflow-hidden">
+          <img src={showcaseInterior} alt="A bright Axis-managed apartment interior" className="absolute inset-0 w-full h-full object-cover duotone-img" />
+        </div>
+        <div className="relative bg-[#480018] overflow-hidden flex items-center">
+          <Beams />
+          <div className="relative px-6 sm:px-12 py-16 lg:py-24 max-w-xl">
+            <Reveal>
+              <p className="flex items-center gap-3 text-cream/70 text-xs font-semibold tracking-[0.28em] uppercase mb-6">
+                <ArrowUpRight className="h-4 w-4 text-gold" strokeWidth={2.5} />
+                The Axis Standard
+              </p>
+              <p className="font-display text-cream text-3xl sm:text-4xl leading-snug text-balance">
+                “A home is not a transaction. It is where your life happens — finding it should feel that way.”
+              </p>
+              <p className="text-cream/70 mt-6 leading-relaxed">
+                That belief shapes every listing we verify, every agreement we digitise and every payment we track.
+              </p>
+              <button
+                onClick={() => navigate('/about')}
+                className="link-reveal text-gold font-semibold inline-flex items-center gap-1.5 mt-8"
               >
-                <div className="text-primary mb-4 bg-primary/10 rounded-xl w-12 h-12 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-                  {f.icon}
-                </div>
-                <h3 className="font-display text-lg font-bold text-foreground mb-2">{f.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
-              </div>
+                More about Axis <ArrowRight className="h-4 w-4" />
+              </button>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          ROLES — charcoal band, hairline-divided columns
+          ============================================================ */}
+      <section className="bg-foreground text-background" id="benefits">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 py-24">
+          <Reveal>
+            <div className="flex items-center gap-4 mb-3">
+              <span className="font-display text-gold text-sm tracking-[0.25em]">03</span>
+              <span className="h-px flex-1 bg-background/20" />
+              <span className="text-gold font-semibold text-xs uppercase tracking-[0.25em]">Tailored for You</span>
+            </div>
+            <h2 className="font-display text-4xl sm:text-5xl leading-tight mb-16 max-w-xl">
+              Get started in minutes.
+            </h2>
+          </Reveal>
+          <div className="grid md:grid-cols-3 gap-10 md:gap-0">
+            {ROLES.map((r, i) => (
+              <Reveal key={r.title} delay={i * 0.08} className={`md:px-10 ${i > 0 ? 'md:border-l border-background/20' : 'md:pl-0'}`}>
+                <div className="text-gold mb-5">{r.icon}</div>
+                <h3 className="font-display text-2xl mb-5">{r.title}</h3>
+                <ul className="space-y-3">
+                  {r.points.map(p => (
+                    <li key={p} className="flex items-start gap-3 text-sm text-background/70 leading-relaxed">
+                      <ArrowUpRight className="h-3.5 w-3.5 text-gold shrink-0 mt-0.5" strokeWidth={2.5} />
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ONBOARDING BENEFITS / ROLE-SPECIFIC */}
-      <section className="bg-card border-y border-border py-20" id="benefits">
-        <div className="container">
-          <div className="text-center mb-12">
-            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Tailored for You</p>
-            <h2 className="font-display text-4xl font-bold text-foreground">Get Started in Minutes</h2>
-            <p className="text-muted-foreground mt-3 max-w-xl mx-auto">              Whether you're renting or managing, Axis gives you the right tools from day one.</p>
+      {/* ============================================================
+          HOW IT WORKS — oversized outline numerals, hairline rhythm
+          ============================================================ */}
+      <section className="max-w-6xl mx-auto px-5 sm:px-8 py-24" id="how-it-works">
+        <Reveal>
+          <div className="flex items-center gap-4 mb-3">
+            <span className="font-display text-accent text-sm tracking-[0.25em]">04</span>
+            <span className="h-px flex-1 bg-foreground/15" />
+            <span className="text-accent font-semibold text-xs uppercase tracking-[0.25em]">Simple Process</span>
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="rounded-2xl p-8 bg-gradient-to-br from-accent/5 to-accent/10 border border-accent/20 text-center">
-              <div className="text-4xl mb-4">👤</div>
-              <h3 className="font-display text-xl font-bold mb-2">Tenants</h3>
-              <ul className="text-sm text-muted-foreground space-y-2 text-left">
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-accent shrink-0 mt-0.5" /><span>Browse and bookmark verified properties</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-accent shrink-0 mt-0.5" /><span>Pay rent via MTN/Airtel or card</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-accent shrink-0 mt-0.5" /><span>Track payments and tenancy progress</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-accent shrink-0 mt-0.5" /><span>Request maintenance and get updates</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-accent shrink-0 mt-0.5" /><span>Sign agreements digitally</span></li>
-              </ul>
-            </div>
-            <div className="rounded-2xl p-8 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 text-center">
-              <div className="text-4xl mb-4">🏠</div>
-              <h3 className="font-display text-xl font-bold mb-2">House Managers</h3>
-              <ul className="text-sm text-muted-foreground space-y-2 text-left">
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" /><span>List properties with GPS and photos</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" /><span>Manage tenants, leases, and units</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" /><span>Review and confirm payments instantly</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" /><span>Send SMS rent reminders automatically</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" /><span>Export CSV/XLSX/PDF reports</span></li>
-              </ul>
-            </div>
-            <div className="rounded-2xl p-8 bg-gradient-to-br from-gold/5 to-gold/10 border border-gold/20 text-center">
-              <div className="text-4xl mb-4">🔍</div>
-              <h3 className="font-display text-xl font-bold mb-2">Free Users</h3>
-              <ul className="text-sm text-muted-foreground space-y-2 text-left">
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" /><span>Browse all properties with full details</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" /><span>Save bookmarks and compare listings</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" /><span>Contact managers directly via phone/email</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" /><span>Get GPS directions to any property</span></li>
-                <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" /><span>Free to join — no commitment needed</span></li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* HOW IT WORKS */}
-      <section className="container py-20" id="how-it-works">
-        <div className="text-center mb-14">
-          <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">Simple Process</p>
-          <h2 className="font-display text-4xl font-bold text-foreground">How It Works</h2>
-          <p className="text-muted-foreground mt-3 max-w-xl mx-auto">Three easy steps to your new home</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-          <div className="hidden md:block absolute top-12 left-1/3 right-1/3 h-px bg-border" />
-          {HOW_IT_WORKS.map(s => (
-            <div key={s.step} className="bg-card border border-border rounded-2xl p-8 text-center shadow-card relative">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
-                Step {s.step}
+          <h2 className="font-display text-4xl sm:text-5xl text-foreground leading-tight mb-16 max-w-xl">
+            How it works
+          </h2>
+        </Reveal>
+        <div className="grid md:grid-cols-3 gap-12 md:gap-10">
+          {STEPS.map((s, i) => (
+            <Reveal key={s.numeral} delay={i * 0.08}>
+              <div className="border-t rule-ink pt-8">
+                <div className="step-numeral text-7xl lg:text-8xl select-none">{s.numeral}</div>
+                <h3 className="font-display text-2xl text-foreground mt-6 mb-3">{s.title}</h3>
+                <p className="text-muted-foreground leading-relaxed text-[15px]">{s.desc}</p>
               </div>
-              <div className="text-5xl mb-5 mt-2">{s.emoji}</div>
-              <h3 className="font-display text-xl font-bold text-foreground mb-3">{s.title}</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">{s.desc}</p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
-      {/* FEATURES CALLOUT */}
-      <section className="bg-secondary py-16">
-        <div className="container">
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                icon: <Bell className="h-6 w-6" />,
-                title: 'SMS Notifications',
-                desc: 'Receive instant SMS alerts for rent reminders, payment confirmations and important account updates.',
-              },
-              {
-                icon: <CreditCard className="h-6 w-6" />,
-                title: 'Mobile Money and Cards',
-                desc: 'Pay rent via MTN Mobile Money, Airtel Money, Visa or Mastercard. All major Ugandan payment methods accepted.',
-              },
-              {
-                icon: <MapPin className="h-6 w-6" />,
-                title: 'OpenStreetMap Directions',
-                desc: 'Get precise GPS directions to any listed property using OpenStreetMap. No extra apps needed.',
-              },
-            ].map(f => (
-              <div key={f.title} className="bg-card border border-border rounded-2xl p-7 shadow-card flex gap-4 items-start">
-                <div className="bg-primary/10 text-primary rounded-xl p-3 shrink-0">{f.icon}</div>
-                <div>
-                  <h3 className="font-display text-base font-bold text-foreground mb-1.5">{f.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
-                </div>
-              </div>
+      {/* ============================================================
+          SERVICE CALLOUTS — hairline row
+          ============================================================ */}
+      <section className="border-t border-border">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 grid md:grid-cols-3">
+          {CALLOUTS.map((f, i) => (
+            <Reveal key={f.title} delay={i * 0.06} className={`py-12 md:px-10 ${i > 0 ? 'border-t md:border-t-0 md:border-l rule-ink' : 'md:pl-0'}`}>
+              <div className="text-primary mb-4">{f.icon}</div>
+              <h3 className="font-display text-xl text-foreground mb-2">{f.title}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* ============================================================
+          TESTIMONIALS — serif pull quotes
+          ============================================================ */}
+      <section className="bg-secondary border-y border-border">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 py-24">
+          <Reveal>
+            <div className="flex items-center gap-4 mb-3">
+              <span className="font-display text-accent text-sm tracking-[0.25em]">05</span>
+              <span className="h-px flex-1 bg-foreground/15" />
+              <span className="text-accent font-semibold text-xs uppercase tracking-[0.25em]">What Our Users Say</span>
+            </div>
+            <h2 className="font-display text-4xl sm:text-5xl text-foreground leading-tight mb-16">
+              Trusted across Uganda
+            </h2>
+          </Reveal>
+          <div className="grid md:grid-cols-3 gap-12 md:gap-10">
+            {TESTIMONIALS.map((t, i) => (
+              <Reveal key={t.name} delay={i * 0.08}>
+                <figure className="border-t rule-ink pt-8">
+                  <div className="flex gap-1 mb-5">
+                    {[...Array(t.rating)].map((_, j) => <Star key={j} className="h-4 w-4 text-gold fill-current" />)}
+                  </div>
+                  <blockquote className="font-display text-xl text-foreground leading-relaxed">
+                    “{t.quote}”
+                  </blockquote>
+                  <figcaption className="mt-6">
+                    <p className="font-semibold text-foreground text-sm">{t.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{t.role}</p>
+                  </figcaption>
+                </figure>
+              </Reveal>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* TESTIMONIALS */}
-      <section className="container py-20">
-        <div className="text-center mb-12">
-            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">What Our Users Say</p>
-            <h2 className="font-display text-4xl font-bold text-foreground">Trusted Worldwide</h2>
-        </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          {[
-            { name: 'Namukasa Grace', role: 'House Manager, Wakiso', quote: 'I listed my 3 properties in under 10 minutes. Tenants contact me directly and I confirm payments instantly. Excellent platform.', rating: 5 },
-            { name: 'Ssekandi James', role: 'Tenant, Kampala', quote: 'Found my apartment in Bukoto within two days. The map feature made it easy to check the location before visiting. Very convenient.', rating: 5 },
-            { name: 'Auma Christine', role: 'Tenant, Gulu', quote: 'Even in Gulu we have listings! I was relocating from Kampala and Axis made the search stress-free. Highly recommend.', rating: 5 },
-          ].map(t => (
-            <div key={t.name} className="bg-card border border-border rounded-2xl p-7 shadow-card">
-              <div className="flex gap-1 mb-4">
-                {[...Array(t.rating)].map((_, i) => <Star key={i} className="h-4 w-4 text-gold fill-current" />)}
-              </div>
-              <p className="text-muted-foreground text-sm leading-relaxed mb-5 italic">"{t.quote}"</p>
-              <div>
-                <p className="font-semibold text-foreground">{t.name}</p>
-                <p className="text-xs text-muted-foreground">{t.role}</p>
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 
       {/* APK DOWNLOAD */}
-      {isMobileDevice() && <section className="container pb-20">
-        <div className="bg-card border border-border rounded-3xl p-8 md:p-12 shadow-card">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            <div className="bg-primary/10 text-primary rounded-2xl p-5 shrink-0">
+      {isMobileDevice() && <section className="max-w-6xl mx-auto px-5 sm:px-8 py-16">
+        <div className="relative bg-primary rounded-3xl overflow-hidden">
+          <Beams />
+          <div className="relative p-8 md:p-12 flex flex-col md:flex-row items-center gap-8">
+            <div className="bg-cream/10 text-cream rounded-2xl p-5 shrink-0">
               <Smartphone className="h-12 w-12" />
             </div>
             <div className="flex-1 text-center md:text-left">
-              <h2 className="font-display text-2xl font-bold text-foreground mb-2">Get the Axis App</h2>
-              <p className="text-muted-foreground text-sm max-w-lg">
+              <h2 className="font-display text-3xl text-cream mb-2">Get the Axis App</h2>
+              <p className="text-cream/70 text-sm max-w-lg">
                 Download our Android app for a faster experience. Browse properties, pay rent, message managers, and manage your tenancy on the go.
               </p>
             </div>
-            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shrink-0 gap-2"
+            <Button size="lg" className="bg-gold text-gold-foreground hover:bg-gold/90 font-semibold shrink-0 gap-2"
               onClick={() => window.open(import.meta.env.VITE_MOBILE_APK_URL || '#', '_blank')}>
               <Download className="h-5 w-5" /> Download APK
             </Button>
@@ -500,29 +711,42 @@ export default function HomePage() {
         </div>
       </section>}
 
-      {/* CTA */}
-      <section className="container pb-20">
-        <div className="gradient-primary rounded-3xl p-12 text-center text-primary-foreground">
-          <h2 className="font-display text-4xl font-bold mb-4">Ready to Find Your Home?</h2>
-          <p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">
-            Join thousands of people who have found their perfect home through Axis.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              className="bg-gold text-gold-foreground hover:bg-gold/90 font-semibold px-10"
-              onClick={() => navigate('/signup')}
-            >
-              Get Started Free
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="bg-transparent border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10 font-semibold px-10"
-              onClick={() => navigate('/properties')}
-            >
-              Browse Properties
-            </Button>
+      {/* ============================================================
+          CTA — burgundy, beams, gold action
+          ============================================================ */}
+      <section className="max-w-6xl mx-auto px-5 sm:px-8 pb-24">
+        <div className="relative gradient-primary rounded-3xl overflow-hidden">
+          <Beams />
+          <div className="relative px-6 py-16 md:p-20 text-center">
+            <Reveal>
+              <p className="flex items-center justify-center gap-3 text-cream/70 text-xs font-semibold tracking-[0.28em] uppercase mb-6">
+                <ArrowUpRight className="h-4 w-4 text-gold" strokeWidth={2.5} />
+                Axis Housing
+              </p>
+              <h2 className="font-display text-4xl sm:text-5xl text-cream leading-tight text-balance max-w-2xl mx-auto">
+                Ready to find your home?
+              </h2>
+              <p className="text-cream/70 text-lg mt-5 mb-10 max-w-xl mx-auto">
+                Join thousands of people who have found their perfect home through Axis.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button
+                  size="lg"
+                  className="bg-gold text-gold-foreground hover:bg-gold/90 font-semibold px-10"
+                  onClick={() => navigate('/signup')}
+                >
+                  Get Started Free
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-transparent border-cream/40 text-cream hover:bg-cream/10 font-semibold px-10"
+                  onClick={() => navigate('/properties')}
+                >
+                  Browse Properties
+                </Button>
+              </div>
+            </Reveal>
           </div>
         </div>
       </section>

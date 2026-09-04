@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
+import PageHero from '@/components/PageHero';
 import PropertyCard from '@/components/PropertyCard';
+import heroHills from '@/assets/hero-bg.jpg';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -157,31 +159,24 @@ export default function GuestExplore() {
       <Navbar />
 
       {/* Hero */}
-      <section className="bg-primary py-12 sm:py-16">
-        <div className="container">
-          <div className="inline-flex items-center gap-1.5 bg-accent/20 text-accent text-xs font-semibold uppercase tracking-wider rounded-full px-3.5 py-1.5 mb-3">
-            <Compass className="h-3.5 w-3.5" />
-            Global Rental Marketplace
-          </div>
-          <h1 className="font-display text-3xl sm:text-4xl text-primary-foreground leading-tight">
-            Find Your Perfect Home
-          </h1>
-          <p className="text-primary-foreground/70 mt-1.5 text-sm sm:text-base max-w-lg">
-            Browse verified rental properties worldwide
-          </p>
-
-          {/* Search bar */}
-          <div className="bg-card rounded-xl p-2.5 flex items-center gap-2 mt-6 max-w-xl shadow-sm border border-border/50">
-            <Search className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
-            <Input
-              placeholder="Search by name, area, district…"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              className="border-0 shadow-none focus-visible:ring-0 bg-transparent"
-            />
-          </div>
+      <PageHero
+        overline="Global Rental Marketplace"
+        title="Find Your Perfect Home"
+        subtitle="Browse verified rental properties worldwide"
+        align="left"
+        image={heroHills}
+      >
+        {/* Search bar */}
+        <div className="bg-card rounded-xl p-2.5 flex items-center gap-2 mt-6 max-w-xl shadow-sm border border-border/50">
+          <Search className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
+          <Input
+            placeholder="Search by name, area, district…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            className="border-0 shadow-none focus-visible:ring-0 bg-transparent"
+          />
         </div>
-      </section>
+      </PageHero>
 
       {/* Main content */}
       <div className="container py-6 sm:py-8">

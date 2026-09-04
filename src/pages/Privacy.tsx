@@ -1,5 +1,7 @@
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import PageHero from '@/components/PageHero';
+import propertyHome from '@/assets/property-3.jpg';
 
 const SECTIONS = [
   {
@@ -55,12 +57,12 @@ export default function PrivacyPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <section className="bg-primary py-14">
-        <div className="container text-center">
-          <h1 className="font-display text-4xl font-bold text-primary-foreground mb-3">Privacy Policy</h1>
-          <p className="text-primary-foreground/75 text-lg">Last updated: March 2026</p>
-        </div>
-      </section>
+      <PageHero
+        overline="Legal"
+        title="Privacy Policy"
+        subtitle="Last updated: March 2026"
+        image={propertyHome}
+      />
 
       <div className="container py-14 max-w-4xl">
         <div className="bg-card border border-border rounded-2xl p-8 shadow-card mb-8">

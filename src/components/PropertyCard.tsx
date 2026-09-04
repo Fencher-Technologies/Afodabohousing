@@ -23,7 +23,22 @@ const fallbackImages = [prop1, prop2, prop3];
 const typeLabels: Record<string, string> = {
   Residential: 'Residential',
   'Office Space': 'Office Space',
+  apartment: 'Apartment',
+  house: 'House',
+  studio: 'Studio',
+  single_room: 'Single Room',
+  shop: 'Shop / Office',
+  rental_units: 'Rental Units',
+  commercial_building: 'Commercial',
+  land: 'Land',
+  warehouse: 'Warehouse',
 };
+
+function typeLabel(raw: string): string {
+  if (typeLabels[raw]) return typeLabels[raw];
+  // Prettify unknown raw values: "single_room" -> "Single Room"
+  return raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+}
 
 const periodLabels: Record<string, string> = {
   monthly: '/mo',
@@ -96,7 +111,7 @@ function PropertyCard({ property, index = 0, bookmarks, onToggleBookmark }: Prop
                 </Badge>
               )}
               <Badge className="bg-accent text-accent-foreground font-medium text-xs shadow-sm">
-                {typeLabels[property.property_type] || property.property_type}
+                {typeLabel(property.property_type)}
               </Badge>
             </div>
           </div>

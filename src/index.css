@@ -43,6 +43,10 @@
     --gold: 43 63% 38%;
     --gold-foreground: 206 13% 15%;
 
+    /* Light gold (#CEA84E) — for labels sitting on burgundy/dark surfaces
+       where the deep brass would disappear */
+    --gold-light: 44 58% 56%;
+
     /* Status */
     /* Destructive stays visually distinct from the burgundy accent */
     --destructive: 6 63% 46%;
@@ -96,6 +100,7 @@
     --accent-foreground: 0 0% 100%;
     --gold: 43 55% 55%;
     --gold-foreground: 206 13% 12%;
+    --gold-light: 44 58% 56%;
     --destructive: 6 60% 50%;
     --destructive-foreground: 0 0% 100%;
     --success: 147 40% 38%;
@@ -253,4 +258,156 @@
   .bg-sidebar {
     background: hsl(var(--sidebar-background));
   }
+}
+
+/* =========================================================
+   LANDING PAGE — editorial layer (burgundy duotone, beams,
+   marquee, scroll reveals)
+   ========================================================= */
+
+@layer utilities {
+  /* Burgundy duotone photograph: image sits on brand burgundy and
+     blends by luminosity so every photo reads as one brand. */
+  .duotone-wrap {
+    background: hsl(var(--primary));
+  }
+  .duotone-img {
+    filter: grayscale(18%) contrast(1.06) brightness(0.94);
+    mix-blend-mode: luminosity;
+    opacity: 0.88;
+  }
+
+  /* Hairline rules for editorial rhythm */
+  .rule-cream { border-color: hsl(36 33% 93% / 0.22); }
+  .rule-ink { border-color: hsl(var(--foreground) / 0.14); }
+
+  /* ---- Beam lines: thin diagonal strokes echoing the logo arrow ---- */
+  @keyframes beam-drift {
+    0%   { transform: translate3d(-6%, 4%, 0) rotate(var(--beam-rot, -24deg)); opacity: 0; }
+    12%  { opacity: var(--beam-op, 0.35); }
+    88%  { opacity: var(--beam-op, 0.35); }
+    100% { transform: translate3d(7%, -5%, 0) rotate(var(--beam-rot, -24deg)); opacity: 0; }
+  }
+  .beam {
+    position: absolute;
+    height: 1.5px;
+    background: linear-gradient(90deg, transparent, hsl(36 33% 93% / 0.85), transparent);
+    transform-origin: center;
+    animation: beam-drift var(--beam-dur, 16s) linear infinite;
+    animation-delay: var(--beam-delay, 0s);
+    pointer-events: none;
+  }
+
+  /* ---- Location marquee ---- */
+  @keyframes marquee-x {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  .marquee-track {
+    display: inline-flex;
+    white-space: nowrap;
+    animation: marquee-x 36s linear infinite;
+  }
+  .marquee-track:hover { animation-play-state: paused; }
+
+  /* ---- Scroll reveal ---- */
+  .reveal {
+    opacity: 0;
+    transform: translateY(26px);
+    transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: var(--reveal-delay, 0s);
+    will-change: opacity, transform;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .beam, .marquee-track, .kenburns { animation: none; }
+  }
+
+  /* ---- Page hero: duotone photograph, slow Ken Burns settle, beam lines ---- */
+  .page-hero {
+    position: relative;
+    overflow: hidden;
+    background: hsl(var(--primary));
+  }
+  .page-hero-shade {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      hsl(206 13% 10% / 0.42) 0%,
+      hsl(343 60% 20% / 0.30) 45%,
+      hsl(343 80% 12% / 0.78) 100%
+    );
+    pointer-events: none;
+  }
+  @keyframes kenburns-settle {
+    from { transform: scale(1.08); }
+    to   { transform: scale(1); }
+  }
+  .kenburns {
+    animation: kenburns-settle 20s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  /* ---- Gold mini-title: uppercase label with a 60px gold rule prefix ---- */
+  .mini-title {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: hsl(var(--gold-light));
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  .mini-title::before {
+    content: "";
+    width: 60px;
+    height: 1.5px;
+    background: hsl(var(--gold-light));
+    flex-shrink: 0;
+  }
+  .mini-title-centered {
+    justify-content: center;
+  }
+  .mini-title-centered::after {
+    content: "";
+    width: 60px;
+    height: 1.5px;
+    background: hsl(var(--gold-light));
+    flex-shrink: 0;
+  }
+
+  /* 7px gold square list marker */
+  .gold-square {
+    width: 7px;
+    height: 7px;
+    background: hsl(var(--gold));
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  /* Oversized outline numeral for process steps */
+  .step-numeral {
+    font-family: 'DM Serif Display', Georgia, serif;
+    -webkit-text-stroke: 1.5px hsl(var(--primary) / 0.55);
+    color: transparent;
+    line-height: 0.9;
+  }
+
+  /* Link underline reveal */
+  .link-reveal {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 1.5px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    padding-bottom: 2px;
+  }
+  .link-reveal:hover { background-size: 100% 1.5px; }
 }

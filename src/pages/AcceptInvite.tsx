@@ -99,9 +99,7 @@ export default function AcceptInvitePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md mx-auto p-8">
-          <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="h-8 w-8 text-primary" />
-          </div>
+          <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />
           <h1 className="text-2xl font-display font-bold mb-2">Account Created!</h1>
           <p className="text-muted-foreground mb-6">
             Your account has been set up. Redirecting you to your dashboard...
@@ -207,7 +205,7 @@ export default function AcceptInvitePage() {
         <div className="absolute inset-0 gradient-hero" />
         <div className="relative z-10 flex flex-col justify-end p-14 text-primary-foreground">
           <div className="max-w-sm">
-            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">The #1 Housing App</p>
+            <p className="mini-title">The #1 Housing App</p>
             <h2 className="font-display text-5xl font-bold mb-4 leading-tight">
               Welcome to Axis
             </h2>

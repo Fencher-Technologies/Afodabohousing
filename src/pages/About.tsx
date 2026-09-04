@@ -1,10 +1,11 @@
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import PageHero from '@/components/PageHero';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import logoImg from '@/assets/axis-logo.png';
 import heroBg from '@/assets/hero-bg.jpg';
-import { Shield, Users, MapPin, Star, CheckCircle, Award, Building2, HeartHandshake } from 'lucide-react';
+import { Shield, Users, MapPin, Star, Award, Building2, HeartHandshake } from 'lucide-react';
 
 const VALUES = [
   {
@@ -43,21 +44,12 @@ export default function AboutPage() {
       <Navbar />
 
       {/* Hero */}
-      <section
-        className="relative py-28 bg-cover bg-center"
-        style={{ backgroundImage: `url(${heroBg})` }}
-      >
-        <div className="absolute inset-0 gradient-hero" />
-        <div className="relative z-10 container text-center text-primary-foreground">
-          <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Our Story</p>
-          <h1 className="font-display text-5xl md:text-6xl font-bold mb-5 leading-tight">
-            Built for Everyone
-          </h1>
-          <p className="text-primary-foreground/85 text-xl max-w-2xl mx-auto leading-relaxed">
-            Axis was founded with a single mission: make finding and managing a home as simple, safe and dignified as possible.
-          </p>
-        </div>
-      </section>
+      <PageHero
+        overline="Our Story"
+        title="Built for Everyone"
+        subtitle="Axis was founded with a single mission: make finding and managing a home as simple, safe and dignified as possible."
+        image={heroBg}
+      />
 
       {/* Mission */}
       <section className="container py-20">
@@ -73,14 +65,14 @@ export default function AboutPage() {
             <p className="text-muted-foreground text-lg leading-relaxed mb-8">
               Our platform connects tenants directly with verified house managers worldwide. No middlemen. No inflated fees. Just honest, transparent housing.
             </p>
-            <div className="flex flex-wrap gap-3">
+            <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-3">
               {['Locations Covered', 'Verified Listings Only', 'Secure Online Payments', 'Digital Agreements'].map(f => (
-                <span key={f} className="flex items-center gap-2 bg-secondary border border-border rounded-full px-4 py-2 text-sm font-medium text-foreground">
-                  <CheckCircle className="h-4 w-4 text-primary" />
+                <li key={f} className="flex items-center gap-3 text-sm font-medium text-foreground">
+                  <span className="gold-square" />
                   {f}
-                </span>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
           <div className="bg-card border border-border rounded-3xl p-8 shadow-card">
             <img src={logoImg} alt="Axis" className="h-24 w-24 mx-auto mb-6 rounded-2xl" />
@@ -111,9 +103,8 @@ export default function AboutPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {VALUES.map(v => (
               <div key={v.title} className="bg-card border border-border rounded-2xl p-7 shadow-card hover:shadow-lg hover:-translate-y-1 transition-all">
-                <div className="bg-primary/10 text-primary rounded-xl w-14 h-14 flex items-center justify-center mb-5">
-                  {v.icon}
-                </div>
+                <div className="text-primary mb-4">{v.icon}</div>
+                <div className="w-8 h-0.5 bg-gold mb-4" />
                 <h3 className="font-display text-lg font-bold text-foreground mb-3">{v.title}</h3>
                 <p className="text-muted-foreground text-sm leading-relaxed">{v.desc}</p>
               </div>

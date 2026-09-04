@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, Phone, MapPin, Clock, Send, MessageSquare, HeadphonesIcon } from 'lucide-react';
+import PageHero from '@/components/PageHero';
+import showcaseInterior from '@/assets/showcase-interior.jpg';
 
 const FAQS = [
   {
@@ -56,15 +58,12 @@ export default function ContactPage() {
       <Navbar />
 
       {/* Header */}
-      <section className="bg-primary py-16">
-        <div className="container text-center">
-          <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Get in Touch</p>
-          <h1 className="font-display text-5xl font-bold text-primary-foreground mb-4">Contact Support</h1>
-          <p className="text-primary-foreground/80 text-xl max-w-xl mx-auto">
-            Our team is here to help you with any questions about listings, payments or your account.
-          </p>
-        </div>
-      </section>
+      <PageHero
+        overline="Get in Touch"
+        title="Contact Support"
+        subtitle="Our team is here to help you with any questions about listings, payments or your account."
+        image={showcaseInterior}
+      />
 
       <div className="container py-16">
         <div className="grid lg:grid-cols-3 gap-12">
@@ -103,10 +102,8 @@ export default function ContactPage() {
                   sub: 'East Africa Time (EAT)',
                 },
               ].map(c => (
-                <div key={c.label} className="flex items-start gap-4 p-5 bg-card border border-border rounded-2xl">
-                  <div className="bg-primary/10 text-primary rounded-xl w-11 h-11 flex items-center justify-center shrink-0">
-                    {c.icon}
-                  </div>
+                <div key={c.label} className="flex items-start gap-4 py-5 border-b border-border last:border-b-0">
+                  <span className="text-primary mt-0.5 shrink-0">{c.icon}</span>
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-0.5">{c.label}</p>
                     {c.href ? (
@@ -136,8 +133,8 @@ export default function ContactPage() {
                   { label: 'Terms of Service', href: '/terms' },
                 ].map(l => (
                   <li key={l.label}>
-                    <a href={l.href} className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-accent shrink-0" />
+                    <a href={l.href} className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2.5">
+                      <span className="gold-square" />
                       {l.label}
                     </a>
                   </li>
@@ -149,10 +146,8 @@ export default function ContactPage() {
           {/* Contact Form */}
           <div className="lg:col-span-2">
             <div className="bg-card border border-border rounded-3xl p-8 shadow-card">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-primary/10 rounded-xl p-2.5">
-                  <MessageSquare className="h-6 w-6 text-primary" />
-                </div>
+              <div className="flex items-center gap-3 mb-6 pb-6 border-b border-border">
+                <MessageSquare className="h-6 w-6 text-primary shrink-0" />
                 <div>
                   <h2 className="font-display text-2xl font-bold text-foreground">Send Us a Message</h2>
                   <p className="text-muted-foreground text-sm">Fill in the form below and we will get back to you shortly.</p>

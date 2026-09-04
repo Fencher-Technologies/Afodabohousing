@@ -53,6 +53,10 @@ export default {
           DEFAULT: "hsl(var(--gold))",
           foreground: "hsl(var(--gold-foreground))",
         },
+        cream: {
+          DEFAULT: "hsl(36 33% 93%)",
+          dim: "hsl(36 33% 93% / 0.72)",
+        },
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",

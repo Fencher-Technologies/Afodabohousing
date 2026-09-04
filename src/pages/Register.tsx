@@ -243,7 +243,7 @@ export default function RegisterPage() {
         <div className="absolute inset-0 gradient-hero" />
         <div className="relative z-10 flex flex-col justify-end p-14 text-primary-foreground">
           <div className="max-w-sm">
-            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Housing Made Easy</p>
+            <p className="mini-title">Housing Made Easy</p>
             <h2 className="font-display text-5xl font-bold mb-4 leading-tight">Join Axis Today</h2>
             <p className="text-primary-foreground/80 text-lg leading-relaxed">
               Register with your phone number and get access to verified properties, secure payments, and digital agreements.
