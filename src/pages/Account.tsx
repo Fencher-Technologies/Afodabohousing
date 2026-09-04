@@ -103,7 +103,7 @@ export default function Account() {
               </div>
               <p className="text-sm text-muted-foreground">{emailDisplay}</p>
               <div className="flex items-center gap-2 mt-1.5">
-                <Badge variant="outline" className="text-[10px] h-5 px-2 border-primary/30 text-primary bg-primary/5 capitalize">
+                <Badge variant="outline" className="text-[10px] h-5 px-2 border-border text-primary bg-muted/60 capitalize">
                   {role?.replace(/_/g, ' ') || 'User'}
                 </Badge>
               </div>
@@ -119,14 +119,14 @@ export default function Account() {
         {isManager && (
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
             <div className="flex items-center gap-3 mb-3">
-              <div className="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
                 <Crown className="h-5 w-5 text-gold" />
               </div>
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground">Subscription</p>
                 <p className="text-sm font-bold text-foreground">{subscription?.plan_name || 'No plan'}</p>
               </div>
-              <Badge className={isActive ? 'bg-success/10 text-success border-success/20' : 'bg-destructive/10 text-destructive border-destructive/20'}>
+              <Badge className={isActive ? 'bg-muted text-success border-success/20' : 'bg-muted text-destructive border-destructive/20'}>
                 {isActive ? 'Active' : 'Expired'}
               </Badge>
             </div>
@@ -165,7 +165,7 @@ export default function Account() {
             <div className="bg-card border border-border rounded-xl shadow-sm divide-y divide-border">
               <button onClick={() => navigate('/dashboard/manager')}
                 className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <Building2 className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -176,7 +176,7 @@ export default function Account() {
               </button>
               <button onClick={() => navigate('/dashboard/manager/tenancies')}
                 className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <Users className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -187,7 +187,7 @@ export default function Account() {
               </button>
               <button onClick={() => navigate('/dashboard/manager/reports')}
                 className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <FileText className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -198,7 +198,7 @@ export default function Account() {
               </button>
               <button onClick={() => navigate('/subscription')}
                 className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <TrendingUp className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">

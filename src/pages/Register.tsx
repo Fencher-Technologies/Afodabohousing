@@ -118,7 +118,7 @@ export default function RegisterPage() {
               </p>
               <div className="bg-secondary rounded-2xl p-6 mb-6 space-y-4">
                 <div className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0 mt-0.5">
                     <Mail className="h-4 w-4 text-accent" />
                   </div>
                   <div>

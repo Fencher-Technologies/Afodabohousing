@@ -70,7 +70,7 @@ export default function TenantSubscription() {
         </div>
 
         {currentSub && (
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-6">
+          <div className="bg-muted/60 border border-border rounded-xl p-6">
             <div className="flex items-center gap-3 mb-3">
               <Crown className="h-6 w-6 text-primary" />
               <div>
@@ -80,7 +80,7 @@ export default function TenantSubscription() {
                 </p>
               </div>
             </div>
-            <Badge className="bg-primary/10 text-primary border-primary/20">
+            <Badge className="bg-muted text-primary border-border">
               {currentSub.status}
             </Badge>
           </div>

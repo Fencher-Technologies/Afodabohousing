@@ -46,9 +46,9 @@ const healthLabel: Record<HealthTone, string> = {
 };
 
 const healthBadgeClass: Record<HealthTone, string> = {
-  good: 'bg-success/10 text-success border-success/20',
-  warn: 'bg-accent/10 text-accent border-accent/20',
-  bad: 'bg-destructive/10 text-destructive border-destructive/20',
+  good: 'bg-muted text-success border-success/20',
+  warn: 'bg-muted text-accent border-accent/20',
+  bad: 'bg-muted text-destructive border-destructive/20',
 };
 
 const healthBorderClass: Record<HealthTone, string> = {
@@ -205,7 +205,7 @@ export default function ManagerTenantDetail() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 rounded-lg p-2 -mx-2 hover:bg-muted/30 transition-colors"
               >
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <Phone className="h-4 w-4 text-primary" />
                 </div>
                 <div>
@@ -219,7 +219,7 @@ export default function ManagerTenantDetail() {
                 href={`mailto:${displayEmail}`}
                 className="flex items-center gap-3 rounded-lg p-2 -mx-2 hover:bg-muted/30 transition-colors"
               >
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <Mail className="h-4 w-4 text-primary" />
                 </div>
                 <div>
@@ -237,7 +237,7 @@ export default function ManagerTenantDetail() {
             {/* header + badge */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <Home className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0">
@@ -345,9 +345,9 @@ export default function ManagerTenantDetail() {
           <button
             onClick={handleWhatsApp}
             disabled={!displayPhone}
-            className="flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-primary/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center">
               <MessageCircle className="h-5 w-5 text-primary" />
             </div>
             <span className="text-xs font-semibold">WhatsApp</span>
@@ -357,7 +357,7 @@ export default function ManagerTenantDetail() {
             disabled={!displayPhone || !activeLease}
             className="flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <div className="w-11 h-11 rounded-full bg-accent/10 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center">
               <TrendingUp className="h-5 w-5 text-accent" />
             </div>
             <span className="text-xs font-semibold">Remind</span>
@@ -365,9 +365,9 @@ export default function ManagerTenantDetail() {
           <button
             onClick={handleViewTenancy}
             disabled={!activeLease}
-            className="flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-primary/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center">
               <FileText className="h-5 w-5 text-primary" />
             </div>
             <span className="text-xs font-semibold">Tenancy</span>
@@ -425,12 +425,12 @@ export default function ManagerTenantDetail() {
                         <span
                           className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
                             pay.status === 'confirmed'
-                              ? 'bg-success/10 text-success border-success/20'
+                              ? 'bg-muted text-success border-success/20'
                               : pay.status === 'rejected'
-                              ? 'bg-destructive/10 text-destructive border-destructive/20'
+                              ? 'bg-muted text-destructive border-destructive/20'
                               : pay.status === 'uploaded'
-                              ? 'bg-primary/10 text-primary border-primary/20'
-                              : 'bg-accent/10 text-accent border-accent/20'
+                              ? 'bg-muted text-primary border-border'
+                              : 'bg-muted text-accent border-accent/20'
                           }`}
                         >
                           {pay.status}

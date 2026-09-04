@@ -104,12 +104,12 @@ export default function ManagerReports() {
   };
 
   const summaryCards = summary ? [
-    { label: 'Active Tenancies', value: summary.active_tenancies, icon: Home, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Active Tenancies', value: summary.active_tenancies, icon: Home, color: 'text-primary', bg: 'bg-muted' },
     { label: 'Expected Rent', value: fmt(summary.total_expected), icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-100' },
-    { label: 'Collected', value: fmt(summary.total_collected), icon: DollarSign, color: 'text-success', bg: 'bg-success/10' },
-    { label: 'Outstanding', value: fmt(summary.total_outstanding), icon: AlertTriangle, color: 'text-destructive', bg: 'bg-destructive/10' },
-    { label: 'Tenant Credit', value: fmt(summary.total_tenant_credit), icon: Users, color: 'text-gold', bg: 'bg-gold/10' },
-    { label: 'Occupancy Rate', value: `${summary.occupancy_rate}%`, icon: Percent, color: 'text-accent', bg: 'bg-accent/10' },
+    { label: 'Collected', value: fmt(summary.total_collected), icon: DollarSign, color: 'text-success', bg: 'bg-muted' },
+    { label: 'Outstanding', value: fmt(summary.total_outstanding), icon: AlertTriangle, color: 'text-destructive', bg: 'bg-muted' },
+    { label: 'Tenant Credit', value: fmt(summary.total_tenant_credit), icon: Users, color: 'text-gold', bg: 'bg-muted' },
+    { label: 'Occupancy Rate', value: `${summary.occupancy_rate}%`, icon: Percent, color: 'text-accent', bg: 'bg-muted' },
   ] : [];
 
   const collectionBarData = collection ? [
@@ -355,10 +355,10 @@ export default function ManagerReports() {
                       <td className="p-3">
                         <Badge className={`text-xs ${
                           p.status === 'confirmed' || p.status === 'completed'
-                            ? 'bg-success/10 text-success'
+                            ? 'bg-muted text-success'
                             : p.status === 'pending'
-                            ? 'bg-gold/10 text-gold'
-                            : 'bg-destructive/10 text-destructive'
+                            ? 'bg-muted text-gold'
+                            : 'bg-muted text-destructive'
                         }`}>
                           {p.status === 'confirmed' || p.status === 'completed'
                             ? <><CheckCircle className="h-3 w-3 mr-1" /> Paid</>

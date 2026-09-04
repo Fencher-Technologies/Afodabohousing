@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: Colors.successSoft,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,

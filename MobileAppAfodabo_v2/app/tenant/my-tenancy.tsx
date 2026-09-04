@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
     borderRadius: Radii.button,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   contactBtnPrimary: {
     backgroundColor: Colors.accent,

@@ -92,7 +92,7 @@ export default function ManagerSubscription() {
 
         {step === 'success' && (
           <div className="text-center py-12 space-y-4">
-            <div className="w-24 h-24 rounded-full bg-success/10 flex items-center justify-center mx-auto">
+            <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mx-auto">
               <Crown className="h-12 w-12 text-success" />
             </div>
             <h2 className="text-xl font-bold">Payment Successful!</h2>
@@ -103,7 +103,7 @@ export default function ManagerSubscription() {
 
         {step === 'failed' && (
           <div className="text-center py-12 space-y-4">
-            <div className="w-24 h-24 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+            <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mx-auto">
               <XCircle className="h-12 w-12 text-destructive" />
             </div>
             <h2 className="text-xl font-bold">Payment Failed</h2>
@@ -117,14 +117,14 @@ export default function ManagerSubscription() {
             {currentSub && (
               <div className={`bg-card border-2 rounded-xl p-6 shadow-sm ${isActive ? 'border-success' : 'border-destructive'}`}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                     <Crown className="h-6 w-6 text-gold" />
                   </div>
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Current Plan</p>
                     <p className="font-bold text-lg">{currentSub.plan_name || 'No plan'}</p>
                   </div>
-                  <Badge className={isActive ? 'bg-success/10 text-success border-success/20' : 'bg-destructive/10 text-destructive border-destructive/20'}>
+                  <Badge className={isActive ? 'bg-muted text-success border-success/20' : 'bg-muted text-destructive border-destructive/20'}>
                     {isActive ? 'Active' : 'Expired'}
                   </Badge>
                 </div>
@@ -176,7 +176,7 @@ export default function ManagerSubscription() {
                   return (
                     <div key={plan.id}
                       className={`relative bg-card border-2 rounded-xl p-6 cursor-pointer transition-all hover:border-primary/50 ${
-                        plan.popular && !isSelected ? 'border-gold' : isSelected ? 'border-primary bg-primary/5' : 'border-border'
+                        plan.popular && !isSelected ? 'border-gold' : isSelected ? 'border-primary bg-muted/60' : 'border-border'
                       }`}
                       onClick={() => setSelectedPlan(plan)}>
                       {plan.popular && !isSelected && (

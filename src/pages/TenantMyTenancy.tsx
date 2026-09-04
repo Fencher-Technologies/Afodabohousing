@@ -310,7 +310,7 @@ export default function TenantMyTenancy() {
         {/* Rent Summary */}
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
               <Wallet className="h-5 w-5 text-primary" />
             </div>
             <h3 className="font-display font-bold">Rent Summary</h3>
@@ -371,7 +371,7 @@ export default function TenantMyTenancy() {
           className="w-full bg-card border border-border rounded-xl p-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
               <CalendarDays className="h-5 w-5 text-primary" />
             </div>
             <div className="text-left">
@@ -395,7 +395,7 @@ export default function TenantMyTenancy() {
         {/* Manager Contact */}
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
               <User className="h-5 w-5 text-primary" />
             </div>
             <h3 className="font-display font-bold">Your Manager</h3>

@@ -283,8 +283,8 @@ export default function ManagerDetail() {
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Properties', value: profile.property_count, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10' },
-            { label: 'Tenants', value: profile.tenants_count, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10' },
+            { label: 'Properties', value: profile.property_count, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-muted' },
+            { label: 'Tenants', value: profile.tenants_count, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-muted' },
             { label: 'Boosted Properties', value: profile.boosted_count, icon: <Sparkles className="h-5 w-5" />, color: 'text-amber-600', bg: 'bg-amber-50' },
             { label: 'Subscription', value: subBadge, icon: <Calendar className="h-5 w-5" />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           ].map(s => (
@@ -319,7 +319,7 @@ export default function ManagerDetail() {
             <div className="divide-y divide-border">
               {properties.map(p => (
                 <div key={p.id} className="flex items-center gap-4 px-5 py-4 hover:bg-muted/20 transition-colors">
-                  <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent shrink-0">
+                  <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center text-accent shrink-0">
                     <Home className="h-5 w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -361,7 +361,7 @@ export default function ManagerDetail() {
             )}
             {activity.map((entry, i) => (
               <div key={i} className="flex items-start gap-3 px-5 py-3 hover:bg-muted/20 transition-colors">
-                <div className="h-7 w-7 rounded-lg bg-primary/5 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                <div className="h-7 w-7 rounded-lg bg-muted/60 text-primary flex items-center justify-center shrink-0 mt-0.5">
                   <Activity className="h-3.5 w-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">

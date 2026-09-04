@@ -43,7 +43,7 @@ export default function RentCoverageCard({ leaseId, canSetDate = false, onSetDat
   return (
     <Card className="p-5">
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
           <CalendarDays className="h-5 w-5 text-primary" />
         </div>
         <h3 className="font-display font-bold">Rent Coverage</h3>
@@ -75,7 +75,7 @@ export default function RentCoverageCard({ leaseId, canSetDate = false, onSetDat
           </div>
 
           <div className="grid grid-cols-2 gap-3 mt-3">
-            <div className={`rounded-lg p-3 ${(data?.rent_days_in_arrears ?? 0) > 0 ? 'bg-destructive/10' : 'bg-success/10'}`}>
+            <div className={`rounded-lg p-3 ${(data?.rent_days_in_arrears ?? 0) > 0 ? 'bg-muted' : 'bg-muted'}`}>
               <p className="text-xs text-muted-foreground font-medium">
                 {(data?.rent_days_in_arrears ?? 0) > 0 ? 'Days in Arrears' : 'Days Remaining'}
               </p>

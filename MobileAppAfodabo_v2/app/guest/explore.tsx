@@ -114,9 +114,9 @@ export default function ExploreScreen() {
     if (q) {
       result = result.filter(
         (p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.district.toLowerCase().includes(q) ||
-          p.area.toLowerCase().includes(q),
+          (p.title ?? "").toLowerCase().includes(q) ||
+          (p.district ?? "").toLowerCase().includes(q) ||
+          (p.area ?? "").toLowerCase().includes(q),
       );
     }
     const minBeds = bedrooms ? Number(bedrooms) : 0;

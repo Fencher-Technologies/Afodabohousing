@@ -80,7 +80,7 @@ export default function AcceptInvitePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md mx-auto p-8">
-          <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+          <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
             <Lock className="h-8 w-8 text-destructive" />
           </div>
           <h1 className="text-2xl font-display font-bold mb-2">Invalid Invitation</h1>

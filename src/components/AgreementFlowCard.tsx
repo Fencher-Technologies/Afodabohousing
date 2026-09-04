@@ -17,11 +17,11 @@ interface AgreementFlowCardProps {
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   draft: { label: 'Draft', className: 'bg-muted text-muted-foreground border-border' },
-  awaiting_tenant_consent: { label: 'Awaiting Tenant Consent', className: 'bg-accent/10 text-accent border-accent/20' },
-  awaiting_manager_consent: { label: 'Awaiting Manager Consent', className: 'bg-accent/10 text-accent border-accent/20' },
-  executed: { label: 'Executed', className: 'bg-success/10 text-success border-success/20' },
+  awaiting_tenant_consent: { label: 'Awaiting Tenant Consent', className: 'bg-muted text-accent border-accent/20' },
+  awaiting_manager_consent: { label: 'Awaiting Manager Consent', className: 'bg-muted text-accent border-accent/20' },
+  executed: { label: 'Executed', className: 'bg-muted text-success border-success/20' },
   superseded: { label: 'Superseded', className: 'bg-muted text-muted-foreground border-border' },
-  cancelled: { label: 'Cancelled', className: 'bg-destructive/10 text-destructive border-destructive/20' },
+  cancelled: { label: 'Cancelled', className: 'bg-muted text-destructive border-destructive/20' },
 };
 
 export default function AgreementFlowCard({ leaseId }: AgreementFlowCardProps) {
@@ -96,7 +96,7 @@ export default function AgreementFlowCard({ leaseId }: AgreementFlowCardProps) {
     return (
       <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
             <FileText className="h-4 w-4 text-primary" />
           </div>
           <span className="font-semibold text-sm">Tenancy Agreement</span>
@@ -129,7 +129,7 @@ export default function AgreementFlowCard({ leaseId }: AgreementFlowCardProps) {
     <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
             <FileSignature className="h-4 w-4 text-primary" />
           </div>
           <span className="font-semibold text-sm">Tenancy Agreement</span>
@@ -213,7 +213,7 @@ export default function AgreementFlowCard({ leaseId }: AgreementFlowCardProps) {
 
       {!isTenant && (
         <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-          <Button variant="outline" size="sm" onClick={handleCancel} disabled={cancelling} className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10">
+          <Button variant="outline" size="sm" onClick={handleCancel} disabled={cancelling} className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-muted">
             {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
             Cancel
           </Button>

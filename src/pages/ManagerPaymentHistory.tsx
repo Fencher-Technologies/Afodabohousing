@@ -70,11 +70,11 @@ export default function ManagerPaymentHistory() {
   const statusClasses = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return 'bg-success/10 text-success border-success/20';
+        return 'bg-muted text-success border-success/20';
       case 'pending':
-        return 'bg-accent/10 text-accent border-accent/20';
+        return 'bg-muted text-accent border-accent/20';
       case 'rejected':
-        return 'bg-destructive/10 text-destructive border-destructive/20';
+        return 'bg-muted text-destructive border-destructive/20';
       default:
         return 'bg-muted text-muted-foreground border-border';
     }

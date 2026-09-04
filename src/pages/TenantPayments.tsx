@@ -150,9 +150,9 @@ export default function TenantPayments() {
                     </td>
                     <td className="py-3 px-4">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                        p.status === 'confirmed' ? 'bg-success/10 text-success border-success/20' :
-                        p.status === 'pending' ? 'bg-accent/10 text-accent border-accent/20' :
-                        p.status === 'rejected' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                        p.status === 'confirmed' ? 'bg-muted text-success border-success/20' :
+                        p.status === 'pending' ? 'bg-muted text-accent border-accent/20' :
+                        p.status === 'rejected' ? 'bg-muted text-destructive border-destructive/20' :
                         'bg-muted text-muted-foreground border-border'
                       }`}>{p.status}</span>
                     </td>

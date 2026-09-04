@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radii.card,
     padding: Spacing.md,
     marginBottom: Spacing.md,

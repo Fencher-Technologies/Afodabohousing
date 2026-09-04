@@ -429,7 +429,7 @@ export default function ReportsScreen() {
 
             <Text style={styles.sheetSectionLabel}>Download</Text>
             <Pressable style={styles.sheetOption} onPress={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); handleDownloadPdf(); }}>
-              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.dangerSoft }]}>
+              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.surfaceAlt }]}>
                 <FileDown size={20} color={Colors.danger} />
               </View>
               <View style={{ flex: 1 }}>
@@ -440,7 +440,7 @@ export default function ReportsScreen() {
             </Pressable>
 
             <Pressable style={styles.sheetOption} onPress={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); handleDownloadCsv(); }}>
-              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.primarySoft }]}>
+              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.surfaceAlt }]}>
                 <FileText size={20} color={Colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
@@ -454,7 +454,7 @@ export default function ReportsScreen() {
 
             <Text style={styles.sheetSectionLabel}>Share</Text>
             <Pressable style={styles.sheetOption} onPress={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); handleShareReport("pdf"); }}>
-              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.accentSoft }]}>
+              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.surfaceAlt }]}>
                 <FileDown size={20} color={Colors.accent} />
               </View>
               <View style={{ flex: 1 }}>
@@ -465,7 +465,7 @@ export default function ReportsScreen() {
             </Pressable>
 
             <Pressable style={styles.sheetOption} onPress={() => { setExportSheet(false); setStatementExport(false); setStatementExportData(null); handleShareReport("csv"); }}>
-              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.accentSoft }]}>
+              <View style={[styles.sheetOptionIcon, { backgroundColor: Colors.surfaceAlt }]}>
                 <FileText size={20} color={Colors.accent} />
               </View>
               <View style={{ flex: 1 }}>

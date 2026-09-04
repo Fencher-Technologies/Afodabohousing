@@ -22,8 +22,8 @@ export default function TenantTabLayout() {
           backgroundColor: Colors.surface,
           borderTopColor: Colors.border,
           borderTopWidth: 1,
-          height: 56 + bottomInset,
-          paddingBottom: bottomInset,
+          height: 62 + bottomInset,
+          paddingBottom: Math.max(bottomInset, 10),
           paddingTop: 8,
         },
         tabBarLabelStyle: {

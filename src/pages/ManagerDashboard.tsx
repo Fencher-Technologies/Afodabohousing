@@ -390,9 +390,9 @@ export default function ManagerDashboard() {
   });
 
   const statCards = [
-    { label: 'Total Listings', val: properties.length, sub: `${available} available · ${occupied} occupied`, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
-    { label: 'Active Tenants', val: leases.filter(t => t.status === 'active').length, sub: `${dueSoonTenancies.length} rent due soon`, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10', trend: null },
-    { label: 'Revenue Confirmed', val: `${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10', trend: null },
+    { label: 'Total Listings', val: properties.length, sub: `${available} available · ${occupied} occupied`, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-muted', trend: null },
+    { label: 'Active Tenants', val: leases.filter(t => t.status === 'active').length, sub: `${dueSoonTenancies.length} rent due soon`, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-muted', trend: null },
+    { label: 'Revenue Confirmed', val: `${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-muted', trend: null },
   ];
 
   return (
@@ -477,8 +477,8 @@ export default function ManagerDashboard() {
             <>
             {/* Alerts */}
             {pendingPayments.length > 0 && (
-              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
-                <div className="bg-primary/10 rounded-xl p-2 shrink-0"><DollarSign className="h-4 w-4 text-primary" /></div>
+              <div className="bg-muted/60 border border-border rounded-2xl p-4 flex items-center gap-3">
+                <div className="bg-muted rounded-xl p-2 shrink-0"><DollarSign className="h-4 w-4 text-primary" /></div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-foreground text-sm">{pendingPayments.length} payment proof{pendingPayments.length > 1 ? 's' : ''} awaiting your review</p>
                   <p className="text-xs text-muted-foreground">Review and confirm or reject to notify tenants</p>
@@ -489,8 +489,8 @@ export default function ManagerDashboard() {
               </div>
             )}
             {dueSoonTenancies.length > 0 && (
-              <div className="bg-accent/5 border border-accent/20 rounded-2xl p-4 flex items-start gap-3">
-                <div className="bg-accent/10 rounded-xl p-2 shrink-0"><AlertTriangle className="h-4 w-4 text-accent" /></div>
+              <div className="bg-muted/60 border border-accent/20 rounded-2xl p-4 flex items-start gap-3">
+                <div className="bg-muted rounded-xl p-2 shrink-0"><AlertTriangle className="h-4 w-4 text-accent" /></div>
                 <div className="flex-1">
                   <p className="font-semibold text-foreground text-sm mb-2">{dueSoonTenancies.length} tenant{dueSoonTenancies.length > 1 ? 's' : ''} with rent expiring within 14 days</p>
                   <div className="flex flex-wrap gap-2">
@@ -499,7 +499,7 @@ export default function ManagerDashboard() {
                       return (
                         <div key={t.id} className="flex items-center gap-1.5 bg-card rounded-lg px-3 py-1 border border-border text-xs">
                           <span className="font-semibold">{t.tenant_name}</span>
-                          <Badge className={`text-xs py-0 ${d <= 7 ? 'bg-destructive/10 text-destructive' : 'bg-accent/10 text-accent'}`}>{d}d</Badge>
+                          <Badge className={`text-xs py-0 ${d <= 7 ? 'bg-muted text-destructive' : 'bg-muted text-accent'}`}>{d}d</Badge>
                           <button className="text-accent hover:text-accent/80 font-medium ml-1" onClick={() => sendRentReminder(t)} disabled={sendingAction === `remind-${t.id}`}>
                             {sendingAction === `remind-${t.id}` ? '...' : 'Remind'}
                           </button>
@@ -517,22 +517,22 @@ export default function ManagerDashboard() {
                 {/* Alert Pills */}
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
                   {pendingPayments.length > 0 && (
-                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold">
+                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted border border-destructive/20 text-destructive text-xs font-semibold">
                       <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
                       {pendingPayments.length} pending review
                     </div>
                   )}
                   {dueSoonTenancies.length > 0 && (
-                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold/10 border border-gold/20 text-gold text-xs font-semibold">
+                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted border border-gold/20 text-gold text-xs font-semibold">
                       <span className="w-1.5 h-1.5 rounded-full bg-gold" />
                       {dueSoonTenancies.length} rent due soon
                     </div>
                   )}
-                  <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold">
+                  <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted border border-border text-primary text-xs font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                     {leases.filter(l => l.status === 'active').length} active tenancies
                   </div>
-                  <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-semibold">
+                  <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted border border-accent/20 text-accent text-xs font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-accent" />
                     {properties.length} properties
                   </div>
@@ -558,29 +558,29 @@ export default function ManagerDashboard() {
                   <h3 className="font-display font-semibold text-sm text-muted-foreground mb-3">Quick Actions</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <button onClick={() => navigate('/dashboard/manager/tenancies/new')}
-                      className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-primary/30 transition-colors">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-border transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                         <Users className="h-5 w-5 text-primary" />
                       </div>
                       <span className="text-xs font-semibold text-foreground text-center">Create Tenancy</span>
                     </button>
                     <button onClick={() => setPropDialogOpen(true)}
-                      className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-primary/30 transition-colors">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-border transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                         <Building2 className="h-5 w-5 text-primary" />
                       </div>
                       <span className="text-xs font-semibold text-foreground text-center">List Property</span>
                     </button>
                     <button onClick={() => navigate('/dashboard/manager/reports')}
-                      className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-primary/30 transition-colors">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-border transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                         <BarChart2 className="h-5 w-5 text-primary" />
                       </div>
                       <span className="text-xs font-semibold text-foreground text-center">Reports</span>
                     </button>
                     <button onClick={() => navigate('/subscription')}
                       className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-gold/50 transition-colors">
-                      <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                         <Crown className="h-5 w-5 text-gold" />
                       </div>
                       <span className="text-xs font-semibold text-foreground text-center">Subscription</span>
@@ -624,7 +624,7 @@ export default function ManagerDashboard() {
                         <h3 className="font-display font-semibold text-base">Payment Queue</h3>
                       </div>
                       {pendingPayments.length > 0 && (
-                        <Badge className="bg-accent/10 text-accent border border-accent/20 text-xs">{pendingPayments.length} pending</Badge>
+                        <Badge className="bg-muted text-accent border border-accent/20 text-xs">{pendingPayments.length} pending</Badge>
                       )}
                     </div>
                     {pendingPayments.length === 0 ? (
@@ -636,8 +636,8 @@ export default function ManagerDashboard() {
                     ) : (
                       <div className="space-y-3">
                         {pendingPayments.slice(0, 4).map(p => (
-                          <div key={p.id} className="flex items-center gap-3 p-3 bg-primary/5 rounded-xl border border-primary/10">
-                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                          <div key={p.id} className="flex items-center gap-3 p-3 bg-muted/60 rounded-xl border border-primary/10">
+                            <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-primary font-bold text-xs shrink-0">
                               {(p.tenant_name || 'T').charAt(0)}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -675,8 +675,8 @@ export default function ManagerDashboard() {
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-accent/5 rounded-xl p-3 text-center"><span className="text-lg font-bold text-accent">{available}</span><p className="text-xs text-muted-foreground">Available</p></div>
-                      <div className="bg-primary/5 rounded-xl p-3 text-center"><span className="text-lg font-bold text-primary">{occupied}</span><p className="text-xs text-muted-foreground">Occupied</p></div>
+                      <div className="bg-muted/60 rounded-xl p-3 text-center"><span className="text-lg font-bold text-accent">{available}</span><p className="text-xs text-muted-foreground">Available</p></div>
+                      <div className="bg-muted/60 rounded-xl p-3 text-center"><span className="text-lg font-bold text-primary">{occupied}</span><p className="text-xs text-muted-foreground">Occupied</p></div>
                     </div>
                     {properties.length === 0 ? (
                       <div className="text-center py-8">
@@ -721,7 +721,7 @@ export default function ManagerDashboard() {
                         <h3 className="font-display font-semibold text-base">Overdue</h3>
                       </div>
                       {leases.filter(l => l.is_overdue).length > 0 && (
-                        <Badge className="bg-destructive/10 text-destructive border border-destructive/20 text-xs">{leases.filter(l => l.is_overdue).length} overdue</Badge>
+                        <Badge className="bg-muted text-destructive border border-destructive/20 text-xs">{leases.filter(l => l.is_overdue).length} overdue</Badge>
                       )}
                     </div>
                     {leases.filter(l => l.is_overdue).length === 0 ? (
@@ -734,7 +734,7 @@ export default function ManagerDashboard() {
                       <div className="space-y-2.5">
                         {leases.filter(l => l.is_overdue).slice(0, 5).map(t => (
                           <div key={t.id} className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
-                            <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                            <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                               <DollarSign className="h-4 w-4 text-destructive" />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -802,7 +802,7 @@ export default function ManagerDashboard() {
                             <tr key={p.id} className="border-b border-border hover:bg-muted/30 transition-colors last:border-0">
                               <td className="py-3.5 px-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                  <div className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center text-primary shrink-0">
                                     <Home className="h-4 w-4" />
                                   </div>
                                   <div className="min-w-0">

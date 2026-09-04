@@ -109,9 +109,9 @@ export default function ManagerPaymentVerifications() {
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                        s.status === 'pending' ? 'bg-primary/10 text-primary' :
-                        s.status === 'approved' ? 'bg-success/10 text-success' :
-                        'bg-destructive/10 text-destructive'
+                        s.status === 'pending' ? 'bg-muted text-primary' :
+                        s.status === 'approved' ? 'bg-muted text-success' :
+                        'bg-muted text-destructive'
                       }`}>{s.status}</span>
                       <span className="font-bold text-lg">{s.amount?.toLocaleString()}</span>
                     </div>

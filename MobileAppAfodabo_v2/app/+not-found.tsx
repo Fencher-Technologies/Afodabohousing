@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,

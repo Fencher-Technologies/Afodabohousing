@@ -38,7 +38,7 @@ export default function PaymentCountdown({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="mx-4 w-full max-w-md rounded-xl bg-card p-8 text-center shadow-2xl">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
         <h3 className="mb-2 text-lg font-semibold">Payment Initiated</h3>

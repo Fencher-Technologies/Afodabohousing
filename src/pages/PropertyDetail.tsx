@@ -72,8 +72,8 @@ const typeLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  available: 'bg-accent/10 text-accent border border-accent/30',
-  occupied: 'bg-destructive/10 text-destructive border border-destructive/30',
+  available: 'bg-muted text-accent border border-accent/30',
+  occupied: 'bg-muted text-destructive border border-destructive/30',
   inactive: 'bg-muted text-muted-foreground border border-border',
 };
 
@@ -307,7 +307,7 @@ export default function PropertyDetailPage() {
                 <MapPin className="h-4 w-4 text-accent shrink-0" />
                 <span className="text-sm">{fullLocation || property.state || property.city || ''}</span>
               </div>
-              <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-2xl p-5 border border-primary/20">
+              <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-2xl p-5 border border-border">
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-display font-bold text-primary">
                     {formatCurrency(property.rent_amount, displayCurrency)}
@@ -360,7 +360,7 @@ export default function PropertyDetailPage() {
                     <div className="text-2xl font-display font-bold text-foreground">{units.length}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">Total Units</div>
                   </div>
-                  <div className="bg-accent/8 border border-accent/20 rounded-xl p-3.5 text-center">
+                  <div className="bg-muted border border-accent/20 rounded-xl p-3.5 text-center">
                     <div className="text-2xl font-display font-bold text-accent">{availableUnits.length}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">Available</div>
                   </div>
@@ -381,7 +381,7 @@ export default function PropertyDetailPage() {
                       }`}
                     >
                       {/* Unit header */}
-                      <div className={`px-5 py-3 flex items-center justify-between ${unit.status === 'available' ? 'bg-accent/8' : 'bg-muted/50'}`}>
+                      <div className={`px-5 py-3 flex items-center justify-between ${unit.status === 'available' ? 'bg-muted' : 'bg-muted/50'}`}>
                         <div>
                           <p className="font-bold text-foreground text-sm">Unit {unit.unit_number}</p>
                           {unit.floor_level && <p className="text-xs text-muted-foreground">{unit.floor_level}</p>}
@@ -412,7 +412,7 @@ export default function PropertyDetailPage() {
                         {unit.amenities && unit.amenities.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mb-3">
                             {unit.amenities.slice(0, 4).map(a => (
-                              <span key={a} className="flex items-center gap-1 text-xs bg-primary/8 text-primary px-2 py-0.5 rounded-full">
+                              <span key={a} className="flex items-center gap-1 text-xs bg-muted text-primary px-2 py-0.5 rounded-full">
                                 {amenityIcons[a] && <span className="opacity-70">{amenityIcons[a]}</span>}
                                 {a}
                               </span>

@@ -72,11 +72,11 @@ export default function AgreementHistory() {
               const fullySigned = v.tenant_signed && v.manager_signed;
               const statusColors: Record<string, string> = {
                 draft: 'bg-muted text-muted-foreground border-border',
-                awaiting_tenant_consent: 'bg-accent/10 text-accent border-accent/20',
-                awaiting_manager_consent: 'bg-accent/10 text-accent border-accent/20',
-                executed: 'bg-success/10 text-success border-success/20',
-                superseded: 'bg-primary/10 text-primary border-primary/20',
-                cancelled: 'bg-destructive/10 text-destructive border-destructive/20',
+                awaiting_tenant_consent: 'bg-muted text-accent border-accent/20',
+                awaiting_manager_consent: 'bg-muted text-accent border-accent/20',
+                executed: 'bg-muted text-success border-success/20',
+                superseded: 'bg-muted text-primary border-border',
+                cancelled: 'bg-muted text-destructive border-destructive/20',
               };
               return (
                 <div key={v.id} className={`bg-card border-2 rounded-xl p-5 ${
@@ -88,7 +88,7 @@ export default function AgreementHistory() {
                         <p className="font-bold text-base">
                           {v.agreement_number ? `#${v.agreement_number}` : `Version ${v.version}`}
                         </p>
-                        {isActive && <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">Current</Badge>}
+                        {isActive && <Badge className="bg-muted text-primary border-border text-[10px]">Current</Badge>}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {v.created_at ? format(new Date(v.created_at), 'MMM dd, yyyy HH:mm') : ''}

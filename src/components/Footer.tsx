@@ -23,11 +23,6 @@ const LINKS = {
   ],
 };
 
-const DISTRICTS = [
-  'Kampala', 'Wakiso', 'Mukono', 'Entebbe', 'Jinja', 'Mbarara',
-  'Gulu', 'Lira', 'Arua', 'Fort Portal', 'Mbale', 'Masaka',
-];
-
 function ScrollLink({ to, children, className }: { to: string; children: React.ReactNode; className?: string }) {
   const navigate = useNavigate();
   const handleClick = (e: React.MouseEvent) => {
@@ -51,7 +46,7 @@ export default function Footer() {
           {/* Brand column */}
           <div className="lg:col-span-2">
             <ScrollLink to="/" className="inline-block mb-5">
-              <img src={logoImg} alt="Axis Housing" className="h-10 w-auto" />
+              <img src={logoImg} alt="Axis Housing" className="h-12 w-auto" />
             </ScrollLink>
             <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6 max-w-xs">
               Connecting tenants with verified house managers worldwide. Find your perfect home, generate agreements, and manage rent in one platform.
@@ -134,23 +129,6 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Popular Districts */}
-        <div className="mt-12 pt-8 border-t border-primary-foreground/15">
-          <h4 className="font-display font-semibold text-primary-foreground/80 mb-4 text-sm uppercase tracking-widest">
-            Popular Districts
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            {DISTRICTS.map(d => (
-              <ScrollLink
-                key={d}
-                to={`/properties?state=${d}`}
-                className="text-xs bg-primary-foreground/10 hover:bg-accent text-primary-foreground/70 hover:text-primary-foreground px-3 py-1.5 rounded-full transition-colors"
-              >
-                {d}
-              </ScrollLink>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Bottom bar */}

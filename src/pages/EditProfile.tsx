@@ -159,7 +159,7 @@ export default function EditProfile() {
               : 'Link a phone number to sign in with your phone and PIN.'}
           </p>
 
-          {linkError && <p className="text-sm text-destructive bg-destructive/10 rounded-lg p-3 mb-4">{linkError}</p>}
+          {linkError && <p className="text-sm text-destructive bg-muted rounded-lg p-3 mb-4">{linkError}</p>}
 
           {!isPhoneLinked && linkStep === 'form' && (
             <div className="space-y-4">

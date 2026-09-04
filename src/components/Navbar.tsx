@@ -162,7 +162,7 @@ export default function Navbar() {
           {role === 'super_admin' && (
             <Link
               to="/dashboard/super-admin"
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-accent hover:bg-accent/10 transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-accent hover:bg-muted transition-colors"
             >
               <Shield className="h-4 w-4" />
               Super Admin
@@ -244,7 +244,7 @@ export default function Navbar() {
             </Link>
           )}
           {role === 'super_admin' && (
-            <Link to="/dashboard/super-admin" className="flex items-center gap-3 py-3 px-3 rounded-xl text-sm font-medium text-accent hover:bg-accent/10 transition-colors">
+            <Link to="/dashboard/super-admin" className="flex items-center gap-3 py-3 px-3 rounded-xl text-sm font-medium text-accent hover:bg-muted transition-colors">
               <Shield className="h-4 w-4" />
               Super Admin
             </Link>

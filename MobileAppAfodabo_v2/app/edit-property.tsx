@@ -513,10 +513,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.xs,
     borderRadius: Radii.input,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   imageActionDanger: {
-    backgroundColor: Colors.dangerSoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   imageActionText: {
     fontSize: FontSize.caption,

@@ -50,7 +50,7 @@ export default function AgreementRenderer({ content, mode = 'view' }: AgreementR
           {content.property.amenities?.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
               {content.property.amenities.map((a: string) => (
-                <span key={a} className="text-xs bg-primary/5 text-primary px-2 py-0.5 rounded-full">{a}</span>
+                <span key={a} className="text-xs bg-muted/60 text-primary px-2 py-0.5 rounded-full">{a}</span>
               ))}
             </div>
           )}

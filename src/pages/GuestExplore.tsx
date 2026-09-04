@@ -319,7 +319,7 @@ export default function GuestExplore() {
           </div>
         ) : error ? (
           <div className="text-center py-20">
-            <div className="h-14 w-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+            <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
               <Compass className="h-6 w-6 text-destructive" />
             </div>
             <p className="text-lg font-semibold text-foreground">Could not load properties</p>

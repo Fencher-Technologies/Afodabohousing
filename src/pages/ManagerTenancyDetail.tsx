@@ -126,7 +126,7 @@ export default function ManagerTenancyDetail() {
                   <Share2 className="h-4 w-4" /> Renew
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleDeactivate} disabled={deactivating}
-                  className="gap-2 rounded-lg border-destructive text-destructive hover:bg-destructive/10">
+                  className="gap-2 rounded-lg border-destructive text-destructive hover:bg-muted">
                   <Ban className="h-4 w-4" /> Deactivate
                 </Button>
               </>
@@ -141,7 +141,7 @@ export default function ManagerTenancyDetail() {
         {/* Status card */}
         <div className={`rounded-xl p-5 border ${
           isExpired ? 'bg-destructive/5 border-destructive/20' :
-          isEnding ? 'bg-accent/5 border-accent/20' :
+          isEnding ? 'bg-muted/60 border-accent/20' :
           'bg-success/5 border-success/20'
         }`}>
           <div className="flex items-center gap-3">
@@ -167,7 +167,7 @@ export default function ManagerTenancyDetail() {
             </h2>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <User className="h-4 w-4 text-primary" />
                 </div>
                 <div>
@@ -178,7 +178,7 @@ export default function ManagerTenancyDetail() {
               {t.phone && (
                 <a href={`https://wa.me/${t.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-3 hover:bg-muted/30 rounded-lg p-1 -mx-1 transition-colors">
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                     <Phone className="h-4 w-4 text-primary" />
                   </div>
                   <div>
@@ -189,7 +189,7 @@ export default function ManagerTenancyDetail() {
               )}
               {t.email && (
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                     <Mail className="h-4 w-4 text-primary" />
                   </div>
                   <div>
@@ -208,7 +208,7 @@ export default function ManagerTenancyDetail() {
             </h2>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <Home className="h-4 w-4 text-primary" />
                 </div>
                 <div>
@@ -217,7 +217,7 @@ export default function ManagerTenancyDetail() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <MapPin className="h-4 w-4 text-primary" />
                 </div>
                 <div>
@@ -267,8 +267,8 @@ export default function ManagerTenancyDetail() {
         <div className="flex gap-3">
           {t.phone && (
             <a href={`https://wa.me/${t.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer"
-              className="flex-1 flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-primary/30 transition-colors">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              className="flex-1 flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-border transition-colors">
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                 <MessageCircle className="h-5 w-5 text-primary" />
               </div>
               <span className="text-xs font-semibold text-foreground">WhatsApp</span>
@@ -280,15 +280,15 @@ export default function ManagerTenancyDetail() {
               window.open(`https://wa.me/${t.phone.replace(/[^0-9]/g, '')}?text=${msg}`, '_blank');
             }}
               className="flex-1 flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-colors">
-              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                 <TrendingUp className="h-5 w-5 text-accent" />
               </div>
               <span className="text-xs font-semibold text-foreground">Remind</span>
             </button>
           )}
           <button onClick={() => navigate(`/dashboard/manager/tenancies/${id}/edit`)}
-            className="flex-1 flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-primary/30 transition-colors">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+            className="flex-1 flex flex-col items-center gap-2 bg-card border border-border rounded-xl p-4 hover:border-border transition-colors">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
               <Edit3 className="h-5 w-5 text-primary" />
             </div>
             <span className="text-xs font-semibold text-foreground">Edit</span>
@@ -340,9 +340,9 @@ export default function ManagerTenancyDetail() {
                       </td>
                       <td className="py-3 px-4">
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                          pay.status === 'confirmed' ? 'bg-success/10 text-success border-success/20' :
-                          pay.status === 'rejected' ? 'bg-destructive/10 text-destructive border-destructive/20' :
-                          'bg-accent/10 text-accent border-accent/20'
+                          pay.status === 'confirmed' ? 'bg-muted text-success border-success/20' :
+                          pay.status === 'rejected' ? 'bg-muted text-destructive border-destructive/20' :
+                          'bg-muted text-accent border-accent/20'
                         }`}>{pay.status}</span>
                       </td>
                     </tr>

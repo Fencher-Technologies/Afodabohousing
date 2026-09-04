@@ -142,7 +142,7 @@ export default function ForgotPin() {
               {STEPS.map((s, i) => (
                 <div key={s.num} className="flex items-center">
                   <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors
-                    ${step === s.num ? 'bg-primary/10 text-primary' : step > s.num ? 'text-success' : 'text-muted-foreground'}`}>
+                    ${step === s.num ? 'bg-muted text-primary' : step > s.num ? 'text-success' : 'text-muted-foreground'}`}>
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold
                       ${step === s.num ? 'bg-primary text-primary-foreground' :
                         step > s.num ? 'bg-success text-white' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
@@ -160,7 +160,7 @@ export default function ForgotPin() {
 
           <Card className="border-0 shadow-card">
             <CardHeader className="text-center pb-2">
-              <div className="mx-auto bg-primary/10 text-primary rounded-full p-3 w-fit mb-3">
+              <div className="mx-auto bg-muted text-primary rounded-full p-3 w-fit mb-3">
                 {step === 4 ? <CheckCircle className="h-6 w-6" /> : <Key className="h-6 w-6" />}
               </div>
               <CardTitle className="font-display text-xl">Reset PIN</CardTitle>
@@ -173,10 +173,10 @@ export default function ForgotPin() {
             </CardHeader>
             <CardContent>
               {error && (
-                <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3 mb-4">{error}</div>
+                <div className="text-sm text-destructive bg-muted rounded-lg p-3 mb-4">{error}</div>
               )}
               {message && step === 4 && (
-                <div className="text-sm text-success bg-success/10 rounded-lg p-3 mb-4">{message}</div>
+                <div className="text-sm text-success bg-muted rounded-lg p-3 mb-4">{message}</div>
               )}
 
               {step === 1 && (
@@ -274,7 +274,7 @@ export default function ForgotPin() {
               {step === 4 && (
                 <div className="space-y-4">
                   <div className="text-center py-2">
-                    <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-3">
+                    <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-3">
                       <CheckCircle className="h-8 w-8 text-success" />
                     </div>
                     <p className="text-sm text-muted-foreground mb-1">

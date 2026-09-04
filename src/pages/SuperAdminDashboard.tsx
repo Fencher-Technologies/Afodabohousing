@@ -582,12 +582,12 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
               <div className="grid grid-cols-2 xl:grid-cols-6 gap-3 md:gap-4">
                 {[
                   {
-                    label: 'Total Properties', icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10',
+                    label: 'Total Properties', icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-muted',
                     val: String(stats?.total_properties ?? 0), sub: `${stats?.occupied_properties ?? 0} occupied · ${stats?.vacant_properties ?? 0} vacant`,
                     trend: propertyTrend, spark: propertySparkline, sparkColor: '#6366f1',
                   },
                   {
-                    label: 'House Managers', icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-accent/10',
+                    label: 'House Managers', icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-muted',
                     val: String(stats?.active_managers ?? 0), sub: `${(stats?.total_managers ?? 0) - (stats?.active_managers ?? 0)} pending invite`,
                     trend: managerTrend, spark: managerSparkline, sparkColor: '#10b981',
                   },
@@ -597,7 +597,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                     trend: tenantTrend, spark: tenantSparkline, sparkColor: '#06b6d4',
                   },
                   {
-                    label: 'Active Subs', icon: <Crown className="h-5 w-5" />, color: 'text-gold', bg: 'bg-gold/10',
+                    label: 'Active Subs', icon: <Crown className="h-5 w-5" />, color: 'text-gold', bg: 'bg-muted',
                     val: String(stats?.active_subscriptions ?? 0), sub: `${stats?.subscription_growth_pct ?? 0}% growth`,
                     trend: stats?.subscription_growth_pct ?? 0, spark: subSparkline, sparkColor: '#f59e0b',
                   },
@@ -607,7 +607,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                     trend: 0, spark: subRevenueSparkline, sparkColor: '#10b981',
                   },
                   {
-                    label: 'Monthly Rent Collected', icon: <BarChart3 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-primary/10',
+                    label: 'Monthly Rent Collected', icon: <BarChart3 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-muted',
                     val: formatAmount(stats?.total_collected ?? 0), sub: `${stats?.recent_payments_count ?? 0} payments this period`,
                     trend: rentTrend, spark: rentSparkline, sparkColor: '#6366f1',
                   },
@@ -821,7 +821,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                   <div className="max-h-72 overflow-y-auto divide-y divide-border/50">
                     {auditLog.map(entry => (
                       <div key={entry.id} className="flex items-start gap-3 px-5 py-3 hover:bg-muted/20 transition-colors">
-                        <div className="h-7 w-7 rounded-lg bg-primary/5 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="h-7 w-7 rounded-lg bg-muted/60 text-primary flex items-center justify-center shrink-0 mt-0.5">
                           {entry.icon}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -907,7 +907,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
               {/* Stat strip */}
               <div className="grid grid-cols-5 gap-3">
                 {[
-                  { label: 'Total Managers', value: managers.length, color: 'bg-primary/10 text-primary' },
+                  { label: 'Total Managers', value: managers.length, color: 'bg-muted text-primary' },
                   { label: 'Active', value: managers.filter(m => m.status === 'active').length, color: 'bg-emerald-50 text-emerald-700' },
                   { label: 'Suspended', value: managers.filter(m => m.status === 'suspended').length, color: 'bg-red-50 text-red-700' },
                   { label: 'Pending Invite', value: managers.filter(m => m.status === 'pending').length, color: 'bg-amber-50 text-amber-700' },
@@ -958,7 +958,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
 
               {/* Bulk action bar */}
               {selectedRows.size > 0 && (
-                <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-2">
+                <div className="flex items-center gap-3 bg-muted/60 border border-border rounded-xl px-4 py-2">
                   <span className="text-sm font-medium text-foreground">{selectedRows.size} selected</span>
                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleBulkSuspend}>
                     <X className="h-3 w-3" /> Suspend All

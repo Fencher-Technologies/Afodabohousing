@@ -17,7 +17,7 @@ export default function SubscriptionGate({ open, onClose, onRenew, actionLabel }
     <AlertDialog open={open} onOpenChange={onClose}>
       <AlertDialogContent className="max-w-sm text-center">
         <AlertDialogHeader>
-          <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center mx-auto mb-2">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-2">
             <Crown className="h-8 w-8 text-gold" />
           </div>
           <AlertDialogTitle className="text-lg">Subscription Required</AlertDialogTitle>

@@ -200,7 +200,7 @@ export default function ManagerDashboardScreen() {
         <View style={styles.statsGrid}>
           {statsCards.map((stat, i) => (
             <Card key={i} padding="sm" style={styles.statCard}>
-              <View style={[styles.statIconWrap, stat.tone === "accent" && { backgroundColor: Colors.accentSoft }]}>{stat.icon}</View>
+              <View style={[styles.statIconWrap, stat.tone === "accent" && { backgroundColor: Colors.surfaceAlt }]}>{stat.icon}</View>
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
             </Card>
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xs,
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xs,

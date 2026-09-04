@@ -58,7 +58,7 @@ export default function PaymentStatus() {
       <Card className="w-full max-w-md text-center py-10">
         <CardContent className="space-y-4 pt-2">
           <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto ${
-            status === 'completed' ? 'bg-success/10' : status === 'failed' ? 'bg-destructive/10' : 'bg-primary/10'
+            status === 'completed' ? 'bg-muted' : status === 'failed' ? 'bg-muted' : 'bg-muted'
           }`}>
             {status === 'completed' ? (
               <CheckCircle2 className="h-10 w-10 text-success" />

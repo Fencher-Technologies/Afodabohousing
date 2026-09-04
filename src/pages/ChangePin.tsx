@@ -39,17 +39,17 @@ export default function ChangePin() {
     <div className="max-w-md mx-auto py-12 px-4">
       <Card className="shadow-card">
         <CardHeader className="text-center">
-          <div className="mx-auto bg-primary/10 text-primary rounded-full p-3 w-fit mb-3">
+          <div className="mx-auto bg-muted text-primary rounded-full p-3 w-fit mb-3">
             {success ? <CheckCircle className="h-6 w-6" /> : <Key className="h-6 w-6" />}
           </div>
           <CardTitle className="font-display text-xl">Change PIN</CardTitle>
           <CardDescription>Update your phone sign-in PIN</CardDescription>
         </CardHeader>
         <CardContent>
-          {error && <p className="text-sm text-destructive bg-destructive/10 rounded-lg p-3 mb-4">{error}</p>}
+          {error && <p className="text-sm text-destructive bg-muted rounded-lg p-3 mb-4">{error}</p>}
           {success ? (
             <div className="space-y-4 text-center">
-              <p className="text-sm text-success bg-success/10 rounded-lg p-3">PIN changed successfully</p>
+              <p className="text-sm text-success bg-muted rounded-lg p-3">PIN changed successfully</p>
               <Button className="w-full" onClick={() => nav('/account')}>Back to Account</Button>
             </div>
           ) : (

@@ -129,7 +129,7 @@ export default function GettingStarted() {
             </Link>
             <Card className="border-0 shadow-card">
               <CardContent className="pt-10 pb-10 space-y-4">
-                <div className="mx-auto w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center">
+                <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center">
                   <CheckCircle2 className="h-8 w-8 text-accent" />
                 </div>
                 <CardTitle className="font-display text-xl">Verification Successful</CardTitle>
@@ -188,7 +188,7 @@ export default function GettingStarted() {
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
               {error && (
-                <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3">{error}</div>
+                <div className="text-sm text-destructive bg-muted rounded-lg p-3">{error}</div>
               )}
 
               {step === 'form' ? (

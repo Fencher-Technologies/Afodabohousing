@@ -490,7 +490,7 @@ export default function PropertyDetailScreen() {
             <View style={styles.amenitiesGrid}>
               {property.amenities.map((amenity) => (
                 <View key={amenity} style={styles.amenityChip}>
-                  <Check size={14} color={Colors.success} />
+                  <Check size={14} color={Colors.primary} />
                   <Text style={styles.amenityText}>
                     {formatAmenity(amenity)}
                   </Text>
@@ -999,7 +999,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.successSoft,
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radii.pill,
   },
   amenityText: {
@@ -1023,7 +1023,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radii.input,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
@@ -1062,7 +1062,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radii.input,
     paddingVertical: Spacing.md,
   },
@@ -1070,7 +1070,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   locationBtnSecondary: {
-    backgroundColor: Colors.accentSoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   locationBtnSecondaryPressed: {
     backgroundColor: Colors.accent,
@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
   },

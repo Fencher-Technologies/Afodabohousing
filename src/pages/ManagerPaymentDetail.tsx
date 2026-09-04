@@ -68,9 +68,9 @@ export default function ManagerPaymentDetail() {
 
   const statusColor = (s: string) => {
     switch (s) {
-      case 'confirmed': return { icon: CheckCircle, className: 'bg-success/10 text-success border-success/20' };
-      case 'pending': return { icon: Clock, className: 'bg-accent/10 text-accent border-accent/20' };
-      case 'rejected': return { icon: XCircle, className: 'bg-destructive/10 text-destructive border-destructive/20' };
+      case 'confirmed': return { icon: CheckCircle, className: 'bg-muted text-success border-success/20' };
+      case 'pending': return { icon: Clock, className: 'bg-muted text-accent border-accent/20' };
+      case 'rejected': return { icon: XCircle, className: 'bg-muted text-destructive border-destructive/20' };
       default: return { icon: Clock, className: 'bg-muted text-muted-foreground border-border' };
     }
   };
@@ -104,7 +104,7 @@ export default function ManagerPaymentDetail() {
               <Button variant="outline" size="sm" onClick={startEdit} className="gap-1.5">
                 <Pencil className="h-4 w-4" /> Edit
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10">
+              <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="gap-1.5 text-destructive border-destructive/30 hover:bg-muted">
                 <Trash2 className="h-4 w-4" /> Delete
               </Button>
             </div>

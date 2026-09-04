@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Mail, Phone, MapPin, Clock, Send, MessageSquare, HeadphonesIcon } from 'lucide-react';
 import PageHero from '@/components/PageHero';
 import showcaseInterior from '@/assets/showcase-interior.jpg';
+import property2 from '@/assets/property-2.jpg';
 
 const FAQS = [
   {
@@ -118,7 +119,8 @@ export default function ContactPage() {
             </div>
 
             {/* Quick links */}
-            <div className="bg-secondary pattern-rose border border-border rounded-2xl p-6">
+            <div className="bg-secondary pattern-rose rose-photo border border-border rounded-2xl p-6">
+              <div className="rose-photo-bg"><img src={property2} alt="" /></div>
               <div className="flex items-center gap-2 mb-4">
                 <HeadphonesIcon className="h-5 w-5 text-accent" />
                 <h3 className="font-display font-bold text-lg">Quick Links</h3>

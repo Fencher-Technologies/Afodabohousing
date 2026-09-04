@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import logoImg from '@/assets/axis-lockup.png';
 import heroBg from '@/assets/hero-bg.jpg';
+import property1 from '@/assets/property-1.jpg';
 import { Shield, Users, MapPin, Star, Award, Building2, HeartHandshake } from 'lucide-react';
 
 const VALUES = [
@@ -28,13 +29,6 @@ const VALUES = [
     title: 'Nationwide Coverage',
     desc: 'We cover locations worldwide. Whether you are relocating for work, school or family, we have verified listings near you.',
   },
-];
-
-const TEAM = [
-  { name: 'Axis Team', role: 'Founders', initials: 'AX', bg: 'bg-primary' },
-  { name: 'Support Desk', role: 'Customer Care', initials: 'SD', bg: 'bg-accent' },
-  { name: 'Tech Team', role: 'Engineering', initials: 'TT', bg: 'bg-primary' },
-  { name: 'Field Agents', role: 'Property Verification', initials: 'FA', bg: 'bg-accent' },
 ];
 
 export default function AboutPage() {
@@ -94,7 +88,8 @@ export default function AboutPage() {
       </section>
 
       {/* Values */}
-      <section className="bg-secondary pattern-rose py-20">
+      <section className="bg-secondary pattern-rose rose-photo py-20">
+        <div className="rose-photo-bg"><img src={property1} alt="" /></div>
         <div className="container">
           <div className="text-center mb-14">
             <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">What We Stand For</p>
@@ -110,28 +105,6 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Team */}
-      <section className="container py-20">
-        <div className="text-center mb-14">
-          <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-2">The People</p>
-          <h2 className="font-display text-4xl font-bold text-foreground">Behind the Platform</h2>
-          <p className="text-muted-foreground mt-3 max-w-xl mx-auto text-lg">
-            A dedicated team working to transform how housing is found and managed worldwide.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto">
-          {TEAM.map(m => (
-            <div key={m.name} className="bg-card border border-border rounded-2xl p-6 text-center shadow-card">
-              <div className={`${m.bg} text-primary-foreground w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-xl font-display font-bold`}>
-                {m.initials}
-              </div>
-              <div className="font-semibold text-foreground text-sm">{m.name}</div>
-              <div className="text-xs text-muted-foreground mt-1">{m.role}</div>
-            </div>
-          ))}
         </div>
       </section>
 

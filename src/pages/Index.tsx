@@ -16,6 +16,8 @@ import {
   Wallet, MapPinned, BellRing, User, Users,
 } from 'lucide-react';
 import heroMain from '@/assets/hero-main.jpg';
+import heroBg from '@/assets/hero-bg.jpg';
+import property3 from '@/assets/property-3.jpg';
 import showcaseInterior from '@/assets/showcase-interior.jpg';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -158,6 +160,7 @@ const TESTIMONIALS = [
 ];
 
 const FALLBACK_LOCATIONS = ['Kampala', 'Wakiso', 'Entebbe', 'Jinja', 'Mbarara', 'Gulu', 'Mbale', 'Arua', 'Fort Portal', 'Masaka'];
+const MARQUEE_LOCATIONS = ['Luzira', 'Lira', 'Kampala', 'Masaka', 'Mbarara', 'Mbale', 'Gulu', 'Arua'];
 
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -254,7 +257,12 @@ export default function HomePage() {
   };
 
   const handleSearch = () => {
-    // trigger re-fetch via effect deps (selectedCountry/selectedRegion/areaInput already drive fetchProperties)
+    const params = new URLSearchParams();
+    if (selectedCountry) params.set('country', selectedCountry);
+    if (selectedRegion && selectedRegion !== '__all__') params.set('region_id', selectedRegion);
+    if (areaInput.trim()) params.set('state', areaInput.trim());
+    if (filterType && filterType !== 'all') params.set('type', filterType);
+    navigate(`/properties?${params.toString()}`);
   };
 
   const handleChipClick = (city: string) => {
@@ -264,7 +272,8 @@ export default function HomePage() {
     if (match) setSelectedRegion(match.id);
   };
 
-  const marqueeLocations = popularLocations.length > 0 ? popularLocations : FALLBACK_LOCATIONS;
+  const marqueeLocations = MARQUEE_LOCATIONS;
+  const chipLocations = popularLocations.length > 0 ? popularLocations : FALLBACK_LOCATIONS;
 
   return (
     <div className="min-h-screen bg-background">
@@ -359,7 +368,7 @@ export default function HomePage() {
 
           <Reveal delay={0.32}>
             <div className="mt-5 flex flex-wrap gap-2">
-              {marqueeLocations.slice(0, 6).map(d => (
+              {chipLocations.slice(0, 6).map(d => (
                 <button
                   key={d}
                   onClick={() => handleChipClick(d)}
@@ -465,7 +474,8 @@ export default function HomePage() {
       {/* ============================================================
           WHY AXIS — sticky editorial heading + hairline feature list
           ============================================================ */}
-      <section className="bg-secondary pattern-rose border-y border-border" id="why">
+      <section className="bg-secondary pattern-rose rose-photo border-y border-border" id="why">
+        <div className="rose-photo-bg"><img src={heroBg} alt="" /></div>
         <div className="max-w-6xl mx-auto px-5 sm:px-8 py-24 grid lg:grid-cols-5 gap-14">
           <div className="lg:col-span-2">
             <div className="lg:sticky lg:top-28">
@@ -486,6 +496,12 @@ export default function HomePage() {
                 >
                   Create a free account <ArrowRight className="h-4 w-4" />
                 </button>
+                <img
+                  src={showcaseInterior}
+                  alt="A bright Axis-managed apartment interior in black and white"
+                  loading="lazy"
+                  className="mt-10 w-full aspect-[4/3] object-cover rounded-2xl border border-border shadow-card grayscale contrast-[1.06]"
+                />
               </Reveal>
             </div>
           </div>
@@ -613,7 +629,8 @@ export default function HomePage() {
       {/* ============================================================
           TESTIMONIALS — serif pull quotes
           ============================================================ */}
-      <section className="bg-secondary pattern-rose border-y border-border">
+      <section className="bg-secondary pattern-rose rose-photo border-y border-border">
+        <div className="rose-photo-bg"><img src={property3} alt="" /></div>
         <div className="max-w-6xl mx-auto px-5 sm:px-8 py-24">
           <Reveal>
             <div className="flex items-center gap-4 mb-3">

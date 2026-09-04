@@ -45,10 +45,10 @@ export default function Notifications() {
 
   const typeIcon = (type?: string) => {
     switch (type) {
-      case 'payment': return { icon: DollarSign, bg: 'bg-success/10 text-success' };
-      case 'lease': return { icon: FileText, bg: 'bg-primary/10 text-primary' };
-      case 'maintenance': return { icon: Wrench, bg: 'bg-accent/10 text-accent' };
-      case 'property': return { icon: Home, bg: 'bg-primary/10 text-primary' };
+      case 'payment': return { icon: DollarSign, bg: 'bg-muted text-success' };
+      case 'lease': return { icon: FileText, bg: 'bg-muted text-primary' };
+      case 'maintenance': return { icon: Wrench, bg: 'bg-muted text-accent' };
+      case 'property': return { icon: Home, bg: 'bg-muted text-primary' };
       default: return { icon: Bell, bg: 'bg-muted text-muted-foreground' };
     }
   };

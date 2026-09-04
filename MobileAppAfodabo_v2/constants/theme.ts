@@ -17,8 +17,8 @@ export const Colors = {
 
   // Premium (boosts, subscription): a genuine brass that stands apart from
   // the burgundy primary, so revenue features keep their own visual weight.
-  gold: "#9C7A24",
-  goldSoft: "#F6EFDD",
+  gold: "#D4A017",
+  goldSoft: "#FAF1D7",
 
   // Secondary action / link colour: a brighter burgundy that still draws the
   // eye next to charcoal body text.

@@ -106,7 +106,7 @@ export default function DashboardSidebar({ collapsed, onToggle, mobile, open, on
           )}
         </button>
         <button onClick={signOut}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all ${collapsed ? 'justify-center' : ''}`}>
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:text-destructive hover:bg-muted transition-all ${collapsed ? 'justify-center' : ''}`}>
           <LogOut className="h-4 w-4 shrink-0" />
           {!collapsed && <span>Sign Out</span>}
         </button>

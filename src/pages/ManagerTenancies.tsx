@@ -51,9 +51,9 @@ export default function ManagerTenancies() {
 
   const statusColor = (status: string) => {
     const colors: Record<string, string> = {
-      active: 'bg-success/10 text-success border-success/20',
-      pending: 'bg-accent/10 text-accent border-accent/20',
-      expired: 'bg-destructive/10 text-destructive border-destructive/20',
+      active: 'bg-muted text-success border-success/20',
+      pending: 'bg-muted text-accent border-accent/20',
+      expired: 'bg-muted text-destructive border-destructive/20',
       terminated: 'bg-muted text-muted-foreground border-border',
       inactive: 'bg-muted text-muted-foreground border-border',
     };
@@ -132,7 +132,7 @@ export default function ManagerTenancies() {
                 return (
                   <button key={lease.id} onClick={() => navigate(`/dashboard/manager/tenancies/${lease.id}`)}
                     className="w-full flex items-start gap-4 p-4 text-left hover:bg-muted/30 transition-colors">
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                    <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center shrink-0">
                       <User className="h-5 w-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">

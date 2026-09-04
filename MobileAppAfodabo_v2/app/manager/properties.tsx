@@ -35,7 +35,10 @@ export default function ManagerPropertiesScreen() {
     if (!query) return list;
     const q = query.toLowerCase();
     return list.filter(
-      (p) => p.title.toLowerCase().includes(q) || p.district.toLowerCase().includes(q)
+      (p) =>
+        (p.title ?? "").toLowerCase().includes(q) ||
+        (p.district ?? "").toLowerCase().includes(q) ||
+        (p.area ?? "").toLowerCase().includes(q)
     );
   }, [query, statusFilter, properties]);
 
@@ -90,21 +93,21 @@ export default function ManagerPropertiesScreen() {
           onPress={() => setStatusFilter("available")}
           style={[styles.filterChip, statusFilter === "available" && styles.filterChipActiveSuccess]}
         >
-          <CheckCircle2 size={14} color={statusFilter === "available" ? Colors.textOnPrimary : Colors.success} />
+          <CheckCircle2 size={14} color={statusFilter === "available" ? Colors.textOnPrimary : Colors.textSecondary} />
           <Text style={[styles.filterChipText, statusFilter === "available" && styles.filterChipTextActive]}>Available</Text>
         </Pressable>
         <Pressable
           onPress={() => setStatusFilter("occupied")}
           style={[styles.filterChip, statusFilter === "occupied" && styles.filterChipActiveWarn]}
         >
-          <XCircle size={14} color={statusFilter === "occupied" ? Colors.textOnPrimary : Colors.warning} />
+          <XCircle size={14} color={statusFilter === "occupied" ? Colors.textOnPrimary : Colors.textSecondary} />
           <Text style={[styles.filterChipText, statusFilter === "occupied" && styles.filterChipTextActive]}>Occupied</Text>
         </Pressable>
         <Pressable
           onPress={() => setStatusFilter("inactive")}
           style={[styles.filterChip, statusFilter === "inactive" && styles.filterChipActiveMuted]}
         >
-          <Building2 size={14} color={statusFilter === "inactive" ? Colors.textOnPrimary : Colors.textMuted} />
+          <Building2 size={14} color={statusFilter === "inactive" ? Colors.textOnPrimary : Colors.textSecondary} />
           <Text style={[styles.filterChipText, statusFilter === "inactive" && styles.filterChipTextActive]}>Inactive</Text>
         </Pressable>
       </View>
@@ -183,13 +186,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   filterChipActiveSuccess: {
-    backgroundColor: Colors.success,
+    backgroundColor: Colors.primary,
   },
   filterChipActiveWarn: {
-    backgroundColor: Colors.warning,
+    backgroundColor: Colors.primary,
   },
   filterChipActiveMuted: {
-    backgroundColor: Colors.textMuted,
+    backgroundColor: Colors.primary,
   },
   filterChipText: {
     fontSize: FontSize.caption,

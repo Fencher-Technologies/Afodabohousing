@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     padding: Spacing.sm,
     borderRadius: Radii.card,
-    backgroundColor: Colors.accentSoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   screenshotBtnLabel: {
     fontSize: FontSize.caption,

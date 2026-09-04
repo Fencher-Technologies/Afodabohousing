@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   placeholder: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   placeholderText: {
     fontSize: 48,

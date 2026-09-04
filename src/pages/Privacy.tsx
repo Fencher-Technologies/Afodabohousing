@@ -80,7 +80,7 @@ export default function PrivacyPage() {
           ))}
         </div>
 
-        <div className="mt-8 bg-primary/5 border border-primary/20 rounded-2xl p-6 text-center">
+        <div className="mt-8 bg-muted/60 border border-border rounded-2xl p-6 text-center">
           <p className="text-sm text-muted-foreground">
             Questions about this policy? Contact us at{' '}
             <a href="mailto:info@axishousing.com" className="text-primary font-semibold hover:underline">

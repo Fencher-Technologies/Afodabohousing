@@ -64,8 +64,8 @@ export default function DashboardLayout() {
             <button onClick={() => navigate('/subscription')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
                 sub.status === 'active'
-                  ? 'bg-accent/10 border-accent/30 text-accent'
-                  : 'bg-destructive/10 border-destructive/30 text-destructive'
+                  ? 'bg-muted border-accent/30 text-accent'
+                  : 'bg-muted border-destructive/30 text-destructive'
               }`}>
               <Crown className="h-3.5 w-3.5" />
               {sub.status === 'active' ? `${sub.days_remaining ?? '—'}d left` : 'Expired'}

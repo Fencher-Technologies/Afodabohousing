@@ -124,14 +124,14 @@ export default function Onboarding() {
               <div className="space-y-3">
                 <button onClick={() => setSelectedRole('tenant')}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    selectedRole === 'tenant' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                    selectedRole === 'tenant' ? 'border-primary bg-muted/60' : 'border-border hover:border-primary/50'
                   }`}>
                   <p className="font-bold text-foreground">I'm a Tenant</p>
                   <p className="text-sm text-muted-foreground mt-1">Browse properties, pay rent, submit maintenance requests</p>
                 </button>
                 <button onClick={() => setSelectedRole('house_manager')}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    selectedRole === 'house_manager' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                    selectedRole === 'house_manager' ? 'border-primary bg-muted/60' : 'border-border hover:border-primary/50'
                   }`}>
                   <p className="font-bold text-foreground">I'm a House Manager</p>
                   <p className="text-sm text-muted-foreground mt-1">List properties, manage tenants, track payments</p>
@@ -142,7 +142,7 @@ export default function Onboarding() {
 
           {step === 3 && (
             <div className="text-center space-y-4">
-              <div className="h-20 w-20 rounded-full bg-success/10 flex items-center justify-center mx-auto">
+              <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mx-auto">
                 <Check className="h-10 w-10 text-success" />
               </div>
               <h2 className="font-bold text-2xl">You're All Set!</h2>

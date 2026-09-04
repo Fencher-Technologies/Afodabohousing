@@ -143,7 +143,7 @@ export default function EmailSignup() {
               </span>
             </label>
             {error && (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+              <div className="bg-muted border border-destructive/20 rounded-lg p-3">
                 <p className="text-destructive text-sm">{error}</p>
                 {error.includes('already exists') && (
                   <Link to="/login" className="text-primary text-sm font-semibold hover:underline mt-1 inline-block">

@@ -40,9 +40,9 @@ export default function TenantPaymentDetail() {
 
   const statusColor = (status: string) => {
     switch (status) {
-      case 'confirmed': return { icon: CheckCircle, bg: 'bg-success/10 text-success', border: 'border-success/20' };
-      case 'pending': return { icon: Clock, bg: 'bg-accent/10 text-accent', border: 'border-accent/20' };
-      case 'rejected': return { icon: XCircle, bg: 'bg-destructive/10 text-destructive', border: 'border-destructive/20' };
+      case 'confirmed': return { icon: CheckCircle, bg: 'bg-muted text-success', border: 'border-success/20' };
+      case 'pending': return { icon: Clock, bg: 'bg-muted text-accent', border: 'border-accent/20' };
+      case 'rejected': return { icon: XCircle, bg: 'bg-muted text-destructive', border: 'border-destructive/20' };
       default: return { icon: Clock, bg: 'bg-muted text-muted-foreground', border: 'border-border' };
     }
   };
@@ -88,7 +88,7 @@ export default function TenantPaymentDetail() {
           </div>
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 <Hash className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0">
@@ -97,7 +97,7 @@ export default function TenantPaymentDetail() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 <CreditCard className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0">
@@ -106,7 +106,7 @@ export default function TenantPaymentDetail() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 <CalendarDays className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0">
@@ -117,7 +117,7 @@ export default function TenantPaymentDetail() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 <DollarSign className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0">

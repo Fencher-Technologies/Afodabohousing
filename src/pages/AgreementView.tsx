@@ -110,7 +110,7 @@ export default function AgreementView() {
                     <Badge variant="outline" className={`text-xs capitalize ${
                       doc.status === 'executed' ? 'border-success/30 text-success bg-success/5' :
                       doc.status === 'draft' ? 'border-muted-foreground/30 text-muted-foreground bg-muted/50' :
-                      'border-accent/30 text-accent bg-accent/5'
+                      'border-accent/30 text-accent bg-muted/60'
                     }`}>{doc.status.replace(/_/g, ' ')}</Badge>
                   )}
                 </div>
@@ -141,7 +141,7 @@ export default function AgreementView() {
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                    managerConsented ? 'bg-success/10' : 'bg-muted'
+                    managerConsented ? 'bg-muted' : 'bg-muted'
                   }`}>
                     {managerConsented
                       ? <CheckCircle className="h-5 w-5 text-success" />
@@ -159,7 +159,7 @@ export default function AgreementView() {
                 <hr className="border-border ml-12" />
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                    tenantConsented ? 'bg-success/10' : 'bg-muted'
+                    tenantConsented ? 'bg-muted' : 'bg-muted'
                   }`}>
                     {tenantConsented
                       ? <CheckCircle className="h-5 w-5 text-success" />
@@ -199,7 +199,7 @@ export default function AgreementView() {
             </div>
 
             {fullySigned ? (
-              <div className="bg-success/10 border border-success/20 rounded-xl p-6 text-center">
+              <div className="bg-muted border border-success/20 rounded-xl p-6 text-center">
                 <CheckCircle className="h-10 w-10 text-success mx-auto mb-2" />
                 <h3 className="font-bold text-lg text-success">Agreement Fully Signed</h3>
                 <p className="text-sm text-muted-foreground mt-1">Both parties have consented to this agreement.</p>
@@ -214,13 +214,13 @@ export default function AgreementView() {
                     <ThumbsUp className="h-5 w-5" /> {consenting ? 'Processing…' : 'I Agree'}
                   </Button>
                   <Button onClick={() => handleConsent(false)} disabled={consenting}
-                    variant="outline" className="flex-1 h-12 gap-2 rounded-xl font-semibold border-destructive text-destructive hover:bg-destructive/10">
+                    variant="outline" className="flex-1 h-12 gap-2 rounded-xl font-semibold border-destructive text-destructive hover:bg-muted">
                     <ThumbsDown className="h-5 w-5" /> Disagree
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="bg-accent/10 border border-accent/20 rounded-xl p-6 text-center">
+              <div className="bg-muted border border-accent/20 rounded-xl p-6 text-center">
                 <Clock className="h-10 w-10 text-accent mx-auto mb-2" />
                 <h3 className="font-bold text-lg text-accent">Awaiting Manager</h3>
                 <p className="text-sm text-muted-foreground mt-1">You've signed. Waiting for the manager to sign.</p>

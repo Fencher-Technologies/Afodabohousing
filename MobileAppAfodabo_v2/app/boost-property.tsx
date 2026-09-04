@@ -588,13 +588,13 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.goldSoft,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
   },
   failedIcon: {
-    backgroundColor: Colors.dangerSoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   pollingText: {
     fontSize: FontSize.caption,

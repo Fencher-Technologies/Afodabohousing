@@ -64,9 +64,9 @@ export default function ManagerTenanciesScreen() {
       const q = query.toLowerCase();
       result = result.filter(
         (t) =>
-          t.tenant_name.toLowerCase().includes(q) ||
-          t.property_title.toLowerCase().includes(q) ||
-          t.unit_label.toLowerCase().includes(q)
+          (t.tenant_name ?? "").toLowerCase().includes(q) ||
+          (t.property_title ?? "").toLowerCase().includes(q) ||
+          (t.unit_label ?? "").toLowerCase().includes(q)
       );
     }
     switch (filter) {
@@ -439,14 +439,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: Radii.pill,
-    backgroundColor: Colors.accentSoft,
+    backgroundColor: Colors.primary,
     borderWidth: 1,
-    borderColor: Colors.accent,
+    borderColor: Colors.primary,
   },
   activeChipText: {
     fontSize: FontSize.caption,
     fontWeight: FontWeight.semibold,
-    color: Colors.accent,
+    color: Colors.textOnPrimary,
   },
   sheetOverlay: {
     flex: 1,

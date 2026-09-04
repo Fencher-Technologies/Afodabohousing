@@ -231,7 +231,7 @@ export function LocationPicker({ onLocationChange, initialLat, initialLng, error
           {flowStep === "menu" && (
             <View style={styles.menuContent}>
               <Pressable style={styles.optionCard} onPress={handleUseGps}>
-                <View style={[styles.optionIconWrap, { backgroundColor: Colors.primarySoft }]}>
+                <View style={[styles.optionIconWrap, { backgroundColor: Colors.surfaceAlt }]}>
                   <Crosshair size={24} color={Colors.primary} />
                 </View>
                 <View style={styles.optionTextWrap}>
@@ -242,7 +242,7 @@ export function LocationPicker({ onLocationChange, initialLat, initialLng, error
               </Pressable>
 
               <Pressable style={styles.optionCard} onPress={() => { setFlowStep("link"); setLinkInput(""); setParsedCoords(null); setParsedAddress(null); setLinkError(""); }}>
-                <View style={[styles.optionIconWrap, { backgroundColor: Colors.accentSoft }]}>
+                <View style={[styles.optionIconWrap, { backgroundColor: Colors.surfaceAlt }]}>
                   <Link2 size={24} color={Colors.accent} />
                 </View>
                 <View style={styles.optionTextWrap}>
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.primary,
     borderStyle: "dashed",
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   addLocationText: {
     flex: 1,
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: Radii.input,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   changeLocationText: {
     fontSize: FontSize.caption,
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: Radii.input,
-    backgroundColor: Colors.dangerSoft,
+    backgroundColor: Colors.surfaceAlt,
   },
   removeLocationText: {
     fontSize: FontSize.caption,
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.sm,

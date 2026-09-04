@@ -97,7 +97,7 @@ export default function PhoneOtp() {
             </CardHeader>
             <CardContent className="space-y-5 pt-4">
               {error && (
-                <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3">{error}</div>
+                <div className="text-sm text-destructive bg-muted rounded-lg p-3">{error}</div>
               )}
 
               <div className="flex justify-center">

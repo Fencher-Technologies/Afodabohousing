@@ -141,7 +141,7 @@ export default function ManagerProperties() {
                 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border',
                 statusFilter === f.id
                   ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                  : 'bg-card text-muted-foreground border-border hover:border-primary/30 hover:text-foreground'
+                  : 'bg-card text-muted-foreground border-border hover:border-border hover:text-foreground'
               )}
             >
               {f.icon}
@@ -186,7 +186,7 @@ export default function ManagerProperties() {
                 <div
                   key={property.id}
                   onClick={() => navigate(`/properties/${property.id}`)}
-                  className="bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group"
+                  className="bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-border transition-all cursor-pointer group"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">

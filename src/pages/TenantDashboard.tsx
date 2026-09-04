@@ -57,7 +57,7 @@ function CalendarWidget({ dueDate }: { dueDate: string | null }) {
           return (
             <div key={day.toISOString()} className={`py-1 text-sm rounded-lg ${
               isDue ? 'bg-primary text-primary-foreground font-bold' :
-              today ? 'bg-primary/10 text-primary font-bold' :
+              today ? 'bg-muted text-primary font-bold' :
               'text-foreground'
             }`}>
               {format(day, 'd')}
@@ -104,14 +104,14 @@ function SkeletonCard() {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    confirmed: 'bg-success/10 text-success border-success/20',
+    confirmed: 'bg-muted text-success border-success/20',
     pending: 'text-muted-foreground bg-muted border-border',
-    uploaded: 'text-primary bg-primary/10 border-primary/20',
-    rejected: 'text-destructive bg-destructive/10 border-destructive/20',
-    open: 'text-accent bg-accent/10 border-accent/20',
-    in_progress: 'text-accent bg-accent/10 border-accent/20',
-    resolved: 'text-success bg-success/10 border-success/20',
-    completed: 'text-success bg-success/10 border-success/20',
+    uploaded: 'text-primary bg-muted border-border',
+    rejected: 'text-destructive bg-muted border-destructive/20',
+    open: 'text-accent bg-muted border-accent/20',
+    in_progress: 'text-accent bg-muted border-accent/20',
+    resolved: 'text-success bg-muted border-success/20',
+    completed: 'text-success bg-muted border-success/20',
   };
   return (
     <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${colors[status] || 'text-muted-foreground bg-muted border-border'}`}>
@@ -462,7 +462,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                         {property.amenities && property.amenities.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-3">
                             {property.amenities.slice(0, 6).map((a: string) => (
-                              <span key={a} className="text-xs bg-primary/5 text-primary px-2.5 py-1 rounded-full font-medium">{a}</span>
+                              <span key={a} className="text-xs bg-muted/60 text-primary px-2.5 py-1 rounded-full font-medium">{a}</span>
                             ))}
                           </div>
                         )}
@@ -500,7 +500,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                           </div>
                         </div>
                         {dueDate && (
-                          <div className="flex items-center justify-center gap-2 text-sm bg-primary/5 rounded-lg py-2">
+                          <div className="flex items-center justify-center gap-2 text-sm bg-muted/60 rounded-lg py-2">
                             <CalendarDays className="h-4 w-4 text-primary" />
                             <span>Due: <span className="font-bold">{format(new Date(dueDate), 'MMMM dd, yyyy')}</span></span>
                           </div>
@@ -511,7 +511,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
 
                   {/* Action needed */}
                   {hasAction && (
-                    <div className={`rounded-xl p-5 ${renewalNeeded ? 'bg-accent/5 border border-accent/20' : 'bg-primary/5 border border-primary/20'}`}>
+                    <div className={`rounded-xl p-5 ${renewalNeeded ? 'bg-muted/60 border border-accent/20' : 'bg-muted/60 border border-border'}`}>
                       <div className="flex items-start gap-3">
                         {renewalNeeded ? (
                           <AlertTriangle className="h-6 w-6 text-accent shrink-0 mt-0.5" />
@@ -552,9 +552,9 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                           )}
                         </div>
                         <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                          isOverdue ? 'bg-destructive/10 text-destructive' :
-                          isDueSoon ? 'bg-accent/10 text-accent' :
-                          'bg-success/10 text-success'
+                          isOverdue ? 'bg-muted text-destructive' :
+                          isDueSoon ? 'bg-muted text-accent' :
+                          'bg-muted text-success'
                         }`}>
                           {isOverdue ? 'EXPIRED' : isDueSoon ? 'Ending Soon' : 'Active'}
                         </span>
@@ -618,9 +618,9 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                         {payments.slice(0, 3).map((p: any) => (
                           <div key={p.id} className="flex items-start gap-3 py-3 border-b border-border last:border-0">
                             <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
-                              p.status === 'confirmed' ? 'bg-success/10 text-success' :
-                              p.status === 'rejected' ? 'bg-destructive/10 text-destructive' :
-                              'bg-primary/10 text-primary'
+                              p.status === 'confirmed' ? 'bg-muted text-success' :
+                              p.status === 'rejected' ? 'bg-muted text-destructive' :
+                              'bg-muted text-primary'
                             }`}>
                               <DollarSign className="h-4 w-4" />
                             </div>
@@ -636,8 +636,8 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                         {maintenanceReqs.slice(0, 2).map((r: any) => (
                           <div key={r.id} className="flex items-start gap-3 py-3 border-b border-border last:border-0">
                             <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
-                              r.status === 'resolved' || r.status === 'completed' ? 'bg-success/10 text-success' :
-                              'bg-accent/10 text-accent'
+                              r.status === 'resolved' || r.status === 'completed' ? 'bg-muted text-success' :
+                              'bg-muted text-accent'
                             }`}>
                               <Wrench className="h-4 w-4" />
                             </div>
@@ -889,13 +889,13 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                               <ThumbsUp className="h-4 w-4" /> {consenting ? 'Processing...' : 'I Agree'}
                             </Button>
                             <Button onClick={() => handleConsent(false)} disabled={consenting}
-                              variant="outline" className="flex-1 h-11 gap-2 rounded-lg font-semibold border-destructive text-destructive hover:bg-destructive/10">
+                              variant="outline" className="flex-1 h-11 gap-2 rounded-lg font-semibold border-destructive text-destructive hover:bg-muted">
                               <ThumbsDown className="h-4 w-4" /> Disagree
                             </Button>
                           </div>
                         )}
                         {agreementState.manager?.consented && agreementState.tenant?.consented && (
-                          <div className="bg-success/10 border border-success/20 rounded-lg p-4 text-center">
+                          <div className="bg-muted border border-success/20 rounded-lg p-4 text-center">
                             <CheckCircle className="h-8 w-8 text-success mx-auto mb-2" />
                             <p className="font-bold text-success">Agreement fully signed</p>
                             <p className="text-xs text-muted-foreground mt-1">Both parties have consented to this agreement.</p>
@@ -944,7 +944,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                     </div>
                   </div>
                   {managerProfile && (
-                    <div className="bg-primary/5 rounded-lg p-3">
+                    <div className="bg-muted/60 rounded-lg p-3">
                       <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Your Manager</p>
                       <p className="font-bold text-foreground text-sm mt-0.5">{managerProfile.full_name}</p>
                       {managerProfile.phone && (
