@@ -52,7 +52,7 @@ export default function DashboardLayout() {
       />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-30 h-16 border-b border-border bg-background/95 backdrop-blur flex items-center gap-3 px-4 lg:px-6">
+        <header className="sticky top-0 z-30 h-16 border-b border-border bg-background flex items-center gap-3 px-4 lg:px-6">
           {!isDesktop && (
             <button onClick={() => setMobileOpen(true)} className="text-muted-foreground hover:text-foreground -ml-1 p-1">
               <Menu className="h-5 w-5" />

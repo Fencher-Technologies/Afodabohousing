@@ -54,7 +54,7 @@ export default function Navbar() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="sticky top-0 z-50 bg-card/98 backdrop-blur-md border-b border-border shadow-sm">
+    <nav className="sticky top-0 z-50 bg-card border-b border-border shadow-sm">
       <div className="container flex items-center justify-between h-16 px-4">
 
         {/* Logo */}

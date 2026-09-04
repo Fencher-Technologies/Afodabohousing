@@ -153,7 +153,7 @@ export default function TenantBrowse() {
                     </div>
                   )}
                   <button onClick={() => toggleBookmark(p.id)}
-                    className="absolute top-3 right-3 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center hover:bg-background transition-colors">
+                    className="absolute top-3 right-3 h-8 w-8 rounded-full bg-background flex items-center justify-center hover:bg-background transition-colors">
                     <Heart className={`h-4 w-4 ${bookmarked.has(p.id) ? 'fill-destructive text-destructive' : 'text-muted-foreground'}`} />
                   </button>
                 </div>

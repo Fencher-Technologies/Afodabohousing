@@ -232,14 +232,14 @@ export default function PropertyDetailPage() {
             <>
               <button
                 onClick={() => setImgIdx((imgIdx - 1 + totalImages) % totalImages)}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-card/90 backdrop-blur-sm p-3 rounded-full hover:bg-card transition-all shadow-lg"
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-card p-3 rounded-full hover:bg-card transition-all shadow-lg"
                 aria-label="Previous image"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setImgIdx((imgIdx + 1) % totalImages)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-card/90 backdrop-blur-sm p-3 rounded-full hover:bg-card transition-all shadow-lg"
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-card p-3 rounded-full hover:bg-card transition-all shadow-lg"
                 aria-label="Next image"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -254,7 +254,7 @@ export default function PropertyDetailPage() {
                   />
                 ))}
               </div>
-              <div className="absolute bottom-5 right-5 bg-card/80 backdrop-blur-sm text-xs px-2.5 py-1 rounded-full font-semibold">
+              <div className="absolute bottom-5 right-5 bg-card text-xs px-2.5 py-1 rounded-full font-semibold">
                 {imgIdx + 1} / {totalImages}
               </div>
             </>
@@ -280,14 +280,14 @@ export default function PropertyDetailPage() {
           <div className="absolute top-5 right-5 flex gap-2">
             <button
               onClick={handleShare}
-              className="bg-card/90 backdrop-blur-sm p-2.5 rounded-full hover:bg-card transition-all shadow"
+              className="bg-card p-2.5 rounded-full hover:bg-card transition-all shadow"
               aria-label="Share"
             >
               <Share2 className="h-4 w-4 text-foreground" />
             </button>
             <button
               onClick={() => setSaved(!saved)}
-              className={`bg-card/90 backdrop-blur-sm p-2.5 rounded-full hover:bg-card transition-all shadow ${saved ? 'text-accent' : 'text-foreground'}`}
+              className={`bg-card p-2.5 rounded-full hover:bg-card transition-all shadow ${saved ? 'text-accent' : 'text-foreground'}`}
               aria-label="Save"
             >
               <Heart className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />

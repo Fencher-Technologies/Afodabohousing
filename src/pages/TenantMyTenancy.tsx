@@ -128,7 +128,7 @@ export default function TenantMyTenancy() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 lg:px-6 py-3">
+        <header className="sticky top-0 z-10 bg-card border-b border-border px-4 lg:px-6 py-3">
           <div className="flex items-center gap-3 max-w-4xl mx-auto">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
               <ArrowLeft className="h-5 w-5" />
@@ -148,7 +148,7 @@ export default function TenantMyTenancy() {
   if (!lease && !loading) {
     return (
       <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 lg:px-6 py-3">
+        <header className="sticky top-0 z-10 bg-card border-b border-border px-4 lg:px-6 py-3">
           <div className="flex items-center gap-3 max-w-4xl mx-auto">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
               <ArrowLeft className="h-5 w-5" />
@@ -175,7 +175,7 @@ export default function TenantMyTenancy() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 lg:px-6 py-3">
+      <header className="sticky top-0 z-10 bg-card border-b border-border px-4 lg:px-6 py-3">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
