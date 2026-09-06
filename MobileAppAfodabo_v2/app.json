@@ -16,7 +16,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/axis-adaptive.png",
-        "backgroundColor": "#6B0F24"
+        "backgroundColor": "#161E31"
       },
       "package": "com.axis.app",
       "permissions": [

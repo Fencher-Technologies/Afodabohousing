@@ -69,9 +69,9 @@ export default function PinSetupScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" backgroundColor="#1B4A38" />
+      <StatusBar style="light" backgroundColor="#161E31" />
       <FloatingBackButton onPress={() => router.back()} />
-      <LinearGradient colors={["#1B4A38", "#236048"]} style={styles.header}>
+      <LinearGradient colors={["#161E31", "#0D1322"]} style={styles.header}>
         <Text style={styles.appName}>Create Your PIN</Text>
         <Text style={styles.tagline}>Secure your account with a PIN</Text>
       </LinearGradient>

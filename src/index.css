@@ -8,7 +8,7 @@
    AXIS, "BURGUNDY & CHARCOAL" DESIGN SYSTEM
    Burgundy primary, charcoal neutrals, warm cream background.
    Palette sampled from the Axis logo (charcoal house icon #353E45,
-   burgundy roofline accent #7A1230, deep variant #480018).
+   navy #161E31 with red accent #D92123).
    ========================================================= */
 
 @layer base {
@@ -23,12 +23,12 @@
     --popover: 0 0% 100%;
     --popover-foreground: 206 13% 15%;
 
-    /* Primary, Burgundy (from the logo roofline, #7A1230) */
-    --primary: 343 74% 27%;
+    /* Primary, Navy (from the logo house body / wordmark, #161E31) */
+    --primary: 222 38% 14%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary, Soft Rose Tint */
-    --secondary: 342 42% 94%;
+    --secondary: 220 25% 96%;
     --secondary-foreground: 206 13% 15%;
 
     /* Muted */
@@ -36,16 +36,16 @@
     --muted-foreground: 210 8% 40%;
 
     /* Accent, Brighter Burgundy for highlights */
-    --accent: 343 70% 35%;
+    --accent: 359 74% 49%;
     --accent-foreground: 0 0% 100%;
 
     /* Gold, brass for premium surfaces (#9C7A24) */
-    --gold: 43 82% 46%;
-    --gold-foreground: 206 13% 15%;
+    --gold: 359 74% 49%;
+    --gold-foreground: 0 0% 100%;
 
     /* Light gold (#CEA84E) — for labels sitting on burgundy/dark surfaces
        where the deep brass would disappear */
-    --gold-light: 45 78% 60%;
+    --gold-light: 359 80% 62%;
 
     /* Status */
     /* Destructive stays visually distinct from the burgundy accent */
@@ -61,7 +61,7 @@
     /* Borders, warm taupe so cards sit naturally on the cream background */
     --border: 38 32% 87%;
     --input: 38 32% 87%;
-    --ring: 343 74% 27%;
+    --ring: 222 38% 14%;
 
     /* Radius */
     --radius: 0.5rem;
@@ -70,17 +70,17 @@
     --shadow-sm: 0 1px 3px hsl(206 13% 24% / 0.08);
     --shadow-md: 0 4px 16px hsl(206 13% 24% / 0.1);
     --shadow-lg: 0 8px 32px hsl(206 13% 24% / 0.15);
-    --shadow-accent: 0 4px 20px hsl(343 74% 27% / 0.2);
+    --shadow-accent: 0 4px 20px hsl(222 38% 14% / 0.2);
 
     /* Sidebar, deep charcoal with burgundy accent */
     --sidebar-background: 206 13% 12%;
     --sidebar-foreground: 36 24% 96%;
-    --sidebar-primary: 343 74% 27%;
+    --sidebar-primary: 222 38% 14%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 343 30% 92%;
+    --sidebar-accent: 220 25% 92%;
     --sidebar-accent-foreground: 206 13% 15%;
     --sidebar-border: 206 13% 18%;
-    --sidebar-ring: 343 74% 27%;
+    --sidebar-ring: 222 38% 14%;
   }
 
   .dark {
@@ -90,17 +90,17 @@
     --card-foreground: 36 24% 94%;
     --popover: 206 13% 11%;
     --popover-foreground: 36 24% 94%;
-    --primary: 343 60% 38%;
+    --primary: 222 30% 34%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 343 25% 16%;
+    --secondary: 222 22% 15%;
     --secondary-foreground: 36 24% 94%;
     --muted: 206 13% 14%;
     --muted-foreground: 210 8% 58%;
-    --accent: 343 60% 48%;
+    --accent: 359 74% 55%;
     --accent-foreground: 0 0% 100%;
     --gold: 43 78% 58%;
     --gold-foreground: 206 13% 12%;
-    --gold-light: 45 78% 60%;
+    --gold-light: 359 80% 62%;
     --destructive: 6 60% 50%;
     --destructive-foreground: 0 0% 100%;
     --success: 147 40% 38%;
@@ -109,15 +109,15 @@
     --warning-foreground: 0 0% 100%;
     --border: 34 14% 20%;
     --input: 34 14% 20%;
-    --ring: 343 60% 38%;
+    --ring: 222 30% 34%;
     --sidebar-background: 206 13% 6%;
     --sidebar-foreground: 36 24% 92%;
-    --sidebar-primary: 343 60% 38%;
+    --sidebar-primary: 222 30% 34%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 343 25% 14%;
+    --sidebar-accent: 222 22% 14%;
     --sidebar-accent-foreground: 36 24% 92%;
     --sidebar-border: 206 13% 15%;
-    --sidebar-ring: 343 60% 38%;
+    --sidebar-ring: 222 30% 34%;
   }
 }
 
@@ -208,7 +208,7 @@
     background: hsl(var(--primary));
   }
   .gradient-hero {
-    background: linear-gradient(135deg, hsl(206 13% 12% / 0.85) 0%, hsl(206 13% 12% / 0.5) 50%, hsl(343 74% 27% / 0.3) 100%);
+    background: linear-gradient(135deg, hsl(206 13% 12% / 0.85) 0%, hsl(206 13% 12% / 0.5) 50%, hsl(359 74% 49% / 0.25) 100%);
   }
 
   /* Card shadow */
@@ -288,8 +288,8 @@
   .pattern-rose {
     background-image: repeating-linear-gradient(
       -45deg,
-      hsl(343 74% 27% / 0.05) 0px,
-      hsl(343 74% 27% / 0.05) 1px,
+      hsl(222 38% 14% / 0.05) 0px,
+      hsl(222 38% 14% / 0.05) 1px,
       transparent 1px,
       transparent 14px
     );
@@ -357,8 +357,8 @@
     background: linear-gradient(
       180deg,
       hsl(206 13% 7% / 0.74) 0%,
-      hsl(343 68% 14% / 0.66) 45%,
-      hsl(343 85% 8% / 0.94) 100%
+      hsl(222 45% 10% / 0.66) 45%,
+      hsl(222 55% 6% / 0.94) 100%
     );
     pointer-events: none;
   }

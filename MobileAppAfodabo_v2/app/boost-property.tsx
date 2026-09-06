@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   packageLabelSelected: {
-    color: "#8A6D2F",
+    color: "#D92123",
   },
   packagePrice: {
     fontSize: FontSize.body,

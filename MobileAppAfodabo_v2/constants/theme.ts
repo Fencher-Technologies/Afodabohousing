@@ -3,27 +3,27 @@
  * Single source of truth for colors, spacing, radii, typography, shadows.
  *
  * Brand palette sampled from the Axis logo:
- *   burgundy  #7A1230 (roofline accent, deep variant #480018)
- *   charcoal  #353E45 (house body / wordmark)
+ *   navy      #161E31 (house body / wordmark, deep variant #0D1322)
+ *   red       #D92123 (roofline / "x" accent)
  *   cream     #F7F5F2 (page background)
  */
 
 export const Colors = {
   // Brand
-  primary: "#7A1230",
-  primaryDeep: "#480018",
-  primarySoft: "#F6E9ED",
-  primaryMuted: "#9D5A6C",
+  primary: "#161E31",
+  primaryDeep: "#0D1322",
+  primarySoft: "#E9EDF4",
+  primaryMuted: "#5A6478",
 
   // Premium (boosts, subscription): a genuine brass that stands apart from
   // the burgundy primary, so revenue features keep their own visual weight.
-  gold: "#D4A017",
-  goldSoft: "#FAF1D7",
+  gold: "#D92123",
+  goldSoft: "#FBE9E9",
 
   // Secondary action / link colour: a brighter burgundy that still draws the
   // eye next to charcoal body text.
-  accent: "#9A1B3E",
-  accentSoft: "#F6E3E9",
+  accent: "#D92123",
+  accentSoft: "#FBE9E9",
 
   // Semantic
   success: "#2E7D52",
@@ -47,10 +47,10 @@ export const Colors = {
   textSecondary: "#5A636B",
   textMuted: "#8A9096",
   textOnPrimary: "#FFFFFF",
-  textOnGold: "#232A31",
+  textOnGold: "#FFFFFF",
 
   // Tab bar
-  tabActive: "#7A1230",
+  tabActive: "#161E31",
   tabInactive: "#9AA0A6",
 
   // Health
@@ -112,7 +112,7 @@ export const Shadows = {
     elevation: 8,
   },
   fab: {
-    shadowColor: "#7A1230",
+    shadowColor: "#161E31",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 12,

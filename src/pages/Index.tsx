@@ -289,7 +289,7 @@ export default function HomePage() {
           fetchPriority="high"
           className="absolute inset-0 w-full h-full object-cover duotone-img"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#3A0012] via-[#480018]/80 to-[#2A000E]/60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0D1322] via-[#131B2E]/80 to-[#090E1A]/60" />
 
         <div className="relative z-10 w-full max-w-6xl mx-auto px-5 sm:px-8 pb-14 pt-40">
           <Reveal>
@@ -385,7 +385,7 @@ export default function HomePage() {
       {/* ============================================================
           LOCATION MARQUEE
           ============================================================ */}
-      <section className="bg-primary py-4 overflow-hidden border-y border-[#480018]">
+      <section className="bg-primary py-4 overflow-hidden border-y border-[#0D1322]">
         <div className="marquee-track">
           {[0, 1].map(copy => (
             <span key={copy} className="inline-flex items-center" aria-hidden={copy === 1}>
@@ -403,7 +403,7 @@ export default function HomePage() {
       {/* ============================================================
           STATS — deep burgundy band, hairline-divided serif numbers
           ============================================================ */}
-      <section className="relative bg-[#480018] overflow-hidden">
+      <section className="relative bg-[#0D1322] overflow-hidden">
         <div className="relative max-w-6xl mx-auto px-5 sm:px-8 py-16 grid grid-cols-2 md:grid-cols-4 gap-y-10">
           {[
             { val: stats.properties > 0 ? `${stats.properties}+` : '10+', label: 'Active Listings', sub: 'Verified and ready' },
@@ -528,7 +528,7 @@ export default function HomePage() {
         <div className="relative min-h-[340px] lg:min-h-[520px] duotone-wrap overflow-hidden">
           <img src={showcaseInterior} alt="A bright Axis-managed apartment interior" className="absolute inset-0 w-full h-full object-cover duotone-img" />
         </div>
-        <div className="relative bg-[#480018] overflow-hidden flex items-center">
+        <div className="relative bg-[#0D1322] overflow-hidden flex items-center">
             <div className="relative px-6 sm:px-12 py-16 lg:py-24 max-w-xl">
             <Reveal>
               <p className="flex items-center gap-3 text-cream/70 text-xs font-semibold tracking-[0.28em] uppercase mb-6">

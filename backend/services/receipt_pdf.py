@@ -23,17 +23,17 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-BURGUNDY = colors.HexColor("#7A1230")
+NAVY = colors.HexColor("#161E31")
 CHARCOAL = colors.HexColor("#353E45")
 CREAM = colors.HexColor("#F7F5F0")
 BORDER = colors.HexColor("#E5E1DA")
 MUTED = colors.HexColor("#5A636B")
 
-_BRAND = ParagraphStyle("brand", fontName="Helvetica-Bold", fontSize=16, textColor=BURGUNDY, alignment=TA_LEFT)
+_BRAND = ParagraphStyle("brand", fontName="Helvetica-Bold", fontSize=16, textColor=NAVY, alignment=TA_LEFT)
 _DOC = ParagraphStyle("doc", fontName="Helvetica-Bold", fontSize=12, textColor=CHARCOAL, alignment=TA_RIGHT)
 _LABEL = ParagraphStyle("label", fontName="Helvetica", fontSize=9, textColor=MUTED, alignment=TA_LEFT)
 _VALUE = ParagraphStyle("value", fontName="Helvetica-Bold", fontSize=10, textColor=CHARCOAL, alignment=TA_LEFT)
-_AMOUNT = ParagraphStyle("amount", fontName="Helvetica-Bold", fontSize=22, textColor=BURGUNDY, alignment=TA_LEFT)
+_AMOUNT = ParagraphStyle("amount", fontName="Helvetica-Bold", fontSize=22, textColor=NAVY, alignment=TA_LEFT)
 _FOOT = ParagraphStyle("foot", fontName="Helvetica", fontSize=8, textColor=MUTED, alignment=TA_LEFT)
 
 
@@ -78,7 +78,7 @@ def build_receipt_pdf(receipt: dict[str, Any]) -> bytes:
     header.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ("LINEBELOW", (0, 0), (-1, 0), 1.5, BURGUNDY),
+        ("LINEBELOW", (0, 0), (-1, 0), 1.5, NAVY),
     ]))
     story.append(header)
     story.append(Spacer(1, 10 * mm))
