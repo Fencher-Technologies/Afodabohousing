@@ -99,16 +99,9 @@ export default function RegisterPage() {
             <img src={logoImg} alt="Axis Housing" className="h-14 w-auto" />
           </Link>
 
-          <div className="flex gap-1 bg-muted rounded-xl p-1 mb-6">
-            <button type="button" onClick={() => setMethod('invite')}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${method === 'invite' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-              <Mail className="h-3.5 w-3.5 inline mr-1.5" />Invite
-            </button>
-            <button type="button" onClick={() => { setMethod('phone'); setStep('phone'); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${method === 'phone' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-              <Smartphone className="h-3.5 w-3.5 inline mr-1.5" />Phone
-            </button>
-          </div>
+          {/* PHONE REGISTRATION HIDDEN — preserved for future restore (matches the
+              phone-auth block hidden in the mobile app). The /auth/phone/* endpoints
+              stay live: existing phone-created accounts depend on them. */}
 
           {method === 'invite' ? (
             <>

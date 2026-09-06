@@ -190,16 +190,11 @@ export default function LoginPage() {
               <h1 className="text-3xl font-display font-bold text-foreground mb-1.5">Welcome back</h1>
               <p className="text-muted-foreground mb-6">Sign in to your account to continue</p>
 
-              <div className="flex gap-1 bg-muted rounded-xl p-1 mb-6">
-                <button type="button" onClick={() => { setMethod('email'); setOtpSent(false); setOtp(''); }}
-                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${method === 'email' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                  <Mail className="h-3.5 w-3.5 inline mr-1.5" />Email
-                </button>
-                <button type="button" onClick={() => { setMethod('phone'); setOtpSent(false); setOtp(''); }}
-                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${method === 'phone' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                  <Smartphone className="h-3.5 w-3.5 inline mr-1.5" />Phone
-                </button>
-              </div>
+              {/* PHONE LOGIN HIDDEN — the phone sign-in tab is preserved for future
+                  restore. The phone OTP/PIN flow below and the /auth/phone/* endpoints
+                  stay in place: accounts created by phone hold a synthetic
+                  phone_<digits>@axis.app email, so removing the backend would lock
+                  those users out permanently. */}
 
               {method === 'email' ? (
                 <form onSubmit={handleLogin} className="space-y-5">

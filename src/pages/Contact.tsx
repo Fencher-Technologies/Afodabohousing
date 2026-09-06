@@ -18,8 +18,8 @@ const FAQS = [
     a: 'Register as a House Manager, then go to your Manager Dashboard and click "Add Property". Fill in the details, upload photos and publish your listing. It goes live immediately after review.',
   },
   {
-    q: 'How do I pay rent online?',
-    a: 'Log in as a Tenant, go to your Dashboard and click "Pay Online". You will be redirected to PesaPal where you can pay via Visa, Mastercard, MTN Mobile Money or Airtel Money.',
+    q: 'How do I pay rent?',
+    a: 'Rent is paid directly to your house manager, not through Axis. After paying, upload your payment proof from your Tenant Dashboard. Once your manager confirms it, your payment history is updated instantly and a receipt is generated for you. Axis itself only charges for platform services such as subscriptions and property boosting.',
   },
   {
     q: 'Is Axis available worldwide?',
@@ -30,8 +30,12 @@ const FAQS = [
     a: 'Your house manager receives an instant notification and reviews the proof within 24 hours. Once confirmed, you receive an SMS confirmation and your payment history is updated.',
   },
   {
+    q: 'How do I get my payment receipts?',
+    a: 'Receipts are generated automatically once your house manager confirms your payment. You can download them yourself at any time from your dashboard — no need to contact anyone for a printed copy.',
+  },
+  {
     q: 'How do I get a tenancy agreement?',
-    a: 'Once your house manager creates your tenancy on the platform, a digital agreement is generated automatically. Contact info@axishousings.com to request a printed copy.',
+    a: 'Once your house manager creates your tenancy on the platform, a digital agreement is generated automatically. You can view and download it from your dashboard at any time.',
   },
 ];
 

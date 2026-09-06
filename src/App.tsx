@@ -2,10 +2,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "next-themes";
-import { Component, ErrorInfo, ReactNode, Suspense, lazy } from "react";
+import { Component, ErrorInfo, ReactNode, Suspense, lazy, useEffect } from "react";
 import { usePageViewTracking } from "@/services/tracking";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
@@ -94,6 +94,16 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 
 function PageViewTracker() { usePageViewTracking(); return null; }
 
+// Reset scroll to the top on every route change, so pages never open
+// scrolled halfway down (e.g. after following a footer link).
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname]);
+  return null;
+}
+
 function PageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -112,6 +122,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ScrollToTop />
           <PageViewTracker />
           <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>
