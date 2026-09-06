@@ -139,6 +139,8 @@ const termsContent = {
         "Protect your account credentials and not share them with others.",
         "Use the platform in compliance with all applicable laws and regulations.",
         "Notify us immediately of any unauthorized use of your account.",
+        "The guest in search of a house has the responsibility to carry out further due diligence to verify the authenticity of the desired property before entering any contractual obligation.",
+        "The house manager has a responsibility to verify the credibility of the intended tenant before entering any contractual obligation.",
       ],
     },
     {
@@ -167,10 +169,15 @@ const termsContent = {
     {
       title: "7. Payments",
       content:
-        "Axis helps manage payment information and records. Actual payment obligations and financial agreements remain between the involved parties. Third-party payment providers may process transactions, and their terms and conditions also apply. Axis Housing is not a financial institution and does not hold funds on behalf of users.",
+        "Axis helps manage payment information and records. Actual payment obligations and financial agreements remain between the involved parties. Axis only receives money for the services charged which includes subscriptions and property boosting. Axis Housing is not a financial institution and does not hold funds on behalf of users.",
     },
     {
-      title: "8. Prohibited Activities",
+      title: "8. Subscriptions",
+      content:
+        "Access to premium platform features for house managers is granted through paid subscriptions. All subscription payments are final and non-refundable once made.",
+    },
+    {
+      title: "9. Prohibited Activities",
       content: "You may not use the Axis platform for any of the following activities:",
       bullets: [
         "Fraud or deceptive practices",
@@ -181,27 +188,37 @@ const termsContent = {
       ],
     },
     {
-      title: "9. Account Suspension and Termination",
+      title: "10. Account Suspension and Termination",
       content:
         "We reserve the right to suspend or terminate accounts that violate these terms, engage in prohibited activities, or otherwise misuse the platform. We will make reasonable efforts to notify account holders of suspension or termination. You may also terminate your account at any time by contacting support.",
     },
     {
-      title: "10. Intellectual Property",
+      title: "11. Intellectual Property",
       content:
-        "The Axis platform, including its software, design, branding, and content, is owned by Axis Housing and protected by intellectual property laws. You may not copy, modify, distribute, or create derivative works without our express permission.",
+        "The Axis platform, including its software, design, branding, and content is owned by ECOSOPAT CO LTD and protected by intellectual property laws. You may not copy, modify, distribute, or create derivative works without our express permission.",
     },
     {
-      title: "11. Limitation of Liability",
+      title: "12. Limitation of Liability",
       content:
-        "Axis provides its platform as a management tool. To the maximum extent permitted by law, we are not liable for disputes between property managers and tenants, financial losses resulting from use of the platform, or indirect, incidental, or consequential damages arising from your use of our services.",
+        "Axis provides its platform as a management tool. To the maximum extent permitted by law, we are not liable for disputes between property managers and tenants, financial losses resulting from use of the platform or indirect, incidental or unintended consequential damages arising from your use of our services. Subscription once made is non refundable.",
     },
     {
-      title: "12. Governing Law",
+      title: "13. Governing Law",
       content:
-        "These terms are governed by the laws of the Republic of Uganda. Any disputes arising from these terms or your use of the platform shall be resolved in the courts of Uganda.",
+        "These terms are governed by the laws of the Republic of Uganda and applicable international laws. Any disputes arising from these terms or your use of the platform shall be resolved in the courts of Uganda.",
     },
     {
-      title: "13. Changes to Terms",
+      title: "14. Alternative Dispute Resolution",
+      content:
+        "In the event of any dispute arising from these terms or your use of the platform, the parties shall first attempt to resolve the matter amicably through good-faith negotiation. Where negotiation fails, the dispute shall be referred to alternative dispute resolution (mediation or arbitration) in accordance with the applicable laws of the Republic of Uganda before either party resorts to court litigation.",
+    },
+    {
+      title: "15. Quality Assurance and Standards",
+      content:
+        "In the context of the Axis platform, a standard is the minimum requirement in terms of decency and hygiene that a property is supposed to have to be approved and posted on the platform. Before properties are posted on the forum, they are subject to review for approval and verification to ensure that they align with the minimum quality standard. House managers must adhere to these quality standards and list only properties that are of an acceptable standard and quality. The owners of the Axis platform retain the right to review and take down any property deemed below the required quality standard that may cause defamation of the platform.",
+    },
+    {
+      title: "16. Changes to Terms",
       content:
         "We may update these Terms of Service from time to time. We will notify users of significant changes through the app, email, or other appropriate channels. Your continued use of the platform after changes take effect constitutes acceptance of the updated terms.",
     },
@@ -211,10 +228,9 @@ const termsContent = {
 const aboutContent = {
   title: "About Axis",
   body: [
-    "Axis Housing is a subscription-based SaaS platform that empowers house managers to run their rental business from their phone.",
-    "Founded in 2024, Axis helps managers collect rent, track tenants, generate professional reports, and stay compliant — all without transaction fees.",
-    "Tenants get a simple, transparent view of their tenancy with direct WhatsApp communication to their manager.",
-    "Our mission is to make rental management effortless for African landlords and property managers.",
+    "Axis is a digital application that seeks to proffer practical solutions in the housing space by linking potential tenants directly to property owners/managers affordably, safely and hustle free.",
+    "Through our online platform, we help property managers to better manage their tenants with ease and convenience, providing both visibility and access to their properties.",
+    "By doing so, we minimize financial losses, promote accountability and transparency, overcome geographical barriers in tenant management, provide legal protection, and warrant value for money.",
   ],
 };
 

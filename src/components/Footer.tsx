@@ -134,7 +134,7 @@ export default function Footer() {
       {/* Bottom bar */}
       <div className="border-t border-primary-foreground/15 bg-primary/80">
         <div className="container flex flex-col sm:flex-row items-center justify-between gap-3 py-4 text-xs text-primary-foreground/55">
-          <span>&copy; {new Date().getFullYear()} Axis Ltd. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} ECOSOPAT CO LTD. All rights reserved.</span>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-accent inline-block animate-pulse" />
