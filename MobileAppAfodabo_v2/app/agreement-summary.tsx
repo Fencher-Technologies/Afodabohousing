@@ -18,6 +18,7 @@ import {
 import { useTenancy } from "@/src/hooks/useTenancies";
 import { useAuth } from "@/src/context/auth-context";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
+import { getAgreementDraft, setAgreementDraft } from "@/src/state/agreement-draft";
 import type { AgreementStandardClause, AgreementCustomClause } from "@/src/types";
 
 export default function AgreementSummaryScreen() {
@@ -42,20 +43,35 @@ export default function AgreementSummaryScreen() {
   const isLoading = templateLoading || leaseLoading;
   const isError = templateError || leaseError;
 
-  // Read clauses from URL params (passed from create-agreement.tsx) or default to template
+  // Clauses come from the in-memory draft set by create-agreement. The URL
+  // params are kept only as a fallback for an already-open screen from a
+  // previous build; the template fallback is last resort, and it must map
+  // enabled_by_default -> enabled rather than casting, because the template
+  // shape has no `enabled` field and both PDF renderers filter on it.
+  const draft = getAgreementDraft(leaseId);
+
   const standardClauses = useMemo<AgreementStandardClause[]>(() => {
+    if (draft) return draft.standardClauses;
     if (rawClauses) {
       try { return JSON.parse(rawClauses) as AgreementStandardClause[]; } catch { /* fall through */ }
     }
-    return (template?.standard_clauses.filter((c) => c.enabled_by_default) ?? []) as unknown as AgreementStandardClause[];
-  }, [rawClauses, template]);
+    return (template?.standard_clauses ?? [])
+      .filter((c) => (c.optional ? c.enabled_by_default : true))
+      .map((c) => ({
+        key: c.key,
+        title: c.title,
+        content: c.content,
+        enabled: true,
+      }));
+  }, [draft, rawClauses, template]);
 
   const customClauses = useMemo<AgreementCustomClause[]>(() => {
+    if (draft) return draft.customClauses;
     if (rawCustom) {
       try { return JSON.parse(rawCustom) as AgreementCustomClause[]; } catch { /* fall through */ }
     }
     return [];
-  }, [rawCustom]);
+  }, [draft, rawCustom]);
 
   const mutation = isEdit ? editAgreement : buildAgreement;
 
@@ -204,15 +220,15 @@ export default function AgreementSummaryScreen() {
         <View style={styles.actions}>
           <Button
             label="View Full Agreement"
-            onPress={() => router.push({
-              pathname: "/agreement-preview",
-              params: {
-                leaseId,
-                mode: isEdit ? "edit" : undefined,
-                standardClauses: JSON.stringify(standardClauses),
-                customClauses: JSON.stringify(customClauses),
-              },
-            })}
+            onPress={() => {
+              if (leaseId) {
+                setAgreementDraft({ leaseId, standardClauses, customClauses });
+              }
+              router.push({
+                pathname: "/agreement-preview",
+                params: { leaseId, mode: isEdit ? "edit" : undefined },
+              });
+            }}
             variant="outline"
             fullWidth
             size="lg"

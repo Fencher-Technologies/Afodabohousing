@@ -134,13 +134,15 @@ class TestComputeRentPosition:
         assert fin["rent_days_remaining"] == 5
         assert fin["rent_days_in_arrears"] == 0
 
-    def test_next_due_follows_billing_calendar(self):
-        # Anchor 10 Aug; today 25 Sep (46 elapsed) -> next boundary +60 days.
+    def test_next_due_follows_rent_coverage(self):
+        # Anchor 10 Aug; today 25 Sep (46 elapsed) with only 30 days bought.
+        # Cover ran out 16 days ago, so the next payment is due now — not at
+        # some future 30-day boundary.
         fin = _compute_rent_financials(
             "2026-08-10", self._payments(30), 1000000, today=date(2026, 9, 25)
         )
-        assert fin["next_payment_due_date"] == "2026-10-09"
-        # On a boundary day, that day is the due date.
+        assert fin["next_payment_due_date"] == "2026-09-25"
+        # Paid exactly up to today: due today.
         fin = _compute_rent_financials(
             "2026-01-01", self._payments(60), 500000, today=date(2026, 3, 2)
         )
@@ -150,6 +152,19 @@ class TestComputeRentPosition:
             "2026-01-01", self._payments(0), 500000, today=date(2026, 1, 1)
         )
         assert fin["next_payment_due_date"] == "2026-01-01"
+        # Paid a month in advance on the anchor day: due when cover expires,
+        # NOT on the anchor itself. This is the case a manager reported —
+        # "Paid Until 4 Oct" beside "Next Payment Due 4 Sep".
+        fin = _compute_rent_financials(
+            "2026-09-04", self._payments(30), 500000, today=date(2026, 9, 4)
+        )
+        assert fin["paid_until_date"] == "2026-10-04"
+        assert fin["next_payment_due_date"] == "2026-10-04"
+        # Two months paid pushes the due date out two months, not one.
+        fin = _compute_rent_financials(
+            "2026-09-04", self._payments(60), 500000, today=date(2026, 9, 5)
+        )
+        assert fin["next_payment_due_date"] == "2026-11-03"
 
     def test_invalid_anchor(self):
         fin = _compute_rent_financials("not-a-date", self._payments(30), 500000)

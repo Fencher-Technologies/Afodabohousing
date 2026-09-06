@@ -22,6 +22,7 @@ const STATUS_CONFIG: Record<AgreementStatus, { label: string; tone: "success" | 
   executed: { label: "Executed", tone: "success" },
   superseded: { label: "Superseded", tone: "info" },
   cancelled: { label: "Cancelled", tone: "danger" },
+  changes_requested: { label: "Changes Requested", tone: "danger" },
 };
 
 function VersionCard({

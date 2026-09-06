@@ -28,6 +28,7 @@ const PrivacyPage = lazy(() => import("./pages/Privacy"));
 const TermsPage = lazy(() => import("./pages/Terms"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ForgotPin = lazy(() => import("./pages/ForgotPin"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const PhoneAuth = lazy(() => import("./pages/PhoneAuth"));
 const EmailSignup = lazy(() => import("./pages/EmailSignup"));
 const GettingStarted = lazy(() => import("./pages/GettingStarted"));
@@ -142,6 +143,7 @@ const App = () => (
               <Route path="/phone-signin" element={<PhoneSignin />} />
               <Route path="/forgot-pin" element={<ForgotPin />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/explore" element={<GuestExplore />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />

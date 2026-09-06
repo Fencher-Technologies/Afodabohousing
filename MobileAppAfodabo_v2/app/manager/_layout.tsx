@@ -1,5 +1,5 @@
 /**
- * Manager Tab Layout — 5 tabs: Home, Properties, Tenancies, Reports, Account.
+ * Manager Tab Layout — 5 tabs: Home, Properties, Tenants, Reports, Account.
  */
 
 import { Tabs } from "expo-router";
@@ -51,7 +51,7 @@ export default function ManagerTabLayout() {
       <Tabs.Screen
         name="tenancies"
         options={{
-          title: "Tenancies",
+          title: "Tenants",
           tabBarIcon: ({ color }) => <Users size={24} color={color} />,
         }}
       />

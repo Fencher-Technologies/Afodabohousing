@@ -18,6 +18,7 @@ import {
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
+import { HealthLabel } from "@/src/utils/tenancy-health";
 import { Badge } from "@/src/components/Badge";
 import { Button } from "@/src/components/Button";
 import { PageHeader } from "@/src/components/PageHeader";
@@ -35,7 +36,7 @@ import { useAuth } from "@/src/context/auth-context";
 import { AgreementFlow } from "@/src/components/AgreementFlow";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
-import { formatUGX, formatDate, formatMethod, formatPeriod } from "@/src/utils/format";
+import { formatMoney, formatDate, formatMethod, formatPeriod } from "@/src/utils/format";
 import { MessageTemplates, openWhatsApp } from "@/src/utils/whatsapp";
 import type { Tenancy } from "@/src/types";
 
@@ -118,7 +119,8 @@ export default function TenancyDetailScreen() {
         tenancy.tenant_name,
         tenancy.property_title,
         tenancy.balance_due,
-        tenancy.next_payment_due_date ?? tenancy.rent_end_date
+        tenancy.next_payment_due_date ?? tenancy.rent_end_date,
+        tenancy.currency
       )
     );
   };
@@ -159,7 +161,7 @@ export default function TenancyDetailScreen() {
               <Text style={styles.tenantContact} numberOfLines={1}>{tenancy.tenant_phone}</Text>
             </View>
             <Badge
-              label={isTerminated ? "Terminated" : tenancy.health === "good" ? "Current" : tenancy.health === "warn" ? "Expiring" : "Expired"}
+              label={isTerminated ? "Terminated" : HealthLabel[tenancy.health]}
               tone={isTerminated ? "danger" : tenancy.health === "good" ? "success" : tenancy.health === "warn" ? "warning" : "danger"}
               dot
             />
@@ -168,20 +170,20 @@ export default function TenancyDetailScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Rent</Text>
-              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatUGX(tenancy.rent_amount)}</Text>
+              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatMoney(tenancy.rent_amount, tenancy.currency)}</Text>
               <Text style={styles.statSub}>{formatPeriod(tenancy.rent_period)}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Balance Due</Text>
               <Text style={[styles.statValue, balanceDue > 0 && styles.balanceDue]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {formatUGX(balanceDue)}
+                {formatMoney(balanceDue, tenancy.currency)}
               </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Total Paid</Text>
-              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatUGX(totalPaid)}</Text>
+              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatMoney(totalPaid, tenancy.currency)}</Text>
             </View>
           </View>
 
@@ -225,13 +227,13 @@ export default function TenancyDetailScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Expected Rent So Far</Text>
-              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatUGX(tenancy.expected_rent)}</Text>
+              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatMoney(tenancy.expected_rent, tenancy.currency)}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Outstanding</Text>
               <Text style={[styles.statValue, balanceDue > 0 && styles.balanceDue]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {formatUGX(balanceDue)}
+                {formatMoney(balanceDue, tenancy.currency)}
               </Text>
               <Text style={styles.statSub}>{tenancy.is_overdue ? "Overdue" : "Expected"}</Text>
             </View>
@@ -239,7 +241,7 @@ export default function TenancyDetailScreen() {
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Tenant Credit</Text>
               <Text style={[styles.statValue, { color: Colors.success }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {formatUGX(tenancy.tenant_credit)}
+                {formatMoney(tenancy.tenant_credit, tenancy.currency)}
               </Text>
             </View>
           </View>
@@ -375,7 +377,7 @@ export default function TenancyDetailScreen() {
                     <Text style={styles.cellText}>{formatDate(p.paid_date || p.created_at)}</Text>
                   </View>
                   <View style={styles.colAmount}>
-                    <Text style={styles.cellText}>{formatUGX(p.amount)}</Text>
+                    <Text style={styles.cellText}>{formatMoney(p.amount, tenancy.currency)}</Text>
                     {typeof p.coverage_days === "number" && p.coverage_days > 0 && (
                       <Text style={styles.cellSubText}>covers {p.coverage_days} days</Text>
                     )}

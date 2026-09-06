@@ -220,3 +220,30 @@ export function countryLabel(iso2: string): string {
 export function currencyForCountry(iso2: string): string {
   return BY_ISO2.get(iso2)?.currency ?? "UGX";
 }
+
+/**
+ * Currencies offered when listing a property.
+ *
+ * The country's own currency is the default, but it must not be the only
+ * option: premium rentals in Kampala are routinely priced in USD, and
+ * cross-border landlords list in a currency their tenants hold. The country's
+ * currency is placed first, then the regional and international ones, with
+ * duplicates removed.
+ */
+const COMMON_CURRENCIES = ["UGX", "USD", "EUR", "GBP", "KES", "TZS", "RWF", "ZAR"];
+
+export function currencyOptions(iso2: string): { label: string; value: string }[] {
+  const local = currencyForCountry(iso2);
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const code of [local, ...COMMON_CURRENCIES]) {
+    if (!seen.has(code)) {
+      seen.add(code);
+      ordered.push(code);
+    }
+  }
+  return ordered.map((code) => ({
+    label: code === local ? `${code} (local)` : code,
+    value: code,
+  }));
+}

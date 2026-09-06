@@ -44,7 +44,7 @@ export const authService = {
   signIn: (email: string, password: string) =>
     api.post<SignInResponse>("/auth/signin", { email, password }),
 
-  signUp: (data: { email: string; password: string; full_name?: string; phone?: string; role?: string }) =>
+  signUp: (data: { email: string; password: string; full_name?: string; phone?: string; role?: string; accepted_terms?: boolean; terms_version?: string; privacy_version?: string }) =>
     api.post<SignUpResponse>("/auth/signup", data),
 
   signOut: () =>
@@ -62,8 +62,23 @@ export const authService = {
   changePassword: (current_password: string, new_password: string) =>
     api.post<{ message: string }>("/auth/change-password", { current_password, new_password }),
 
-  resetPassword: (email: string) =>
-    api.post<{ message: string }>(`/auth/reset-password?email=${encodeURIComponent(email)}`),
+  /**
+   * Request a recovery email. redirectTo tells Supabase where to send the
+   * user; the app passes its own deep link so the link opens the reset screen
+   * rather than the web Site URL.
+   */
+  resetPassword: (email: string, redirectTo?: string) => {
+    const params = new URLSearchParams({ email });
+    if (redirectTo) params.set("redirect_to", redirectTo);
+    return api.post<{ message: string }>(`/auth/reset-password?${params.toString()}`);
+  },
+
+  /** Complete a reset using the token carried by the recovery link. */
+  confirmPasswordReset: (accessToken: string, newPassword: string) =>
+    api.post<{ message: string }>("/auth/reset-password/confirm", {
+      access_token: accessToken,
+      new_password: newPassword,
+    }),
 
   getMe: () =>
     api.get<UserResponse>("/auth/me"),

@@ -18,7 +18,7 @@ import { useCreateTenancy } from "@/src/hooks/useTenancies";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { useResolveTenantByEmail, useResolveTenantByPhone } from "@/src/hooks/useTenants";
 import { plusDaysLocalISO, todayLocalISO } from "@/src/lib/dates";
-import { formatUGX } from "@/src/utils/format";
+import { formatMoney } from "@/src/utils/format";
 
 const STEPS = ["Tenant & Property", "Lease Terms"];
 
@@ -144,7 +144,7 @@ export default function CreateTenancyScreen() {
         status: "active",
       });
 
-      toast.show("Tenancy created successfully.", "success");
+      toast.show("Tenant added successfully.", "success");
       router.back();
     } catch (err) {
       const msg =
@@ -159,7 +159,7 @@ export default function CreateTenancyScreen() {
 
   return (
     <Screen scroll>
-      <PageHeader title="Create Tenancy" onBack={() => router.back()} />
+      <PageHeader title="Add Tenant" onBack={() => router.back()} />
       <FormSteps steps={STEPS} current={step} />
 
       <View style={styles.content}>
@@ -190,7 +190,7 @@ export default function CreateTenancyScreen() {
               autoCapitalize="none"
             />
             <Text style={styles.hint}>
-              Enter the tenant's registered {contactMethod === "email" ? "email address" : "phone number"}.
+              Enter the tenant&apos;s registered {contactMethod === "email" ? "email address" : "phone number"}.
             </Text>
 
             <View style={{ height: Spacing.lg }} />
@@ -226,7 +226,7 @@ export default function CreateTenancyScreen() {
             />
             {selectedProperty && (
               <Text style={styles.hint}>
-                Auto-filled from {selectedProperty.title} ({formatUGX(selectedProperty.rent_amount)}/month). You can adjust it.
+                Auto-filled from {selectedProperty.title} ({formatMoney(selectedProperty.rent_amount, selectedProperty?.rent_currency)}/month). You can adjust it.
               </Text>
             )}
 
@@ -254,7 +254,7 @@ export default function CreateTenancyScreen() {
             <InputField label="Initial Balance / Deposit (UGX)" value={initialBalance} onChangeText={setInitialBalance} placeholder="0" keyboardType="numeric" />
             {selectedProperty && (
               <Text style={styles.hint}>
-                Auto-filled with {selectedProperty.title}'s security deposit ({formatUGX(selectedProperty.security_deposit ?? 0)}). You can adjust it.
+                Auto-filled with {selectedProperty.title}&apos;s security deposit ({formatMoney(selectedProperty.security_deposit ?? 0, selectedProperty?.rent_currency)}). You can adjust it.
               </Text>
             )}
           </>
@@ -269,7 +269,7 @@ export default function CreateTenancyScreen() {
             <Button label="Continue" onPress={goNext} fullWidth size="lg" />
           ) : (
             <Button
-              label="Create Tenancy"
+              label="Add Tenant"
               onPress={handleSubmit}
               flex
               size="lg"

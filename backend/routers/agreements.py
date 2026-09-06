@@ -20,6 +20,8 @@ from models.agreements import (
     ConsentStateResponse,
     EditAgreementRequest,
     PartyConsentState,
+    RejectAgreementRequest,
+    RejectAgreementResponse,
 )
 from services.agreement_generator import generate_agreement_pdf
 from services.agreement_pdf import AgreementPDFGenerator
@@ -342,6 +344,74 @@ def record_consent(
                 user_id=state.get("tenant", {}).get("user_id"),
             ),
         ),
+    )
+
+
+# ─── Reject ──────────────────────────────────────────────────────────────
+
+@router.post("/{lease_id}/reject", response_model=RejectAgreementResponse, status_code=201)
+def reject_agreement(
+    lease_id: UUID,
+    data: RejectAgreementRequest,
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+    svc: AgreementService = Depends(get_agreement_service),
+    supabase: Client = Depends(get_service_client),
+):
+    """Decline the active agreement and tell the other party what to change.
+
+    Deliberately not behind require_active_subscription: the subscription is
+    the manager's, and a tenant must always be able to object to terms they
+    disagree with.
+    """
+    lease, party_role = _authorized_lease(lease_id, current_user, svc)
+    document = svc.get_current_document(lease_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="No active agreement document found")
+
+    if document.get("agreement_type") != "generated":
+        raise HTTPException(status_code=400, detail="Only generated agreements can be rejected")
+
+    if document.get("status") == "executed":
+        raise HTTPException(
+            status_code=409,
+            detail="This agreement is already fully signed and can no longer be rejected",
+        )
+
+    reason = data.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=422, detail="Please describe what needs to change")
+
+    consent = svc.reject_agreement(
+        lease=lease,
+        document=document,
+        party_role=party_role,
+        user_id=current_user.id,
+        reason=reason,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    content = document.get("content") or {}
+    other_label = "Tenant" if party_role == "tenant" else "Landlord/Manager"
+    _notify_other_party(
+        supabase, svc, lease, current_user,
+        event_type="agreement_rejected",
+        title=f"{other_label} Requested Changes",
+        body=f"The {other_label} has asked for changes to the tenancy agreement: {reason}",
+        metadata={
+            "lease_id": str(lease_id),
+            "agreement_number": content.get("agreement_number"),
+            "party_role": party_role,
+            "rejection_reason": reason,
+        },
+    )
+
+    return RejectAgreementResponse(
+        status="changes_requested",
+        rejection_reason=reason,
+        rejected_at=consent.get("consented_at"),
+        party_role=party_role,
     )
 
 

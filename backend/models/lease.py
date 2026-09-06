@@ -15,6 +15,9 @@ class Lease(BaseModel):
     end_date: date
     monthly_rent: Decimal
     security_deposit: Decimal
+    # Inherited from the property when the lease is created, so every payment
+    # and receipt under it reports the currency the rent was agreed in.
+    currency: str = "UGX"
     status: str
     terms: str | None = None
     termination_date: date | None = None

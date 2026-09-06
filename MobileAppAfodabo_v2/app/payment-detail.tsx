@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, View, Pressable, Alert, ScrollView } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Pencil, Trash2, ArrowLeft, CheckCircle, Clock } from "lucide-react-native";
+import { Pencil, Trash2, ArrowLeft, CheckCircle, Clock, Download } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
@@ -20,13 +20,16 @@ import { ErrorState } from "@/src/components/ErrorState";
 import { PageHeader } from "@/src/components/PageHeader";
 import { usePayment, useUpdatePayment, useDeletePayment } from "@/src/hooks/usePayments";
 import { useAuth } from "@/src/context/auth-context";
+import { useOwnerReceipts } from "@/src/hooks/useReceipts";
+import { receiptsService } from "@/src/services/receipts";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
-import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
+import { formatMoney, formatDate, formatMethod } from "@/src/utils/format";
 import type { PaymentMethod } from "@/src/types";
 
 export default function PaymentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: payment, isLoading } = usePayment(id || "");
+  const { data: ownerReceipts } = useOwnerReceipts();
   const updatePayment = useUpdatePayment();
   const deletePayment = useDeletePayment();
   const { user, subscription } = useAuth();
@@ -39,6 +42,7 @@ export default function PaymentDetailScreen() {
   const [paidDate, setPaidDate] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("mobile_money");
   const [notes, setNotes] = useState("");
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (isLoading) return <LoadingState message="Loading payment…" />;
@@ -85,7 +89,7 @@ export default function PaymentDetailScreen() {
       setError(null);
       Alert.alert(
         "Payment Updated",
-        `The payment of ${formatUGX(numericAmount)} has been updated successfully.`
+        `The payment of ${formatMoney(numericAmount, payment.currency)} has been updated successfully.`
       );
     } catch {
       setError("Failed to update payment. Please try again.");
@@ -122,6 +126,22 @@ export default function PaymentDetailScreen() {
     );
   };
 
+  // Receipts are issued automatically when a payment is confirmed, but the
+  // manager had no way to reach them: only the tenant screen listed receipts,
+  // and nothing anywhere called the backend's /receipts/{id}/pdf endpoint.
+  const receipt = ownerReceipts?.items?.find((r) => r.payment_id === payment.id);
+
+  async function handleDownloadReceipt() {
+    if (!receipt) return;
+    setDownloadingReceipt(true);
+    try {
+      const ok = await receiptsService.downloadPdf(receipt.id, receipt.receipt_number);
+      if (!ok) Alert.alert("Download failed", "Could not save the receipt. Please try again.");
+    } finally {
+      setDownloadingReceipt(false);
+    }
+  }
+
   const statusTone = payment.status === "confirmed"
     ? "success"
     : payment.status === "pending"
@@ -152,7 +172,7 @@ export default function PaymentDetailScreen() {
       <View style={styles.content}>
         <Card padding="lg">
           <View style={styles.topRow}>
-            <Text style={styles.amount}>{formatUGX(payment.amount)}</Text>
+            <Text style={styles.amount}>{formatMoney(payment.amount, payment.currency)}</Text>
             <Badge
               label={payment.status}
               tone={statusTone}
@@ -164,6 +184,21 @@ export default function PaymentDetailScreen() {
             {payment.tenant_name} · {payment.property_title}
           </Text>
         </Card>
+
+        {receipt ? (
+          <Card padding="lg">
+            <Text style={styles.subtitle}>Receipt {receipt.receipt_number}</Text>
+            <View style={{ height: Spacing.sm }} />
+            <Button
+              label={downloadingReceipt ? "Preparing…" : "Download Receipt"}
+              variant="outline"
+              leftIcon={<Download size={18} color={Colors.primary} />}
+              onPress={handleDownloadReceipt}
+              disabled={downloadingReceipt}
+              fullWidth
+            />
+          </Card>
+        ) : null}
 
         {editing ? (
           <Card padding="lg" style={{ gap: Spacing.md }}>
@@ -216,11 +251,17 @@ export default function PaymentDetailScreen() {
               <DetailRow label="Method" value={formatMethod(payment.method)} />
               <DetailRow label="Due Date" value={formatDate(payment.due_date)} />
               <DetailRow label="Paid Date" value={formatDate(payment.paid_date)} />
+              {payment.coverage_start_date && payment.coverage_end_date ? (
+                <DetailRow
+                  label="Covers"
+                  value={`${formatDate(payment.coverage_start_date)} to ${formatDate(payment.coverage_end_date)}`}
+                />
+              ) : null}
               {typeof payment.coverage_days === "number" && (
                 <DetailRow label="Days Covered" value={`${payment.coverage_days} days`} />
               )}
               {payment.frozen_monthly_rent ? (
-                <DetailRow label="Rent Rate Used" value={formatUGX(payment.frozen_monthly_rent)} />
+                <DetailRow label="Rent Rate Used" value={formatMoney(payment.frozen_monthly_rent, payment.currency)} />
               ) : null}
               <DetailRow label="Recorded" value={formatDate(payment.created_at)} />
               {payment.notes ? <DetailRow label="Notes" value={payment.notes} /> : null}

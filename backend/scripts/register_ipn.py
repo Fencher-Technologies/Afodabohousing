@@ -21,7 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "ipn_url",
-        help="Public webhook URL, e.g. https://axishousing.onrender.com/payments/webhook/pesapal",
+        help="Public webhook URL, e.g. https://afodabohousing.onrender.com/payments/webhook/pesapal",
     )
     return parser
 

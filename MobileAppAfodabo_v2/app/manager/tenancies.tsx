@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { StyleSheet, Text, TextInput, View, Pressable, ScrollView, Modal } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Plus, Users, Search, AlertTriangle, CheckCircle2, Clock, Wallet, Filter, X, ChevronDown, XCircle } from "lucide-react-native";
+import { Plus, Users, Search, AlertTriangle, CheckCircle2, Wallet, Filter, X, ChevronDown, XCircle } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing, Shadows } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
@@ -17,10 +17,9 @@ import { usePropertyList } from "@/src/hooks/useProperties";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { fromBackendLeaseList } from "@/src/mappers/tenancy-mapper";
 import { MessageTemplates, openWhatsApp } from "@/src/utils/whatsapp";
-import { daysLeft } from "@/src/utils/tenancy-health";
 import type { Tenancy } from "@/src/types";
 
-type FilterTab = "all" | "current" | "expiring" | "expired" | "outstanding" | "terminated";
+type FilterTab = "all" | "current" | "expired" | "outstanding" | "terminated";
 
 export default function ManagerTenanciesScreen() {
   const params = useLocalSearchParams<{ filter?: string }>();
@@ -43,10 +42,6 @@ export default function ManagerTenanciesScreen() {
     [leases]
   );
 
-  const expiringCount = useMemo(
-    () => tenancies.filter((t) => { const d = daysLeft(t.rent_end_date); return d !== null && d < 30 && d > 0; }).length,
-    [tenancies]
-  );
   const expiredCount = useMemo(() => tenancies.filter((t) => t.health === "bad" && t.status !== "terminated").length, [tenancies]);
   const terminatedCount = useMemo(() => tenancies.filter((t) => t.status === "terminated").length, [tenancies]);
   const outstandingCount = useMemo(
@@ -78,8 +73,6 @@ export default function ManagerTenanciesScreen() {
         return result.filter((t) => t.status !== "terminated" && ((t.balance_due ?? 0) > 0 || t.is_overdue));
       case "current":
         return result.filter((t) => t.health === "good");
-      case "expiring":
-        return result.filter((t) => { const d = daysLeft(t.rent_end_date); return d !== null && d < 30 && d > 0; });
       default:
         return result;
     }
@@ -95,7 +88,8 @@ export default function ManagerTenanciesScreen() {
         tenancy.tenant_name,
         tenancy.property_title,
         tenancy.balance_due,
-        tenancy.next_payment_due_date ?? tenancy.rent_end_date
+        tenancy.next_payment_due_date ?? tenancy.rent_end_date,
+        tenancy.currency
       )
     );
   }, []);
@@ -109,8 +103,7 @@ export default function ManagerTenanciesScreen() {
 
   const filterTabs: { label: string; value: FilterTab; count: number; icon: React.ReactNode }[] = [
     { label: "All", value: "all", count: tenancies.length, icon: <Users size={15} color={filter === "all" ? Colors.textOnPrimary : Colors.textSecondary} /> },
-    { label: "Current", value: "current", count: currentCount, icon: <CheckCircle2 size={15} color={filter === "current" ? Colors.textOnPrimary : Colors.success} /> },
-    { label: "Expiring", value: "expiring", count: expiringCount, icon: <Clock size={15} color={filter === "expiring" ? Colors.textOnPrimary : Colors.warning} /> },
+    { label: "Active", value: "current", count: currentCount, icon: <CheckCircle2 size={15} color={filter === "current" ? Colors.textOnPrimary : Colors.success} /> },
     { label: "Expired", value: "expired", count: expiredCount, icon: <AlertTriangle size={15} color={filter === "expired" ? Colors.textOnPrimary : Colors.danger} /> },
     { label: "Terminated", value: "terminated", count: terminatedCount, icon: <XCircle size={15} color={filter === "terminated" ? Colors.textOnPrimary : Colors.danger} /> },
     { label: "Outstanding", value: "outstanding", count: outstandingCount, icon: <Wallet size={15} color={filter === "outstanding" ? Colors.textOnPrimary : Colors.accent} /> },
@@ -126,7 +119,7 @@ export default function ManagerTenanciesScreen() {
         <BrandMark size="sm" tone="light" />
         <View style={styles.heroTop}>
           <View>
-            <Text style={styles.heroTitle}>Tenancies</Text>
+            <Text style={styles.heroTitle}>Tenants</Text>
             <Text style={styles.heroSubtitle}>
               {tenancies.length} {tenancies.length === 1 ? "tenancy" : "tenancies"} · {currentCount} current
             </Text>
@@ -143,11 +136,11 @@ export default function ManagerTenanciesScreen() {
         <View style={styles.summaryRow}>
           <View style={[styles.summaryItem, { backgroundColor: "rgba(255,255,255,0.14)" }]}>
             <Text style={[styles.summaryValue, { color: Colors.textOnPrimary }]}>{currentCount}</Text>
-            <Text style={styles.summaryLabel}>Current</Text>
+            <Text style={styles.summaryLabel}>Active</Text>
           </View>
           <View style={[styles.summaryItem, { backgroundColor: "rgba(255,255,255,0.14)" }]}>
-            <Text style={[styles.summaryValue, { color: Colors.textOnPrimary }]}>{expiringCount}</Text>
-            <Text style={styles.summaryLabel}>Expiring</Text>
+            <Text style={[styles.summaryValue, { color: Colors.textOnPrimary }]}>{outstandingCount}</Text>
+            <Text style={styles.summaryLabel}>Outstanding</Text>
           </View>
           <View style={[styles.summaryItem, styles.summaryOverdue]}>
             <Text style={[styles.summaryValue, { color: Colors.textOnPrimary }]}>{expiredCount}</Text>
@@ -232,7 +225,7 @@ export default function ManagerTenanciesScreen() {
             icon={<Users size={32} color={Colors.primary} />}
             title="No tenancies found"
             description={query ? "Try a different search term." : "Create your first tenancy to start tracking rent payments."}
-            actionLabel={!query ? "Create Tenancy" : undefined}
+            actionLabel={!query ? "Add Tenant" : undefined}
             onAction={!query ? () => router.push("/create-tenancy") : undefined}
           />
         ) : (
@@ -265,7 +258,7 @@ export default function ManagerTenanciesScreen() {
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Filter Tenancies</Text>
+              <Text style={styles.sheetTitle}>Filter Tenants</Text>
               <Pressable onPress={() => setFilterSheet(false)} hitSlop={8}>
                 <X size={22} color={Colors.textMuted} />
               </Pressable>
@@ -284,7 +277,7 @@ export default function ManagerTenanciesScreen() {
               />
 
               <Text style={styles.sheetHint}>
-                Status filters (Current, Expiring, Expired, Outstanding) are available as the pills above. Current, Expiring and Expired describe the tenancy&apos;s validity period; Outstanding describes tenants with unpaid rent arrears.
+                Status filters (Active, Expired, Outstanding) are available as the pills above. Active and Expired describe the tenancy&apos;s validity period; Outstanding describes tenants with unpaid rent arrears.
               </Text>
             </View>
 

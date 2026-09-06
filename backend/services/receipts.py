@@ -1,5 +1,5 @@
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -144,6 +144,23 @@ class ReceiptService:
         except Exception:
             amount_value = 0.0
 
+        # Coverage period. The receipt recorded "90 days" but never the dates
+        # that span, so a tenant paying on 1 Apr for three months had no end
+        # date anywhere on their receipt. End is start + coverage_days, which
+        # matches how paid_until_date is derived for the rent ledger.
+        payment_date = payment.get("paid_date") or payment.get("due_date")
+        coverage_days = payment.get("coverage_days")
+        coverage_start = payment_date
+        coverage_end = None
+        if payment_date and coverage_days:
+            try:
+                start = payment_date
+                if isinstance(start, str):
+                    start = date.fromisoformat(start[:10])
+                coverage_end = (start + timedelta(days=int(coverage_days))).isoformat()
+            except (ValueError, TypeError):
+                coverage_end = None
+
         payload = {
             "receipt_number": self._next_receipt_number(),
             "payment_id": str(payment_id),
@@ -158,9 +175,11 @@ class ReceiptService:
             "currency": payment.get("currency") or "UGX",
             "payment_method": payment.get("payment_method") or payment.get("method"),
             "payment_type": payment.get("payment_type") or "rent",
-            "payment_date": payment.get("paid_date") or payment.get("due_date"),
+            "payment_date": payment_date,
             "transaction_reference": payment.get("transaction_id"),
             "coverage_days": payment.get("coverage_days"),
+            "coverage_start_date": coverage_start,
+            "coverage_end_date": coverage_end,
             "status": "active",
         }
         last_error: Exception | None = None

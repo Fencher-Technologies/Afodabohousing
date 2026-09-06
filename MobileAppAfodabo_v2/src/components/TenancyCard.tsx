@@ -8,7 +8,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Badge } from "./Badge";
 import { HealthBorder, HealthLabel, daysLeft, leaseProgress } from "@/src/utils/tenancy-health";
-import { formatUGX, formatDateShort, formatPeriod } from "@/src/utils/format";
+import { formatMoney, formatDateShort, formatPeriod } from "@/src/utils/format";
 import type { Tenancy, TenancyStatus } from "@/src/types";
 
 interface TenancyCardProps {
@@ -78,13 +78,13 @@ export function TenancyCard({ tenancy, onPress, onRecordPayment, onSendReminder,
       <View style={styles.stats}>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Rent</Text>
-          <Text style={styles.statValue}>{formatUGX(tenancy.rent_amount)}{formatPeriod(tenancy.rent_period)}</Text>
+          <Text style={styles.statValue}>{formatMoney(tenancy.rent_amount, tenancy.currency)}{formatPeriod(tenancy.rent_period)}</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.stat}>
           <Text style={styles.statLabel}>{inAdvance ? "In Advance" : "Balance"}</Text>
           <Text style={[styles.statValue, inAdvance ? styles.advanceText : hasBalance && styles.balanceDue]}>
-            {formatUGX(inAdvance ? tenancy.advance_amount : tenancy.balance_due)}
+            {formatMoney(inAdvance ? tenancy.advance_amount : tenancy.balance_due, tenancy.currency)}
           </Text>
         </View>
         <View style={styles.statDivider} />

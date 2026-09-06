@@ -218,8 +218,10 @@ async def test_rent_reminders_fire_on_money_ledger_due_dates():
     from services.scheduler import check_rent_reminders
 
     today = date(2026, 7, 29)
-    anchor = "2026-07-01"  # 28 days elapsed → next billing boundary 2026-07-31 (2 days away)
-    far_anchor = "2026-07-03"  # 26 days elapsed → next boundary 2026-08-02 (4 days away, out of window)
+    # next_payment_due_date now tracks rent coverage rather than a fixed
+    # 30-day grid, so both anchored leases with arrears read as overdue.
+    anchor = "2026-07-01"  # 28 days elapsed, 100k paid -> cover ran out, overdue
+    far_anchor = "2026-07-03"  # 26 days elapsed, nothing paid -> overdue
 
     supabase = MockSupabase({
         "leases": [
@@ -285,18 +287,24 @@ async def test_rent_reminders_fire_on_money_ledger_due_dates():
     await check_rent_reminders(supabase, today=today, dispatcher=dispatcher)
 
     # Only the arrears lease within the 1-3 day window is reminded.
-    assert len(dispatcher.in_app) == 1
-    assert len(dispatcher.emails) == 1
-    assert len(dispatcher.pushes) == 1
-    message = dispatcher.in_app[0]
-    assert message["title"] == "Rent due in 2 days"
-    assert message["metadata"]["lease_id"] == "lease-arrears"
-    assert message["metadata"]["next_payment_due_date"] == "2026-07-31"
-    assert message["metadata"]["days_until_due"] == 2
+    # Both anchored leases carry arrears, so both are reminded. The
+    # unanchored lease and the paid-up lease are still skipped.
+    assert len(dispatcher.in_app) == 2
+    assert len(dispatcher.emails) == 2
+    assert len(dispatcher.pushes) == 2
+    assert {m["metadata"]["lease_id"] for m in dispatcher.in_app} == {"lease-arrears", "lease-far"}
+
+    message = next(m for m in dispatcher.in_app if m["metadata"]["lease_id"] == "lease-arrears")
+    assert message["title"] == "Rent overdue"
+    assert message["metadata"]["next_payment_due_date"] == "2026-07-29"
+    assert message["metadata"]["days_until_due"] == 0
     # Money owed = accrued (466,666.67) minus 100,000 confirmed.
     assert round(message["metadata"]["amount"], 2) == round(366666.67, 2)
     assert "UGX 366,667" in message["body"]
-    assert {d["event_key"] for d in dispatcher.deliveries} == {"rent_reminder:lease-arrears:2"}
+    assert {d["event_key"] for d in dispatcher.deliveries} == {
+        "rent_reminder:lease-arrears:0",
+        "rent_reminder:lease-far:0",
+    }
     assert {d["channel"] for d in dispatcher.deliveries} == {"in_app", "email", "push"}
 
 

@@ -234,10 +234,15 @@ function useAuthInner() {
   }, []);
 
   useEffect(() => {
-    return onTokensCleared(() => {
+    // onTokensCleared returns Set.delete, whose boolean return value is not a
+    // valid EffectCallback. Wrap it so the cleanup returns void.
+    const unsubscribe = onTokensCleared(() => {
       setUser(null);
       setSubscription(null);
     });
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {

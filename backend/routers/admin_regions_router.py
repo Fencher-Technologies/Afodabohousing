@@ -6,12 +6,21 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from dependencies import require_super_admin
 from dependencies.database import get_service_client
 
-router = APIRouter(prefix="/admin/regions", tags=["admin", "regions"])
+# Every route here reads and writes through the service-role client, which
+# bypasses RLS entirely — the guard has to live in the application layer.
+# _require_admin below was a no-op `pass`, leaving all five endpoints open to
+# the internet, including the sync trigger and the pending-change decision.
+router = APIRouter(
+    prefix="/admin/regions",
+    tags=["admin", "regions"],
+    dependencies=[Depends(require_super_admin)],
+)
 
 
 # ---------------------------------------------------------------------------
@@ -37,13 +46,6 @@ class SyncTriggerResponse(BaseModel):
 # Auth helper (role-based)
 # ---------------------------------------------------------------------------
 
-def _require_admin(client: Any) -> None:
-    """Raise 403 if caller is not an admin."""
-    # In production this checks Supabase auth + profiles.role
-    # For now we rely on the RLS policies in the DB.
-    pass
-
-
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -56,7 +58,6 @@ async def list_pending_reviews(
 ) -> dict[str, Any]:
     """List pending region changes requiring Super Admin confirmation."""
     sb = get_service_client()
-    _require_admin(sb)
 
     query = (
         sb.table("pending_region_review")
@@ -82,7 +83,6 @@ async def decide_pending_review(
 ) -> dict[str, str]:
     """Approve or reject a pending region change."""
     sb = get_service_client()
-    _require_admin(sb)
 
     if body.decision not in ("approve", "reject"):
         raise HTTPException(status_code=400, detail="decision must be 'approve' or 'reject'")
@@ -137,7 +137,6 @@ async def list_sync_history(
 ) -> dict[str, Any]:
     """List past sync runs with counts."""
     sb = get_service_client()
-    _require_admin(sb)
 
     result = (
         sb.table("sync_history")
@@ -165,7 +164,6 @@ async def trigger_sync(body: SyncTriggerRequest) -> SyncTriggerResponse:
     import sys as _sys
 
     sb = get_service_client()
-    _require_admin(sb)
 
     cmd = [_sys.executable, "scripts/sync_geonames.py", "sync"]
     if body.dry_run:
@@ -194,7 +192,6 @@ async def list_deprecated_regions(
 ) -> dict[str, Any]:
     """List deprecated regions (for manager dashboard flagging)."""
     sb = get_service_client()
-    _require_admin(sb)
 
     result = (
         sb.table("regions")

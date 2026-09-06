@@ -28,7 +28,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { useTenancyList } from "@/src/hooks/useTenancies";
 import { useCreateVerification } from "@/src/hooks/usePaymentVerifications";
 import { paymentVerificationsService } from "@/src/services/payment-verifications";
-import { formatUGX } from "@/src/utils/format";
+import { formatMoney } from "@/src/utils/format";
 
 const PAYMENT_METHODS = [
   { label: "Cash", value: "cash" },
@@ -156,7 +156,7 @@ export default function SubmitPaymentScreen() {
           </View>
           <Text style={styles.successTitle}>Payment Submitted</Text>
           <Text style={styles.successText}>
-            Your payment of {formatUGX(parseFloat(amount) || 0)} has been submitted for{" "}
+            Your payment of {formatMoney(parseFloat(amount) || 0, activeLease?.currency)} has been submitted for{" "}
             <Text style={{ fontWeight: FontWeight.bold }}>verification</Text>.
           </Text>
           <Card padding="md" style={styles.pendingCard}>

@@ -14,7 +14,7 @@ import { usePaymentList, useDeletePayment } from "@/src/hooks/usePayments";
 import { useAuth } from "@/src/context/auth-context";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import { useRefresh } from "@/src/hooks/useRefresh";
-import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
+import { formatMoney, formatDate, formatMethod } from "@/src/utils/format";
 
 export default function PaymentHistoryScreen() {
   const { id, tenancyId } = useLocalSearchParams<{ id: string; tenancyId: string }>();
@@ -36,14 +36,14 @@ export default function PaymentHistoryScreen() {
 
   const totalPaid = payments.filter((p) => p.status === "confirmed").reduce((sum, p) => sum + Number(p.amount), 0);
 
-  const handleDelete = (payment: { id: string; amount: number }) => {
+  const handleDelete = (payment: { id: string; amount: number; currency?: string | null }) => {
     if (isExpired) {
       setShowGate(true);
       return;
     }
     Alert.alert(
       "Delete Payment",
-      `Delete this ${formatUGX(payment.amount)} payment record? This cannot be undone.`,
+      `Delete this ${formatMoney(payment.amount, payment.currency)} payment record? This cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -54,7 +54,7 @@ export default function PaymentHistoryScreen() {
               await deletePayment.mutateAsync(payment.id);
               Alert.alert(
                 "Payment Deleted",
-                `The payment record of ${formatUGX(payment.amount)} has been deleted successfully.`
+                `The payment record of ${formatMoney(payment.amount, payment.currency)} has been deleted successfully.`
               );
             } catch {
               Alert.alert("Error", "Failed to delete payment. Please try again.");
@@ -76,7 +76,7 @@ export default function PaymentHistoryScreen() {
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Total Paid</Text>
-              <Text style={styles.summaryValue}>{formatUGX(totalPaid)}</Text>
+              <Text style={styles.summaryValue}>{formatMoney(totalPaid, payments[0]?.currency)}</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
@@ -103,7 +103,7 @@ export default function PaymentHistoryScreen() {
                     onPress={() => router.push(`/payment-detail?id=${payment.id}`)}
                   >
                     <View style={styles.paymentLeft}>
-                      <Text style={styles.paymentAmount}>{formatUGX(payment.amount)}</Text>
+                      <Text style={styles.paymentAmount}>{formatMoney(payment.amount, payment.currency)}</Text>
                       <Text style={styles.paymentMeta}>
                         {formatDate(payment.paid_date || payment.created_at)}
                         {payment.method ? ` · ${formatMethod(payment.method)}` : ""}

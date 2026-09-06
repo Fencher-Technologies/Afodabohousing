@@ -30,7 +30,7 @@ import { useCountries, useRegions } from "@/src/hooks/useGeoLocation";
 import { usePropertyCategories, usePropertyTypes } from "@/src/hooks/usePropertyTypes";
 import { ensureImagesUploaded, MAX_PROPERTY_IMAGES } from "@/src/services/properties";
 import { ApiError } from "@/src/lib/api-client";
-import { COUNTRIES, currencyForCountry } from "@/src/data/countries";
+import { COUNTRIES, currencyForCountry, currencyOptions } from "@/src/data/countries";
 import type { Amenity } from "@/src/types";
 import { formatAmenity } from "@/src/utils/format";
 
@@ -76,7 +76,10 @@ export default function CreatePropertyScreen() {
   const { data: categories = [] } = usePropertyCategories();
   const { data: types = [] } = usePropertyTypes(category || undefined);
 
-  const currency = currencyForCountry(country);
+  // Defaults to the country's currency but is overridable — a Kampala
+  // property may legitimately be listed in USD.
+  const [currencyOverride, setCurrencyOverride] = useState<string | null>(null);
+  const currency = currencyOverride ?? currencyForCountry(country);
 
   // Worldwide list bundled with the app; any server-side countries that are
   // missing locally are appended so nothing the backend offers is lost.
@@ -322,6 +325,14 @@ export default function CreatePropertyScreen() {
                 <DollarSign size={18} color={Colors.primary} />
                 <Text style={styles.sectionTitle}>Pricing</Text>
               </View>
+              <View style={{ height: Spacing.md }} />
+              <SelectField
+                label="Currency"
+                value={currency}
+                options={currencyOptions(country)}
+                onSelect={setCurrencyOverride}
+                placeholder="Select currency"
+              />
               <View style={{ height: Spacing.md }} />
               <InputField
                 label={`Rent per Month (${currency})`}

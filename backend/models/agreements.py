@@ -119,6 +119,24 @@ class ConsentRequest(BaseModel):
     signed_name: str = Field(..., min_length=1)
 
 
+class RejectAgreementRequest(BaseModel):
+    """A party declining the agreement, with the change they want made."""
+
+    reason: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        description="What the party objects to, shown to the other party.",
+    )
+
+
+class RejectAgreementResponse(BaseModel):
+    status: str
+    rejection_reason: str
+    rejected_at: datetime | None = None
+    party_role: str
+
+
 class ConsentState(BaseModel):
     signed_name: str | None = None
     signed_at: datetime | None = None

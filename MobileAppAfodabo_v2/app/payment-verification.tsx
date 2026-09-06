@@ -30,7 +30,7 @@ import { PageHeader } from "@/src/components/PageHeader";
 import { useOwnerSubmissions, useApproveVerification, useRejectVerification } from "@/src/hooks/usePaymentVerifications";
 import { useAuth } from "@/src/context/auth-context";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
-import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
+import { formatMoney, formatDate, formatMethod } from "@/src/utils/format";
 import type { PaymentVerification } from "@/src/types";
 
 type FilterTab = "pending" | "approved" | "rejected";
@@ -66,7 +66,7 @@ export default function PaymentVerificationScreen() {
       }
       Alert.alert(
         "Approve Payment",
-        `This will record an official rent payment of ${formatUGX(item.amount)} and notify the tenant. It will count toward their rent coverage (paid until / days in arrears) and appear in reports, balances, and payment history.\n\nContinue?`,
+        `This will record an official rent payment of ${formatMoney(item.amount, item.currency)} and notify the tenant. It will count toward their rent coverage (paid until / days in arrears) and appear in reports, balances, and payment history.\n\nContinue?`,
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -213,7 +213,7 @@ export default function PaymentVerificationScreen() {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Amount</Text>
                   <Text style={styles.detailValue}>
-                    {formatUGX(item.amount)}
+                    {formatMoney(item.amount, item.currency)}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>

@@ -3,9 +3,13 @@
  * NOT on payments. A tenant's payment standing is tracked separately via
  * `is_overdue` / `balance_due`.
  *
- *  - bad:    lease has ended (expired/terminated) or no end date set
- *  - warn:   fewer than 30 days remaining on the lease
- *  - good:   otherwise (plenty of time left)
+ *  - bad:  lease has ended (expired/terminated) or no end date set
+ *  - good: lease is still running
+ *
+ * A tenancy is either Active or Expired. There was previously a third
+ * "Expiring" state for leases with under 30 days left, which read as a
+ * status of its own and confused managers. Time remaining is still shown
+ * by the days-left progress bar on the tenancy card.
  */
 
 import type { HealthStatus } from "@/src/types";
@@ -18,13 +22,14 @@ export function calculateHealth(tenancy: {
   const remaining = daysLeft(tenancy.rent_end_date);
   if (remaining === null) return "bad";
   if (remaining < 0) return "bad"; // expired
-  if (remaining < 30) return "warn";
   return "good";
 }
 
 export const HealthLabel: Record<HealthStatus, string> = {
-  good: "Current",
-  warn: "Expiring",
+  good: "Active",
+  // "warn" is retained in the HealthStatus union for backwards compatibility
+  // but calculateHealth no longer returns it.
+  warn: "Active",
   bad: "Expired",
 };
 

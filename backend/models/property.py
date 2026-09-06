@@ -22,6 +22,11 @@ class Property(BaseModel):
     bathrooms: float
     square_feet: int | None = None
     monthly_rent: Decimal
+    # ISO 4217 code the listing is priced in. The column has existed on
+    # properties since the schema was created, but no model exposed it, so
+    # Pydantic silently dropped whatever the client sent and every property
+    # fell back to the UGX column default.
+    rent_currency: str = "UGX"
     security_deposit: Decimal
     status: str
     description: str | None = None
@@ -49,6 +54,11 @@ class PropertyCreate(BaseModel):
     bathrooms: float = 1.0
     square_feet: int | None = None
     monthly_rent: Decimal
+    # ISO 4217 code the listing is priced in. The column has existed on
+    # properties since the schema was created, but no model exposed it, so
+    # Pydantic silently dropped whatever the client sent and every property
+    # fell back to the UGX column default.
+    rent_currency: str = "UGX"
     security_deposit: Decimal
     status: str = "available"
     description: str | None = None
@@ -76,6 +86,7 @@ class PropertyUpdate(BaseModel):
     bathrooms: float | None = None
     square_feet: int | None = None
     monthly_rent: Decimal | None = None
+    rent_currency: str | None = None
     security_deposit: Decimal | None = None
     status: str | None = None
     description: str | None = None
@@ -105,6 +116,11 @@ class PropertyResponse(BaseModel):
     bathrooms: float
     square_feet: int | None = None
     monthly_rent: Decimal
+    # ISO 4217 code the listing is priced in. The column has existed on
+    # properties since the schema was created, but no model exposed it, so
+    # Pydantic silently dropped whatever the client sent and every property
+    # fell back to the UGX column default.
+    rent_currency: str = "UGX"
     security_deposit: Decimal
     status: str
     description: str | None = None

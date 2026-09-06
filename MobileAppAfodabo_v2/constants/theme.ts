@@ -82,6 +82,10 @@ export const Radii = {
 export const FontSize = {
   display: 28,
   title: 22,
+  // h1 sits between title and h2. It was referenced by three screens but never
+  // defined, so those styles resolved to undefined and fell back to the RN
+  // default size.
+  h1: 20,
   h2: 18,
   h3: 16,
   body: 15,

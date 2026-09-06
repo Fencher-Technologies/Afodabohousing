@@ -30,7 +30,7 @@ import { useTenancyList } from "@/src/hooks/useTenancies";
 import { usePaymentList } from "@/src/hooks/usePayments";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
-import { formatUGX, formatDate, formatMethod, formatPeriod } from "@/src/utils/format";
+import { formatMoney, formatDate, formatMethod, formatPeriod } from "@/src/utils/format";
 import { MessageTemplates, openWhatsApp } from "@/src/utils/whatsapp";
 import { HealthLabel, HealthText, daysLeft, leaseProgress } from "@/src/utils/tenancy-health";
 
@@ -166,23 +166,24 @@ export default function TenantDetailScreen() {
               progress={leaseProgress(tenancy.rent_start_date, tenancy.rent_end_date)}
               overdue={tenancy.is_overdue}
               balanceDue={tenancy.balance_due}
+              currency={tenancy.currency}
             />
 
               <View style={styles.tenancyStats}>
                 <View style={styles.tenancyStat}>
                   <Text style={styles.tenancyStatLabel}>Rent</Text>
-                  <Text style={styles.tenancyStatValue}>{formatUGX(tenancy.rent_amount)}</Text>
+                  <Text style={styles.tenancyStatValue}>{formatMoney(tenancy.rent_amount, tenancy?.currency)}</Text>
                   <Text style={styles.tenancyStatSub}>{formatPeriod(tenancy.rent_period)}</Text>
                 </View>
                 <View style={styles.tenancyStat}>
                   <Text style={styles.tenancyStatLabel}>Balance</Text>
                   <Text style={[styles.tenancyStatValue, tenancy.balance_due > 0 && styles.balanceDue]}>
-                    {formatUGX(tenancy.balance_due)}
+                    {formatMoney(tenancy.balance_due, tenancy?.currency)}
                   </Text>
                 </View>
                 <View style={styles.tenancyStat}>
                   <Text style={styles.tenancyStatLabel}>Total Paid</Text>
-                  <Text style={styles.tenancyStatValue}>{formatUGX(totalPaid)}</Text>
+                  <Text style={styles.tenancyStatValue}>{formatMoney(totalPaid, tenancy?.currency)}</Text>
                 </View>
               </View>
 
@@ -220,7 +221,7 @@ export default function TenantDetailScreen() {
                       <Text style={styles.paymentDate}>{formatDate(payment.paid_date)}</Text>
                       <Text style={styles.paymentMethod}>{formatMethod(payment.method)}</Text>
                     </View>
-                    <Text style={styles.paymentAmount}>{formatUGX(payment.amount)}</Text>
+                    <Text style={styles.paymentAmount}>{formatMoney(payment.amount, tenancy?.currency)}</Text>
                     {typeof payment.coverage_days === "number" && payment.coverage_days > 0 && (
                       <Text style={styles.paymentBalance}>{payment.coverage_days} days</Text>
                     )}
@@ -244,12 +245,14 @@ function HealthProgress({
   progress,
   overdue,
   balanceDue,
+  currency,
 }: {
   health: "good" | "warn" | "bad";
   daysLeftValue: number | null;
   progress: number | null;
   overdue: boolean;
   balanceDue: number;
+  currency?: string | null;
 }) {
   const color = HealthText[health];
   const label =
@@ -271,7 +274,7 @@ function HealthProgress({
         </View>
       )}
       <Text style={[styles.healthDeposit, overdue && styles.balanceDue]}>
-        {overdue ? `Overdue — balance ${formatUGX(balanceDue)}` : `Paid up — balance ${formatUGX(balanceDue)}`}
+        {overdue ? `Overdue — balance ${formatMoney(balanceDue, currency)}` : `Paid up — balance ${formatMoney(balanceDue, currency)}`}
       </Text>
     </View>
   );

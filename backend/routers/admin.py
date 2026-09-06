@@ -171,7 +171,7 @@ async def register_pesapal_ipn(
     IPN registration is API-based — there is no Pesapal dashboard form. The
     URL changes only when the domain changes (e.g. on first deploy to Render),
     so call this with the current public webhook URL:
-    https://axishousing.onrender.com/payments/webhook/pesapal.
+    https://afodabohousing.onrender.com/payments/webhook/pesapal.
     """
     try:
         result = await register_ipn_for_url(supabase, data.ipn_url.strip())
@@ -349,6 +349,36 @@ def reset_tenant_password(
     current_user: CurrentUser = Depends(require_super_admin_or_manager),
     supabase: Client = Depends(get_service_client),
 ) -> dict:
+    # Without this check any house_manager could reset the password of any
+    # account in the system — including a super_admin's — and read the new
+    # password straight out of the response body.
+    if current_user.role != "super_admin":
+        target = (
+            supabase.table("profiles")
+            .select("role")
+            .eq("user_id", data.user_id)
+            .limit(1)
+            .execute()
+        )
+        if not target.data or target.data[0].get("role") != "tenant":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only reset passwords for your own tenants",
+            )
+        owned = (
+            supabase.table("tenants")
+            .select("id")
+            .eq("user_id", data.user_id)
+            .eq("owner_id", current_user.id)
+            .limit(1)
+            .execute()
+        )
+        if not owned.data:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only reset passwords for your own tenants",
+            )
+
     password = secrets.token_urlsafe(12)
     try:
         supabase.auth.admin.update_user_by_id(data.user_id, {"password": password})

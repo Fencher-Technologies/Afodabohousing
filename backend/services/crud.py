@@ -325,12 +325,25 @@ def _compute_rent_financials(
         result["rent_days_remaining"] = max(0, covered_days - elapsed)
         result["rent_days_in_arrears"] = max(0, elapsed - covered_days)
     else:
+        covered_days = 0
         result["paid_until_date"] = eff.isoformat()
         result["rent_days_remaining"] = 0
         result["rent_days_in_arrears"] = 0
 
-    # Next 30-day billing boundary from the anchor — calendar, not coverage.
-    next_due = eff + timedelta(days=30 * ((elapsed + 29) // 30))
+    # The next payment falls due when the rent already paid runs out, so this
+    # tracks coverage rather than the anchor's 30-day grid.
+    #
+    # The previous formula (eff + 30 * ceil(elapsed / 30)) ignored payments
+    # entirely. On the anchor day itself it evaluated to the anchor, so a
+    # tenant who had just paid a full month saw "Paid Until 4 Oct" beside
+    # "Next Payment Due 4 Sep"; and a tenant who paid two months still saw a
+    # due date one month out.
+    if covered_days >= elapsed:
+        # Paid up — the next payment is due the day cover expires.
+        next_due = eff + timedelta(days=covered_days)
+    else:
+        # Already in arrears: payment is due now, not at some future boundary.
+        next_due = today
     result["next_payment_due_date"] = next_due.isoformat()
 
     return result
@@ -978,6 +991,30 @@ class LeaseService(BaseService):
     def create(self, data: LeaseCreate, owner_id: UUID) -> dict[str, Any]:
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
+
+        # Inherit the currency the property was listed in. Without this the
+        # lease takes the UGX column default, and every payment and receipt
+        # under it reports UGX no matter how the listing was priced.
+        if not payload.get("currency") and payload.get("property_id"):
+            try:
+                prop = (
+                    self.supabase.table("properties")
+                    .select("rent_currency")
+                    .eq("id", str(payload["property_id"]))
+                    .limit(1)
+                    .execute()
+                )
+                row = prop.data[0] if isinstance(prop.data, list) and prop.data else None
+                code = row.get("rent_currency") if isinstance(row, dict) else None
+                if isinstance(code, str) and code.strip():
+                    payload["currency"] = code.strip().upper()
+            except Exception:
+                logger.warning(
+                    "Could not read property currency for lease creation; "
+                    "falling back to the column default",
+                    exc_info=True,
+                )
+
         response = self.table.insert(payload).execute()
         raw = response.data[0]
         lease = _enrich_leases([_normalize_lease(raw)], self.supabase)[0]
@@ -1532,6 +1569,29 @@ class PaymentService(BaseService):
         elif not is_rent or not is_confirm:
             payload["coverage_days"] = None
             payload["frozen_monthly_rent"] = None
+
+        # Record the payment in the lease's currency, so the receipt snapshot
+        # reports what the tenant actually paid in rather than the UGX default.
+        if not payload.get("currency") and data.lease_id:
+            try:
+                lease = (
+                    self.supabase.table("leases")
+                    .select("currency")
+                    .eq("id", str(data.lease_id))
+                    .limit(1)
+                    .execute()
+                )
+                row = lease.data[0] if isinstance(lease.data, list) and lease.data else None
+                code = row.get("currency") if isinstance(row, dict) else None
+                if isinstance(code, str) and code.strip():
+                    payload["currency"] = code.strip().upper()
+            except Exception:
+                logger.warning(
+                    "Could not read lease currency for payment creation; "
+                    "falling back to the column default",
+                    exc_info=True,
+                )
+
         response = self.table.insert(payload).execute()
         return response.data[0]
 

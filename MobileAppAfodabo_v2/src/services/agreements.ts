@@ -18,6 +18,7 @@ import type {
   BuildAgreementResponse,
   ConsentRequest,
   ConsentStateResponse,
+  RejectAgreementResponse,
 } from "@/src/types";
 
 interface BackendAgreementState {
@@ -99,6 +100,14 @@ export const agreementsService = {
     api.post<{ state: BackendAgreementState }>(`/agreements/${leaseId}/consent`, {
       signed_name: signedName,
     } as ConsentRequest),
+
+  /**
+   * Decline the agreement and tell the other party what needs to change.
+   * Moves the document to `changes_requested` and clears any consent already
+   * given, since the other party signed a version now under objection.
+   */
+  reject: (leaseId: string, reason: string) =>
+    api.post<RejectAgreementResponse>(`/agreements/${leaseId}/reject`, { reason }),
 
   // ─── Endpoints ─────────────────────────────────────────────────
 

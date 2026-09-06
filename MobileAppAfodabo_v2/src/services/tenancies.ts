@@ -6,6 +6,7 @@ export interface LeaseResponse {
   property_id: string;
   tenant_id: string;
   monthly_rent: number;
+  currency?: string | null;
   status: string;
   effective_status?: string | null;
   start_date: string;

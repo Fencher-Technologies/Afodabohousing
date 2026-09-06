@@ -42,7 +42,7 @@ npm run dev
 # Override VITE_API_URL to point at your backend (Render URL or http://localhost:8000).
 set -a && . ./.env && set +a
 docker build \
-  --build-arg VITE_API_URL=https://axishousing.onrender.com \
+  --build-arg VITE_API_URL=https://afodabohousing.onrender.com \
   --build-arg VITE_SUPABASE_URL \
   --build-arg VITE_SUPABASE_PUBLISHABLE_KEY \
   --build-arg VITE_MOBILE_APK_URL \
@@ -181,9 +181,9 @@ Backend uses Pesapal API 3.0 for property boosts and manager subscriptions.
 
 **Permanent backend (Render):** Register the IPN once against the deployed URL:
 ```bash
-python backend/scripts/register_ipn.py https://axishousing.onrender.com/payments/webhook/pesapal
+python backend/scripts/register_ipn.py https://afodabohousing.onrender.com/payments/webhook/pesapal
 ```
-Set `PESAPAL_IPN_URL=https://axishousing.onrender.com/payments/webhook/pesapal`
+Set `PESAPAL_IPN_URL=https://afodabohousing.onrender.com/payments/webhook/pesapal`
 in the backend `.env` (used as a fallback only; the stored `ipn_id` is what
 matters). The deployed URL is already public.
 

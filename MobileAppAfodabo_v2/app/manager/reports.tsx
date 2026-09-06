@@ -47,9 +47,10 @@ import {
   useTenantsReport,
   useTenantStatement,
 } from "@/src/hooks/useReports";
+import { aggregateCurrency, formatAggregate } from "@/src/utils/aggregate-currency";
 import { usePropertyList } from "@/src/hooks/useProperties";
 import { useRefresh } from "@/src/hooks/useRefresh";
-import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
+import { formatMoney, formatDate, formatMethod } from "@/src/utils/format";
 import { downloadPdf, downloadCsv, shareReport } from "@/src/utils/export";
 import type { ReportType, TenancyStatus } from "@/src/types";
 
@@ -88,6 +89,10 @@ export default function ReportsScreen() {
 
   const { data: propertiesData } = usePropertyList();
   const properties = propertiesData?.items ?? [];
+  // Report totals sum across the portfolio, so they can only carry a currency
+  // code when every property shares one. Mixed portfolios show the figure
+  // without a code rather than mislabelling it.
+  const reportCurrency = aggregateCurrency(properties);
 
   const propertyOptions = useMemo(
     () => [
@@ -198,9 +203,9 @@ export default function ReportsScreen() {
           ["Total Collected", summary.data.total_collected],
           ["Total Outstanding", summary.data.total_outstanding],
           ["Total Tenant Credit", summary.data.total_tenant_credit],
-          ["Active Tenancies", summary.data.active_tenancies],
-          ["Expired Tenancies", summary.data.expired_tenancies],
-          ["Terminated Tenancies", summary.data.terminated_tenancies],
+          ["Active Tenants", summary.data.active_tenancies],
+          ["Expired Tenants", summary.data.expired_tenancies],
+          ["Terminated Tenants", summary.data.terminated_tenancies],
           ["Occupancy Rate %", summary.data.occupancy_rate],
         ],
       };
@@ -390,10 +395,10 @@ export default function ReportsScreen() {
               {tab === "tenants" && (
                 <TenantsReport data={tenants.data} onOpenStatement={(tid) => setStatementTenantId(tid)} />
               )}
-              {tab === "outstanding" && <OutstandingReport data={outstanding.data} />}
-              {tab === "rent_collection" && <RentCollectionReport data={rent.data} />}
-              {tab === "summary" && <SummaryReport data={summary.data} />}
-              {tab === "payment_history" && <PaymentHistoryReport data={history.data} />}
+              {tab === "outstanding" && <OutstandingReport data={outstanding.data} currency={reportCurrency} />}
+              {tab === "rent_collection" && <RentCollectionReport data={rent.data} currency={reportCurrency} />}
+              {tab === "summary" && <SummaryReport data={summary.data} currency={reportCurrency} />}
+              {tab === "payment_history" && <PaymentHistoryReport data={history.data} currency={reportCurrency} />}
             </>
           )}
         </View>
@@ -408,6 +413,7 @@ export default function ReportsScreen() {
 
       {statementTenantId && (
         <StatementSheet
+          currency={reportCurrency}
           data={statement.data}
           isLoading={statement.isLoading}
           isError={statement.isError}
@@ -504,7 +510,7 @@ function TenantsReport({
   onOpenStatement: (tenantId: string) => void;
 }) {
   if (!data || data.items.length === 0) {
-    return <EmptyState icon={<Users size={32} color={Colors.accent} />} title="No tenants" description="Tenancies you manage will appear here." />;
+    return <EmptyState icon={<Users size={32} color={Colors.accent} />} title="No tenants" description="Tenants you manage will appear here." />;
   }
   return (
     <View>
@@ -523,7 +529,7 @@ function TenantsReport({
               </View>
               <View style={{ alignItems: "flex-end" }}>
                 <Text style={[styles.cellText, t.money_position_known && t.balance_due > 0 && styles.danger]}>
-                  {t.money_position_known ? formatUGX(t.balance_due) : "—"}
+                  {t.money_position_known ? formatMoney(t.balance_due, t.currency) : "—"}
                 </Text>
                 <Text style={styles.cellSub}>{t.status}</Text>
               </View>
@@ -540,7 +546,7 @@ function TenantsReport({
   );
 }
 
-function OutstandingReport({ data }: { data: import("@/src/types").OutstandingResponse | undefined }) {
+function OutstandingReport({ data, currency }: { data: import("@/src/types").OutstandingResponse | undefined; currency: import("@/src/utils/aggregate-currency").AggregateCurrency }) {
   // Honest empty state: only when the server confirms total === 0.
   if (!data || data.total === 0) {
     if (!data) return <LoadingState message="Generating report…" />;
@@ -557,7 +563,7 @@ function OutstandingReport({ data }: { data: import("@/src/types").OutstandingRe
       <Card padding="md" style={styles.outstandingBanner}>
         <View>
           <Text style={styles.outstandingBannerLabel}>Total outstanding</Text>
-          <Text style={styles.outstandingBannerValue}>{formatUGX(data.total_outstanding)}</Text>
+          <Text style={styles.outstandingBannerValue}>{formatAggregate(data.total_outstanding, currency)}</Text>
         </View>
         <View style={styles.outstandingBadge}>
           <Text style={styles.outstandingBadgeText}>{data.total} owing</Text>
@@ -580,8 +586,8 @@ function OutstandingReport({ data }: { data: import("@/src/types").OutstandingRe
                 </Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={[styles.cellText, styles.danger]}>{formatUGX(t.balance_due)}</Text>
-                <Text style={styles.cellSub}>of {formatUGX(t.expected_rent)}</Text>
+                <Text style={[styles.cellText, styles.danger]}>{formatMoney(t.balance_due, t.currency)}</Text>
+                <Text style={styles.cellSub}>of {formatMoney(t.expected_rent, t.currency)}</Text>
               </View>
             </View>
             {i < data.items.length - 1 && <View style={styles.divider} />}
@@ -595,15 +601,15 @@ function OutstandingReport({ data }: { data: import("@/src/types").OutstandingRe
   );
 }
 
-function RentCollectionReport({ data }: { data: import("@/src/types").RentCollectionResponse | undefined }) {
+function RentCollectionReport({ data, currency }: { data: import("@/src/types").RentCollectionResponse | undefined; currency: import("@/src/utils/aggregate-currency").AggregateCurrency }) {
   if (!data) return null;
   return (
     <View style={styles.gap}>
       <View style={styles.kpiGrid}>
-        <KpiCard label="Expected Rent So Far" value={formatUGX(data.total_expected)} />
-        <KpiCard label="Collected" value={formatUGX(data.total_collected)} tone="success" />
-        <KpiCard label="Outstanding" value={formatUGX(data.total_outstanding)} tone="danger" />
-        <KpiCard label="Tenant Credit" value={formatUGX(data.total_tenant_credit)} />
+        <KpiCard label="Expected Rent So Far" value={formatAggregate(data.total_expected, currency)} />
+        <KpiCard label="Collected" value={formatAggregate(data.total_collected, currency)} tone="success" />
+        <KpiCard label="Outstanding" value={formatAggregate(data.total_outstanding, currency)} tone="danger" />
+        <KpiCard label="Tenant Credit" value={formatAggregate(data.total_tenant_credit, currency)} />
         <KpiCard label="Paid in Full" value={String(data.tenants_paid_in_full)} />
         <KpiCard label="With Balances" value={String(data.tenants_with_balance)} />
       </View>
@@ -615,15 +621,15 @@ function RentCollectionReport({ data }: { data: import("@/src/types").RentCollec
   );
 }
 
-function SummaryReport({ data }: { data: import("@/src/types").FinancialSummary | undefined }) {
+function SummaryReport({ data, currency }: { data: import("@/src/types").FinancialSummary | undefined; currency: import("@/src/utils/aggregate-currency").AggregateCurrency }) {
   if (!data) return null;
   return (
     <View style={styles.gap}>
       <View style={styles.kpiGrid}>
-        <KpiCard label="Expected Rent So Far" value={formatUGX(data.total_expected)} />
-        <KpiCard label="Collected" value={formatUGX(data.total_collected)} tone="success" />
-        <KpiCard label="Outstanding" value={formatUGX(data.total_outstanding)} tone="danger" />
-        <KpiCard label="Tenant Credit" value={formatUGX(data.total_tenant_credit)} />
+        <KpiCard label="Expected Rent So Far" value={formatAggregate(data.total_expected, currency)} />
+        <KpiCard label="Collected" value={formatAggregate(data.total_collected, currency)} tone="success" />
+        <KpiCard label="Outstanding" value={formatAggregate(data.total_outstanding, currency)} tone="danger" />
+        <KpiCard label="Tenant Credit" value={formatAggregate(data.total_tenant_credit, currency)} />
         <KpiCard label="Active" value={String(data.active_tenancies)} />
         <KpiCard label="Expired" value={String(data.expired_tenancies)} />
         <KpiCard label="Terminated" value={String(data.terminated_tenancies)} />
@@ -633,7 +639,7 @@ function SummaryReport({ data }: { data: import("@/src/types").FinancialSummary 
   );
 }
 
-function PaymentHistoryReport({ data }: { data: import("@/src/types").PaymentHistoryResponse | undefined }) {
+function PaymentHistoryReport({ data, currency }: { data: import("@/src/types").PaymentHistoryResponse | undefined; currency: import("@/src/utils/aggregate-currency").AggregateCurrency }) {
   if (!data || data.items.length === 0) {
     return <EmptyState icon={<Receipt size={32} color={Colors.accent} />} title="No payments" description="Recorded payments will appear here." />;
   }
@@ -642,7 +648,7 @@ function PaymentHistoryReport({ data }: { data: import("@/src/types").PaymentHis
       <Card padding="md" style={styles.summaryBar}>
         <View style={styles.kpiItem}>
           <Text style={styles.kpiLabel}>Collected</Text>
-          <Text style={styles.kpiValue}>{formatUGX(data.summary.total_collected)}</Text>
+          <Text style={styles.kpiValue}>{formatAggregate(data.summary.total_collected, currency)}</Text>
         </View>
         <View style={styles.kpiItem}>
           <Text style={styles.kpiLabel}>Payments</Text>
@@ -659,7 +665,7 @@ function PaymentHistoryReport({ data }: { data: import("@/src/types").PaymentHis
                 <Text style={styles.cellSub}>{p.tenant_name ?? "—"}</Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.cellText}>{formatUGX(p.amount)}</Text>
+                <Text style={styles.cellText}>{formatAggregate(p.amount, currency)}</Text>
                 <Text style={styles.cellSub}>{p.method ? formatMethod(p.method) : "—"}</Text>
               </View>
             </View>
@@ -678,8 +684,10 @@ function StatementSheet({
   onClose,
   onRetry,
   onExport,
+  currency,
 }: {
   data: import("@/src/types").TenantStatement | undefined;
+  currency: import("@/src/utils/aggregate-currency").AggregateCurrency;
   isLoading: boolean;
   isError: boolean;
   onClose: () => void;
@@ -720,10 +728,10 @@ function StatementSheet({
               {data.unit_label ? ` · Unit ${data.unit_label}` : ""}
             </Text>
             <View style={styles.kpiGrid}>
-              <KpiCard label="Expected Rent So Far" value={formatUGX(data.expected_rent)} />
-              <KpiCard label="Paid" value={formatUGX(data.total_paid)} tone="success" />
-              <KpiCard label="Arrears" value={formatUGX(data.balance_due)} tone="danger" />
-              <KpiCard label="Credit" value={formatUGX(data.tenant_credit)} />
+              <KpiCard label="Expected Rent So Far" value={formatAggregate(data.expected_rent, currency)} />
+              <KpiCard label="Paid" value={formatAggregate(data.total_paid, currency)} tone="success" />
+              <KpiCard label="Arrears" value={formatAggregate(data.balance_due, currency)} tone="danger" />
+              <KpiCard label="Credit" value={formatAggregate(data.tenant_credit, currency)} />
             </View>
             <Text style={styles.sheetSection}>Tenancy</Text>
             <Text style={styles.cellSub}>
@@ -737,7 +745,7 @@ function StatementSheet({
               data.payment_history.map((p) => (
                 <View key={p.id} style={styles.subRow}>
                   <Text style={styles.cellText}>{formatDate(p.date)}</Text>
-                  <Text style={styles.cellText}>{formatUGX(p.amount)}</Text>
+                  <Text style={styles.cellText}>{formatAggregate(p.amount, currency)}</Text>
                   <Text style={styles.cellSub}>{p.method ? formatMethod(p.method) : "—"}</Text>
                 </View>
               ))

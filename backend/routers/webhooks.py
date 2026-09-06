@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from supabase import Client
 
 from config import get_settings
-from dependencies import get_service_client
+from dependencies import CurrentUser, get_service_client, require_super_admin_or_manager
 from services.boost import get_boost_service
 from services.notifications import notify
 from services.pesapal import (
@@ -166,6 +166,7 @@ async def pesapal_webhook(
 @router.post("/sms/send", response_model=SmsSendResponse)
 async def send_sms(
     data: SmsSendRequest,
+    current_user: CurrentUser = Depends(require_super_admin_or_manager),
     supabase: Client = Depends(get_service_client),
 ):
     if not settings.sms_provider_api_key:
@@ -216,6 +217,7 @@ class SendReminderResponse(BaseModel):
 @router.post("/sms/send-reminder", response_model=SendReminderResponse)
 def send_rent_reminder(
     data: SendReminderRequest,
+    current_user: CurrentUser = Depends(require_super_admin_or_manager),
     supabase: Client = Depends(get_service_client),
 ) -> SendReminderResponse:
     lease = supabase.table("leases").select("*, tenants!inner(user_id, phone)").eq("id", data.tenancy_id).execute()
@@ -223,6 +225,11 @@ def send_rent_reminder(
         raise HTTPException(status_code=404, detail="Tenancy not found")
 
     lease_data = lease.data[0]
+
+    # A manager may only message their own tenants. Without this, any manager
+    # could text any tenant on the platform by enumerating lease ids.
+    if current_user.role != "super_admin" and str(lease_data.get("owner_id")) != str(current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     tenant_user_id = lease_data.get("tenants", {}).get("user_id")
     tenant_phone = lease_data.get("tenants", {}).get("phone")
 

@@ -3,7 +3,7 @@
  */
 
 import { Linking, Alert, Platform } from "react-native";
-import { formatUGX, formatDate } from "./format";
+import { formatMoney, formatDate } from "./format";
 
 export function buildWhatsAppUrl(phone: string, message: string): string {
   const clean = phone.replace(/[^0-9]/g, "");
@@ -29,17 +29,17 @@ export function openWhatsApp(phone: string, message: string): void {
 }
 
 export const MessageTemplates = {
-  reminder: (tenantName: string, propertyTitle: string, amount: number, dueDate: string) =>
-    `Hello ${tenantName}, this is a friendly reminder from your manager at ${propertyTitle}. Rent of ${formatUGX(amount)} was due on ${formatDate(dueDate)}. Please arrange payment. Thank you!`,
+  reminder: (tenantName: string, propertyTitle: string, amount: number, dueDate: string, currency?: string | null) =>
+    `Hello ${tenantName}, this is a friendly reminder from your manager at ${propertyTitle}. Rent of ${formatMoney(amount, currency)} was due on ${formatDate(dueDate)}. Please arrange payment. Thank you!`,
 
-  confirmation: (tenantName: string, amount: number, propertyTitle: string, balance: number) =>
-    `Hello ${tenantName}, your payment of ${formatUGX(amount)} for ${propertyTitle} has been confirmed. New balance: ${formatUGX(balance)}. Thank you!`,
+  confirmation: (tenantName: string, amount: number, propertyTitle: string, balance: number, currency?: string | null) =>
+    `Hello ${tenantName}, your payment of ${formatMoney(amount, currency)} for ${propertyTitle} has been confirmed. New balance: ${formatMoney(balance, currency)}. Thank you!`,
 
-  welcome: (tenantName: string, propertyTitle: string, rent: number, period: string, managerName: string) =>
-    `Welcome to ${propertyTitle}, ${tenantName}! Your tenancy is now active. Rent: ${formatUGX(rent)}/${period}. Your manager is ${managerName}. Welcome home!`,
+  welcome: (tenantName: string, propertyTitle: string, rent: number, period: string, managerName: string, currency?: string | null) =>
+    `Welcome to ${propertyTitle}, ${tenantName}! Your tenancy is now active. Rent: ${formatMoney(rent, currency)}/${period}. Your manager is ${managerName}. Welcome home!`,
 
-  receipt: (propertyTitle: string, tenantName: string, amount: number, date: string, method: string, balance: number) =>
-    `Payment Receipt\nProperty: ${propertyTitle}\nTenant: ${tenantName}\nAmount: ${formatUGX(amount)}\nDate: ${formatDate(date)}\nMethod: ${method}\nBalance: ${formatUGX(balance)}`,
+  receipt: (propertyTitle: string, tenantName: string, amount: number, date: string, method: string, balance: number, currency?: string | null) =>
+    `Payment Receipt\nProperty: ${propertyTitle}\nTenant: ${tenantName}\nAmount: ${formatMoney(amount, currency)}\nDate: ${formatDate(date)}\nMethod: ${method}\nBalance: ${formatMoney(balance, currency)}`,
 
   inquiry: (propertyName: string) =>
     `Hello, I'm interested in ${propertyName}. Is it still available?`,

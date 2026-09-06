@@ -7,7 +7,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Badge } from "./Badge";
-import { formatUGXShort, formatPeriod, formatPropertyType } from "@/src/utils/format";
+import { formatMoneyShort, formatPeriod, formatPropertyType } from "@/src/utils/format";
 import type { Property } from "@/src/types";
 
 interface PropertyCardProps {
@@ -78,7 +78,7 @@ export function PropertyCard({ property, onPress, occupiedUnits, totalUnits, sho
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.price}>{formatUGXShort(property.rent_amount)}<Text style={styles.period}>{formatPeriod(property.rent_period)}</Text></Text>
+          <Text style={styles.price}>{formatMoneyShort(property.rent_amount, property.rent_currency)}<Text style={styles.period}>{formatPeriod(property.rent_period)}</Text></Text>
           {showStatus && (
             <View style={styles.statusRow}>
               <Badge

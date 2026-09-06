@@ -48,6 +48,8 @@ export interface BackendProperty {
   square_feet: number | null;
   monthly_rent: number;
   rent_amount?: number;
+  /** ISO 4217 code the listing is priced in. Defaults to UGX server-side. */
+  rent_currency?: string | null;
   security_deposit: number;
   status: string;
   description: string | null;
@@ -71,6 +73,8 @@ export interface RentalUnit {
   property_id: string;
   unit_label: string;
   rent_amount: number;
+  /** ISO 4217 code the listing is priced in. Defaults to UGX server-side. */
+  rent_currency?: string | null;
   rent_period: RentPeriod;
   beds: number;
   baths: number;
@@ -87,6 +91,8 @@ export interface Property {
   area: string;
   type: PropertyType;
   rent_amount: number;
+  /** ISO 4217 code the listing is priced in. Defaults to UGX server-side. */
+  rent_currency?: string | null;
   rent_period: RentPeriod;
   beds: number;
   baths: number;
@@ -128,6 +134,7 @@ export interface Tenancy {
   tenant_email: string;
   unit_label: string;
   rent_amount: number;
+  currency?: string | null;
   rent_period: RentPeriod;
   deposit_amount?: number;
   rent_start_date: string;
@@ -198,6 +205,13 @@ export interface AgreementTenancyInfo {
   payment_frequency: string;
 }
 
+export interface RejectAgreementResponse {
+  status: string;
+  rejection_reason: string;
+  rejected_at: string | null;
+  party_role: string;
+}
+
 export interface AgreementStandardClause {
   key: string;
   title: string;
@@ -234,6 +248,7 @@ export type AgreementStatus =
   | "draft"
   | "awaiting_tenant_consent"
   | "awaiting_manager_consent"
+  | "changes_requested"
   | "executed"
   | "superseded"
   | "cancelled";
@@ -333,7 +348,9 @@ export interface Payment {
   tenant_name: string;
   property_title: string;
   amount: number;
-  currency: "UGX";
+  // Was hardcoded to the "UGX" literal, which made any property listed in
+  // another currency untypable.
+  currency: string;
   status: PaymentStatus;
   payment_type: PaymentType;
   due_date: string;
@@ -345,6 +362,8 @@ export interface Payment {
   created_at: string;
   coverage_days?: number | null;
   frozen_monthly_rent?: number | null;
+  coverage_start_date?: string | null;
+  coverage_end_date?: string | null;
 }
 
 export interface BoostPackage {
@@ -446,6 +465,7 @@ export interface TenantReportItem {
   // could not compute a money position. The numeric fields above are 0 in that
   // case, which must not be shown as "nothing owed".
   money_position_known: boolean;
+  currency?: string | null;
 }
 
 export interface TenantReportResponse {
@@ -466,6 +486,7 @@ export interface OutstandingItem {
   last_payment_date: string | null;
   last_payment_method: string | null;
   lease_id: string;
+  currency?: string | null;
 }
 
 export interface OutstandingResponse {
@@ -607,6 +628,7 @@ export interface PaymentVerification {
     email?: string | null;
   } | null;
   properties?: { title?: string | null } | null;
+  currency?: string | null;
 }
 
 export interface PaymentVerificationCreate {
@@ -635,6 +657,8 @@ export interface PropertyListItem {
   city: string;
   type: PropertyType;
   rent_amount: number;
+  /** ISO 4217 code the listing is priced in. Defaults to UGX server-side. */
+  rent_currency?: string | null;
   rent_period: RentPeriod;
   beds: number;
   baths: number;

@@ -67,7 +67,7 @@ export default function PrivacyPage() {
       <div className="container py-14 max-w-4xl">
         <div className="bg-card border border-border rounded-2xl p-8 shadow-card mb-8">
             <p className="text-muted-foreground leading-relaxed text-base">
-            ECOSOPAT CO LTD ("we", "us" or "our") operates the Axis platform at axishousing.com. This Privacy Policy explains how we collect, use, protect and share information about you when you use our services. By creating an account or using our platform, you agree to the practices described in this policy.
+            ECOSOPAT CO LTD ("we", "us" or "our") operates the Axis platform at axishousings.com. This Privacy Policy explains how we collect, use, protect and share information about you when you use our services. By creating an account or using our platform, you agree to the practices described in this policy.
           </p>
         </div>
 

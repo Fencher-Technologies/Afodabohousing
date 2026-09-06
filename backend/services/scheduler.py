@@ -9,6 +9,7 @@ import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
 
 from config import get_settings
+from services.email import email_endpoint as _email_endpoint
 from services.crud import _compute_rent_financials
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,13 @@ async def check_rent_reminders(supabase=None, today: date | None = None, dispatc
                 continue
 
             days_until_due = _days_until(next_due, today)
-            if not (1 <= days_until_due <= 3):
+            # Remind in the three days before cover expires, and once cover has
+            # actually run out. next_payment_due_date now tracks rent coverage
+            # rather than a fixed 30-day grid, so a tenant already in arrears
+            # reports "due today" (0) or a date in the past (negative) — those
+            # used to be pushed to a future boundary and are exactly the people
+            # who most need the reminder.
+            if days_until_due > 3:
                 continue
 
             prop = _fetch_single(supabase, "properties", lease.get("property_id"))
@@ -92,7 +99,13 @@ async def check_rent_reminders(supabase=None, today: date | None = None, dispatc
             amount = arrears
             currency = (prop or {}).get("rent_currency") or "UGX"
 
-            if days_until_due == 1:
+            if days_until_due <= 0:
+                title = "Rent overdue"
+                body = (
+                    f"Your rent of {currency} {amount:,.0f} is now overdue. "
+                    "Please make your payment as soon as possible."
+                )
+            elif days_until_due == 1:
                 title = "Rent due tomorrow"
                 body = (
                     f"Your rent of {currency} {amount:,.0f} is due tomorrow ({next_due}). "
@@ -245,14 +258,24 @@ class NotificationDispatcher:
         }).execute()
 
     async def send_email(self, *, to_email: str, subject: str, body: str) -> bool:
-        if not self.settings.email_provider_url or not self.settings.email_provider_api_key:
+        """Send one transactional email.
+
+        Defaults to the Supabase `send-email` edge function, which holds the
+        provider API key as a Supabase secret. That avoids needing any new
+        backend environment variables: SUPABASE_URL and the service role key
+        are already configured. Setting EMAIL_PROVIDER_URL and
+        EMAIL_PROVIDER_API_KEY overrides this and posts to that provider
+        directly instead.
+        """
+        url, auth_token = _email_endpoint(self.settings)
+        if not url or not auth_token:
             logger.info("Email notification skipped; provider is not configured")
             return False
 
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.post(
-                self.settings.email_provider_url,
-                headers={"Authorization": f"Bearer {self.settings.email_provider_api_key}"},
+                url,
+                headers={"Authorization": f"Bearer {auth_token}"},
                 json={
                     "from": self.settings.email_from_address,
                     "to": to_email,

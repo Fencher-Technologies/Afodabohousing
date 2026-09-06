@@ -1,4 +1,5 @@
 import logging
+from datetime import date, timedelta
 import time
 from uuid import UUID
 
@@ -129,6 +130,22 @@ def _enrich_payments(supabase: Client, payments: list[dict]) -> list[dict]:
     for payment in payments:
         lease = leases_by_id.get(str(payment.get("lease_id")))
         payment["method"] = payment.get("payment_method")
+
+        # Coverage period, so the UI can show the date rent runs to instead of
+        # only a day count. Same derivation the receipt snapshot uses.
+        start = payment.get("paid_date") or payment.get("due_date")
+        days = payment.get("coverage_days")
+        payment["coverage_start_date"] = start
+        payment["coverage_end_date"] = None
+        if start and days:
+            try:
+                start_date = start if isinstance(start, date) else date.fromisoformat(str(start)[:10])
+                payment["coverage_end_date"] = (
+                    start_date + timedelta(days=int(days))
+                ).isoformat()
+            except (ValueError, TypeError):
+                pass
+
         if not lease:
             continue
         payment["tenant_name"] = names_by_id.get(str(lease.get("tenant_id"))) or None

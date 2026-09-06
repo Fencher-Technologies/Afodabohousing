@@ -5,7 +5,9 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
+
+from config import get_settings
 from supabase import Client
 
 from dependencies import (
@@ -104,6 +106,13 @@ class RefreshRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+class ConfirmPasswordResetRequest(BaseModel):
+    """Completes a reset with the token from the emailed recovery link."""
+
+    access_token: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, max_length=72)
 
 
 class PhoneSendOtpRequest(BaseModel):
@@ -782,10 +791,40 @@ def signout(
 @router.post("/reset-password")
 def reset_password(
     email: EmailStr,
+    redirect_to: str | None = None,
     service: AuthService = Depends(get_auth_svc),
 ) -> dict:
-    service.reset_password(email)
-    return {"message": "Password reset email sent"}
+    """Send a password recovery email.
+
+    The link points at settings.password_reset_redirect_url unless the caller
+    supplies its own (the mobile app passes its axis:// deep link). Always
+    reports success so the endpoint cannot be used to discover which addresses
+    have accounts.
+    """
+    target = redirect_to or get_settings().password_reset_redirect_url or None
+    try:
+        service.reset_password(email, redirect_to=target)
+    except Exception as e:
+        logger.warning("Password reset request failed for %s: %s", email, e)
+    return {"message": "If that email is registered, a reset link has been sent"}
+
+
+@router.post("/reset-password/confirm")
+def confirm_password_reset(
+    data: ConfirmPasswordResetRequest,
+    service: AuthService = Depends(get_auth_svc),
+) -> dict:
+    """Complete a reset using the token from the emailed recovery link."""
+    try:
+        return service.confirm_password_reset(data.access_token, data.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except Exception as e:
+        logger.error("Password reset confirmation failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not update your password. Please request a new reset link.",
+        ) from e
 
 
 @router.post("/change-password")

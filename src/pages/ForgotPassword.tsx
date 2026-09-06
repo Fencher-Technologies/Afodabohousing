@@ -19,7 +19,9 @@ export default function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
+      // /login has no recovery handling — the link used to land on the
+      // sign-in form and the reset silently went nowhere.
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     setLoading(false);
     if (error) {

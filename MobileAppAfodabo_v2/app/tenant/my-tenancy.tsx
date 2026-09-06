@@ -34,7 +34,7 @@ import { usePaymentList } from "@/src/hooks/usePayments";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
 import { calculateHealth, HealthLabel, HealthText, leaseProgress } from "@/src/utils/tenancy-health";
-import { formatUGX, formatDate, formatPeriod } from "@/src/utils/format";
+import { formatMoney, formatDate, formatPeriod } from "@/src/utils/format";
 import { openWhatsApp } from "@/src/utils/whatsapp";
 
 export default function MyTenancyScreen() {
@@ -197,7 +197,7 @@ export default function MyTenancyScreen() {
           <View style={styles.statusDetails}>
             <View style={styles.statusDetailItem}>
               <Text style={styles.statusDetailLabel}>Rent</Text>
-              <Text style={styles.statusDetailValue}>{formatUGX(tenancy.rent_amount)}{formatPeriod(tenancy.rent_period)}</Text>
+              <Text style={styles.statusDetailValue}>{formatMoney(tenancy.rent_amount, tenancy.currency)}{formatPeriod(tenancy.rent_period)}</Text>
             </View>
             <View style={styles.statusDetailItem}>
               <Text style={styles.statusDetailLabel}>Lease Ends</Text>
@@ -263,15 +263,15 @@ export default function MyTenancyScreen() {
             </Pressable>
           </View>
           <View style={styles.summaryGrid}>
-            <SummaryItem label="Expected Rent So Far" value={formatUGX(tenancy.expected_rent)} />
-            <SummaryItem label="Total Paid" value={formatUGX(tenancy.total_paid)} tone="success" />
+            <SummaryItem label="Expected Rent So Far" value={formatMoney(tenancy.expected_rent, tenancy.currency)} />
+            <SummaryItem label="Total Paid" value={formatMoney(tenancy.total_paid, tenancy.currency)} tone="success" />
             <SummaryItem
               label="Outstanding"
-              value={tenancy.money_position_known ? formatUGX(tenancy.balance_due) : "Unavailable"}
+              value={tenancy.money_position_known ? formatMoney(tenancy.balance_due, tenancy.currency) : "Unavailable"}
               tone={hasBalance ? "danger" : undefined}
             />
             {tenancy.tenant_credit > 0 ? (
-              <SummaryItem label="Your Credit" value={formatUGX(tenancy.tenant_credit)} tone="accent" />
+              <SummaryItem label="Your Credit" value={formatMoney(tenancy.tenant_credit, tenancy.currency)} tone="accent" />
             ) : (
               <SummaryItem label="Status" value={tenancy.effective_status} />
             )}
@@ -287,7 +287,7 @@ export default function MyTenancyScreen() {
             <Text style={styles.balanceTitle}>Balance Due</Text>
           </View>
           <Text style={[styles.balanceAmount, hasBalance && styles.balanceDue]}>
-            {tenancy.money_position_known ? formatUGX(tenancy.balance_due) : "Unavailable"}
+            {tenancy.money_position_known ? formatMoney(tenancy.balance_due, tenancy.currency) : "Unavailable"}
           </Text>
           {hasBalance && (
             <Text style={styles.balanceDueDate}>

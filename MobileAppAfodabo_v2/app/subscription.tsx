@@ -44,7 +44,7 @@ export default function SubscriptionScreen() {
 
       <View style={styles.content}>
         {/* Current Status */}
-        <Card padding="lg" style={[styles.statusCard, isActive ? styles.statusActive : styles.statusExpired]}>
+        <Card padding="lg" style={{ ...styles.statusCard, ...(isActive ? styles.statusActive : styles.statusExpired) }}>
           <View style={styles.statusHeader}>
             <View style={styles.statusIconWrap}>
               <Crown size={24} color={isActive ? Colors.gold : Colors.danger} />

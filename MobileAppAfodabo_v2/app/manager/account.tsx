@@ -29,7 +29,7 @@ import { CollapsibleSection } from "@/src/components/CollapsibleSection";
 import { Avatar } from "@/src/components/Avatar";
 import { Button } from "@/src/components/Button";
 import { useAuth } from "@/src/context/auth-context";
-import { formatUGX, formatDate } from "@/src/utils/format";
+import { formatDate } from "@/src/utils/format";
 
 export default function ManagerAccountScreen() {
   const { user, subscription, signOut } = useAuth();
@@ -112,7 +112,7 @@ export default function ManagerAccountScreen() {
           <Card padding="none">
             <ActionRow icon={<Building2 size={20} color={Colors.primary} />} label="Properties" onPress={() => router.push("/manager/properties")} />
             <Divider />
-            <ActionRow icon={<Users size={20} color={Colors.primary} />} label="Tenancies" onPress={() => router.push("/manager/tenancies")} />
+            <ActionRow icon={<Users size={20} color={Colors.primary} />} label="Tenants" onPress={() => router.push("/manager/tenancies")} />
             <Divider />
             <ActionRow icon={<FileText size={20} color={Colors.primary} />} label="Reports" onPress={() => router.push("/manager/reports")} />
           </Card>

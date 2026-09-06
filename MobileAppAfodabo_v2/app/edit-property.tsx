@@ -21,7 +21,7 @@ import { usePropertyCategories, usePropertyTypes } from "@/src/hooks/useProperty
 import { ensureImagesUploaded, MAX_PROPERTY_IMAGES } from "@/src/services/properties";
 import { ApiError } from "@/src/lib/api-client";
 import { useToast } from "@/src/components/Toast";
-import { COUNTRIES, currencyForCountry } from "@/src/data/countries";
+import { COUNTRIES, currencyForCountry, currencyOptions } from "@/src/data/countries";
 import type { Amenity } from "@/src/types";
 import { formatAmenity } from "@/src/utils/format";
 
@@ -51,6 +51,7 @@ export default function EditPropertyScreen() {
   const [type, setType] = useState("");
   const [category, setCategory] = useState("");
   const [rent, setRent] = useState("");
+  const [currencyOverride, setCurrencyOverride] = useState<string | null>(null);
   const [beds, setBeds] = useState("");
   const [baths, setBaths] = useState("");
   const [squareFeet, setSquareFeet] = useState("");
@@ -96,6 +97,8 @@ export default function EditPropertyScreen() {
     setType("");
   };
 
+  const currency = currencyOverride ?? currencyForCountry(country);
+
   useEffect(() => {
     if (!property) return;
     setTitle(property.title);
@@ -109,6 +112,10 @@ export default function EditPropertyScreen() {
     const matchedType = types.find((t) => t.slug === property.type);
     setCategory(matchedType?.category_slug ?? "residential");
     setRent(String(property.rent_amount || ""));
+    // Preserve whatever the listing was created with. Recomputing this from
+    // the country on save silently reset any deliberate choice (e.g. a
+    // Kampala property listed in USD) the first time the manager edited it.
+    setCurrencyOverride(property.rent_currency || null);
     setBeds(String(property.beds || ""));
     setBaths(String(property.baths || ""));
     setSquareFeet(property.square_feet ? String(property.square_feet) : "");
@@ -227,7 +234,7 @@ export default function EditPropertyScreen() {
         property_type: category === "commercial" ? "Office Space" : "Residential",
         property_type_slug: type || null,
         monthly_rent: Number(rent),
-        rent_currency: currencyForCountry(country),
+        rent_currency: currency,
         bedrooms: Number(beds) || 1,
         bathrooms: Number(baths) || 1,
         sitting_rooms: 1,
@@ -333,8 +340,16 @@ export default function EditPropertyScreen() {
           placeholder="Select type"
         />
         <View style={{ height: Spacing.md }} />
+        <SelectField
+          label="Currency"
+          value={currency}
+          options={currencyOptions(country)}
+          onSelect={setCurrencyOverride}
+          placeholder="Select currency"
+        />
+        <View style={{ height: Spacing.md }} />
         <InputField
-          label={`Rent per Month (${currencyForCountry(country)})`}
+          label={`Rent per Month (${currency})`}
           value={rent}
           onChangeText={(v) => {
             setRent(v);

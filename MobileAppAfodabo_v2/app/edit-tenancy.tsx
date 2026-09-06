@@ -166,7 +166,7 @@ export default function EditTenancyScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
         />
-        <Text style={styles.hint}>Enter the tenant's registered email address.</Text>
+        <Text style={styles.hint}>Enter the tenant&apos;s registered email address.</Text>
 
         <View style={{ height: Spacing.lg }} />
         <Text style={styles.sectionLabel}>Property & Unit</Text>

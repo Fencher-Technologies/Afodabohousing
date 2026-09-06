@@ -497,6 +497,96 @@ class AgreementService:
         )
         return consent
 
+    @with_retry
+    def reject_agreement(
+        self,
+        *,
+        lease: dict[str, Any],
+        document: dict[str, Any],
+        party_role: str,
+        user_id: str,
+        reason: str,
+        ip_address: str | None,
+        user_agent: str | None,
+    ) -> dict[str, Any]:
+        """Record a party declining the agreement, with the change they want.
+
+        The document moves to `changes_requested` so the manager can see it
+        needs revision. Editing the agreement supersedes this document and
+        resets consent, which returns it to the normal flow.
+        """
+        content = document.get("content")
+        if not content:
+            raise HTTPException(status_code=400, detail="Agreement has no content")
+
+        signatures = content.get("signatures", {})
+        role_signature = signatures.get(party_role, {})
+        new_consent_version = (role_signature.get("consent_version", 0) or 0) + 1
+
+        evidence_hash = hashlib.sha256(json.dumps(content, default=str).encode()).hexdigest()
+        rejected_at = _now_iso()
+
+        payload = {
+            "lease_id": str(lease["id"]),
+            "agreement_document_id": str(document["id"]),
+            "agreement_hash": evidence_hash,
+            "party_role": party_role,
+            "user_id": str(user_id),
+            "consent_status": "declined",
+            "rejection_reason": reason,
+            "consent_version": new_consent_version,
+            "consented_at": rejected_at,
+            "ip_address": ip_address,
+            "user_agent": user_agent,
+        }
+        response = self.supabase.table("agreement_consents").insert(payload).execute()
+        consent = response.data[0]
+
+        # Reflect the decline in the embedded signature block. Any consent the
+        # other party already gave is cleared: they agreed to a version the
+        # tenant has now objected to, so it must be re-signed after revision.
+        role_signature["signed_name"] = None
+        role_signature["signed_at"] = None
+        role_signature["consent_status"] = "declined"
+        role_signature["consent_version"] = new_consent_version
+        role_signature["rejection_reason"] = reason
+        signatures[party_role] = role_signature
+
+        other_role = "manager" if party_role == "tenant" else "tenant"
+        other_signature = signatures.get(other_role, {})
+        if other_signature.get("consent_status") == "approved":
+            other_signature["signed_name"] = None
+            other_signature["signed_at"] = None
+            other_signature["consent_status"] = "pending"
+            signatures[other_role] = other_signature
+
+        content["signatures"] = signatures
+
+        self.supabase.table("agreement_documents").update({
+            "content": content,
+            "status": "changes_requested",
+            "rejection_reason": reason,
+            "rejected_at": rejected_at,
+            "rejected_by": str(user_id),
+            "updated_at": rejected_at,
+        }).eq("id", str(document["id"])).execute()
+
+        self.record_audit_event(
+            lease_id=str(lease["id"]),
+            agreement_document_id=str(document["id"]),
+            actor_user_id=str(user_id),
+            event_type=f"{party_role}_rejected",
+            evidence_hash=evidence_hash,
+            metadata={
+                "agreement_consent_id": consent["id"],
+                "rejection_reason": reason,
+                "consent_version": new_consent_version,
+                "agreement_version": content.get("version"),
+                "party_role": party_role,
+            },
+        )
+        return consent
+
     def build_consent_state(self, document: dict[str, Any] | None) -> dict[str, Any]:
         state = {
             "current_document": document,

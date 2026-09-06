@@ -418,7 +418,7 @@ export default function BoostPropertyScreen() {
           disabled={!selectedDays}
         />
         <Text style={styles.payHelper}>
-          You'll be redirected to our secure payment partner where you can choose your preferred payment method.
+          You&apos;ll be redirected to our secure payment partner where you can choose your preferred payment method.
         </Text>
       </View>
 

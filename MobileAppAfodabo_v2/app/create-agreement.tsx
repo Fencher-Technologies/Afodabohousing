@@ -15,6 +15,7 @@ import { useAgreementTemplate, useAgreementContent, useEditAgreement } from "@/s
 import { useTenancy } from "@/src/hooks/useTenancies";
 import { useAuth } from "@/src/context/auth-context";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
+import { setAgreementDraft } from "@/src/state/agreement-draft";
 import type {
   AgreementCustomClause,
   AgreementStandardClause,
@@ -145,14 +146,13 @@ export default function CreateAgreementScreen() {
       return;
     }
 
+    // Handed over in memory rather than as URL params: the serialised clause
+    // list is large enough that a dropped or truncated param silently reverted
+    // the manager's toggles and edits on the next screen.
+    setAgreementDraft({ leaseId, standardClauses: enabledClauses, customClauses });
     router.push({
       pathname: "/agreement-summary",
-      params: {
-        leaseId,
-        mode: isEdit ? "edit" : undefined,
-        standardClauses: JSON.stringify(enabledClauses),
-        customClauses: JSON.stringify(customClauses),
-      },
+      params: { leaseId, mode: isEdit ? "edit" : undefined },
     });
   }, [leaseId, standardClauses, customClauses, isEdit, isExpired]);
 
@@ -239,21 +239,21 @@ export default function CreateAgreementScreen() {
           <Text style={styles.cardSectionLabel}>Lease Terms</Text>
           <InfoRow
             label="Monthly Rent"
-            value={formatCurrency(lease.rent_amount)}
+            value={formatCurrency(lease.monthly_rent)}
           />
           <InfoRow
             label="Deposit"
             value={
-              lease.deposit_amount != null
-                ? formatCurrency(lease.deposit_amount)
+              lease.security_deposit != null
+                ? formatCurrency(lease.security_deposit)
                 : "—"
             }
           />
-          <InfoRow label="Start Date" value={formatDate(lease.rent_start_date)} />
-          <InfoRow label="End Date" value={formatDate(lease.rent_end_date)} />
+          <InfoRow label="Start Date" value={formatDate(lease.start_date)} />
+          <InfoRow label="End Date" value={formatDate(lease.end_date)} />
           <InfoRow
             label="Payment Frequency"
-            value={capitalize(lease.rent_period || "monthly")}
+            value={capitalize("monthly")}
           />
         </Card>
 
@@ -318,14 +318,15 @@ export default function CreateAgreementScreen() {
           </Card>
         ))}
 
-        <Button
-          label="Add Custom Clause"
-          variant="outline"
-          leftIcon={<Plus size={18} color={Colors.primary} />}
-          onPress={handleAddCustomClause}
-          fullWidth
-          style={styles.addClauseBtn}
-        />
+        <View style={styles.addClauseBtn}>
+          <Button
+            label="Add Custom Clause"
+            variant="outline"
+            leftIcon={<Plus size={18} color={Colors.primary} />}
+            onPress={handleAddCustomClause}
+            fullWidth
+          />
+        </View>
 
         {/* ── Action Buttons ── */}
         <View style={styles.previewSection}>

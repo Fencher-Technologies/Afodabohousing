@@ -67,6 +67,12 @@ class PaymentResponse(BaseModel):
     updated_at: datetime
     coverage_days: int | None = None
     frozen_monthly_rent: int | None = None
+    # The period this payment covers. Derived from paid_date + coverage_days
+    # so the Payment Record screen can show an end date rather than only a
+    # day count.
+    coverage_start_date: date | None = None
+    coverage_end_date: date | None = None
+    currency: str = "UGX"
     tenant_name: str | None = None
     property_title: str | None = None
     method: str | None = None

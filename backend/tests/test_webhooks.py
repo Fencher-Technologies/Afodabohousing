@@ -15,7 +15,19 @@ def client(test_user, mock_supabase):
     from dependencies.database import _get_cached_client
     _get_cached_client.cache_clear()
     app.dependency_overrides[get_service_client] = lambda: mock_supabase
-    app.dependency_overrides[get_current_user] = lambda: None
+    # The Pesapal IPN is unauthenticated by design, but /sms/send and
+    # /sms/send-reminder now require a manager or super_admin.
+    app.dependency_overrides[get_current_user] = lambda: test_user
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def anonymous_client(mock_supabase):
+    """Client with no authenticated user — the real guards run."""
+    from dependencies.database import _get_cached_client
+    _get_cached_client.cache_clear()
+    app.dependency_overrides[get_service_client] = lambda: mock_supabase
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -267,3 +279,27 @@ class TestSmsWebhook:
             assert mock_post.call_count == 1
 
         get_settings().sms_provider_api_key = old_key
+
+
+class TestSmsAuthorization:
+    """These endpoints were reachable without any credentials at all."""
+
+    def test_sms_send_requires_authentication(self, anonymous_client):
+        resp = anonymous_client.post(
+            "/sms/send",
+            json={"to": "+256700000000", "message": "Hello"},
+        )
+        assert resp.status_code in (401, 403)
+
+    def test_send_reminder_requires_authentication(self, anonymous_client):
+        resp = anonymous_client.post(
+            "/sms/send-reminder",
+            json={"tenancy_id": "00000000-0000-0000-0000-000000000030", "message": "Rent due"},
+        )
+        assert resp.status_code in (401, 403)
+
+    def test_admin_regions_requires_authentication(self, anonymous_client):
+        """_require_admin was a no-op `pass`, and these routes use the
+        service-role client, which bypasses RLS entirely."""
+        assert anonymous_client.get("/admin/regions/pending").status_code in (401, 403)
+        assert anonymous_client.post("/admin/regions/sync", json={}).status_code in (401, 403)

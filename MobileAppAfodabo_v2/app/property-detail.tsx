@@ -56,7 +56,7 @@ import {
   useUpdateProperty,
 } from "@/src/hooks/useProperties";
 import {
-  formatUGX,
+  formatMoney,
   formatPropertyType,
   formatAmenity,
   formatDate,
@@ -200,7 +200,7 @@ export default function PropertyDetailScreen() {
     const details = [
       `Property: ${property.title}`,
       `Location: ${[property.address, property.city, property.district].filter(Boolean).join(", ")}`,
-      `Rent: ${formatUGX(property.rent_amount)}/month`,
+      `Rent: ${formatMoney(property.rent_amount, property.rent_currency)}/month`,
       `Type: ${formatPropertyType(property.type)}`,
       property.beds > 0 ? `Bedrooms: ${property.beds}` : null,
       property.baths > 0 ? `Bathrooms: ${property.baths}` : null,
@@ -434,7 +434,7 @@ export default function PropertyDetailScreen() {
             </Text>
           </View>
           <Text style={styles.price}>
-            {formatUGX(property.rent_amount)}
+            {formatMoney(property.rent_amount, property.rent_currency)}
             <Text style={styles.pricePeriod}>/month</Text>
           </Text>
         </View>
@@ -505,7 +505,7 @@ export default function PropertyDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Deposit</Text>
             <Text style={styles.description}>
-              {formatUGX(property.security_deposit)}
+              {formatMoney(property.security_deposit, property.rent_currency)}
             </Text>
           </View>
         )}

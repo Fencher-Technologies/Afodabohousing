@@ -13,6 +13,7 @@ import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import { useAgreementTemplate, useBuildAgreement, useEditAgreement } from "@/src/hooks/useAgreements";
 import { useTenancy } from "@/src/hooks/useTenancies";
 import { useAuth } from "@/src/context/auth-context";
+import { getAgreementDraft } from "@/src/state/agreement-draft";
 import type {
   AgreementContent,
   AgreementTenantInfo,
@@ -52,19 +53,24 @@ export default function AgreementPreviewScreen() {
   const isLoading = templateLoading || leaseLoading;
 
   // Parse draft clauses from URL params if provided
+  // The in-memory draft is authoritative; params remain only as a fallback.
+  const draft = getAgreementDraft(leaseId);
+
   const draftStandardClauses = useMemo<AgreementStandardClause[] | null>(() => {
+    if (draft) return draft.standardClauses;
     if (rawClauses) {
       try { return JSON.parse(rawClauses) as AgreementStandardClause[]; } catch { return null; }
     }
     return null;
-  }, [rawClauses]);
+  }, [draft, rawClauses]);
 
   const draftCustomClauses = useMemo<AgreementCustomClause[] | null>(() => {
+    if (draft) return draft.customClauses;
     if (rawCustom) {
       try { return JSON.parse(rawCustom) as AgreementCustomClause[]; } catch { return null; }
     }
     return null;
-  }, [rawCustom]);
+  }, [draft, rawCustom]);
 
   const previewContent = useMemo<AgreementContent | null>(() => {
     if (!template || !lease) return null;
@@ -98,7 +104,7 @@ export default function AgreementPreviewScreen() {
 
     // Use draft clauses from params if provided (edit preview), else template defaults
     const standardClauses = draftStandardClauses ?? template.standard_clauses
-      .filter((c) => c.enabled_by_default)
+      .filter((c) => (c.optional ? c.enabled_by_default : true))
       .map((c) => ({
         key: c.key,
         title: c.title,
@@ -129,20 +135,25 @@ export default function AgreementPreviewScreen() {
     }
     if (!leaseId || !template) return;
     try {
-      const standardClauses = template.standard_clauses
-        .filter((c) => c.enabled_by_default)
-        .map((c) => ({
-          key: c.key,
-          title: c.title,
-          content: c.content,
-          enabled: true,
-        }));
+      // Generate exactly what the manager assembled. This previously rebuilt
+      // from template defaults, which silently reinstated clauses they had
+      // switched off and discarded any edits to clause text.
+      const standardClauses =
+        draftStandardClauses ??
+        template.standard_clauses
+          .filter((c) => (c.optional ? c.enabled_by_default : true))
+          .map((c) => ({
+            key: c.key,
+            title: c.title,
+            content: c.content,
+            enabled: true,
+          }));
 
       await buildAgreement.mutateAsync({
         leaseId,
         data: {
-          standard_clauses: standardClauses,
-          custom_clauses: [],
+          standard_clauses: standardClauses.filter((c) => c.enabled),
+          custom_clauses: draftCustomClauses ?? [],
         },
       });
 

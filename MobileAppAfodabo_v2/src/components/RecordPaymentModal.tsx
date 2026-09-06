@@ -13,7 +13,7 @@ import { SegmentedControl } from "./SegmentedControl";
 import { useCreatePayment } from "@/src/hooks/usePayments";
 import { todayLocalISO } from "@/src/lib/dates";
 import { useToast } from "./Toast";
-import { formatUGX } from "@/src/utils/format";
+import { formatMoney } from "@/src/utils/format";
 import type { Tenancy, PaymentMethod } from "@/src/types";
 
 interface RecordPaymentModalProps {
@@ -68,7 +68,7 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
       setAmount("");
       setNotes("");
       onClose();
-      toast.show(`Payment for ${tenancy.tenant_name} of ${formatUGX(numericAmount)} recorded.`, "success");
+      toast.show(`Payment for ${tenancy.tenant_name} of ${formatMoney(numericAmount, tenancy.currency)} recorded.`, "success");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to record payment. Please try again.");
     }
@@ -102,11 +102,11 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
             <View style={styles.balanceRow}>
               <View style={styles.balanceItem}>
                 <Text style={styles.balanceLabel}>Balance Due</Text>
-                <Text style={styles.balanceValue}>{formatUGX(tenancy.balance_due)}</Text>
+                <Text style={styles.balanceValue}>{formatMoney(tenancy.balance_due, tenancy.currency)}</Text>
               </View>
               <View style={[styles.balanceItem, { borderLeftWidth: 1, borderLeftColor: Colors.border, paddingLeft: Spacing.md }]}>
                 <Text style={styles.balanceLabel}>In Advance</Text>
-                <Text style={[styles.balanceValue, { color: Colors.success }]}>{formatUGX(tenancy.advance_amount)}</Text>
+                <Text style={[styles.balanceValue, { color: Colors.success }]}>{formatMoney(tenancy.advance_amount, tenancy.currency)}</Text>
               </View>
             </View>
 
@@ -155,11 +155,11 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
             <View style={styles.preview}>
               <Text style={styles.previewLabel}>New Arrears After Payment</Text>
               <Text style={[styles.previewValue, newArrears === 0 && styles.previewZero]}>
-                {formatUGX(newArrears)}
+                {formatMoney(newArrears, tenancy.currency)}
               </Text>
               {newArrears === 0 && newAdvance > 0 && (
                 <Text style={styles.previewNote}>
-                  Paid up — {formatUGX(newAdvance)} in advance for future rent.
+                  Paid up — {formatMoney(newAdvance, tenancy.currency)} in advance for future rent.
                 </Text>
               )}
               {coverageDays > 0 && (

@@ -6,12 +6,13 @@
  * Edit/delete are manager-only and are intentionally excluded.
  */
 
-import { useMemo } from "react";
-import { StyleSheet, Text, View, Pressable, Alert } from "react-native";
+import { useMemo, useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, View, Pressable, Alert } from "react-native";
 import { router } from "expo-router";
 import {
   Wallet,
   Receipt,
+  Download,
   ChevronRight,
   AlertTriangle,
   ShieldCheck,
@@ -31,9 +32,10 @@ import { useTenancyList } from "@/src/hooks/useTenancies";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { useMySubmissions } from "@/src/hooks/usePaymentVerifications";
 import { useMyReceipts } from "@/src/hooks/useReceipts";
+import { receiptsService } from "@/src/services/receipts";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
 import { RentCoverageCard } from "@/src/components/RentCoverageCard";
-import { formatUGX, formatDate, formatMethod } from "@/src/utils/format";
+import { formatMoney, formatDate, formatMethod } from "@/src/utils/format";
 
 export default function TenantPaymentsScreen() {
   const { data: paymentsData, isLoading, error, refetch } = usePaymentList();
@@ -43,6 +45,19 @@ export default function TenantPaymentsScreen() {
     refetch: refetchSubmissions,
   } = useMySubmissions();
   const { data: receiptsData, refetch: refetchReceipts } = useMyReceipts();
+  const [downloadingReceiptId, setDownloadingReceiptId] = useState<string | null>(null);
+
+  async function handleDownloadReceipt(id: string, receiptNumber: string) {
+    setDownloadingReceiptId(id);
+    try {
+      const ok = await receiptsService.downloadPdf(id, receiptNumber);
+      if (!ok) {
+        Alert.alert("Download failed", "Could not save the receipt. Please try again.");
+      }
+    } finally {
+      setDownloadingReceiptId(null);
+    }
+  }
   const receipts = receiptsData?.items ?? [];
   const { refreshing, onRefresh } = useRefresh({
     refetches: [refetch, refetchTenancies, refetchSubmissions, refetchReceipts],
@@ -91,16 +106,16 @@ export default function TenantPaymentsScreen() {
           <Card padding="md" style={styles.kpiCard}>
             <Text style={styles.kpiLabel}>Balance Due</Text>
             <Text style={[styles.kpiValue, hasBalance ? styles.danger : styles.success]}>
-              {formatUGX(tenancy?.balance_due ?? 0)}
+              {formatMoney(tenancy?.balance_due ?? 0, tenancy?.currency)}
             </Text>
           </Card>
           <Card padding="md" style={styles.kpiCard}>
             <Text style={styles.kpiLabel}>Expected Rent So Far</Text>
-            <Text style={styles.kpiValue}>{formatUGX(tenancy?.expected_rent ?? 0)}</Text>
+            <Text style={styles.kpiValue}>{formatMoney(tenancy?.expected_rent ?? 0, tenancy?.currency)}</Text>
           </Card>
           <Card padding="md" style={styles.kpiCard}>
             <Text style={styles.kpiLabel}>Total Paid</Text>
-            <Text style={[styles.kpiValue, styles.success]}>{formatUGX(totalPaid)}</Text>
+            <Text style={[styles.kpiValue, styles.success]}>{formatMoney(totalPaid, tenancy?.currency)}</Text>
           </Card>
         </View>
 
@@ -108,7 +123,7 @@ export default function TenantPaymentsScreen() {
           <View style={styles.overdueBanner}>
             <AlertTriangle size={18} color={Colors.accent} />
             <Text style={styles.overdueText}>
-              You have an outstanding balance of {formatUGX(tenancy?.balance_due ?? 0)}.
+              You have an outstanding balance of {formatMoney(tenancy?.balance_due ?? 0, tenancy?.currency)}.
             </Text>
           </View>
         )}
@@ -122,12 +137,18 @@ export default function TenantPaymentsScreen() {
             <Card padding="none" style={styles.receiptsCard}>
               {receipts.map((r, i) => (
                 <View key={r.id}>
-                  <View style={styles.receiptRow}>
+                  <Pressable
+                    style={styles.receiptRow}
+                    onPress={() => handleDownloadReceipt(r.id, r.receipt_number)}
+                    disabled={downloadingReceiptId === r.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Download receipt ${r.receipt_number}`}
+                  >
                     <View style={styles.receiptIconWrap}>
                       <Receipt size={18} color={Colors.primary} />
                     </View>
                     <View style={styles.paymentLeft}>
-                      <Text style={styles.paymentAmount}>{formatUGX(r.amount)}</Text>
+                      <Text style={styles.paymentAmount}>{formatMoney(r.amount, tenancy?.currency)}</Text>
                       <Text style={styles.paymentMeta}>
                         {r.receipt_number}
                         {r.payment_date ? ` · ${formatDate(r.payment_date)}` : ""}
@@ -143,7 +164,12 @@ export default function TenantPaymentsScreen() {
                       tone={r.status === "active" ? "primary" : "muted"}
                       size="sm"
                     />
-                  </View>
+                    {downloadingReceiptId === r.id ? (
+                      <ActivityIndicator size="small" color={Colors.primary} style={styles.receiptAction} />
+                    ) : (
+                      <Download size={18} color={Colors.primary} style={styles.receiptAction} />
+                    )}
+                  </Pressable>
                   {i < receipts.length - 1 && <View style={styles.divider} />}
                 </View>
               ))}
@@ -177,7 +203,7 @@ export default function TenantPaymentsScreen() {
                     accessibilityLabel="View payment"
                   >
                     <View style={styles.paymentLeft}>
-                      <Text style={styles.paymentAmount}>{formatUGX(payment.amount)}</Text>
+                      <Text style={styles.paymentAmount}>{formatMoney(payment.amount, tenancy?.currency)}</Text>
                       <Text style={styles.paymentMeta}>
                         {formatDate(payment.paid_date || payment.created_at)}
                         {payment.method ? ` · ${formatMethod(payment.method)}` : ""}
@@ -246,7 +272,7 @@ export default function TenantPaymentsScreen() {
               <Card key={s.id} padding="md" style={styles.submissionCard}>
                 <View style={styles.submissionHeader}>
                   <Text style={styles.submissionAmount}>
-                    {formatUGX(s.amount)}
+                    {formatMoney(s.amount, tenancy?.currency)}
                   </Text>
                   <Badge
                     label={statusLabel}
@@ -383,6 +409,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
     padding: Spacing.md,
+  },
+  receiptAction: {
+    marginLeft: Spacing.sm,
   },
   receiptIconWrap: {
     width: 36,

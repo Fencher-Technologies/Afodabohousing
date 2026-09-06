@@ -21,15 +21,17 @@ import { Colors, FontSize, FontWeight, Radii, Spacing, Shadows } from "@/constan
 import { BrandMark } from "@/src/components/BrandMark";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
+import { HealthLabel } from "@/src/utils/tenancy-health";
 import { Badge } from "@/src/components/Badge";
 import { SearchInput } from "@/src/components/SearchInput";
 import { LoadingState } from "@/src/components/LoadingState";
 import { useAuth } from "@/src/context/auth-context";
 import { useDashboardStats } from "@/src/hooks/useDashboard";
+import { aggregateCurrency, formatAggregate } from "@/src/utils/aggregate-currency";
 import { useOwnerSubmissions } from "@/src/hooks/usePaymentVerifications";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { fromBackendLease } from "@/src/mappers/tenancy-mapper";
-import { formatUGX } from "@/src/utils/format";
+import { formatMoney } from "@/src/utils/format";
 
 function greetingForHour(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -45,6 +47,10 @@ export default function ManagerDashboardScreen() {
   const { data: dashboard, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats();
   const stats = dashboard?.stats;
   const tenancies = dashboard?.tenancies ?? [];
+  // Totals sum across the whole portfolio. Labelled with the portfolio's
+  // currency when it is uniform; left unlabelled rather than guessed when the
+  // manager has properties priced in more than one.
+  const portfolioCurrency = aggregateCurrency(tenancies);
   const { data: pendingVerifications, refetch: refetchVerifications } = useOwnerSubmissions("pending");
 
   const pendingVerificationCount = pendingVerifications?.length ?? 0;
@@ -77,8 +83,8 @@ export default function ManagerDashboardScreen() {
   const statsCards = useMemo(() => [
     { label: "Active\nTenants", value: stats?.active_tenants ?? 0, icon: <Users size={18} color={Colors.primary} />, tone: "primary" as const },
     { label: "Outstanding", value: needsAttentionCount, icon: <AlertTriangle size={18} color={Colors.danger} />, tone: "danger" as const },
-    { label: "Collected\nTotal", value: formatUGX(stats?.collected_total ?? 0), icon: <TrendingUp size={18} color={Colors.accent} />, tone: "accent" as const },
-    { label: "Collected\nThis Month", value: formatUGX(stats?.collected_this_month ?? 0), icon: <Clock size={18} color={Colors.warning} />, tone: "warning" as const },
+    { label: "Collected\nTotal", value: formatAggregate(stats?.collected_total ?? 0, portfolioCurrency), icon: <TrendingUp size={18} color={Colors.accent} />, tone: "accent" as const },
+    { label: "Collected\nThis Month", value: formatAggregate(stats?.collected_this_month ?? 0, portfolioCurrency), icon: <Clock size={18} color={Colors.warning} />, tone: "warning" as const },
   ], [stats, needsAttentionCount]);
 
   const searchResults = useMemo(
@@ -97,6 +103,7 @@ export default function ManagerDashboardScreen() {
               property_title: t.property_title,
               unit_label: t.unit_label,
               balance_due: t.balance_due,
+              currency: t.currency,
               status: t.status,
               effective_status: t.effective_status,
               health: t.health,
@@ -174,10 +181,10 @@ export default function ManagerDashboardScreen() {
                 </View>
                 <View style={styles.searchResultRight}>
                   {(item.balance_due ?? 0) > 0 && (
-                    <Text style={styles.searchBalance}>{formatUGX(item.balance_due)}</Text>
+                    <Text style={styles.searchBalance}>{formatMoney(item.balance_due, item.currency)}</Text>
                   )}
                   <Badge
-                    label={item.status === "terminated" ? "Terminated" : item.health === "good" ? "Current" : item.health === "warn" ? "Expiring" : "Expired"}
+                    label={item.status === "terminated" ? "Terminated" : HealthLabel[item.health]}
                     tone={item.status === "terminated" ? "danger" : item.health === "good" ? "success" : item.health === "warn" ? "warning" : "danger"}
                     size="sm"
                   />
@@ -213,7 +220,7 @@ export default function ManagerDashboardScreen() {
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.quickActions}>
           <QuickAction icon={<Building2 size={22} color={Colors.primary} />} label="List Property" onPress={() => router.push("/create-property")} />
-          <QuickAction icon={<Users size={22} color={Colors.primary} />} label="Create Tenancy" onPress={() => router.push("/create-tenancy")} />
+          <QuickAction icon={<Users size={22} color={Colors.primary} />} label="Add Tenant" onPress={() => router.push("/create-tenancy")} />
           <QuickAction icon={<FileText size={22} color={Colors.primary} />} label="Generate Report" onPress={() => router.push("/manager/reports")} />
           <QuickAction icon={<Crown size={22} color={Colors.gold} />} label="Subscription" onPress={() => router.push("/subscription")} />
           <QuickAction icon={<ShieldCheck size={22} color={Colors.accent} />} label="Verify Payments" badge={pendingVerificationCount} onPress={() => router.push("/payment-verification")} />
@@ -264,7 +271,7 @@ export default function ManagerDashboardScreen() {
         onPress={() => router.push("/create-tenancy")}
         style={({ pressed }) => [styles.fab, pressed && { transform: [{ scale: 0.95 }] }]}
         accessibilityRole="button"
-        accessibilityLabel="Quick action: Create tenancy"
+        accessibilityLabel="Quick action: Add tenant"
       >
         <Plus size={26} color={Colors.textOnPrimary} />
       </Pressable>

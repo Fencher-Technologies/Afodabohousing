@@ -25,6 +25,17 @@ export function useConsentAgreement() {
   });
 }
 
+export function useRejectAgreement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ leaseId, reason }: { leaseId: string; reason: string }) =>
+      agreementsService.reject(leaseId, reason),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["agreements", variables.leaseId] });
+    },
+  });
+}
+
 export function useCancelAgreement() {
   const qc = useQueryClient();
   return useMutation({

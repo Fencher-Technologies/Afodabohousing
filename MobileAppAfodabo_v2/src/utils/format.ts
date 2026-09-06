@@ -2,9 +2,42 @@
  * Formatting utilities — currency, dates, phone, labels.
  */
 
+/**
+ * Format an amount in whatever currency it was recorded in.
+ *
+ * formatUGX below hardcodes UGX, which is wrong for properties listed in
+ * another currency. Prefer this wherever a currency code is available.
+ */
+export function formatMoney(
+  amount: number | string | null | undefined,
+  currency: string | null | undefined = "UGX",
+): string {
+  const n = typeof amount === "string" ? Number(amount) : (amount ?? 0);
+  const code = (currency || "UGX").toUpperCase();
+  return `${code} ${n.toLocaleString("en-UG")}`;
+}
+
 export function formatUGX(amount: number | string | null | undefined): string {
   const n = typeof amount === "string" ? Number(amount) : (amount ?? 0);
   return `UGX ${n.toLocaleString("en-UG")}`;
+}
+
+/** Compact form of formatMoney, e.g. "USD 1.2M". */
+export function formatMoneyShort(
+  amount: number | string | null | undefined,
+  currency: string | null | undefined = "UGX",
+): string {
+  const n = typeof amount === "string" ? Number(amount) : (amount ?? 0);
+  const code = (currency || "UGX").toUpperCase();
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `${code} ${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}M`;
+  }
+  if (n >= 1_000) {
+    const k = n / 1_000;
+    return `${code} ${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
+  }
+  return `${code} ${n.toLocaleString("en-UG")}`;
 }
 
 export function formatUGXShort(amount: number | string | null | undefined): string {

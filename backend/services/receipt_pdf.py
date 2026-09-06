@@ -110,6 +110,12 @@ def build_receipt_pdf(receipt: dict[str, Any]) -> bytes:
         ("Transaction reference", receipt.get("transaction_reference") or "-"),
         ("Recorded by", receipt.get("manager_name") or "Property Manager"),
     ]
+    # Show the period the payment covers, not just its length: a tenant
+    # needs to see the date their rent runs to.
+    start = receipt.get("coverage_start_date") or receipt.get("payment_date")
+    end = receipt.get("coverage_end_date")
+    if start and end:
+        rows.append(("Rent period", f"{_fmt_date(start)} to {_fmt_date(end)}"))
     if receipt.get("coverage_days"):
         rows.append(("Rent coverage", f"{receipt['coverage_days']} days"))
 

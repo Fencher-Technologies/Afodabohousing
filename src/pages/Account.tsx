@@ -266,7 +266,7 @@ export default function Account() {
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
             </button>
-              <button onClick={() => window.location.href = 'mailto:support@axishousing.com'}
+              <button onClick={() => window.location.href = 'mailto:support@axishousings.com'}
               className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors border-b border-border">
               <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 <Headphones className="h-4 w-4 text-muted-foreground" />

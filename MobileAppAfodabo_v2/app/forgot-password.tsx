@@ -5,25 +5,41 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import { Mail, ArrowLeft, CheckCircle } from "lucide-react-native";
+import * as Linking from "expo-linking";
+import { Mail, CheckCircle } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { PageHeader } from "@/src/components/PageHeader";
+import { authService } from "@/src/services/auth";
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSend = () => {
-    if (!email.trim()) return;
+  // This screen previously faked the request with a one-second timer and
+  // showed "Check your email" without ever calling the API, so no recovery
+  // mail was ever sent.
+  const handleSend = async () => {
+    const address = email.trim();
+    if (!address) return;
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setError(null);
+    try {
+      // Deep link back into the app so the reset completes here rather than
+      // on the web. Requires "axis://reset-password" in the Supabase
+      // dashboard under Authentication -> URL Configuration -> Redirect URLs.
+      const redirectTo = Linking.createURL("/reset-password");
+      await authService.resetPassword(address, redirectTo);
       setSent(true);
-    }, 1000);
+    } catch {
+      setError("Could not send the reset link. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (sent) {
@@ -36,7 +52,7 @@ export default function ForgotPasswordScreen() {
           </View>
           <Text style={styles.title}>Check your email</Text>
           <Text style={styles.description}>
-            We've sent a password reset link to{"\n"}
+            We&apos;ve sent a password reset link to{"\n"}
             <Text style={styles.emailBold}>{email}</Text>
           </Text>
           <View style={{ height: Spacing.xl }} />
@@ -51,7 +67,7 @@ export default function ForgotPasswordScreen() {
       <PageHeader title="Forgot Password" onBack={() => router.back()} />
       <View style={styles.form}>
         <Text style={styles.description}>
-          Enter your email address and we'll send you a link to reset your password.
+          Enter your email address and we&apos;ll send you a link to reset your password.
         </Text>
         <View style={{ height: Spacing.xl }} />
         <InputField
@@ -63,6 +79,7 @@ export default function ForgotPasswordScreen() {
           autoCapitalize="none"
           leftIcon={<Mail size={20} color={Colors.textMuted} />}
         />
+        {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={{ height: Spacing.xl }} />
         <Button label="Send Reset Link" onPress={handleSend} loading={loading} fullWidth size="lg" />
       </View>
@@ -85,4 +102,5 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: FontSize.title, fontWeight: FontWeight.bold, color: Colors.textPrimary, textAlign: "center" },
   emailBold: { fontWeight: FontWeight.bold, color: Colors.textPrimary },
+  error: { marginTop: Spacing.md, fontSize: FontSize.caption, color: Colors.danger },
 });

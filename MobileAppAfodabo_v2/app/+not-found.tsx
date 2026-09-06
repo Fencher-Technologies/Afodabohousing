@@ -19,7 +19,7 @@ export default function NotFoundScreen() {
         </View>
         <Text style={styles.title}>Page not found</Text>
         <Text style={styles.description}>
-          The page you're looking for doesn't exist or may have moved.
+          The page you&apos;re looking for doesn&apos;t exist or may have moved.
         </Text>
         <View style={styles.action}>
           <Button label="Go Home" onPress={() => router.replace("/")} fullWidth size="lg" />

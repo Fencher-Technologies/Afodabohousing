@@ -55,8 +55,37 @@ class AuthService:
             return None
 
     @with_retry
-    def reset_password(self, email: str) -> dict:
+    def reset_password(self, email: str, redirect_to: str | None = None) -> dict:
+        """Send the Supabase recovery mail, pointing at a page that can use it.
+
+        redirect_to must be listed in the project's allowed redirect URLs.
+        """
+        if redirect_to:
+            return self.supabase.auth.reset_password_email(
+                email, {"redirect_to": redirect_to}
+            )
         return self.supabase.auth.reset_password_email(email)
+
+    @with_retry
+    def confirm_password_reset(self, access_token: str, new_password: str) -> dict:
+        """Set a new password using the recovery token from the emailed link.
+
+        The token is resolved through Supabase exactly as a normal access token
+        is, so an expired or forged one simply fails to resolve to a user.
+        """
+        try:
+            resolved = self.supabase.auth.get_user(access_token)
+        except Exception:
+            resolved = None
+        user = getattr(resolved, "user", None) if resolved else None
+        if not user or not getattr(user, "id", None):
+            raise ValueError("This password reset link is invalid or has expired")
+
+        self.supabase.auth.admin.update_user_by_id(
+            str(user.id),
+            {"password": new_password},
+        )
+        return {"message": "Password updated successfully"}
 
     @with_retry
     def change_password(self, user_id: str, email: str, current_password: str, new_password: str) -> dict:
