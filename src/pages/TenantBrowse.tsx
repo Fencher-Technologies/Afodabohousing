@@ -8,6 +8,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Heart, MapPin, Home, DollarSign, Search, Star } from 'lucide-react';
 import { addBookmark, removeBookmark } from '@/services/bookmarks';
+import { apiGet } from '@/services/api';
 
 export default function TenantBrowse() {
   const { user, loading: authLoading } = useAuth();
@@ -39,12 +40,10 @@ export default function TenantBrowse() {
   }, []);
 
   const fetchData = async () => {
-    const API = import.meta.env.VITE_API_URL || '';
     try {
       const params = new URLSearchParams({ limit: '20', country: 'UG' });
       if (district !== '__all__') params.set('state', district);
-      const res = await fetch(`${API}/properties/public?${params}`);
-      const data = await res.json();
+      const data = await apiGet<{ items?: any[] }>(`/properties/public?${params}`);
       setProperties(data.items || []);
     } catch {
       const { data: props } = await supabase.from('properties').select('id,title,state,city,area,rent_amount,rent_period,bedrooms,bathrooms,images,amenities').eq('status', 'available').order('created_at', { ascending: false }).limit(20);

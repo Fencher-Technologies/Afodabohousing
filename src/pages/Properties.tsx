@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Search, SlidersHorizontal, MapPin } from 'lucide-react';
 import Footer from '@/components/Footer';
 import { usePropertyBookmarks } from '@/hooks/usePropertyBookmarks';
+import { apiGet } from '@/services/api';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -104,8 +105,9 @@ export default function PropertiesPage() {
     params.set('limit', '50');
 
     try {
-      const res = await fetch(`${API}/properties/public?${params}`);
-      const data = await res.json();
+      // apiGet attaches the session token so signed-in users also receive
+      // manager contact details (stripped for anonymous visitors).
+      const data = await apiGet<{ items?: any[]; total?: number }>(`/properties/public?${params}`);
       if (data.items) setProperties(data.items);
       if (data.total !== undefined) setTotal(data.total);
     } catch (e) {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, Bed, Bath, Sofa, Sparkles, Heart, Phone, Mail } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { isPropertyBoosted } from '@/services/property-boosts';
@@ -65,6 +65,7 @@ function PropertyCard({ property, index = 0, bookmarks, onToggleBookmark }: Prop
   const imageUrl = property.images?.[0] || fallbackImages[index % 3];
   const isBoosted = isPropertyBoosted(property);
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [bookmarked, setBookmarked] = useState(false);
   const [toggling, setToggling] = useState(false);
 
@@ -175,19 +176,33 @@ function PropertyCard({ property, index = 0, bookmarks, onToggleBookmark }: Prop
             </span>
           </div>
 
-          {/* Manager Contact */}
-          {(property.manager_phone || property.manager_email) && (
+          {/* Manager Contact — gated behind sign-in, consistent with PropertyDetail.
+              Guests always see the prompt (the API strips contacts for them);
+              signed-in users see the details when present. */}
+          {user ? (
+            (property.manager_phone || property.manager_email) && (
+              <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+                {property.manager_phone && (
+                  <a href={`tel:${property.manager_phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
+                    <Phone className="h-3 w-3" /> {property.manager_phone}
+                  </a>
+                )}
+                {property.manager_email && (
+                  <a href={`mailto:${property.manager_email}?subject=Inquiry: ${encodeURIComponent(property.title)}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors ml-auto">
+                    <Mail className="h-3 w-3" /> Email
+                  </a>
+                )}
+              </div>
+            )
+          ) : (
             <div className="flex gap-2 mt-3 pt-3 border-t border-border">
-              {property.manager_phone && (
-                <a href={`tel:${property.manager_phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
-                  <Phone className="h-3 w-3" /> {property.manager_phone}
-                </a>
-              )}
-              {property.manager_email && (
-                <a href={`mailto:${property.manager_email}?subject=Inquiry: ${encodeURIComponent(property.title)}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors ml-auto">
-                  <Mail className="h-3 w-3" /> Email
-                </a>
-              )}
+              <span
+                role="link"
+                onClick={e => { e.preventDefault(); e.stopPropagation(); navigate('/login'); }}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+              >
+                <Phone className="h-3 w-3" /> Sign in to view contacts
+              </span>
             </div>
           )}
         </div>

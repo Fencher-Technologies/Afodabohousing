@@ -12,8 +12,8 @@ import {
 import Footer from '@/components/Footer';
 import { Search, SlidersHorizontal, RotateCcw, Compass, MapPin } from 'lucide-react';
 import { usePropertyBookmarks } from '@/hooks/usePropertyBookmarks';
+import { apiGet } from '@/services/api';
 
-const API = import.meta.env.VITE_API_URL || '';
 
 const PROPERTY_TYPES = [
   { label: 'All Types', value: '' },
@@ -100,9 +100,7 @@ export default function GuestExplore() {
     params.set('limit', '50');
 
     try {
-      const res = await fetch(`${API}/properties/public?${params}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await apiGet<{ items?: any[] }>(`/properties/public?${params}`);
       setProperties(data.items ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');

@@ -160,7 +160,7 @@ const TESTIMONIALS = [
 ];
 
 const FALLBACK_LOCATIONS = ['Kampala', 'Wakiso', 'Entebbe', 'Jinja', 'Mbarara', 'Gulu', 'Mbale', 'Arua', 'Fort Portal', 'Masaka'];
-const MARQUEE_LOCATIONS = ['Luzira', 'Lira', 'Kampala', 'Masaka', 'Mbarara', 'Mbale', 'Gulu', 'Arua'];
+const MARQUEE_LOCATIONS = ['Luzira', 'Lira', 'Kampala', 'Masaka', 'Mbarara', 'Mbale', 'Gulu', 'Arua', 'Kigali', 'Dodoma', 'Kisumu', 'Nairobi'];
 
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -221,6 +221,18 @@ export default function HomePage() {
   };
 
   const fetchStats = async () => {
+    // Preferred: backend public-stats endpoint (service role → real totals
+    // even though RLS blocks anonymous counts on leases/profiles).
+    try {
+      const s = await apiGet<{ properties: number; tenancies: number; users: number; locations: number }>('/properties/public-stats');
+      setStats({
+        properties: s.properties || 0,
+        tenancies: s.tenancies || 0,
+        users: s.users || 0,
+        locations: s.locations || 0,
+      });
+      return;
+    } catch { /* fall through to direct Supabase counts */ }
     const [pRes, lRes, uRes, cityRes] = await Promise.all([
       supabase.from('properties').select('id', { count: 'exact', head: true }).eq('is_active', true),
       supabase.from('leases').select('id', { count: 'exact', head: true }).eq('status', 'active'),

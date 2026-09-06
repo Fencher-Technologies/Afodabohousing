@@ -1,6 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
 import logoImg from '@/assets/axis-lockup-white.png';
-import { Mail, Phone, MapPin, MessageCircle, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
+import { Mail, Phone, MapPin, MessageCircle, Facebook, Twitter, Instagram, Youtube, Smartphone, Apple } from 'lucide-react';
+
+const APP_LINKS = {
+  android: 'https://drive.google.com/drive/folders/1rWCINlslmwcj0sphOExgVSfg4i2dGZsq?usp=sharing',
+  ios: 'https://drive.google.com/drive/folders/14wuFtQkrOrRtoH2lr0D1QK3bnQL64VPq?usp=sharing',
+};
 
 const LINKS = {
   tenants: [
@@ -41,7 +46,7 @@ export default function Footer() {
   return (
     <footer className="bg-primary text-primary-foreground">
       <div className="container py-14">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-10">
 
           {/* Brand column */}
           <div className="lg:col-span-2">
@@ -130,6 +135,40 @@ export default function Footer() {
                 </li>
               ))}
             </ul>
+          </div>
+
+          {/* Get the App */}
+          <div>
+            <h4 className="font-display font-semibold text-primary-foreground mb-4 text-base">Get the App</h4>
+            <p className="text-primary-foreground/65 text-sm mb-4">
+              Manage your home on the go with the Axis mobile app.
+            </p>
+            <div className="space-y-2.5">
+              <a
+                href={APP_LINKS.android}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 rounded-lg border border-primary-foreground/20 bg-primary-foreground/10 px-3.5 py-2.5 hover:bg-gold hover:text-primary hover:border-gold transition-colors group"
+              >
+                <Smartphone className="h-6 w-6 shrink-0 text-gold-light group-hover:text-primary transition-colors" />
+                <span className="leading-tight">
+                  <span className="block text-[11px] uppercase tracking-wide text-primary-foreground/60 group-hover:text-primary/70 transition-colors">Download for</span>
+                  <span className="block text-sm font-semibold">Android</span>
+                </span>
+              </a>
+              <a
+                href={APP_LINKS.ios}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 rounded-lg border border-primary-foreground/20 bg-primary-foreground/10 px-3.5 py-2.5 hover:bg-gold hover:text-primary hover:border-gold transition-colors group"
+              >
+                <Apple className="h-6 w-6 shrink-0 text-gold-light group-hover:text-primary transition-colors" />
+                <span className="leading-tight">
+                  <span className="block text-[11px] uppercase tracking-wide text-primary-foreground/60 group-hover:text-primary/70 transition-colors">Download for</span>
+                  <span className="block text-sm font-semibold">iOS</span>
+                </span>
+              </a>
+            </div>
           </div>
         </div>
 

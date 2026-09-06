@@ -10,6 +10,7 @@ from supabase import Client
 from dependencies import (
     CurrentUser,
     get_current_user,
+    get_optional_user,
     get_service_client,
     get_supabase_client,
     require_active_subscription,
@@ -62,6 +63,17 @@ def list_properties(
     )
 
 
+def _strip_manager_contacts(rows: list[dict]) -> None:
+    """Remove direct manager contact details for anonymous visitors.
+
+    Contacts stay visible to signed-in users only — the UI gates them behind
+    sign-in, so the API must not hand them out to guests either.
+    """
+    for row in rows:
+        row.pop("manager_phone", None)
+        row.pop("manager_email", None)
+
+
 @router.get("/public", response_model=PaginatedResponse)
 def list_public_properties(
     response: Response,
@@ -74,8 +86,12 @@ def list_public_properties(
     max_price: float | None = Query(None, ge=0),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50),
+    current_user: CurrentUser | None = Depends(get_optional_user),
 ) -> PaginatedResponse:
-    response.headers["Cache-Control"] = "public, max-age=30, stale-while-revalidate=60"
+    # Authenticated responses include manager contacts — do not publicly cache them.
+    response.headers["Cache-Control"] = (
+        "private, no-cache" if current_user else "public, max-age=30, stale-while-revalidate=60"
+    )
     svc = PropertyService(get_service_client())
     try:
         properties_data, total = svc.get_public_listings(
@@ -90,11 +106,61 @@ def list_public_properties(
         if "Temporary failure in name resolution" in msg or "ConnectError" in type(e).__name__ or "ReadError" in type(e).__name__:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database temporarily unavailable, please retry")
         raise
+    if current_user is None:
+        _strip_manager_contacts(properties_data)
     return PaginatedResponse(
         items=[PropertyResponse(**p) for p in properties_data],
         total=total,
         skip=skip,
         limit=limit,
+    )
+
+
+class PublicStatsResponse(BaseModel):
+    properties: int
+    tenancies: int
+    users: int
+    locations: int
+
+
+@router.get("/public-stats", response_model=PublicStatsResponse)
+def get_public_stats(response: Response) -> PublicStatsResponse:
+    """Platform-wide counters for the public homepage.
+
+    Uses the service role so the numbers are real totals regardless of
+    row-level security (anonymous visitors cannot count leases/profiles).
+    NOTE: must stay declared before /{property_id} so "public-stats" is not
+    parsed as a UUID path parameter.
+    """
+    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
+    sb = get_service_client()
+    try:
+        p_res = sb.table("properties").select("id", count="exact").eq("is_active", True).limit(1).execute()
+        l_res = sb.table("leases").select("id", count="exact").eq("status", "active").limit(1).execute()
+        u_res = sb.table("profiles").select("id", count="exact").limit(1).execute()
+        city_res = (
+            sb.table("properties")
+            .select("city")
+            .eq("is_active", True)
+            .not_.is_("city", "null")
+            .limit(2000)
+            .execute()
+        )
+    except Exception as e:
+        msg = str(e)
+        if "Temporary failure in name resolution" in msg or "ConnectError" in type(e).__name__ or "ReadError" in type(e).__name__:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database temporarily unavailable, please retry")
+        raise
+    locations = len({
+        (row.get("city") or "").strip()
+        for row in (city_res.data or [])
+        if (row.get("city") or "").strip()
+    })
+    return PublicStatsResponse(
+        properties=p_res.count or 0,
+        tenancies=l_res.count or 0,
+        users=u_res.count or 0,
+        locations=locations,
     )
 
 
@@ -116,7 +182,12 @@ def get_property(
 @router.get("/public/{property_id}", response_model=PropertyResponse)
 def get_public_property(
     property_id: UUID,
+    response: Response,
+    current_user: CurrentUser | None = Depends(get_optional_user),
 ) -> PropertyResponse:
+    response.headers["Cache-Control"] = (
+        "private, no-cache" if current_user else "public, max-age=30, stale-while-revalidate=60"
+    )
     svc = PropertyService(get_service_client())
     property_data = svc.get_by_id_public(property_id)
     if not property_data:
@@ -124,6 +195,8 @@ def get_public_property(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Property not found or inactive",
         )
+    if current_user is None:
+        _strip_manager_contacts([property_data])
     return PropertyResponse(**property_data)
 
 

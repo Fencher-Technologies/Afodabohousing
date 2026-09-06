@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiGet } from '@/services/api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import VoiceRecorder from '@/components/VoiceRecorder';
@@ -97,18 +98,17 @@ export default function PropertyDetailPage() {
     if (!id) return;
     (async () => {
       try {
-        const res = await fetch(`${API}/properties/public/${id}`);
-        if (res.ok) {
-          const prop = await res.json();
-          setProperty(prop);
-          if (!prop.state && prop.region_id) {
-            try {
-              const r = await fetch(`${API}/regions/regions?active_only=true`);
-              const all = await r.json();
-              const found = (all as any[]).find(x => x.id === prop.region_id);
-              if (found) setRegionName(found.name);
-            } catch {}
-          }
+        // apiGet attaches the session token so signed-in users also receive
+        // manager contact details (stripped for anonymous visitors).
+        const prop = await apiGet<any>(`/properties/public/${id}`);
+        setProperty(prop);
+        if (!prop.state && prop.region_id) {
+          try {
+            const r = await fetch(`${API}/regions/regions?active_only=true`);
+            const all = await r.json();
+            const found = (all as any[]).find(x => x.id === prop.region_id);
+            if (found) setRegionName(found.name);
+          } catch {}
         }
       } catch (e) {
         console.error('Failed to fetch property:', e);
