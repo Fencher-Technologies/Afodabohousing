@@ -238,9 +238,9 @@ const contactContent = {
   title: "Contact Support",
   body: [
     "We're here to help! Reach us through any of these channels:",
-    "Email: support@axishousing.com",
-    "Phone: +256 700 000 000",
-    "WhatsApp: +256 700 000 000",
+    "Email: info@axishousings.com",
+    "Phone: +256 776 191 117",
+    "WhatsApp: +256 789 590 007",
     "Hours: Monday–Friday, 9am–6pm EAT",
     "For urgent issues, please use WhatsApp for fastest response.",
   ],

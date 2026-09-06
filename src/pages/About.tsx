@@ -69,7 +69,7 @@ export default function AboutPage() {
             </ul>
           </div>
           <div className="bg-card border border-border rounded-3xl p-8 shadow-card">
-            <img src={logoImg} alt="Axis Housing" className="h-16 w-auto mx-auto mb-6" />
+            <img src={logoImg} alt="Axis Housing" className="h-20 w-auto mx-auto mb-6" />
             <div className="grid grid-cols-2 gap-5">
               {[
                 { val: 'Global', label: 'Reach' },

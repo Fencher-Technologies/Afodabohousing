@@ -59,7 +59,7 @@ export default function Navbar() {
 
         {/* Logo */}
         <Link to="/" className="flex items-center shrink-0">
-            <img src={logoImg} alt="Axis Housing" className="h-9 w-auto" />
+            <img src={logoImg} alt="Axis Housing" className="h-11 w-auto" />
         </Link>
 
         {/* Desktop Nav */}

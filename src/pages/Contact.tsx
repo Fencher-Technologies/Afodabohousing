@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Phone, MapPin, Clock, Send, MessageSquare, HeadphonesIcon } from 'lucide-react';
+import { Mail, Phone, MapPin, Clock, Send, MessageSquare, MessageCircle, HeadphonesIcon } from 'lucide-react';
 import PageHero from '@/components/PageHero';
 import showcaseInterior from '@/assets/showcase-interior.jpg';
 import property2 from '@/assets/property-2.jpg';
@@ -31,7 +31,7 @@ const FAQS = [
   },
   {
     q: 'How do I get a tenancy agreement?',
-    a: 'Once your house manager creates your tenancy on the platform, a digital agreement is generated automatically. Contact info@axishousing.com to request a printed copy.',
+    a: 'Once your house manager creates your tenancy on the platform, a digital agreement is generated automatically. Contact info@axishousings.com to request a printed copy.',
   },
 ];
 
@@ -77,16 +77,23 @@ export default function ContactPage() {
                 {
                   icon: <Mail className="h-5 w-5" />,
                   label: 'Email',
-                  value: 'info@axishousing.com',
-                  href: 'mailto:info@axishousing.com',
+                  value: 'info@axishousings.com',
+                  href: 'mailto:info@axishousings.com',
                   sub: 'We respond within 24 hours',
                 },
                 {
                   icon: <Phone className="h-5 w-5" />,
                   label: 'Phone',
-                  value: '+256 700 000 000',
-                  href: 'tel:+256700000000',
+                  value: '+256 776 191 117',
+                  href: 'tel:+256776191117',
                   sub: 'Monday to Friday, 8am to 6pm EAT',
+                },
+                {
+                  icon: <MessageCircle className="h-5 w-5" />,
+                  label: 'WhatsApp',
+                  value: '+256 789 590 007',
+                  href: 'https://wa.me/256789590007',
+                  sub: 'Fastest response for urgent issues',
                 },
                 {
                   icon: <MapPin className="h-5 w-5" />,
@@ -244,8 +251,8 @@ export default function ContactPage() {
 
                 <p className="text-xs text-muted-foreground text-center">
                   Or email us directly at{' '}
-                  <a href="mailto:info@axishousing.com" className="text-primary font-semibold hover:underline">
-                    info@axishousing.com
+                  <a href="mailto:info@axishousings.com" className="text-primary font-semibold hover:underline">
+                    info@axishousings.com
                   </a>
                 </p>
               </form>

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import logoImg from '@/assets/axis-lockup-white.png';
-import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
+import { Mail, Phone, MapPin, MessageCircle, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 
 const LINKS = {
   tenants: [
@@ -46,19 +46,23 @@ export default function Footer() {
           {/* Brand column */}
           <div className="lg:col-span-2">
             <ScrollLink to="/" className="inline-block mb-5">
-              <img src={logoImg} alt="Axis Housing" className="h-12 w-auto" />
+              <img src={logoImg} alt="Axis Housing" className="h-16 w-auto" />
             </ScrollLink>
             <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6 max-w-xs">
               Connecting tenants with verified house managers worldwide. Find your perfect home, generate agreements, and manage rent in one platform.
             </p>
             <div className="space-y-2.5 text-sm">
-              <a href="mailto:info@axishousing.com" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <a href="mailto:info@axishousings.com" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <Mail className="h-4 w-4 text-gold-light shrink-0" />
-                info@axishousing.com
+                info@axishousings.com
               </a>
-              <a href="tel:+256788100145" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <a href="tel:+256776191117" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <Phone className="h-4 w-4 text-gold-light shrink-0" />
-                +256 788 100 145
+                +256 776 191 117
+              </a>
+              <a href="https://wa.me/256789590007" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+                <MessageCircle className="h-4 w-4 text-gold-light shrink-0" />
+                WhatsApp: +256 789 590 007
               </a>
               <div className="flex items-center gap-2.5 text-primary-foreground/70">
                 <MapPin className="h-4 w-4 text-gold-light shrink-0" />
@@ -145,8 +149,8 @@ export default function Footer() {
             <span>·</span>
             <ScrollLink to="/terms" className="hover:text-primary-foreground transition-colors">Terms</ScrollLink>
             <span>·</span>
-              <a href="mailto:info@axishousing.com" className="hover:text-primary-foreground transition-colors">
-              info@axishousing.com
+              <a href="mailto:info@axishousings.com" className="hover:text-primary-foreground transition-colors">
+              info@axishousings.com
             </a>
           </div>
         </div>

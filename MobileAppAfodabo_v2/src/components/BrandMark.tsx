@@ -8,8 +8,8 @@ import { StyleProp } from "react-native";
 // screen titles and header text, so it is hidden from screen readers.
 
 const SIZES = {
-  sm: { width: 84, height: 26 },
-  md: { width: 108, height: 34 },
+  sm: { width: 96, height: 30 },
+  md: { width: 124, height: 38 },
 } as const;
 
 const SOURCES = {

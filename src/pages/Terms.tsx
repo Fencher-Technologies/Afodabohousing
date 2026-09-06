@@ -12,7 +12,7 @@ const SECTIONS = [
   },
   {
     title: '2. Account Registration',
-    content: `You must provide accurate, complete and current information when creating an account. You are responsible for maintaining the confidentiality of your login credentials and for all activity under your account. You must notify us immediately at info@axishousing.com of any unauthorised use of your account.
+    content: `You must provide accurate, complete and current information when creating an account. You are responsible for maintaining the confidentiality of your login credentials and for all activity under your account. You must notify us immediately at info@axishousings.com of any unauthorised use of your account.
 
 You must be at least 18 years old to create an account. By registering, you represent that you meet this age requirement.`,
   },
@@ -86,7 +86,7 @@ Where negotiation fails, the dispute shall be referred to alternative dispute re
   },
   {
     title: '16. Contact',
-    content: `For questions about these Terms of Service, contact us at info@axishousing.com or write to ECOSOPAT CO LTD, Kampala, Uganda.`,
+    content: `For questions about these Terms of Service, contact us at info@axishousings.com or write to ECOSOPAT CO LTD, Kampala, Uganda.`,
   },
 ];
 

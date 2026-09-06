@@ -20,7 +20,7 @@ We do not sell your personal data to third parties.`,
     title: '3. SMS Communications',
     content: `By providing your phone number, you consent to receive SMS notifications related to your account activity, including welcome messages upon registration, rent reminders when your payment due date approaches, payment confirmation or rejection notices, and important account alerts.
 
-You may opt out of SMS notifications by contacting info@axishousing.com.`,
+You may opt out of SMS notifications by contacting info@axishousings.com.`,
   },
   {
     title: '4. Payment Security',
@@ -32,7 +32,7 @@ You may opt out of SMS notifications by contacting info@axishousing.com.`,
   },
   {
     title: '6. Data Retention',
-    content: `We retain your account data for as long as your account is active. Payment records and tenancy agreements are retained for a minimum of 7 years in compliance with Ugandan financial regulations. You may request deletion of your account by contacting info@axishousing.com.`,
+    content: `We retain your account data for as long as your account is active. Payment records and tenancy agreements are retained for a minimum of 7 years in compliance with Ugandan financial regulations. You may request deletion of your account by contacting info@axishousings.com.`,
   },
   {
     title: '7. Security',
@@ -40,7 +40,7 @@ You may opt out of SMS notifications by contacting info@axishousing.com.`,
   },
   {
     title: '8. Your Rights',
-    content: `You have the right to access, correct or request deletion of your personal data. To exercise these rights, contact info@axishousing.com with your request. We will respond within 14 business days.`,
+    content: `You have the right to access, correct or request deletion of your personal data. To exercise these rights, contact info@axishousings.com with your request. We will respond within 14 business days.`,
   },
   {
     title: '9. Changes to This Policy',
@@ -48,7 +48,7 @@ You may opt out of SMS notifications by contacting info@axishousing.com.`,
   },
   {
     title: '10. Contact',
-    content: `For any privacy-related questions or concerns, contact our Data Officer at info@axishousing.com or write to ECOSOPAT CO LTD, Kampala, Uganda.`,
+    content: `For any privacy-related questions or concerns, contact our Data Officer at info@axishousings.com or write to ECOSOPAT CO LTD, Kampala, Uganda.`,
   },
 ];
 
@@ -83,8 +83,8 @@ export default function PrivacyPage() {
         <div className="mt-8 bg-muted/60 border border-border rounded-2xl p-6 text-center">
           <p className="text-sm text-muted-foreground">
             Questions about this policy? Contact us at{' '}
-            <a href="mailto:info@axishousing.com" className="text-primary font-semibold hover:underline">
-              info@axishousing.com
+            <a href="mailto:info@axishousings.com" className="text-primary font-semibold hover:underline">
+              info@axishousings.com
             </a>
           </p>
         </div>
