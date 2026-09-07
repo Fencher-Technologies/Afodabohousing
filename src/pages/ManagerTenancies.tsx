@@ -89,7 +89,7 @@ export default function ManagerTenancies() {
       <div className="max-w-6xl mx-auto p-4 lg:p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-bold text-2xl">Tenancies</h1>
+            <h1 className="font-bold text-2xl">Tenants</h1>
             <p className="text-sm text-muted-foreground">{leases.length} total lease{leases.length !== 1 ? 's' : ''}</p>
           </div>
           <Button onClick={() => navigate('/dashboard/manager/tenancies/new')} className="gap-2 rounded-lg">
@@ -121,7 +121,7 @@ export default function ManagerTenancies() {
               <h3 className="text-lg font-bold">No tenancies yet</h3>
               <p className="text-sm text-muted-foreground mt-1">Create your first tenancy to get started.</p>
               <Button onClick={() => navigate('/dashboard/manager/tenancies/new')} className="mt-4 gap-2 rounded-lg">
-                <Plus className="h-4 w-4" /> Create Tenancy
+                <Plus className="h-4 w-4" /> Add Tenant
               </Button>
             </div>
           ) : (

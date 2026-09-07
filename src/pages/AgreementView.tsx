@@ -4,8 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import AgreementRenderer from '@/components/AgreementRenderer';
-import { ArrowLeft, FileText, Download, CheckCircle, Clock, ThumbsUp, ThumbsDown, FileUp, History } from 'lucide-react';
+import { ArrowLeft, FileText, Download, CheckCircle, Clock, ThumbsUp, ThumbsDown, FileUp, History, MessageSquareWarning } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,6 +24,9 @@ export default function AgreementView() {
   const [agreementContent, setAgreementContent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [consenting, setConsenting] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejecting, setRejecting] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -40,6 +47,46 @@ export default function AgreementView() {
       if (contentRes.ok) setAgreementContent(await contentRes.json());
     } catch { }
     setLoading(false);
+  };
+
+  /**
+   * Decline the agreement with a comment for the manager.
+   *
+   * "Disagree" previously POSTed an empty body to /consent, which requires
+   * signed_name, so declining failed validation and nothing was recorded.
+   * This uses the /reject endpoint, matching the mobile app.
+   */
+  const handleReject = async () => {
+    const reason = rejectReason.trim();
+    if (!leaseId || !reason) {
+      toast({ title: 'Add a comment', description: 'Please describe what you would like changed.', variant: 'destructive' });
+      return;
+    }
+    setRejecting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch(`${API_BASE}/agreements/${leaseId}/reject`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      if (res.ok) {
+        setRejectOpen(false);
+        setRejectReason('');
+        toast({
+          title: 'Changes requested',
+          description: 'Your comment has been sent to the property manager.',
+        });
+        fetchAgreement();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: 'Could not submit', description: err.detail || 'Please try again.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Network error', variant: 'destructive' });
+    }
+    setRejecting(false);
   };
 
   const handleConsent = async (agree: boolean) => {
@@ -74,6 +121,10 @@ export default function AgreementView() {
   );
 
   const doc = agreementState?.current_document;
+  const rejectionReason =
+    agreementState?.current_document?.rejection_reason ||
+    agreementContent?.signatures?.tenant?.rejection_reason ||
+    null;
   const tenantConsented = agreementState?.tenant?.consented;
   const managerConsented = agreementState?.manager?.consented;
   const fullySigned = tenantConsented && managerConsented;
@@ -135,6 +186,21 @@ export default function AgreementView() {
                 </div>
               </div>
             </div>
+
+            {rejectionReason && (
+              <div className="bg-card border border-border border-l-4 border-l-destructive rounded-xl p-6 shadow-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <MessageSquareWarning className="h-5 w-5 text-destructive" />
+                  <h3 className="font-bold text-sm uppercase tracking-wider text-destructive">
+                    Changes requested by tenant
+                  </h3>
+                </div>
+                <p className="text-sm text-foreground mb-2">{rejectionReason}</p>
+                <p className="text-xs text-muted-foreground">
+                  Edit the agreement to address this. Both parties will need to sign again.
+                </p>
+              </div>
+            )}
 
             <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
               <h3 className="font-bold text-sm mb-4 uppercase tracking-wider text-accent">Signature Status</h3>
@@ -213,9 +279,9 @@ export default function AgreementView() {
                     className="flex-1 h-12 gap-2 rounded-xl font-semibold bg-success hover:bg-success/90 text-success-foreground">
                     <ThumbsUp className="h-5 w-5" /> {consenting ? 'Processing…' : 'I Agree'}
                   </Button>
-                  <Button onClick={() => handleConsent(false)} disabled={consenting}
+                  <Button onClick={() => setRejectOpen(true)} disabled={consenting}
                     variant="outline" className="flex-1 h-12 gap-2 rounded-xl font-semibold border-destructive text-destructive hover:bg-muted">
-                    <ThumbsDown className="h-5 w-5" /> Disagree
+                    <ThumbsDown className="h-5 w-5" /> Request Changes
                   </Button>
                 </div>
               </div>
@@ -229,6 +295,35 @@ export default function AgreementView() {
           </div>
         )}
       </div>
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request changes</DialogTitle>
+            <DialogDescription>
+              Tell your property manager what you would like adjusted. They will see
+              this comment and can revise the agreement.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="e.g. The notice period in clause 5 should be two months, not one."
+            rows={5}
+            maxLength={2000}
+            disabled={rejecting}
+          />
+          <p className="text-xs text-muted-foreground text-right">{rejectReason.length}/2000</p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRejectOpen(false)} disabled={rejecting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleReject} disabled={rejecting || !rejectReason.trim()}>
+              {rejecting ? 'Sending…' : 'Send to manager'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

@@ -245,8 +245,15 @@ class TestMaintenance:
         assert resp.status_code == 201
 
     def test_update_request(self, client: TestClient):
-        resp = client.patch(f"/maintenance/{PID_MAINT}", json={"status": "in_progress"})
+        # status is now a defined set (open -> scheduled -> completed, with
+        # cancelled as a terminal exit); "in_progress" was never one of them
+        # and no stored row uses it.
+        resp = client.patch(f"/maintenance/{PID_MAINT}", json={"status": "scheduled"})
         assert resp.status_code == 200
+
+    def test_update_request_rejects_unknown_status(self, client: TestClient):
+        resp = client.patch(f"/maintenance/{PID_MAINT}", json={"status": "in_progress"})
+        assert resp.status_code == 422
 
     def test_delete_request(self, client: TestClient):
         resp = client.delete(f"/maintenance/{PID_MAINT}")

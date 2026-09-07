@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { updateLease } from '@/lib/leases';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -42,12 +43,16 @@ export default function ManagerEditTenancy() {
 
   const handleSave = async (data: TenancyFormData) => {
     if (!id) return;
-    const { error } = await supabase.from('leases').update({
-      start_date: data.start_date, end_date: data.end_date,
+    // Through the API. Note the column is security_deposit, not rent_deposit:
+    // the direct write was sending a field that does not exist on the table.
+    const { ok, detail } = await updateLease(id!, {
+      start_date: data.start_date,
+      end_date: data.end_date,
       monthly_rent: parseFloat(data.monthly_rent),
-      rent_deposit: data.rent_deposit ? parseFloat(data.rent_deposit) : null,
+      security_deposit: data.rent_deposit ? parseFloat(data.rent_deposit) : null,
       status: data.status,
-    }).eq('id', id);
+    });
+    const error = ok ? null : { message: detail || 'Could not update the tenancy.' };
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Tenancy updated' });
     navigate(`/dashboard/manager/tenancies/${id}`);

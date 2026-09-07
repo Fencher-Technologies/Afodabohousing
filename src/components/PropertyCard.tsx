@@ -16,6 +16,8 @@ interface Property {
   sitting_rooms: number; state: string | null; city: string | null;
   area: string | null; images: string[] | null; rent_currency?: string | null;
   manager_phone?: string | null; manager_email?: string | null;
+  /** Summary of the property's units, for showing a price range. */
+  unit_count?: number; unit_rent_min?: number | null; unit_rent_max?: number | null;
 }
 
 const fallbackImages = [prop1, prop2, prop3];
@@ -51,6 +53,22 @@ function formatCompact(amount: number, currency?: string | null) {
   if (n >= 1000000) return `${formatCurrency(n / 1000000, currency)}M`;
   if (n >= 1000) return `${formatCurrency(n / 1000, currency)}K`;
   return formatCurrency(n, currency);
+}
+
+/**
+ * A property can hold several units at different rents, so the card shows the
+ * range across them rather than the property-level rent, which would
+ * misrepresent a multi-unit building. Falls back to the single rent when the
+ * property has no units.
+ */
+function formatListingPrice(property: Property) {
+  const { unit_rent_min: min, unit_rent_max: max, rent_currency: currency } = property;
+  if (min != null && max != null) {
+    return Number(min) === Number(max)
+      ? formatCompact(Number(min), currency)
+      : `${formatCompact(Number(min), currency)} – ${formatCompact(Number(max), currency)}`;
+  }
+  return formatCompact(property.rent_amount, currency);
 }
 
 interface PropertyCardProps {
@@ -165,7 +183,7 @@ function PropertyCard({ property, index = 0, bookmarks, onToggleBookmark }: Prop
           <div className="flex items-end justify-between border-t border-border pt-3">
             <div>
               <span className="text-xl font-bold text-primary font-display">
-                {formatCompact(property.rent_amount, property.rent_currency)}
+                {formatListingPrice(property)}
               </span>
               <span className="text-muted-foreground text-sm ml-1">
                 {periodLabels[property.rent_period] || ''}

@@ -7,9 +7,14 @@ import { StyleProp } from "react-native";
 // consistent. The logo is decorative: the brand is already announced by
 // screen titles and header text, so it is hidden from screen readers.
 
+// The lockup artwork is 1524x484, i.e. 3.149:1. These boxes match that ratio
+// exactly — the previous values (96x30 = 3.20, 124x38 = 3.26) were slightly
+// wide, so contentFit="contain" letterboxed the logo and it sat smaller than
+// its box with uneven padding. `md` is now 44px tall to match the web
+// navbar's h-11, so the brand reads at the same size on both platforms.
 const SIZES = {
-  sm: { width: 96, height: 30 },
-  md: { width: 124, height: 38 },
+  sm: { width: 107, height: 34 },
+  md: { width: 139, height: 44 },
 } as const;
 
 const SOURCES = {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { deletePayment } from '@/lib/payments';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -56,7 +57,8 @@ export default function ManagerPaymentHistory() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
-    const { error } = await supabase.from('payments').delete().eq('id', deleteTarget.id);
+    const deleted = await deletePayment(deleteTarget.id);
+    const error = deleted ? null : { message: 'Could not delete the payment.' };
     setDeleting(false);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });

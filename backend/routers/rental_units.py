@@ -74,12 +74,15 @@ def create_unit(
     _subscription_guard: CurrentUser = Depends(require_active_subscription),
     supabase: Client = Depends(get_supabase_client),
 ) -> RentalUnitResponse:
-    prop = supabase.table("properties").select("owner_id").eq("id", str(data.property_id)).execute()
+    prop = supabase.table("properties").select("owner_id, rent_currency").eq("id", str(data.property_id)).execute()
     if not prop.data or str(prop.data[0]["owner_id"]) != current_user.id:
         raise HTTPException(status_code=403, detail="You don't own this property")
 
     payload = data.model_dump(exclude_none=True, mode="json")
     payload["owner_id"] = current_user.id
+    # Inherit the property's currency unless one was given explicitly.
+    if not payload.get("rent_currency"):
+        payload["rent_currency"] = prop.data[0].get("rent_currency") or "UGX"
     result = supabase.table("rental_units").insert(payload).execute()
     return RentalUnitResponse(**result.data[0])
 

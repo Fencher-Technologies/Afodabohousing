@@ -1,9 +1,9 @@
 /**
- * Manager Tab Layout — 5 tabs: Home, Properties, Tenants, Reports, Account.
+ * Manager Tab Layout — 6 tabs: Home, Properties, Browse, Tenants, Reports, Account.
  */
 
 import { Tabs } from "expo-router";
-import { FileText, Home, Building2, Users, Settings } from "lucide-react-native";
+import { FileText, Home, Building2, Users, Settings, Search } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors, FontSize, FontWeight } from "@/constants/theme";
@@ -39,6 +39,13 @@ export default function ManagerTabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => <Home size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="browse"
+        options={{
+          title: "Browse",
+          tabBarIcon: ({ color }) => <Search size={24} color={color} />,
         }}
       />
       <Tabs.Screen

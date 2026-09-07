@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { createMaintenanceRequest } from '@/lib/maintenance';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -321,17 +322,19 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
       }
     }
 
-    const { error } = await supabase.from('maintenance_requests').insert({
+    // Through the API, not straight to the table: the backend scopes the
+    // request to a property you actually rent and notifies the manager.
+    // A direct insert did neither, so managers were never told.
+    const ok = await createMaintenanceRequest({
       property_id: activeLease.property_id,
       tenant_id: tenantRecord.id,
       title: maintenanceForm.title,
       description: maintenanceForm.description,
       priority: maintenanceForm.priority,
-      status: 'open',
       photo_url: photoURL,
     });
     setSendingMaintenance(false);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    if (!ok) { toast({ title: 'Error', description: 'Could not send the request.', variant: 'destructive' }); return; }
     toast({ title: 'Request sent!' });
     setMaintenanceDialogOpen(false);
     setMaintenanceForm({ title: '', description: '', priority: 'medium' });

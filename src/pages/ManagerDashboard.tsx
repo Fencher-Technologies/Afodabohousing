@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { updateMaintenanceStatus } from '@/lib/maintenance';
 import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
@@ -562,7 +563,7 @@ export default function ManagerDashboard() {
                       <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                         <Users className="h-5 w-5 text-primary" />
                       </div>
-                      <span className="text-xs font-semibold text-foreground text-center">Create Tenancy</span>
+                      <span className="text-xs font-semibold text-foreground text-center">Add Tenant</span>
                     </button>
                     <button onClick={() => setPropDialogOpen(true)}
                       className="flex flex-col items-center gap-2 bg-card border border-border rounded-2xl p-4 hover:border-border transition-colors">
@@ -695,7 +696,7 @@ export default function ManagerDashboard() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-foreground truncate">{p.title}</p>
-                              <p className="text-xs text-muted-foreground">{p.state || (p as any).district || p.city || '—'} · UGX {(p.rent_amount || 0).toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">{p.state || (p as any).district || p.city || '—'} · {(p as any).rent_currency || 'UGX'} {(p.rent_amount || 0).toLocaleString()}</p>
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize shrink-0 ${statusBadge(p.status)}`}>{p.status}</span>
                             {p.is_boosted && (
@@ -813,7 +814,7 @@ export default function ManagerDashboard() {
                               </td>
                               <td className="py-3.5 px-4 text-muted-foreground">{p.state || (p as any).district || p.city || '—'}{p.area ? ` · ${p.area}` : ''}</td>
                               <td className="py-3.5 px-4">
-                                  <span className="font-bold text-foreground">UGX {(p.rent_amount || 0).toLocaleString()}</span>
+                                  <span className="font-bold text-foreground">{(p as any).rent_currency || 'UGX'} {(p.rent_amount || 0).toLocaleString()}</span>
                                 <span className="text-xs text-muted-foreground ml-1 capitalize">/{p.rent_period.slice(0, 2)}</span>
                               </td>
                               <td className="py-3.5 px-4">
@@ -903,7 +904,7 @@ export default function ManagerDashboard() {
                                 <span className="text-sm text-foreground">{t.property_title || '-'}</span>
                               </td>
                               <td className="py-3.5 px-4">
-                                <span className="font-bold text-foreground">UGX {(t.monthly_rent || 0).toLocaleString()}</span>
+                                <span className="font-bold text-foreground">{(t as any).currency || 'UGX'} {(t.monthly_rent || 0).toLocaleString()}</span>
                               </td>
                               <td className="py-3.5 px-4">
                                 <div className="text-sm text-foreground">{format(new Date(t.end_date), 'MMM dd, yyyy')}</div>
@@ -1030,7 +1031,7 @@ export default function ManagerDashboard() {
                                 <span className="font-semibold text-foreground">{p.tenant_name || 'Unknown'}</span>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 font-bold text-foreground">UGX {(p.amount || 0).toLocaleString()}</td>
+                            <td className="py-3.5 px-4 font-bold text-foreground">{(p as any).currency || 'UGX'} {(p.amount || 0).toLocaleString()}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{p.period_start} – {p.period_end}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs">{format(new Date(p.created_at), 'MMM dd, yyyy')}</td>
                             <td className="py-3.5 px-4 text-muted-foreground text-xs max-w-[160px] truncate">{p.notes || '—'}</td>
@@ -1068,7 +1069,7 @@ export default function ManagerDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-display font-bold text-xl">Maintenance Requests</h2>
-                    <p className="text-sm text-muted-foreground">{maintenanceReqs.filter(r => r.status === 'open' || r.status === 'in_progress').length} open · {maintenanceReqs.filter(r => r.status === 'resolved' || r.status === 'completed').length} resolved</p>
+                    <p className="text-sm text-muted-foreground">{maintenanceReqs.filter(r => r.status === 'open').length} open · {maintenanceReqs.filter(r => r.status === 'scheduled').length} scheduled · {maintenanceReqs.filter(r => r.status === 'completed').length} completed</p>
                   </div>
                 </div>
                 {maintenanceReqs.length === 0 ? (
@@ -1101,7 +1102,7 @@ export default function ManagerDashboard() {
                             </div>
                             <div className="flex flex-col items-end gap-2 shrink-0">
                               <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusBadge(r.status === 'completed' ? 'confirmed' : r.status)}`}>
-                                {r.status === 'completed' ? 'Resolved' : r.status === 'in_progress' ? 'In progress' : r.status}
+                                {r.status}
                               </span>
                               <div className="flex gap-1.5">
                                 {r.status === 'open' && (
@@ -1109,20 +1110,26 @@ export default function ManagerDashboard() {
                                     disabled={sendingAction === `start-${r.id}`}
                                     onClick={async () => {
                                       setSendingAction(`start-${r.id}`);
-                                      await supabase.from('maintenance_requests').update({ status: 'in_progress' }).eq('id', r.id);
-                                      toast({ title: 'Request marked in progress' });
+                                      // Through the API, not straight to the
+                                      // table: the backend enforces the
+                                      // open -> scheduled -> completed set and
+                                      // notifies the tenant. Writing directly
+                                      // skipped both and stored "in_progress",
+                                      // which is not a valid status.
+                                      await updateMaintenanceStatus(r.id, 'scheduled');
+                                      toast({ title: 'Request scheduled' });
                                       setSendingAction(''); fetchData();
                                     }}>
-                                    <Clock className="h-3 w-3" /> Start
+                                    <Clock className="h-3 w-3" /> Schedule
                                   </Button>
                                 )}
-                                {(r.status === 'open' || r.status === 'in_progress') && (
+                                {(r.status === 'open' || r.status === 'scheduled') && (
                                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
                                     disabled={sendingAction === `done-${r.id}`}
                                     onClick={async () => {
                                       setSendingAction(`done-${r.id}`);
-                                      await supabase.from('maintenance_requests').update({ status: 'completed', completed_date: new Date().toISOString().split('T')[0] }).eq('id', r.id);
-                                      toast({ title: 'Request resolved' });
+                                      await updateMaintenanceStatus(r.id, 'completed');
+                                      toast({ title: 'Request completed' });
                                       setSendingAction(''); fetchData();
                                     }}>
                                     <CheckCircle className="h-3 w-3" /> Resolve

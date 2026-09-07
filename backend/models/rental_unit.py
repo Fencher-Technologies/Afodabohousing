@@ -20,7 +20,10 @@ class RentalUnit(BaseModel):
     sitting_rooms: int = 0
     kitchens: int = 1
     rent_amount: Decimal
-    rent_currency: str = "USD"
+    # Left unset so the unit inherits its property's currency; the property
+    # default is UGX, and a unit priced in a different currency from the
+    # building it sits in is almost always a mistake.
+    rent_currency: str | None = None
     status: RentalUnitStatus = "available"
     description: str | None = None
     amenities: list[str] | None = None
@@ -37,7 +40,10 @@ class RentalUnitCreate(BaseModel):
     sitting_rooms: int = 1
     kitchens: int = 1
     rent_amount: Decimal
-    rent_currency: str = "USD"
+    # Left unset so the unit inherits its property's currency; the property
+    # default is UGX, and a unit priced in a different currency from the
+    # building it sits in is almost always a mistake.
+    rent_currency: str | None = None
     status: RentalUnitStatus = "available"
     description: str | None = None
     amenities: list[str] | None = None

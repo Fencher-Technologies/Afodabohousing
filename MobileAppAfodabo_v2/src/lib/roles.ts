@@ -31,13 +31,11 @@ export function toAppRole(backendRole: string | null | undefined): UserRole {
     case "landlord":
       return "manager";
 
-    // TODO: super admins currently share the manager experience because the
-    // app has no dedicated admin surface. They are *not* guests — routing them
-    // to /guest/explore left them with no way to manage anything. Revisit when
-    // an admin area exists.
+    // The app now has a dedicated admin surface (app/super-admin), so admins
+    // get their own experience rather than borrowing the manager one.
     case "super_admin":
     case "admin":
-      return "manager";
+      return "super_admin";
 
     case "tenant":
       return "tenant";

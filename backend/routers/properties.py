@@ -17,6 +17,7 @@ from dependencies import (
 )
 from models import PropertyCreate, PropertyResponse, PropertyUpdate
 from services import PropertyService, get_property_service
+from services.unit_summary import attach_unit_summaries
 
 router = APIRouter(prefix="/properties", tags=["properties"])
 
@@ -55,6 +56,7 @@ def list_properties(
     service: PropertyService = Depends(get_property_svc),
 ) -> PaginatedResponse:
     properties, total = service.get_all(current_user.id, skip, limit)
+    attach_unit_summaries(service.supabase, properties)
     return PaginatedResponse(
         items=[PropertyResponse(**p) for p in properties],
         total=total,
@@ -108,6 +110,7 @@ def list_public_properties(
         raise
     if current_user is None:
         _strip_manager_contacts(properties_data)
+    attach_unit_summaries(svc.supabase, properties_data)
     return PaginatedResponse(
         items=[PropertyResponse(**p) for p in properties_data],
         total=total,

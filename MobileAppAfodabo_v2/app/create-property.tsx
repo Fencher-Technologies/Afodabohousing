@@ -18,6 +18,8 @@ import { Screen } from "@/src/components/Screen";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { SelectField } from "@/src/components/SelectField";
+import { UnitsEditor, type DraftUnit } from "@/src/components/UnitsEditor";
+import { rentalUnitsService } from "@/src/services/rental-units";
 import { Card } from "@/src/components/Card";
 import { PageHeader } from "@/src/components/PageHeader";
 import { FormSteps } from "@/src/components/FormSteps";
@@ -79,6 +81,7 @@ export default function CreatePropertyScreen() {
   // Defaults to the country's currency but is overridable — a Kampala
   // property may legitimately be listed in USD.
   const [currencyOverride, setCurrencyOverride] = useState<string | null>(null);
+  const [units, setUnits] = useState<DraftUnit[]>([]);
   const currency = currencyOverride ?? currencyForCountry(country);
 
   // Worldwide list bundled with the app; any server-side countries that are
@@ -264,7 +267,41 @@ export default function CreatePropertyScreen() {
         amenities: amenities.length > 0 ? amenities : null,
       };
 
-      await createMutation.mutateAsync({ ...payload, images: uploadedImages.length > 0 ? uploadedImages : null });
+      const created = await createMutation.mutateAsync({
+        ...payload,
+        images: uploadedImages.length > 0 ? uploadedImages : null,
+      });
+
+      // Units can only be created once the property has an id. A failure here
+      // must not read as "listing failed" — the property exists either way, so
+      // report it separately and let the manager retry from the edit screen.
+      if (units.length > 0 && created?.id) {
+        const failed: string[] = [];
+        for (const unit of units) {
+          try {
+            await rentalUnitsService.create(created.id, {
+              unit_number: unit.unit_number,
+              floor_level: unit.floor_level || null,
+              bedrooms: unit.bedrooms,
+              bathrooms: unit.bathrooms,
+              rent_amount: unit.rent_amount,
+              status: unit.status,
+              description: unit.description || null,
+            });
+          } catch {
+            failed.push(unit.unit_number);
+          }
+        }
+        if (failed.length > 0) {
+          toast.show(
+            `Property listed, but these units could not be saved: ${failed.join(", ")}. Add them from Edit Property.`,
+            "error",
+          );
+          router.back();
+          return;
+        }
+      }
+
       toast.show("Property listed successfully.", "success");
       router.back();
     } catch (e) {
@@ -375,6 +412,10 @@ export default function CreatePropertyScreen() {
                   <InputField label="Bathrooms" value={baths} onChangeText={setBaths} placeholder="0" keyboardType="numeric" />
                 </View>
               </View>
+            </Card>
+
+            <Card padding="lg">
+              <UnitsEditor units={units} currency={currency} onChange={setUnits} />
             </Card>
           </>
         )}

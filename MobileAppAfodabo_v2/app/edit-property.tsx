@@ -9,6 +9,9 @@ import { Screen } from "@/src/components/Screen";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { SelectField } from "@/src/components/SelectField";
+import { UnitsEditor, type DraftUnit } from "@/src/components/UnitsEditor";
+import { usePropertyUnits } from "@/src/hooks/useRentalUnits";
+import { rentalUnitsService } from "@/src/services/rental-units";
 import { PageHeader } from "@/src/components/PageHeader";
 import { ErrorState } from "@/src/components/ErrorState";
 import { LoadingState } from "@/src/components/LoadingState";
@@ -35,6 +38,7 @@ const DEFAULT_COUNTRY = "UG";
 export default function EditPropertyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: property, isLoading } = useProperty(id);
+  const { data: unitsData } = usePropertyUnits(id);
   const { subscription } = useAuth();
   const updateMutation = useUpdateProperty();
   const toast = useToast();
@@ -52,6 +56,7 @@ export default function EditPropertyScreen() {
   const [category, setCategory] = useState("");
   const [rent, setRent] = useState("");
   const [currencyOverride, setCurrencyOverride] = useState<string | null>(null);
+  const [units, setUnits] = useState<DraftUnit[]>([]);
   const [beds, setBeds] = useState("");
   const [baths, setBaths] = useState("");
   const [squareFeet, setSquareFeet] = useState("");
@@ -98,6 +103,61 @@ export default function EditPropertyScreen() {
   };
 
   const currency = currencyOverride ?? currencyForCountry(country);
+
+  useEffect(() => {
+    if (!unitsData?.items) return;
+    setUnits(
+      unitsData.items.map((u) => ({
+        id: u.id,
+        unit_number: u.unit_number,
+        floor_level: u.floor_level,
+        bedrooms: u.bedrooms,
+        bathrooms: u.bathrooms,
+        rent_amount: Number(u.rent_amount),
+        status: u.status,
+        description: u.description,
+      })),
+    );
+  }, [unitsData]);
+
+  /**
+   * Units are saved as they are edited rather than with the property form, so
+   * a manager adding a unit does not have to remember to press Save. Removal
+   * is handled by UnitsEditor's onDelete.
+   */
+  async function persistUnits(next: DraftUnit[]) {
+    setUnits(next);
+    if (!id) return;
+    for (const unit of next) {
+      const payload = {
+        unit_number: unit.unit_number,
+        floor_level: unit.floor_level || null,
+        bedrooms: unit.bedrooms,
+        bathrooms: unit.bathrooms,
+        rent_amount: unit.rent_amount,
+        status: unit.status,
+        description: unit.description || null,
+      };
+      try {
+        if (unit.id) {
+          await rentalUnitsService.update(unit.id, payload);
+        } else {
+          await rentalUnitsService.create(id, payload);
+        }
+      } catch {
+        toast.show(`Could not save unit ${unit.unit_number}.`, "error");
+      }
+    }
+  }
+
+  async function removeUnit(unit: DraftUnit) {
+    if (!unit.id) return;
+    try {
+      await rentalUnitsService.remove(unit.id);
+    } catch {
+      toast.show(`Could not remove unit ${unit.unit_number}.`, "error");
+    }
+  }
 
   useEffect(() => {
     if (!property) return;
@@ -440,6 +500,14 @@ export default function EditPropertyScreen() {
           variant="outline"
           fullWidth
           disabled={images.length >= MAX_PROPERTY_IMAGES}
+        />
+
+        <View style={{ height: Spacing.xl }} />
+        <UnitsEditor
+          units={units}
+          currency={currency}
+          onChange={persistUnits}
+          onDelete={removeUnit}
         />
 
         <View style={{ height: Spacing.xl }} />

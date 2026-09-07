@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import { formatCurrency } from '@/utils/currency';
+import { format } from 'date-fns';
 import {
   MapPin, Bed, Bath, Home, Phone, Mail, ChevronLeft, ChevronRight,
   Wifi, Car, Zap, Droplets, Shield, Send, MessageSquare, Share2,
@@ -32,6 +33,7 @@ interface Property {
   sitting_rooms: number; kitchens: number; state: string | null; city: string | null;
   area: string | null; images: string[] | null; description: string | null;
   amenities: string[] | null; address: string | null; created_at: string;
+  security_deposit: number | null;
   manager_phone: string | null; manager_email: string | null; owner_id: string | null;
   rent_currency: string | null; country: string | null;
 }
@@ -480,6 +482,28 @@ export default function PropertyDetailPage() {
               </div>
             )}
 
+            {/* Deposit and listing date — both shown on the mobile property
+                page but previously missing here, so the two clients described
+                the same listing differently. */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              {property.security_deposit != null && Number(property.security_deposit) > 0 && (
+                <div className="bg-card border border-border rounded-xl p-5">
+                  <h3 className="font-semibold text-sm text-muted-foreground mb-1">Deposit</h3>
+                  <p className="font-bold text-lg">
+                    {formatCurrency(Number(property.security_deposit), property.rent_currency)}
+                  </p>
+                </div>
+              )}
+              {property.created_at && (
+                <div className="bg-card border border-border rounded-xl p-5">
+                  <h3 className="font-semibold text-sm text-muted-foreground mb-1">Date listed</h3>
+                  <p className="font-bold text-lg">
+                    {format(new Date(property.created_at), 'dd MMM yyyy')}
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Location */}
             <div>
               <h2 className="font-display font-bold text-xl mb-4">Location</h2>
@@ -585,16 +609,31 @@ export default function PropertyDetailPage() {
                   )}
                 </div>
               ) : (
+                /* Action-first, matching the mobile page: lead with what the
+                   visitor wants to do and ask them to sign in at the point they
+                   do it, rather than gating the whole panel behind a sign-in
+                   prompt. Creating an account stays available as the secondary
+                   path, which the mobile app routes to as well. */
                 <div className="space-y-3">
-                  <div className="bg-secondary rounded-xl p-4 text-center">
-                    <p className="text-sm text-muted-foreground mb-3">Sign in to contact this manager and view full details</p>
-                    <Button className="w-full gradient-primary text-primary-foreground" onClick={() => navigate('/login')}>
-                      Sign In to Contact
-                    </Button>
-                  </div>
+                  <Button
+                    className="w-full gradient-primary text-primary-foreground gap-2 h-11"
+                    onClick={() => {
+                      toast({
+                        title: 'Sign in to continue',
+                        description: 'Sign in to send an inquiry to this manager.',
+                      });
+                      navigate('/login');
+                    }}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    Send Inquiry
+                  </Button>
                   <Button variant="outline" className="w-full" onClick={() => navigate('/signup')}>
                     Create Free Account
                   </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Contact details are shown once you sign in.
+                  </p>
                 </div>
               )}
 

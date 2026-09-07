@@ -18,6 +18,8 @@ import {
   ShieldCheck,
   FileText,
   Headphones,
+  Wrench,
+  Bell,
 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -113,6 +115,8 @@ export default function ManagerAccountScreen() {
             <ActionRow icon={<Building2 size={20} color={Colors.primary} />} label="Properties" onPress={() => router.push("/manager/properties")} />
             <Divider />
             <ActionRow icon={<Users size={20} color={Colors.primary} />} label="Tenants" onPress={() => router.push("/manager/tenancies")} />
+            <ActionRow icon={<Wrench size={20} color={Colors.textSecondary} />} label="Maintenance" onPress={() => router.push("/maintenance")} />
+            <ActionRow icon={<Bell size={20} color={Colors.textSecondary} />} label="Notifications" onPress={() => router.push("/notifications")} />
             <Divider />
             <ActionRow icon={<FileText size={20} color={Colors.primary} />} label="Reports" onPress={() => router.push("/manager/reports")} />
           </Card>

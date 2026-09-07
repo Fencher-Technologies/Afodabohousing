@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { deletePayment, updatePayment } from '@/lib/payments';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { ArrowLeft, DollarSign, CheckCircle, XCircle, Clock, Pencil, Trash2, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, DollarSign, CheckCircle, XCircle, Clock, Pencil, Trash2, Save, Loader2, Download } from 'lucide-react';
+import { fetchOwnerReceipts, downloadReceiptPdf, type Receipt } from '@/lib/receipts';
 import { format } from 'date-fns';
 
 export default function ManagerPaymentDetail() {
@@ -23,12 +25,31 @@ export default function ManagerPaymentDetail() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({ amount: '', paid_date: '', method: 'mobile_money', notes: '' });
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) { navigate('/login'); return; }
     if (id) fetchPayment();
+    // Receipts are issued automatically on confirmation, but the web app had
+    // no way to reach them — only the mobile app listed them.
+    if (id) {
+      fetchOwnerReceipts()
+        .then((all) => setReceipt(all.find((r) => r.payment_id === id) ?? null))
+        .catch(() => setReceipt(null));
+    }
   }, [user, authLoading, id]);
+
+  const handleDownloadReceipt = async () => {
+    if (!receipt) return;
+    setDownloadingReceipt(true);
+    const ok = await downloadReceiptPdf(receipt.id, receipt.receipt_number);
+    if (!ok) {
+      toast({ title: 'Download failed', description: 'Could not save the receipt. Please try again.', variant: 'destructive' });
+    }
+    setDownloadingReceipt(false);
+  };
 
   const fetchPayment = async () => {
     if (!id) return;
@@ -49,7 +70,16 @@ export default function ManagerPaymentDetail() {
     const numericAmount = parseInt(form.amount.replace(/[^0-9]/g, ''), 10) || 0;
     if (numericAmount <= 0) { toast({ title: 'Invalid amount', variant: 'destructive' }); return; }
     setSaving(true);
-    const { error } = await supabase.from('payments').update({ amount: numericAmount, paid_date: form.paid_date, method: form.method, notes: form.notes }).eq('id', id);
+    // Through the API: changing an amount must recompute coverage_days and
+    // frozen_monthly_rent, which the rent ledger depends on, and refresh the
+    // receipt. A direct table write left both stale.
+    const { ok, detail } = await updatePayment(id!, {
+      amount: numericAmount,
+      paid_date: form.paid_date,
+      payment_method: form.method,
+      notes: form.notes,
+    });
+    const error = ok ? null : { message: detail || 'Could not update the payment.' };
     setSaving(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Payment updated' });
@@ -59,7 +89,8 @@ export default function ManagerPaymentDetail() {
 
   const handleDelete = async () => {
     setDeleting(true);
-    const { error } = await supabase.from('payments').delete().eq('id', id);
+    const deleted = await deletePayment(id!);
+    const error = deleted ? null : { message: 'Could not delete the payment.' };
     setDeleting(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Payment deleted' });
@@ -184,6 +215,25 @@ export default function ManagerPaymentDetail() {
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Notes</p>
                 <p className="text-sm bg-muted/30 rounded-lg p-3">{payment.notes}</p>
+              </div>
+            )}
+            {receipt && (
+              <div className="border-t border-border pt-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground mb-1">Receipt</p>
+                  <p className="text-sm font-semibold">{receipt.receipt_number}</p>
+                  {receipt.coverage_start_date && receipt.coverage_end_date && (
+                    <p className="text-xs text-muted-foreground">
+                      Covers {format(new Date(receipt.coverage_start_date), 'dd MMM yyyy')} to{' '}
+                      {format(new Date(receipt.coverage_end_date), 'dd MMM yyyy')}
+                    </p>
+                  )}
+                </div>
+                <Button variant="outline" size="sm" className="gap-2 shrink-0"
+                  onClick={handleDownloadReceipt} disabled={downloadingReceipt}>
+                  <Download className="h-4 w-4" />
+                  {downloadingReceipt ? 'Preparing…' : 'Download'}
+                </Button>
               </div>
             )}
             {lease.id && (

@@ -420,7 +420,7 @@ export default function HomePage() {
           {[
             { val: stats.properties > 0 ? `${stats.properties}+` : '10+', label: 'Active Listings', sub: 'Verified and ready' },
             { val: stats.locations > 0 ? `${stats.locations}+` : '10+', label: 'Locations Covered', sub: 'Worldwide' },
-            { val: stats.tenancies > 0 ? `${stats.tenancies}+` : '2+', label: 'Active Tenancies', sub: 'Happy tenants' },
+            { val: stats.tenancies > 0 ? `${stats.tenancies}+` : '2+', label: 'Active Tenants', sub: 'Happy tenants' },
             { val: stats.users > 0 ? `${stats.users}+` : '5+', label: 'Registered Users', sub: 'Growing community' },
           ].map((s, i) => (
             <Reveal key={s.label} delay={i * 0.08} className={i > 0 ? 'md:border-l rule-cream md:pl-8' : ''}>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { createLease } from '@/lib/leases';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -46,7 +47,9 @@ export default function ManagerCreateTenancy() {
     if (data.rent_deposit) payload.security_deposit = parseFloat(data.rent_deposit);
     if (data.unit_label) payload.unit_label = data.unit_label;
 
-    const { error } = await supabase.from('leases').insert(payload);
+    // Through the API so the lease inherits the property's currency.
+    const { ok, detail } = await createLease(payload);
+    const error = ok ? null : { message: detail || 'Could not create the tenancy.' };
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Tenancy created successfully' });
     navigate('/dashboard/manager/tenancies');
@@ -66,7 +69,7 @@ export default function ManagerCreateTenancy() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="font-bold text-xl">New Tenancy</h1>
+            <h1 className="font-bold text-xl">Add Tenant</h1>
             <p className="text-sm text-muted-foreground">Create a new lease agreement</p>
           </div>
         </div>

@@ -1,12 +1,12 @@
 import { api } from "../lib/api-client";
 
-interface NotificationItem {
+export interface NotificationItem {
   id: string;
   user_id: string;
   type: string;
   title: string;
   body: string;
-  read: boolean;
+  is_read: boolean;
   metadata: Record<string, unknown> | null;
   created_at: string;
 }
@@ -23,8 +23,8 @@ export const notificationsService = {
     api.get<PaginatedResponse<NotificationItem>>(`/notifications?skip=${skip}&limit=${limit}`),
 
   markRead: (id: string) =>
-    api.patch<NotificationItem>(`/notifications/${id}`, { read: true }),
+    api.patch<NotificationItem>(`/notifications/${id}`, { is_read: true }),
 
-  markAllRead: () =>
-    api.post<{ message: string }>("/notifications/mark-all-read"),
+  // Note: the backend has no bulk mark-all-read endpoint, so the screen marks
+  // each notification as it is opened.
 };

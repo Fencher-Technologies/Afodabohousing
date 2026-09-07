@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { updateLease } from '@/lib/leases';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,9 +66,13 @@ export default function ManagerTenancyDetail() {
 
   const handleDeactivate = async () => {
     if (!id) return;
-    if (!confirm('Deactivate this tenancy? This will mark the lease as inactive.')) return;
+    if (!confirm('Terminate this tenancy? This will mark the lease as terminated.')) return;
     setDeactivating(true);
-    const { error } = await supabase.from('leases').update({ status: 'inactive' }).eq('id', id);
+    // 'inactive' is not a status the rest of the system recognises — live
+    // data uses draft / active / terminated. Routed through the API so the
+    // lease is terminated properly.
+    const { ok, detail } = await updateLease(id, { status: 'terminated' });
+    const error = ok ? null : { message: detail || 'Could not deactivate the tenancy.' };
     setDeactivating(false);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -81,7 +86,8 @@ export default function ManagerTenancyDetail() {
     if (!id) return;
     const updates: any = { end_date: newEndDate, status: 'active' };
     if (monthlyRent) updates.monthly_rent = monthlyRent;
-    const { error } = await supabase.from('leases').update(updates).eq('id', id);
+    const { ok, detail } = await updateLease(id!, updates);
+    const error = ok ? null : { message: detail || 'Could not update the tenancy.' };
     if (error) throw new Error(error.message);
     toast({ title: 'Lease renewed', description: `New end date: ${newEndDate}` });
     fetchData();

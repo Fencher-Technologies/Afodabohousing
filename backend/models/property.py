@@ -101,6 +101,13 @@ class PropertyUpdate(BaseModel):
 
 class PropertyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+    # Summary of the property's rental units, so listing cards can show a
+    # price range without an extra request per property. A property with no
+    # units reports unit_count 0 and null bounds; callers fall back to
+    # monthly_rent in that case.
+    unit_count: int = 0
+    unit_rent_min: Decimal | None = None
+    unit_rent_max: Decimal | None = None
     id: UUID
     owner_id: UUID
     title: str

@@ -29,6 +29,7 @@ const TermsPage = lazy(() => import("./pages/Terms"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ForgotPin = lazy(() => import("./pages/ForgotPin"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Maintenance = lazy(() => import("./pages/Maintenance"));
 const PhoneAuth = lazy(() => import("./pages/PhoneAuth"));
 const EmailSignup = lazy(() => import("./pages/EmailSignup"));
 const GettingStarted = lazy(() => import("./pages/GettingStarted"));
@@ -188,7 +189,8 @@ const App = () => (
                 <Route path="/account/edit" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><EditProfile /></ProtectedRoute>} />
                 <Route path="/account/change-password" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><ChangePassword /></ProtectedRoute>} />
                 <Route path="/account/change-pin" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><ChangePin /></ProtectedRoute>} />
-                <Route path="/notifications" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><Notifications /></ProtectedRoute>} />
+                <Route path="/maintenance" element={<Maintenance />} />
+              <Route path="/notifications" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><Notifications /></ProtectedRoute>} />
                 <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager']}><Onboarding /></ProtectedRoute>} />
               </Route>
 

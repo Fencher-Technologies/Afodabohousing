@@ -26,7 +26,6 @@ import {
   Power,
   Bookmark,
   Check,
-  Maximize2,
   Calendar,
   Car,
   Star,
@@ -55,7 +54,10 @@ import {
   useDeleteProperty,
   useUpdateProperty,
 } from "@/src/hooks/useProperties";
+import { usePropertyUnits } from "@/src/hooks/useRentalUnits";
+import { useIsBookmarked, useToggleBookmark } from "@/src/hooks/useBookmarks";
 import {
+  formatListingPrice,
   formatMoney,
   formatPropertyType,
   formatAmenity,
@@ -77,11 +79,17 @@ export default function PropertyDetailScreen() {
     error,
   } = isManager ? authQuery : publicQuery;
 
+  const { data: unitsData } = usePropertyUnits(id);
+  const units = unitsData?.items ?? [];
+
   const deleteMutation = useDeleteProperty();
   const updateMutation = useUpdateProperty();
   const refetch = isManager ? authQuery.refetch : publicQuery.refetch;
   const [showGate, setShowGate] = useState(false);
-  const [bookmarked, setBookmarked] = useState(false);
+  // Was local state only, so saving a property never persisted.
+  const { data: bookmarkState } = useIsBookmarked(id, !!user);
+  const bookmarked = bookmarkState?.bookmarked ?? false;
+  const toggleBookmark = useToggleBookmark();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const imageScrollRef = useRef<ScrollView>(null);
   const { width } = useWindowDimensions();
@@ -383,7 +391,8 @@ export default function PropertyDetailScreen() {
         <Pressable
           onPress={() => {
             if (!requireAuth("save properties")) return;
-            setBookmarked(!bookmarked);
+            if (!id) return;
+            toggleBookmark.mutate({ propertyId: id, bookmarked });
           }}
           style={styles.bookmarkBtn}
           accessibilityRole="button"
@@ -434,10 +443,42 @@ export default function PropertyDetailScreen() {
             </Text>
           </View>
           <Text style={styles.price}>
-            {formatMoney(property.rent_amount, property.rent_currency)}
+            {formatListingPrice(
+              property.rent_amount,
+              property.rent_currency,
+              property.unit_rent_min,
+              property.unit_rent_max,
+            )}
             <Text style={styles.pricePeriod}>/month</Text>
           </Text>
         </View>
+
+        {units.length > 0 && (
+          <Card padding="md">
+            <Text style={styles.sectionTitle}>Available units</Text>
+            {units.map((u) => (
+              <View key={u.id} style={styles.unitRow}>
+                <View style={styles.unitInfo}>
+                  <Text style={styles.unitName}>{u.unit_number}</Text>
+                  <Text style={styles.unitMeta}>
+                    {u.bedrooms} bed · {u.bathrooms} bath
+                    {u.floor_level ? ` · ${u.floor_level}` : ""}
+                  </Text>
+                </View>
+                <View style={styles.unitRight}>
+                  <Text style={styles.unitRent}>
+                    {formatMoney(u.rent_amount, u.rent_currency || property.rent_currency)}
+                  </Text>
+                  <Badge
+                    label={u.status}
+                    tone={u.status === "available" ? "success" : "muted"}
+                    size="sm"
+                  />
+                </View>
+              </View>
+            ))}
+          </Card>
+        )}
 
         {/* Quick Details */}
         <Card padding="md">
@@ -463,15 +504,9 @@ export default function PropertyDetailScreen() {
                 <Text style={styles.quickDetailLabel}>Parking</Text>
               </View>
             )}
-            {property.square_feet != null && property.square_feet > 0 && (
-              <View style={styles.quickDetailItem}>
-                <Maximize2 size={20} color={Colors.primary} />
-                <Text style={styles.quickDetailValue}>
-                  {property.square_feet}
-                </Text>
-                <Text style={styles.quickDetailLabel}>Sq Ft</Text>
-              </View>
-            )}
+            {/* Floor area removed: rarely captured accurately for Ugandan
+                listings and absent from the web page, so it added noise
+                without helping anyone decide. */}
           </View>
         </Card>
 
@@ -977,6 +1012,28 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: Spacing.sm,
+  },
+  unitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    gap: Spacing.sm,
+  },
+  unitInfo: { flex: 1 },
+  unitName: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
+  },
+  unitMeta: { fontSize: FontSize.caption, color: Colors.textMuted },
+  unitRight: { alignItems: "flex-end", gap: 4 },
+  unitRent: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.bold,
+    color: Colors.primary,
   },
   sectionTitle: {
     fontSize: FontSize.h2,

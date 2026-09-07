@@ -29,9 +29,12 @@ function daysBetween(from: string, to: string): number {
 }
 
 function getHealth(daysLeft: number): { label: string; color: string; barColor: string } {
-  if (daysLeft > 60) return { label: 'Good', color: 'text-success', barColor: 'bg-success' };
-  if (daysLeft > 14) return { label: 'Expiring', color: 'text-gold', barColor: 'bg-gold' };
-  return { label: 'Critical', color: 'text-destructive', barColor: 'bg-destructive' };
+  // A tenancy is Active or Expired. The old three-state scale (Good /
+  // Expiring / Critical) read as a status of its own and confused managers;
+  // the mobile app was collapsed to the same two states. Time remaining is
+  // still conveyed by the progress bar.
+  if (daysLeft > 0) return { label: 'Active', color: 'text-success', barColor: 'bg-success' };
+  return { label: 'Expired', color: 'text-destructive', barColor: 'bg-destructive' };
 }
 
 export default function TenantMyTenancy() {

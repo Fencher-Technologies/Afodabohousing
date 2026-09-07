@@ -5,10 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getCurrentSubscription } from '@/services/subscriptions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  User, Mail, Phone, Building2, LogOut, ChevronRight, KeyRound, Edit3, Crown,
-  Info, ShieldCheck, FileText, Headphones, Users, TrendingUp, ChevronDown,
-} from 'lucide-react';
+import { User, Mail, Phone, Building2, LogOut, ChevronRight, KeyRound, Edit3, Crown, Info, ShieldCheck, FileText, Headphones, Users, TrendingUp, ChevronDown, Wrench, Bell } from 'lucide-react';
 
 export default function Account() {
   const { user, role, signOut, loading: authLoading } = useAuth();
@@ -180,8 +177,30 @@ export default function Account() {
                   <Users className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold">Tenancies</p>
+                  <p className="text-sm font-semibold">Tenants</p>
                   <p className="text-xs text-muted-foreground">View and manage tenancies</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+              <button onClick={() => navigate('/maintenance')}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <Wrench className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">Maintenance</p>
+                  <p className="text-xs text-muted-foreground">Requests from your tenants</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+              <button onClick={() => navigate('/notifications')}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <Bell className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">Notifications</p>
+                  <p className="text-xs text-muted-foreground">Alerts and updates</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </button>

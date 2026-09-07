@@ -51,6 +51,11 @@ function RootLayoutNav() {
     } else if (!user) {
       debugAuth("layout - redirecting to /guest/explore");
       router.replace("/guest/explore");
+    } else if (user.role === "super_admin") {
+      // Previously super admins fell through to the guest explore screen,
+      // which is why platform administration was web-only.
+      debugAuth("layout - redirecting to /super-admin/home");
+      router.replace("/super-admin/home");
     } else if (user.role === "manager") {
       debugAuth("layout - redirecting to /manager/home");
       router.replace("/manager/home");
@@ -70,6 +75,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
       <Stack.Screen name="onboarding" />
+      <Stack.Screen name="super-admin" />
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
       <Stack.Screen name="forgot-password" />

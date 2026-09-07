@@ -2,7 +2,7 @@
  * Axis Housing — Type Definitions
  */
 
-export type UserRole = "guest" | "tenant" | "manager" | "admin";
+export type UserRole = "guest" | "tenant" | "manager" | "super_admin" | "admin";
 
 export interface User {
   id: string;
@@ -66,6 +66,9 @@ export interface BackendProperty {
   boosted_until?: string | null;
   boost_days_remaining?: number;
   boost_package_label?: string | null;
+  unit_count?: number;
+  unit_rent_min?: number | null;
+  unit_rent_max?: number | null;
 }
 
 export interface RentalUnit {
@@ -75,6 +78,10 @@ export interface RentalUnit {
   rent_amount: number;
   /** ISO 4217 code the listing is priced in. Defaults to UGX server-side. */
   rent_currency?: string | null;
+  /** Summary of the property's units, for showing a price range on cards. */
+  unit_count?: number;
+  unit_rent_min?: number | null;
+  unit_rent_max?: number | null;
   rent_period: RentPeriod;
   beds: number;
   baths: number;
@@ -93,6 +100,10 @@ export interface Property {
   rent_amount: number;
   /** ISO 4217 code the listing is priced in. Defaults to UGX server-side. */
   rent_currency?: string | null;
+  /** Summary of the property's units, for showing a price range on cards. */
+  unit_count?: number;
+  unit_rent_min?: number | null;
+  unit_rent_max?: number | null;
   rent_period: RentPeriod;
   beds: number;
   baths: number;
@@ -659,6 +670,10 @@ export interface PropertyListItem {
   rent_amount: number;
   /** ISO 4217 code the listing is priced in. Defaults to UGX server-side. */
   rent_currency?: string | null;
+  /** Summary of the property's units, for showing a price range on cards. */
+  unit_count?: number;
+  unit_rent_min?: number | null;
+  unit_rent_max?: number | null;
   rent_period: RentPeriod;
   beds: number;
   baths: number;

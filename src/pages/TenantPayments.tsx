@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, DollarSign, Search, Download, ChevronRight, Plus, Wallet } from 'lucide-react';
 import { format } from 'date-fns';
+import { fetchMyReceipts, downloadReceiptPdf, type Receipt } from '@/lib/receipts';
 
 export default function TenantPayments() {
   const { user, loading: authLoading } = useAuth();
@@ -17,13 +18,25 @@ export default function TenantPayments() {
   const [search, setSearch] = useState('');
   const [lease, setLease] = useState<any>(null);
   const [page, setPage] = useState(0);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const PAGE_SIZE = 10;
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) { navigate('/login'); return; }
     fetchPayments();
+    fetchMyReceipts().then(setReceipts).catch(() => setReceipts([]));
   }, [user, authLoading]);
+
+  const handleDownloadReceipt = async (id: string, receiptNumber: string) => {
+    setDownloadingId(id);
+    const ok = await downloadReceiptPdf(id, receiptNumber);
+    if (!ok) {
+      toast({ title: 'Download failed', description: 'Could not save the receipt. Please try again.', variant: 'destructive' });
+    }
+    setDownloadingId(null);
+  };
 
   const fetchPayments = async () => {
     if (!user) return;
@@ -75,6 +88,35 @@ export default function TenantPayments() {
             <p className="text-sm text-muted-foreground">{payments.length} total payments</p>
           </div>
         </div>
+
+        {receipts.length > 0 && (
+          <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+            <h2 className="font-bold text-sm uppercase tracking-wider text-accent">Receipts</h2>
+            {receipts.map((r) => (
+              <div key={r.id} className="flex items-center justify-between gap-3 border-b border-border last:border-0 pb-3 last:pb-0">
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm">
+                    {r.currency} {Number(r.amount).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {r.receipt_number}
+                    {r.coverage_start_date && r.coverage_end_date
+                      ? ` · ${format(new Date(r.coverage_start_date), 'dd MMM yyyy')} to ${format(new Date(r.coverage_end_date), 'dd MMM yyyy')}`
+                      : r.payment_date ? ` · ${format(new Date(r.payment_date), 'dd MMM yyyy')}` : ''}
+                  </p>
+                </div>
+                <Button
+                  variant="outline" size="sm" className="gap-2 shrink-0"
+                  onClick={() => handleDownloadReceipt(r.id, r.receipt_number)}
+                  disabled={downloadingId === r.id}
+                >
+                  <Download className="h-4 w-4" />
+                  {downloadingId === r.id ? 'Preparing…' : 'Download'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="bg-card border border-border rounded-xl p-5 text-center">
