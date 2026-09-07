@@ -29,10 +29,34 @@ export interface PaymentData {
   updated_at?: string;
 }
 
-export async function listPayments(): Promise<{ items: PaymentData[]; total: number }> {
+/**
+ * List payments.
+ *
+ * The backend defaults to 20 per page. The dashboard used to call this with no
+ * limit and then sum the result as if it were every payment, so revenue tiles
+ * silently stopped counting past the twentieth record. Callers that need
+ * totals should use fetchFinancialSummary, which aggregates server-side.
+ */
+export async function listPayments(limit = 100): Promise<{ items: PaymentData[]; total: number }> {
   const headers = await authHeaders();
-  const res = await fetch(`${API_BASE}/payments`, { headers });
+  const res = await fetch(`${API_BASE}/payments?limit=${limit}`, { headers });
   if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export interface FinancialSummary {
+  total_collected?: number;
+  collected_this_month?: number;
+  total_outstanding?: number;
+  active_tenancies?: number;
+  collection_rate?: number;
+}
+
+/** Portfolio totals computed server-side across every lease and payment. */
+export async function fetchFinancialSummary(): Promise<FinancialSummary | null> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/reports/summary`, { headers });
+  if (!res.ok) return null;
   return res.json();
 }
 

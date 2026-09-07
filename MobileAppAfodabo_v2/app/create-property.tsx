@@ -67,7 +67,6 @@ export default function CreatePropertyScreen() {
   const [rent, setRent] = useState("");
   const [beds, setBeds] = useState("");
   const [baths, setBaths] = useState("");
-  const [squareFeet, setSquareFeet] = useState("");
   const [deposit, setDeposit] = useState("");
   const [description, setDescription] = useState("");
   const [amenities, setAmenities] = useState<Amenity[]>([]);
@@ -259,7 +258,6 @@ export default function CreatePropertyScreen() {
         bathrooms: Number(baths) || 1,
         sitting_rooms: 1,
         kitchens: 1,
-        square_feet: squareFeet ? Number(squareFeet) : null,
         security_deposit: deposit ? Number(deposit) : 0,
         latitude: locationCoords?.lat ?? null,
         longitude: locationCoords?.lng ?? null,
@@ -285,6 +283,7 @@ export default function CreatePropertyScreen() {
               bedrooms: unit.bedrooms,
               bathrooms: unit.bathrooms,
               rent_amount: unit.rent_amount,
+              security_deposit: unit.security_deposit ?? 0,
               status: unit.status,
               description: unit.description || null,
             });
@@ -360,7 +359,7 @@ export default function CreatePropertyScreen() {
             <Card padding="md">
               <View style={styles.sectionHeader}>
                 <DollarSign size={18} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>Pricing</Text>
+                <Text style={styles.sectionTitle}>Rent &amp; Deposit</Text>
               </View>
               <View style={{ height: Spacing.md }} />
               <SelectField
@@ -390,7 +389,6 @@ export default function CreatePropertyScreen() {
                 </View>
                 <View style={{ width: Spacing.md }} />
                 <View style={{ flex: 1 }}>
-                  <InputField label="Sq Ft" value={squareFeet} onChangeText={setSquareFeet} placeholder="0" keyboardType="numeric" />
                 </View>
               </View>
             </Card>
@@ -400,7 +398,7 @@ export default function CreatePropertyScreen() {
             <Card padding="md">
               <View style={styles.sectionHeader}>
                 <Building2 size={18} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>Unit Details</Text>
+                <Text style={styles.sectionTitle}>Rooms</Text>
               </View>
               <View style={{ height: Spacing.md }} />
               <View style={styles.row}>

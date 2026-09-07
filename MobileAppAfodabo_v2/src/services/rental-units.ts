@@ -30,6 +30,7 @@ export interface RentalUnit {
   kitchens: number;
   rent_amount: number;
   rent_currency: string;
+  security_deposit: number | null;
   status: RentalUnitStatus;
   description: string | null;
   amenities: string[] | null;
@@ -43,6 +44,7 @@ export interface RentalUnitInput {
   sitting_rooms?: number;
   kitchens?: number;
   rent_amount: number;
+  security_deposit?: number | null;
   /** Omitted so the unit inherits the property's currency. */
   rent_currency?: string;
   status?: RentalUnitStatus;

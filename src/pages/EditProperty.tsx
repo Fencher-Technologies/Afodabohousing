@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft } from 'lucide-react';
 import PropertyForm from '@/components/forms/PropertyForm';
+import { UnitsEditor, type DraftUnit } from '@/components/UnitsEditor';
+import {
+  createRentalUnit, deleteRentalUnit, listPropertyUnits, updateRentalUnit,
+} from '@/lib/rental-units';
 import type { PropertyFormData } from '@/components/forms/PropertyForm';
 import { cleanDbError } from '@/utils/dbError';
 
@@ -16,6 +20,40 @@ export default function EditProperty() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [initialData, setInitialData] = useState<Partial<PropertyFormData> | undefined>();
+  const [units, setUnits] = useState<DraftUnit[]>([]);
+  const [currency, setCurrency] = useState('UGX');
+
+  // Units save as they are edited rather than with the property form, so a
+  // manager adding one does not have to remember to press Save Changes.
+  const persistUnits = async (next: DraftUnit[]) => {
+    setUnits(next);
+    if (!id) return;
+    for (const u of next) {
+      const payload = {
+        property_id: id,
+        unit_number: u.unit_number,
+        floor_level: u.floor_level || null,
+        bedrooms: u.bedrooms,
+        bathrooms: u.bathrooms,
+        rent_amount: u.rent_amount,
+        security_deposit: u.security_deposit ?? 0,
+        status: u.status,
+      };
+      if (u.id) await updateRentalUnit(u.id, payload);
+      else await createRentalUnit(payload);
+    }
+    listPropertyUnits(id).then(rows => setUnits(rows.map(r => ({
+      id: r.id, unit_number: r.unit_number, floor_level: r.floor_level,
+      bedrooms: r.bedrooms, bathrooms: r.bathrooms,
+      rent_amount: Number(r.rent_amount),
+      security_deposit: r.security_deposit != null ? Number(r.security_deposit) : 0,
+      status: r.status,
+    }))));
+  };
+
+  const removeUnit = async (unit: DraftUnit) => {
+    if (unit.id) await deleteRentalUnit(unit.id);
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -30,6 +68,14 @@ export default function EditProperty() {
       toast({ title: 'Error', description: 'Property not found', variant: 'destructive' });
       navigate('/dashboard/manager'); return;
     }
+    setCurrency((data as { rent_currency?: string }).rent_currency || 'UGX');
+    listPropertyUnits(id).then(rows => setUnits(rows.map(r => ({
+      id: r.id, unit_number: r.unit_number, floor_level: r.floor_level,
+      bedrooms: r.bedrooms, bathrooms: r.bathrooms,
+      rent_amount: Number(r.rent_amount),
+      security_deposit: r.security_deposit != null ? Number(r.security_deposit) : 0,
+      status: r.status,
+    }))));
     setInitialData({
       title: data.title || '', description: data.description || '',
       property_type: data.property_type || 'Residential', state: data.state || '',
@@ -89,7 +135,23 @@ export default function EditProperty() {
             <p className="text-sm text-muted-foreground">{initialData?.title}</p>
           </div>
         </div>
-        <PropertyForm initialData={initialData} onSave={handleSave} onCancel={() => navigate('/dashboard/manager')} submitLabel="Save Changes" />
+        <div className="space-y-6">
+          <PropertyForm
+            initialData={initialData}
+            onSave={handleSave}
+            onCancel={() => navigate('/dashboard/manager')}
+            submitLabel="Save Changes"
+            onCurrencyChange={setCurrency}
+          />
+          <div className="bg-card border border-border rounded-xl p-5">
+            <UnitsEditor
+              units={units}
+              currency={currency}
+              onChange={persistUnits}
+              onDelete={removeUnit}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

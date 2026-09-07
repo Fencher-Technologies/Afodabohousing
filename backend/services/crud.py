@@ -744,7 +744,43 @@ class PropertyService(BaseService):
         if normalized:
             payload["property_type"] = normalized
         response = self.table.insert(payload).execute()
-        return response.data[0]
+        created = response.data[0]
+        self._ensure_default_unit(created)
+        return created
+
+    def _ensure_default_unit(self, prop: dict[str, Any]) -> None:
+        """Give a new property its first rental unit.
+
+        A property is its units: one or many, each with its own specs and
+        price, and the listing shows the range across them. A property with no
+        units would have no price under that model, so the details captured on
+        the property form become its single unit. Managers letting the building
+        as several spaces add more from the units editor.
+
+        Best-effort: a property that somehow ends up without a unit still falls
+        back to its own rent for display, so a failure here degrades rather
+        than breaks.
+        """
+        try:
+            self.supabase.table("rental_units").insert({
+                "property_id": str(prop["id"]),
+                "owner_id": str(prop["owner_id"]),
+                "unit_number": "Main unit",
+                "bedrooms": prop.get("bedrooms") or 1,
+                "bathrooms": prop.get("bathrooms") or 1,
+                "sitting_rooms": prop.get("sitting_rooms") or 1,
+                "rent_amount": prop.get("monthly_rent") or 0,
+                "rent_currency": prop.get("rent_currency") or "UGX",
+                "security_deposit": prop.get("security_deposit") or 0,
+                "status": "available",
+            }).execute()
+        except Exception:
+            logger.warning(
+                "Could not create the default unit for property %s; the listing "
+                "will fall back to the property-level rent",
+                prop.get("id"),
+                exc_info=True,
+            )
 
     @with_retry
     def update(

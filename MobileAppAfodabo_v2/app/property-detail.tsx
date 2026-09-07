@@ -128,6 +128,9 @@ export default function PropertyDetailScreen() {
   const hasParking = property.amenities.includes("parking" as any);
 
   const handleInquiry = () => {
+    // The API strips manager contacts for anonymous visitors, so an empty
+    // phone here means "not signed in", not "manager has no number".
+    if (!requireAuth("contact this manager")) return;
     if (phone) {
       openWhatsApp(phone, MessageTemplates.inquiry(property.title));
     } else {
@@ -139,6 +142,7 @@ export default function PropertyDetailScreen() {
   };
 
   const handleCall = () => {
+    if (!requireAuth("call this manager")) return;
     if (phone) {
       Linking.openURL(`tel:${phone}`);
     } else {
@@ -150,6 +154,7 @@ export default function PropertyDetailScreen() {
   };
 
   const handleEmail = () => {
+    if (!requireAuth("email this manager")) return;
     if (email) {
       Linking.openURL(`mailto:${email}`);
     } else {

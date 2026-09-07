@@ -227,7 +227,28 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
     const tenant = tenantResult.data;
     setTenantRecord(tenant);
 
-    const lease = tenant?.leases?.[0] || null;
+    // Read the lease through the API, not the table: _enrich_leases computes
+    // the rent ledger (expected rent to date, total paid, arrears, credit,
+    // paid-until and next due) from daily accrual. Reading the raw row meant
+    // this page derived its own figures and disagreed with the mobile app and
+    // the receipts about the same tenancy.
+    let lease = tenant?.leases?.[0] || null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE}/leases?limit=20`, {
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        const enriched = (payload?.items ?? []).find(
+          (l: { id?: string; status?: string; effective_status?: string }) =>
+            (lease && l.id === lease.id) || l.effective_status === 'active' || l.status === 'active',
+        );
+        if (enriched) lease = { ...lease, ...enriched };
+      }
+    } catch {
+      // falls back to the raw row; figures below degrade to the old behaviour
+    }
     setActiveLease(lease);
 
     const tenantId = tenant?.id;
@@ -258,9 +279,20 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
   const property = activeLease?.properties;
   const propertyCurrency = property?.rent_currency || activeLease?.rent_currency || 'UGX';
 
-  const monthRent = activeLease?.monthly_rent || property?.monthly_rent || property?.rent_amount || 0;
-  const totalPaid = payments.filter(p => p.status === 'confirmed').reduce((s: number, p: any) => s + p.amount, 0);
-  const remainingBalance = Math.max(0, monthRent - totalPaid);
+  // The agreed rent for this tenancy. Never fall back to the property's
+  // listing price: a negotiated rent is often lower, and using the listing
+  // figure overstates what the tenant owes.
+  const monthRent = activeLease?.monthly_rent ?? 0;
+  // Prefer the server ledger. The old local sum compared one month's rent
+  // against every payment ever made, which is wrong for any tenancy past its
+  // first month.
+  const totalPaid = activeLease?.total_paid
+    ?? payments.filter(p => p.status === 'confirmed').reduce((s: number, p: any) => s + p.amount, 0);
+  const remainingBalance = activeLease?.balance_due ?? Math.max(0, monthRent - totalPaid);
+  const expectedRentSoFar = activeLease?.expected_rent ?? null;
+  const tenantCredit = activeLease?.advance_amount ?? null;
+  const daysRemaining = activeLease?.rent_days_remaining ?? null;
+  const paidUntil = activeLease?.paid_until_date ?? null;
 
   const leaseMonths = activeLease
     ? Math.max(1, Math.ceil(differenceInDays(new Date(activeLease.end_date), new Date(activeLease.start_date)) / 30))
@@ -287,7 +319,9 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
 
   const filteredReqs = maintenanceReqs.filter(r => requestFilter === 'all' || r.status === requestFilter);
 
-  const dueDate = activeLease?.end_date || null;
+  // next_payment_due_date is when rent is next owed; end_date is when the
+  // tenancy ends. Labelling the latter "Due" told tenants the wrong date.
+  const dueDate = activeLease?.next_payment_due_date || activeLease?.end_date || null;
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -502,10 +536,34 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                             </p>
                           </div>
                         </div>
+                        {/* The same ledger figures the mobile app shows, so a
+                            tenant sees one consistent picture on either. */}
+                        {(expectedRentSoFar != null || tenantCredit != null) && (
+                          <div className="grid grid-cols-2 gap-2">
+                            {expectedRentSoFar != null && (
+                              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                                <p className="text-xs text-muted-foreground">Expected so far</p>
+                                <p className="text-sm font-bold">{formatCurrency(expectedRentSoFar, propertyCurrency)}</p>
+                              </div>
+                            )}
+                            {tenantCredit != null && tenantCredit > 0 && (
+                              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                                <p className="text-xs text-muted-foreground">Your credit</p>
+                                <p className="text-sm font-bold text-success">{formatCurrency(tenantCredit, propertyCurrency)}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {paidUntil && (
+                          <p className="text-xs text-center text-muted-foreground">
+                            Rent covered until {format(new Date(paidUntil), 'dd MMM yyyy')}
+                            {daysRemaining != null ? ` · ${daysRemaining} days left` : ''}
+                          </p>
+                        )}
                         {dueDate && (
                           <div className="flex items-center justify-center gap-2 text-sm bg-muted/60 rounded-lg py-2">
                             <CalendarDays className="h-4 w-4 text-primary" />
-                            <span>Due: <span className="font-bold">{format(new Date(dueDate), 'MMMM dd, yyyy')}</span></span>
+                            <span>Next payment due: <span className="font-bold">{format(new Date(dueDate), 'MMMM dd, yyyy')}</span></span>
                           </div>
                         )}
                       </div>

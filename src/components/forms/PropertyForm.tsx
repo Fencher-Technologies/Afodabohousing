@@ -42,9 +42,11 @@ interface Props {
   onCancel: () => void;
   submitLabel: string;
   saving?: boolean;
+  /** Lets a parent (e.g. the units editor) follow the selected currency. */
+  onCurrencyChange?: (currency: string) => void;
 }
 
-export default function PropertyForm({ initialData, onSave, onCancel, submitLabel, saving }: Props) {
+export default function PropertyForm({ initialData, onSave, onCancel, submitLabel, saving, onCurrencyChange }: Props) {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -118,6 +120,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
   const handleCountryChange = (iso: string) => {
     const currency = CURRENCY_MAP[iso] || 'UGX';
     setForm(f => ({ ...f, country: iso, region_id: '', rent_currency: currency }));
+    onCurrencyChange?.(currency);
     setDeprecatedWarning('');
   };
 

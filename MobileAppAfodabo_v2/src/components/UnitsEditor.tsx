@@ -31,6 +31,8 @@ export interface DraftUnit {
   bedrooms: number;
   bathrooms: number;
   rent_amount: number;
+  /** Units are let separately, so each carries its own deposit. */
+  security_deposit?: number | null;
   status: RentalUnitStatus;
   description?: string | null;
 }
@@ -47,6 +49,7 @@ const EMPTY: DraftUnit = {
   bedrooms: 1,
   bathrooms: 1,
   rent_amount: 0,
+  security_deposit: 0,
   status: "available",
   description: "",
 };
@@ -66,10 +69,12 @@ export function UnitsEditor({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<DraftUnit>(EMPTY);
   const [rentText, setRentText] = useState("");
+  const [depositText, setDepositText] = useState("");
 
   function startAdd() {
     setDraft({ ...EMPTY });
     setRentText("");
+    setDepositText("");
     setEditingIndex(-1);
   }
 
@@ -77,6 +82,7 @@ export function UnitsEditor({
     const unit = units[index];
     setDraft({ ...unit });
     setRentText(unit.rent_amount ? String(unit.rent_amount) : "");
+    setDepositText(unit.security_deposit ? String(unit.security_deposit) : "");
     setEditingIndex(index);
   }
 
@@ -84,6 +90,7 @@ export function UnitsEditor({
     setEditingIndex(null);
     setDraft(EMPTY);
     setRentText("");
+    setDepositText("");
   }
 
   function save() {
@@ -105,7 +112,8 @@ export function UnitsEditor({
       return;
     }
 
-    const next = { ...draft, unit_number: number, rent_amount: rent };
+    const deposit = Number(depositText.replace(/[^0-9.]/g, "")) || 0;
+    const next = { ...draft, unit_number: number, rent_amount: rent, security_deposit: deposit };
     if (editingIndex === -1) {
       onChange([...units, next]);
     } else if (editingIndex !== null) {
@@ -138,7 +146,7 @@ export function UnitsEditor({
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Units</Text>
+        <Text style={styles.title}>Additional units</Text>
         {units.length > 0 && (
           <Text style={styles.rangeText}>
             {min === max
@@ -148,9 +156,9 @@ export function UnitsEditor({
         )}
       </View>
       <Text style={styles.help}>
-        Optional. Add units if this property is let as several separate spaces at
-        different rents — the listing will show the range. Leave empty to let the
-        whole property at one price.
+        The rent, deposit and rooms above become this property&apos;s first unit.
+        If you let it as several separate spaces at different rents, add the
+        others here — the listing will then show a price range across them all.
       </Text>
 
       {units.map((unit, index) => (
@@ -164,6 +172,11 @@ export function UnitsEditor({
             />
           </View>
           <Text style={styles.unitRent}>{formatMoney(unit.rent_amount, currency)}</Text>
+          {!!unit.security_deposit && (
+            <Text style={styles.metaText}>
+              Deposit {formatMoney(unit.security_deposit, currency)}
+            </Text>
+          )}
           <View style={styles.unitMeta}>
             <Bed size={14} color={Colors.textMuted} />
             <Text style={styles.metaText}>{unit.bedrooms}</Text>
@@ -216,6 +229,13 @@ export function UnitsEditor({
               />
             </View>
           </View>
+          <InputField
+            label={`Deposit (${currency})`}
+            value={depositText}
+            onChangeText={setDepositText}
+            placeholder="0"
+            keyboardType="numeric"
+          />
           <InputField
             label="Floor or block (optional)"
             value={draft.floor_level ?? ""}

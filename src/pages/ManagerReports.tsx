@@ -41,6 +41,12 @@ export default function ManagerReports() {
   const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  // Mobile filters reports by property and status and passes both to the
+  // export endpoints, which accept them. The web exported everything
+  // regardless of what was on screen, so the file never matched the view.
+  const [propertyFilter, setPropertyFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [propertyOptions, setPropertyOptions] = useState<{ id: string; title: string }[]>([]);
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [collection, setCollection] = useState<RentCollection | null>(null);
   const [outstanding, setOutstanding] = useState<OutstandingItem[]>([]);
@@ -52,6 +58,25 @@ export default function ManagerReports() {
     if (authLoading) return;
     if (!user) { navigate('/login'); return; }
     fetchData();
+
+    // Populate the property filter from the manager's own listings.
+    (async () => {
+      try {
+        const base = import.meta.env.VITE_API_URL || '';
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(`${base}/properties?limit=100`, {
+          headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+        });
+        if (!res.ok) return;
+        const payload = await res.json();
+        setPropertyOptions((payload?.items ?? []).map((p: { id: string; title: string }) => ({
+          id: p.id, title: p.title,
+        })));
+      } catch {
+        // filter simply stays on "All properties"
+      }
+    })();
   }, [user, authLoading]);
 
   const fetchData = useCallback(async () => {
@@ -80,10 +105,18 @@ export default function ManagerReports() {
     const { supabase } = await import('@/integrations/supabase/client');
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
+    // Carry the on-screen filters into the file so the export matches what the
+    // manager is looking at.
+    const params = new URLSearchParams({ format: 'csv' });
+    if (statusFilter) params.set('status', statusFilter);
+    if (propertyFilter) params.set('property_id', propertyFilter);
+    if (from) params.set('start_date', from);
+    if (to) params.set('end_date', to);
+    if (token) params.set('token', token);
+
     const a = document.createElement('a');
-    a.href = `${base}/exports/${resource}?format=csv`;
+    a.href = `${base}/exports/${resource}?${params.toString()}`;
     a.target = '_blank';
-    if (token) a.href += `&token=${token}`;
     a.click();
   };
 
@@ -232,6 +265,43 @@ export default function ManagerReports() {
                 </div>
               </div>
             )}
+
+            {/* Export filters — same property and status filters the mobile
+                reports screen offers, and they are applied to the file. */}
+            <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">
+              <h3 className="font-bold text-sm">Filters</h3>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Property</label>
+                  <select
+                    value={propertyFilter}
+                    onChange={e => setPropertyFilter(e.target.value)}
+                    className="w-full mt-1 h-9 rounded-md border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="">All properties</option>
+                    {propertyOptions.map(p => (
+                      <option key={p.id} value={p.id}>{p.title}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Status</label>
+                  <select
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value)}
+                    className="w-full mt-1 h-9 rounded-md border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="expired">Expired</option>
+                    <option value="terminated">Terminated</option>
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Filters apply to the exported files below.
+              </p>
+            </div>
 
             {/* Export Buttons */}
             <div className="bg-card border border-border rounded-xl p-5 shadow-sm">

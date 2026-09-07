@@ -9,12 +9,17 @@ import { useToast } from '@/hooks/use-toast';
 import { Building2, Plus, Search, ChevronRight, Home, User, CalendarDays, DollarSign, Phone, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 
-type FilterTab = 'all' | 'active' | 'pending' | 'expired' | 'terminated';
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
+// Same set and same meanings as the mobile tenancies screen, so a manager
+// filtering on either sees the same tenancies. "Pending" was dropped: no lease
+// ever carries that status, so the tab always came back empty.
+type FilterTab = 'all' | 'active' | 'expired' | 'outstanding' | 'terminated';
 const FILTER_TABS: { id: FilterTab; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'active', label: 'Active' },
-  { id: 'pending', label: 'Pending' },
   { id: 'expired', label: 'Expired' },
+  { id: 'outstanding', label: 'Outstanding' },
   { id: 'terminated', label: 'Terminated' },
 ];
 
@@ -36,15 +41,21 @@ export default function ManagerTenancies() {
   const fetchLeases = async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('leases')
-      .select('*, properties(*), tenants(*)')
-      .eq('owner_id', user.id)
-      .order('created_at', { ascending: false });
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      setLeases(data || []);
+    // Through the API: _enrich_leases adds balance_due, is_overdue, health and
+    // the derived expiry the filters below need. Reading the raw table gave
+    // only the stored status, so the Pending and Expired tabs matched nothing
+    // (live statuses are draft / active / terminated).
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE}/leases?limit=100`, {
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const payload = await res.json();
+      setLeases(payload?.items ?? []);
+    } catch (e) {
+      toast({ title: 'Error', description: 'Could not load tenancies.', variant: 'destructive' });
+      setLeases([]);
     }
     setLoading(false);
   };
@@ -68,7 +79,11 @@ export default function ManagerTenancies() {
   }
 
   const filtered = leases.filter(l => {
-    if (filter !== 'all' && l.status !== filter) return false;
+    if (filter === 'terminated' && l.status !== 'terminated') return false;
+    if (filter === 'active' && l.health !== 'good') return false;
+    if (filter === 'expired' && l.health !== 'bad') return false;
+    if (filter === 'outstanding'
+        && !(l.status !== 'terminated' && ((l.balance_due ?? 0) > 0 || l.is_overdue))) return false;
     if (!search) return true;
     const s = search.toLowerCase();
     const t = l.tenants;

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { updateMaintenanceStatus } from '@/lib/maintenance';
+import { createRentalUnit } from '@/lib/rental-units';
 import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { listPayments, updatePayment, PaymentData } from '@/services/payments';
+import { listPayments, updatePayment, fetchFinancialSummary, type FinancialSummary, PaymentData } from '@/services/payments';
 import { getCurrentSubscription } from '@/services/subscriptions';
 import { apiGet } from '@/services/api';
 import { formatCurrency } from '@/utils/currency';
@@ -66,6 +67,10 @@ export default function ManagerDashboard() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [leases, setLeases] = useState<(TenancyRow & { tenant_name?: string; tenant_phone?: string; tenant_user_id?: string; property_title?: string })[]>([]);
   const [payments, setPayments] = useState<(PaymentData & { tenant_name?: string; property_title?: string })[]>([]);
+  // Portfolio totals come from the server, which aggregates across every lease
+  // and payment. Summing the loaded page understated revenue once a manager
+  // had more payments than fit in it.
+  const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [maintenanceReqs, setMaintenanceReqs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [propDialogOpen, setPropDialogOpen] = useState(false);
@@ -93,7 +98,7 @@ export default function ManagerDashboard() {
 
   const [unitForm, setUnitForm] = useState({
     unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 1,
-    kitchens: 1, rent_amount: 0, description: '',
+    kitchens: 1, rent_amount: 0, security_deposit: 0, description: '',
   });
 
   const [uploading, setUploading] = useState(false);
@@ -127,6 +132,7 @@ export default function ManagerDashboard() {
     setSubscription(subscriptionData);
 
     const allPayments = payRes.items || [];
+    fetchFinancialSummary().then(setSummary).catch(() => setSummary(null));
 
     const propMap: Record<string, string> = {};
     (propsRes.items as any[])?.forEach(p => { propMap[p.id] = p.title; });
@@ -255,7 +261,9 @@ export default function ManagerDashboard() {
     e.preventDefault();
     if (!user || !selectedPropertyForUnit) return;
     setSendingAction('add-unit');
-    const { error } = await supabase.from('rental_units').insert({
+    // Through the API so the unit inherits the property's currency and
+    // ownership is checked. A direct insert did neither.
+    const { ok, detail } = await createRentalUnit({
       property_id: selectedPropertyForUnit,
       unit_number: unitForm.unit_number,
       floor_level: unitForm.floor_level || null,
@@ -264,11 +272,11 @@ export default function ManagerDashboard() {
       sitting_rooms: unitForm.sitting_rooms,
       kitchens: unitForm.kitchens,
       rent_amount: Number(unitForm.rent_amount),
+      security_deposit: Number(unitForm.security_deposit) || 0,
       description: unitForm.description || null,
-      status: 'available',
     });
     setSendingAction('');
-    if (error) { toast({ title: 'Error adding unit', description: cleanDbError(error), variant: 'destructive' }); return; }
+    if (!ok) { toast({ title: 'Error adding unit', description: detail || 'Could not add the unit.', variant: 'destructive' }); return; }
     toast({ title: 'Unit added!', description: `Unit ${unitForm.unit_number} is now listed.` });
     setUnitDialogOpen(false);
     setUnitForm({ unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 1, kitchens: 1, rent_amount: 0, description: '' });
@@ -383,7 +391,10 @@ export default function ManagerDashboard() {
   const occupied = properties.filter(p => p.status === 'occupied').length;
   const available = properties.filter(p => p.status === 'available').length;
   const pendingPayments = payments.filter(p => p.status === 'uploaded');
-  const confirmedRevenue = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0);
+  // Server total where available; the local sum is a fallback that only sees
+  // the loaded page.
+  const confirmedRevenue = summary?.total_collected
+    ?? payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0);
   const dueSoonTenancies = leases.filter(l => {
     if (l.status !== 'active') return false;
     const d = differenceInDays(new Date(l.end_date), new Date());
@@ -1241,7 +1252,8 @@ export default function ManagerDashboard() {
               <div><Label>Bathrooms</Label><Input type="number" min={1} value={unitForm.bathrooms} onChange={e => setUnitForm(f => ({ ...f, bathrooms: Math.max(1, Number(e.target.value) || 1) }))} required className="mt-1" /></div>
               <div><Label>Sitting Rooms</Label><Input type="number" min={1} value={unitForm.sitting_rooms} onChange={e => setUnitForm(f => ({ ...f, sitting_rooms: Math.max(1, Number(e.target.value) || 1) }))} required className="mt-1" /></div>
               <div><Label>Kitchens</Label><Input type="number" min={1} value={unitForm.kitchens} onChange={e => setUnitForm(f => ({ ...f, kitchens: Math.max(1, Number(e.target.value) || 1) }))} className="mt-1" /></div>
-              <div className="col-span-2"><Label>Rent Amount</Label><Input type="number" min={0} value={unitForm.rent_amount || ''} onChange={e => setUnitForm(f => ({ ...f, rent_amount: Number(e.target.value) }))} required placeholder="e.g. 450000" className="mt-1" /></div>
+              <div><Label>Rent Amount</Label><Input type="number" min={0} value={unitForm.rent_amount || ''} onChange={e => setUnitForm(f => ({ ...f, rent_amount: Number(e.target.value) }))} required placeholder="e.g. 450000" className="mt-1" /></div>
+              <div><Label>Deposit</Label><Input type="number" min={0} value={unitForm.security_deposit || ''} onChange={e => setUnitForm(f => ({ ...f, security_deposit: Number(e.target.value) }))} placeholder="e.g. 450000" className="mt-1" /></div>
             </div>
             <div><Label>Notes</Label><Textarea value={unitForm.description} onChange={e => setUnitForm(f => ({ ...f, description: e.target.value }))} rows={2} className="mt-1" placeholder="Any specific details about this unit..." /></div>
             <Button type="submit" disabled={sendingAction === 'add-unit' || !selectedPropertyForUnit} className="w-full gradient-primary text-primary-foreground">

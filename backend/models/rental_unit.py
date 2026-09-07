@@ -29,6 +29,7 @@ class RentalUnit(BaseModel):
     amenities: list[str] | None = None
     created_at: datetime
     updated_at: datetime
+    security_deposit: Decimal | None = None
 
 
 class RentalUnitCreate(BaseModel):
@@ -47,6 +48,7 @@ class RentalUnitCreate(BaseModel):
     status: RentalUnitStatus = "available"
     description: str | None = None
     amenities: list[str] | None = None
+    security_deposit: Decimal | None = None
 
 
 class RentalUnitUpdate(BaseModel):
@@ -61,6 +63,7 @@ class RentalUnitUpdate(BaseModel):
     status: RentalUnitStatus | None = None
     description: str | None = None
     amenities: list[str] | None = None
+    security_deposit: Decimal | None = None
 
 
 class RentalUnitResponse(BaseModel):
@@ -81,3 +84,4 @@ class RentalUnitResponse(BaseModel):
     amenities: list[str] | None = None
     created_at: datetime
     updated_at: datetime
+    security_deposit: Decimal | None = None

@@ -59,7 +59,6 @@ export default function EditPropertyScreen() {
   const [units, setUnits] = useState<DraftUnit[]>([]);
   const [beds, setBeds] = useState("");
   const [baths, setBaths] = useState("");
-  const [squareFeet, setSquareFeet] = useState("");
   const [deposit, setDeposit] = useState("");
   const [description, setDescription] = useState("");
   const [amenities, setAmenities] = useState<Amenity[]>([]);
@@ -114,6 +113,7 @@ export default function EditPropertyScreen() {
         bedrooms: u.bedrooms,
         bathrooms: u.bathrooms,
         rent_amount: Number(u.rent_amount),
+        security_deposit: u.security_deposit != null ? Number(u.security_deposit) : 0,
         status: u.status,
         description: u.description,
       })),
@@ -135,6 +135,7 @@ export default function EditPropertyScreen() {
         bedrooms: unit.bedrooms,
         bathrooms: unit.bathrooms,
         rent_amount: unit.rent_amount,
+        security_deposit: unit.security_deposit ?? 0,
         status: unit.status,
         description: unit.description || null,
       };
@@ -178,7 +179,6 @@ export default function EditPropertyScreen() {
     setCurrencyOverride(property.rent_currency || null);
     setBeds(String(property.beds || ""));
     setBaths(String(property.baths || ""));
-    setSquareFeet(property.square_feet ? String(property.square_feet) : "");
     setDeposit(property.security_deposit ? String(property.security_deposit) : "");
     setDescription(property.description);
     setAmenities(property.amenities);
@@ -299,7 +299,6 @@ export default function EditPropertyScreen() {
         bathrooms: Number(baths) || 1,
         sitting_rooms: 1,
         kitchens: 1,
-        square_feet: squareFeet ? Number(squareFeet) : null,
         security_deposit: deposit ? Number(deposit) : 0,
         latitude: locationCoords?.lat ?? null,
         longitude: locationCoords?.lng ?? null,
@@ -434,7 +433,6 @@ export default function EditPropertyScreen() {
         <View style={{ height: Spacing.md }} />
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
-            <InputField label="Sq Ft" value={squareFeet} onChangeText={setSquareFeet} placeholder="0" keyboardType="numeric" />
           </View>
           <View style={{ width: Spacing.md }} />
           <View style={{ flex: 1 }}>
