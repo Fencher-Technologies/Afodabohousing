@@ -291,31 +291,6 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
       </div>
 
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-5">
-        <h2 className="font-bold text-sm flex items-center gap-2"><Home className="h-4 w-4 text-primary" /> Rooms</h2>
-        <div className="grid grid-cols-4 gap-4">
-          {(['bedrooms', 'sitting_rooms', 'bathrooms'] as const).map(field => (
-            <div key={field}>
-              <p className="text-sm font-semibold mb-2 capitalize">{field.replace('_', ' ')}</p>
-              <Input type="number" min={1} value={form[field]} onChange={e => {
-                const v = e.target.value === '' ? 1 : Math.max(1, Number(e.target.value) || 1)
-                setForm(f2 => ({ ...f2, [field]: v }))
-              }}
-                className="rounded-lg h-11" required />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-5">
-        <h2 className="font-bold text-sm flex items-center gap-2"><DollarSign className="h-4 w-4 text-primary" /> Pricing</h2>
-        <div>
-          <p className="text-sm font-semibold mb-2">Rent Amount (UGX)</p>
-          <Input type="number" min={0} value={form.monthly_rent || ''} onChange={e => setForm(f => ({ ...f, monthly_rent: Number(e.target.value) }))}
-            required placeholder="e.g. 500000" className="rounded-lg h-11" />
-        </div>
-      </div>
-
-      <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-5">
         <h2 className="font-bold text-sm flex items-center gap-2"><Image className="h-4 w-4 text-primary" /> Photos</h2>
         <div>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />

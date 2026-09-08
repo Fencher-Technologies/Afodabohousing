@@ -159,8 +159,13 @@ export default function CreatePropertyScreen() {
   const validateStep = (s: number): boolean => {
     if (s === 0) {
       const okTitle = validateTitle();
-      const okRent = validateRent();
-      return okTitle && okRent;
+      // A property is its units, so it must have at least one. There is no
+      // property-level rent to fall back on any more.
+      if (units.length === 0) {
+        toast.show("Add at least one unit with its rent.", "error");
+        return false;
+      }
+      return okTitle;
     }
     if (s === 1) {
       const districtMsg = district.trim() ? undefined : "Select or type the district.";
@@ -252,13 +257,16 @@ export default function CreatePropertyScreen() {
         address: address.trim(),
         property_type: category === "commercial" ? "Office Space" : "Residential",
         property_type_slug: type || null,
-        monthly_rent: Number(rent),
+        // Derived from the units, which are the source of truth. The
+        // property-level columns stay populated so listing search and filters
+        // keep working; the lowest unit rent is what the listing leads with.
+        monthly_rent: Math.min(...units.map((u) => u.rent_amount)),
         rent_currency: currency,
-        bedrooms: Number(beds) || 1,
-        bathrooms: Number(baths) || 1,
+        bedrooms: units[0]?.bedrooms ?? 1,
+        bathrooms: units[0]?.bathrooms ?? 1,
         sitting_rooms: 1,
         kitchens: 1,
-        security_deposit: deposit ? Number(deposit) : 0,
+        security_deposit: units[0]?.security_deposit ?? 0,
         latitude: locationCoords?.lat ?? null,
         longitude: locationCoords?.lng ?? null,
         description: description.trim() || null,
@@ -282,6 +290,8 @@ export default function CreatePropertyScreen() {
               floor_level: unit.floor_level || null,
               bedrooms: unit.bedrooms,
               bathrooms: unit.bathrooms,
+              sitting_rooms: unit.sitting_rooms ?? 1,
+              kitchens: unit.kitchens ?? 1,
               rent_amount: unit.rent_amount,
               security_deposit: unit.security_deposit ?? 0,
               status: unit.status,
@@ -359,7 +369,7 @@ export default function CreatePropertyScreen() {
             <Card padding="md">
               <View style={styles.sectionHeader}>
                 <DollarSign size={18} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>Rent &amp; Deposit</Text>
+                <Text style={styles.sectionTitle}>Currency</Text>
               </View>
               <View style={{ height: Spacing.md }} />
               <SelectField
@@ -369,48 +379,9 @@ export default function CreatePropertyScreen() {
                 onSelect={setCurrencyOverride}
                 placeholder="Select currency"
               />
-              <View style={{ height: Spacing.md }} />
-              <InputField
-                label={`Rent per Month (${currency})`}
-                value={rent}
-                onChangeText={(v) => {
-                  setRent(v);
-                  if (errors.rent && Number(v) > 0) setFieldError("rent");
-                }}
-                onBlur={validateRent}
-                error={errors.rent}
-                placeholder="0"
-                keyboardType="numeric"
-              />
-              <View style={{ height: Spacing.md }} />
-              <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <InputField label={`Deposit (${currency})`} value={deposit} onChangeText={setDeposit} placeholder="0" keyboardType="numeric" />
-                </View>
-                <View style={{ width: Spacing.md }} />
-                <View style={{ flex: 1 }}>
-                </View>
-              </View>
             </Card>
 
             <View style={{ height: Spacing.md }} />
-
-            <Card padding="md">
-              <View style={styles.sectionHeader}>
-                <Building2 size={18} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>Rooms</Text>
-              </View>
-              <View style={{ height: Spacing.md }} />
-              <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <InputField label="Bedrooms" value={beds} onChangeText={setBeds} placeholder="0" keyboardType="numeric" />
-                </View>
-                <View style={{ width: Spacing.md }} />
-                <View style={{ flex: 1 }}>
-                  <InputField label="Bathrooms" value={baths} onChangeText={setBaths} placeholder="0" keyboardType="numeric" />
-                </View>
-              </View>
-            </Card>
 
             <Card padding="lg">
               <UnitsEditor units={units} currency={currency} onChange={setUnits} />

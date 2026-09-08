@@ -22,6 +22,9 @@ class Lease(BaseModel):
     terms: str | None = None
     termination_date: date | None = None
     termination_reason: str | None = None
+    # The unit this tenancy is for. unit_label is kept for display on
+    # existing agreements and receipts.
+    unit_id: UUID | None = None
 
 
 class RenewLease(BaseModel):
@@ -56,6 +59,9 @@ class LeaseCreate(BaseModel):
     status: str = "draft"
     terms: str | None = None
     unit_label: str | None = None
+    # The unit this tenancy is for. unit_label is kept for display on
+    # existing agreements and receipts.
+    unit_id: UUID | None = None
 
 
 class LeaseUpdate(BaseModel):
@@ -67,6 +73,7 @@ class LeaseUpdate(BaseModel):
     terms: str | None = None
     termination_date: date | None = None
     termination_reason: str | None = None
+    unit_id: UUID | None = None
 
 
 class SetRentEffectiveDate(BaseModel):
@@ -138,3 +145,6 @@ class LeaseResponse(BaseModel):
     manager_name: str | None = None
     manager_phone: str | None = None
     manager_email: str | None = None
+    # The unit this tenancy is for. unit_label is kept for display on
+    # existing agreements and receipts.
+    unit_id: UUID | None = None

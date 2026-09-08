@@ -7,6 +7,8 @@ import { Screen } from "@/src/components/Screen";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
 import { SelectField } from "@/src/components/SelectField";
+import { usePropertyUnits } from "@/src/hooks/useRentalUnits";
+import { formatMoney } from "@/src/utils/format";
 import { DatePickerField } from "@/src/components/DatePickerField";
 import { PageHeader } from "@/src/components/PageHeader";
 import { useToast } from "@/src/components/Toast";
@@ -45,7 +47,7 @@ export default function EditTenancyScreen() {
     return {
       tenantEmail: lease.tenant_email ?? "",
       propertyId: lease.property_id,
-      unitLabel: lease.unit_label ?? "",
+      unitId: (lease as { unit_id?: string }).unit_id ?? "",
       rentAmount: String(lease.monthly_rent ?? ""),
       startDate: lease.start_date ?? "",
       endDate: lease.end_date ?? "",
@@ -56,7 +58,16 @@ export default function EditTenancyScreen() {
 
   const [tenantEmail, setTenantEmail] = useState(initial?.tenantEmail ?? "");
   const [propertyId, setPropertyId] = useState(initial?.propertyId ?? "");
-  const [unitLabel, setUnitLabel] = useState(initial?.unitLabel ?? "");
+  // Was a free-text label that the save handler never sent, so editing it did
+  // nothing. Now a real unit reference.
+  const { data: unitsData } = usePropertyUnits(initial?.propertyId);
+  const units = unitsData?.items ?? [];
+  const unitOptions = units.map((u) => ({
+    label: `${u.unit_number} — ${formatMoney(u.rent_amount, u.rent_currency)}`,
+    value: u.id,
+  }));
+
+  const [unitId, setUnitId] = useState(initial?.unitId ?? "");
   const [rentAmount, setRentAmount] = useState(initial?.rentAmount ?? "");
   const [startDate, setStartDate] = useState(initial?.startDate ?? "");
   const [endDate, setEndDate] = useState(initial?.endDate ?? "");
@@ -68,7 +79,7 @@ export default function EditTenancyScreen() {
   const isDirty = !!initial && (
     tenantEmail !== (initial.tenantEmail ?? "") ||
     propertyId !== initial.propertyId ||
-    unitLabel !== (initial.unitLabel ?? "") ||
+    unitId !== (initial.unitId ?? "") ||
     rentAmount !== initial.rentAmount ||
     startDate !== initial.startDate ||
     endDate !== initial.endDate ||
@@ -127,6 +138,9 @@ export default function EditTenancyScreen() {
           start_date: startDate,
           end_date: endDate,
           security_deposit: parseInt(initialBalance, 10) || 0,
+          unit_id: unitId || undefined,
+          // Kept in step so existing agreements and receipts stay accurate.
+          unit_label: units.find((u) => u.id === unitId)?.unit_number,
           status,
         },
       });
@@ -182,7 +196,13 @@ export default function EditTenancyScreen() {
           error={errors.property}
         />
         <View style={{ height: Spacing.md }} />
-        <InputField label="Unit Label" value={unitLabel} onChangeText={setUnitLabel} placeholder="e.g. A1, Shop 1" />
+        <SelectField
+          label="Unit"
+          value={unitId}
+          options={unitOptions}
+          onSelect={setUnitId}
+          placeholder={unitOptions.length ? "Select the unit" : "No units on this property"}
+        />
 
         <View style={{ height: Spacing.lg }} />
         <Text style={styles.sectionLabel}>Lease Terms</Text>

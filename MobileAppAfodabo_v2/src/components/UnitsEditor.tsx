@@ -30,6 +30,9 @@ export interface DraftUnit {
   floor_level?: string | null;
   bedrooms: number;
   bathrooms: number;
+  /** rental_units carries these too; they were being defaulted to 1. */
+  sitting_rooms?: number;
+  kitchens?: number;
   rent_amount: number;
   /** Units are let separately, so each carries its own deposit. */
   security_deposit?: number | null;
@@ -48,6 +51,8 @@ const EMPTY: DraftUnit = {
   floor_level: "",
   bedrooms: 1,
   bathrooms: 1,
+  sitting_rooms: 1,
+  kitchens: 1,
   rent_amount: 0,
   security_deposit: 0,
   status: "available",
@@ -146,7 +151,7 @@ export function UnitsEditor({
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Additional units</Text>
+        <Text style={styles.title}>Units</Text>
         {units.length > 0 && (
           <Text style={styles.rangeText}>
             {min === max
@@ -156,9 +161,9 @@ export function UnitsEditor({
         )}
       </View>
       <Text style={styles.help}>
-        The rent, deposit and rooms above become this property&apos;s first unit.
-        If you let it as several separate spaces at different rents, add the
-        others here — the listing will then show a price range across them all.
+        Every property has at least one unit. Add one for the whole property,
+        or one per space if you let it separately at different rents — the
+        listing shows the range across them.
       </Text>
 
       {units.map((unit, index) => (
@@ -225,6 +230,24 @@ export function UnitsEditor({
                 label="Bathrooms"
                 value={String(draft.bathrooms)}
                 onChangeText={(v) => setDraft({ ...draft, bathrooms: Number(v.replace(/[^0-9]/g, "")) || 0 })}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+          <View style={styles.row}>
+            <View style={styles.rowItem}>
+              <InputField
+                label="Sitting rooms"
+                value={String(draft.sitting_rooms ?? 1)}
+                onChangeText={(v) => setDraft({ ...draft, sitting_rooms: Number(v.replace(/[^0-9]/g, "")) || 0 })}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={styles.rowItem}>
+              <InputField
+                label="Kitchens"
+                value={String(draft.kitchens ?? 1)}
+                onChangeText={(v) => setDraft({ ...draft, kitchens: Number(v.replace(/[^0-9]/g, "")) || 0 })}
                 keyboardType="numeric"
               />
             </View>

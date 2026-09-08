@@ -33,16 +33,25 @@ export default function CreateProperty() {
 
   const handleSave = async (data: PropertyFormData) => {
     if (!user) return;
+    // A property is its units, so it must have at least one. There is no
+    // property-level rent to fall back on any more.
+    if (units.length === 0) {
+      toast({ title: 'Add a unit', description: 'Add at least one unit with its rent.', variant: 'destructive' });
+      return;
+    }
     // Through the API so the backend creates this property's first unit from
     // the rent, deposit and rooms above. A property is its units.
     const { ok, id: newId, detail } = await createProperty({
       title: data.title, description: data.description || null,
       property_type: data.property_type, state: data.state || null,
       address: data.address || '', city: '', zip_code: '',
-      bedrooms: data.bedrooms, sitting_rooms: data.sitting_rooms,
-      bathrooms: data.bathrooms,
-      monthly_rent: data.monthly_rent,
-      security_deposit: 0,
+      bedrooms: units[0]?.bedrooms ?? 1, sitting_rooms: 1,
+      bathrooms: units[0]?.bathrooms ?? 1,
+      // Derived from the units, which are the source of truth. The
+      // property-level columns stay populated so listing search and filters
+      // keep working; the listing leads with the lowest unit rent.
+      monthly_rent: Math.min(...units.map(u => u.rent_amount)),
+      security_deposit: units[0]?.security_deposit ?? 0,
       rent_currency: data.rent_currency, rent_period: data.rent_period,
       manager_phone: data.manager_phone || null,
       manager_email: data.manager_email || null, amenities: data.amenities,
@@ -63,6 +72,10 @@ export default function CreateProperty() {
           floor_level: u.floor_level || null,
           bedrooms: u.bedrooms,
           bathrooms: u.bathrooms,
+        sitting_rooms: u.sitting_rooms ?? 1,
+        kitchens: u.kitchens ?? 1,
+          sitting_rooms: u.sitting_rooms ?? 1,
+          kitchens: u.kitchens ?? 1,
           rent_amount: u.rent_amount,
           security_deposit: u.security_deposit ?? 0,
         });

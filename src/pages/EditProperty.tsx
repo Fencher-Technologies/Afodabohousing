@@ -35,6 +35,8 @@ export default function EditProperty() {
         floor_level: u.floor_level || null,
         bedrooms: u.bedrooms,
         bathrooms: u.bathrooms,
+        sitting_rooms: u.sitting_rooms ?? 1,
+        kitchens: u.kitchens ?? 1,
         rent_amount: u.rent_amount,
         security_deposit: u.security_deposit ?? 0,
         status: u.status,
@@ -100,10 +102,17 @@ export default function EditProperty() {
     const { error } = await supabase.from('properties').update({
       title: data.title, description: data.description || null,
       property_type: data.property_type, state: data.state,
-      address: data.address || null, bedrooms: data.bedrooms, sitting_rooms: data.sitting_rooms,
-      bathrooms: data.bathrooms,
-      // ponytail: live DB has monthly_rent only; backend coalesces legacy readers
-      monthly_rent: data.monthly_rent,
+      address: data.address || null,
+      // Derived from the units, which are edited below and are the source of
+      // truth. These columns stay populated so listing search and filters keep
+      // working; the listing leads with the lowest unit rent.
+      ...(units.length > 0 ? {
+        monthly_rent: Math.min(...units.map(u => u.rent_amount)),
+        bedrooms: units[0].bedrooms || 1,
+        bathrooms: units[0].bathrooms || 1,
+        sitting_rooms: units[0].sitting_rooms ?? 1,
+        security_deposit: units[0].security_deposit ?? 0,
+      } : {}),
       rent_currency: data.rent_currency, rent_period: data.rent_period,
       manager_phone: data.manager_phone || null,
       manager_email: data.manager_email || null, amenities: data.amenities,

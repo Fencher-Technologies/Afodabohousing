@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 
@@ -19,6 +19,7 @@ import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { useResolveTenantByEmail, useResolveTenantByPhone } from "@/src/hooks/useTenants";
 import { plusDaysLocalISO, todayLocalISO } from "@/src/lib/dates";
 import { formatMoney } from "@/src/utils/format";
+import { usePropertyUnits } from "@/src/hooks/useRentalUnits";
 
 const STEPS = ["Tenant & Property", "Lease Terms"];
 
@@ -42,7 +43,9 @@ export default function CreateTenancyScreen() {
   const [contactMethod, setContactMethod] = useState("email");
   const [tenantContact, setTenantContact] = useState("");
   const [propertyId, setPropertyId] = useState("");
-  const [unitLabel, setUnitLabel] = useState("");
+  // The unit this tenancy is for. Was a free-text label that nothing
+  // validated or joined on, so occupancy could not be derived.
+  const [unitId, setUnitId] = useState("");
   const [rentAmount, setRentAmount] = useState("");
   const [startDate, setStartDate] = useState(todayLocalISO());
   const [endDate, setEndDate] = useState(plusDaysLocalISO(365));
@@ -55,6 +58,27 @@ export default function CreateTenancyScreen() {
     () => properties.find((p) => p.id === propertyId) ?? null,
     [properties, propertyId]
   );
+
+  const { data: unitsData } = usePropertyUnits(propertyId || undefined);
+  const units = unitsData?.items ?? [];
+  const unitOptions = useMemo(
+    () =>
+      units.map((u) => ({
+        label: `${u.unit_number} — ${formatMoney(u.rent_amount, u.rent_currency)}${
+          u.status === "occupied" ? " (occupied)" : ""
+        }`,
+        value: u.id,
+      })),
+    [units],
+  );
+
+  // Single-unit properties have nothing to choose, so select it automatically.
+  useEffect(() => {
+    if (units.length === 1) setUnitId(units[0].id);
+    else if (!units.some((u) => u.id === unitId)) setUnitId("");
+  }, [units]);
+
+  const selectedUnit = units.find((u) => u.id === unitId) ?? null;
 
   const handleSelectProperty = (id: string) => {
     setPropertyId(id);
@@ -139,7 +163,10 @@ export default function CreateTenancyScreen() {
         monthly_rent: parseInt(rentAmount, 10) || 0,
         start_date: startDate,
         end_date: endDate,
-        unit_label: unitLabel || undefined,
+        unit_id: unitId || undefined,
+        // Kept in step with the unit so existing agreements and receipts,
+        // which display the label, stay accurate.
+        unit_label: selectedUnit?.unit_number || undefined,
         security_deposit: parseInt(initialBalance, 10) || 0,
         status: "active",
       });
@@ -205,7 +232,13 @@ export default function CreateTenancyScreen() {
             />
 
             <View style={{ height: Spacing.md }} />
-            <InputField label="Unit Label" value={unitLabel} onChangeText={setUnitLabel} placeholder="e.g. A1, Shop 1" />
+            <SelectField
+              label="Unit"
+              value={unitId}
+              options={unitOptions}
+              onSelect={setUnitId}
+              placeholder={units.length ? "Select the unit" : "Select a property first"}
+            />
           </>
         )}
 

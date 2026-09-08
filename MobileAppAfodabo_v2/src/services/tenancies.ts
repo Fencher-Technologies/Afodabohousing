@@ -59,6 +59,7 @@ interface LeaseCreateData {
   monthly_rent: number;
   start_date: string;
   end_date: string;
+  unit_id?: string;
   unit_label?: string;
   security_deposit?: number;
   status?: string;

@@ -1056,6 +1056,7 @@ class LeaseService(BaseService):
         lease = _enrich_leases([_normalize_lease(raw)], self.supabase)[0]
         if raw.get("status") == "active":
             self._sync_property_status(raw.get("property_id"))
+        self._sync_unit_status(raw.get("unit_id"))
         return lease
 
     @with_retry
@@ -1075,6 +1076,7 @@ class LeaseService(BaseService):
             return None
         lease = _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]
         self._sync_property_status(lease.get("property_id"))
+        self._sync_unit_status(lease.get("unit_id"))
         return lease
 
     @with_retry
@@ -1123,7 +1125,44 @@ class LeaseService(BaseService):
             raise PermissionError("Lease not found or not authorized")
         lease = _enrich_leases([_normalize_lease(response.data[0])], self.supabase)[0]
         self._sync_property_status(lease.get("property_id"))
+        self._sync_unit_status(lease.get("unit_id"))
         return lease
+
+    def _sync_unit_status(self, unit_id: Any) -> None:
+        """Mark a unit occupied while it has an active lease, else available.
+
+        Leases now bind to a unit, so occupancy is derived rather than kept by
+        hand. Without this a manager would have to remember to flip the unit
+        themselves, and a multi-unit listing could advertise a let unit as
+        vacant.
+        """
+        if not unit_id:
+            return
+        try:
+            current = (
+                self.supabase.table("rental_units")
+                .select("status")
+                .eq("id", str(unit_id))
+                .execute()
+            )
+            if not current.data:
+                return
+            # Never override a unit taken out of service.
+            if (current.data[0].get("status") or "") in ("maintenance", "archived"):
+                return
+            active = (
+                self.supabase.table("leases")
+                .select("id")
+                .eq("unit_id", str(unit_id))
+                .eq("status", "active")
+                .limit(1)
+                .execute()
+            )
+            self.supabase.table("rental_units").update(
+                {"status": "occupied" if active.data else "available"}
+            ).eq("id", str(unit_id)).execute()
+        except Exception:
+            logger.warning("Could not sync status for unit %s", unit_id, exc_info=True)
 
     def _sync_property_status(self, property_id: Any) -> None:
         """Mark the property occupied while a tenant is assigned, else available."""

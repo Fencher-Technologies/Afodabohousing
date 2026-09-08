@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { listPropertyUnits, type RentalUnit } from '@/lib/rental-units';
 import { Label } from '@/components/ui/label';
 import { User, Home, CalendarDays, DollarSign, Save, Mail, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -14,6 +15,7 @@ export interface TenancyFormData {
   end_date: string;
   monthly_rent: string;
   rent_deposit: string;
+  unit_id: string;
   unit_label: string;
   status?: string;
 }
@@ -37,9 +39,19 @@ export default function TenancyForm({ mode, initialData, onSave, onCancel, savin
   const [resolvedTenant, setResolvedTenant] = useState<Tenant | null>(null);
   const [tenantEmail, setTenantEmail] = useState(initialData?.tenant_email || '');
 
+  const [units, setUnits] = useState<RentalUnit[]>([]);
+
+  // In edit mode the property is already fixed, so load its units up front —
+  // the create flow loads them when a property is chosen.
+  useEffect(() => {
+    const pid = initialData?.property_id;
+    if (mode !== 'edit' || !pid) return;
+    listPropertyUnits(pid).then(setUnits).catch(() => setUnits([]));
+  }, [mode, initialData?.property_id]);
+
   const [form, setForm] = useState<TenancyFormData>({
     property_id: '', tenant_id: '', tenant_email: '', start_date: '',
-    end_date: '', monthly_rent: '', rent_deposit: '', unit_label: '', status: 'active',
+    end_date: '', monthly_rent: '', rent_deposit: '', unit_id: '', unit_label: '', status: 'active',
     ...initialData,
   });
 
@@ -64,7 +76,19 @@ export default function TenancyForm({ mode, initialData, onSave, onCancel, savin
   };
 
   const handleSelectProperty = (id: string) => {
-    setForm(f => ({ ...f, property_id: id }));
+    setForm(f => ({ ...f, property_id: id, unit_id: '', unit_label: '' }));
+    // Load that property's units so one can be chosen.
+    if (id) {
+      listPropertyUnits(id).then(rows => {
+        setUnits(rows);
+        // Nothing to choose on a single-unit property.
+        if (rows.length === 1) {
+          setForm(f => ({ ...f, unit_id: rows[0].id, unit_label: rows[0].unit_number }));
+        }
+      }).catch(() => setUnits([]));
+    } else {
+      setUnits([]);
+    }
     const prop = properties.find(p => p.id === id);
     if (prop) {
       const rent = prop.monthly_rent || prop.rent_amount || 0;
@@ -130,9 +154,34 @@ export default function TenancyForm({ mode, initialData, onSave, onCancel, savin
               </select>
             </div>
             <div>
-              <Label className="text-sm font-semibold">Unit Label (optional)</Label>
-              <Input value={form.unit_label} onChange={e => setForm(f => ({ ...f, unit_label: e.target.value }))}
-                placeholder="e.g. A1, Shop 1, Room 3" className="mt-1.5 rounded-lg h-11" />
+              {/* A tenancy is for a specific unit. This was free text that
+                  nothing validated or joined on, so occupancy could not be
+                  derived from it. */}
+              <Label className="text-sm font-semibold">Unit</Label>
+              <select
+                value={form.unit_id}
+                onChange={e => {
+                  const unit = units.find(u => u.id === e.target.value);
+                  setForm(f => ({
+                    ...f,
+                    unit_id: e.target.value,
+                    // Kept in step so existing agreements and receipts, which
+                    // display the label, stay accurate.
+                    unit_label: unit?.unit_number ?? '',
+                  }));
+                }}
+                className="w-full mt-1.5 h-11 rounded-lg border border-border bg-background px-3 text-sm"
+              >
+                <option value="">
+                  {units.length ? 'Select the unit' : 'Select a property first'}
+                </option>
+                {units.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.unit_number} — {u.rent_currency} {Number(u.rent_amount).toLocaleString()}
+                    {u.status === 'occupied' ? ' (occupied)' : ''}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </>
@@ -171,14 +220,38 @@ export default function TenancyForm({ mode, initialData, onSave, onCancel, savin
       </div>
 
       {mode === 'edit' && (
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <Label className="text-sm font-semibold">Status</Label>
-          <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-            className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm mt-1.5">
-            <option value="active">Active</option>
-            <option value="pending">Pending</option>
-            <option value="inactive">Inactive</option>
-          </select>
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+          <div>
+            {/* Editing a tenancy must be able to correct which unit it is for;
+                this field only existed on the create form. */}
+            <Label className="text-sm font-semibold">Unit</Label>
+            <select
+              value={form.unit_id}
+              onChange={e => {
+                const unit = units.find(u => u.id === e.target.value);
+                setForm(f => ({ ...f, unit_id: e.target.value, unit_label: unit?.unit_number ?? '' }));
+              }}
+              className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm mt-1.5"
+            >
+              <option value="">{units.length ? 'Select the unit' : 'Loading units…'}</option>
+              {units.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.unit_number} — {u.rent_currency} {Number(u.rent_amount).toLocaleString()}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label className="text-sm font-semibold">Status</Label>
+            {/* draft / active / terminated are the values the rest of the
+                system uses; "pending" and "inactive" matched nothing. */}
+            <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+              className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm mt-1.5">
+              <option value="draft">Draft</option>
+              <option value="active">Active</option>
+              <option value="terminated">Terminated</option>
+            </select>
+          </div>
         </div>
       )}
 

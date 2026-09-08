@@ -5,12 +5,12 @@
 import { useState } from "react";
 import { StyleSheet, Text, View, KeyboardAvoidingView, Platform, ScrollView, Pressable } from "react-native";
 import { router } from "expo-router";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { Mail, Lock, User, Phone, Square, CheckSquare } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BrandMark } from "@/src/components/BrandMark";
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
@@ -63,7 +63,7 @@ export default function RegisterScreen() {
       <FloatingBackButton onPress={() => router.back()} />
       <LinearGradient colors={[Colors.primary, Colors.primaryDeep]} style={styles.header}>
         <View style={styles.logoWrap}>
-          <Image source={require("../assets/images/axis-icon-badge.png")} style={styles.logoIcon} contentFit="contain" />
+          <BrandMark size="md" tone="light" />
         </View>
         <Text style={styles.appName}>Create Account</Text>
         <Text style={styles.tagline}>Join Axis Housing in under a minute</Text>
@@ -210,10 +210,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "transparent",
     overflow: "hidden",
-  },
-  logoIcon: {
-    width: 80,
-    height: 80,
   },
   appName: { fontSize: FontSize.display, fontWeight: FontWeight.bold, color: "#FFFFFF" },
   tagline: { fontSize: FontSize.body, color: "rgba(255,255,255,0.7)" },

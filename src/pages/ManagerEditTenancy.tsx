@@ -37,6 +37,10 @@ export default function ManagerEditTenancy() {
       monthly_rent: String(data.monthly_rent || ''),
       rent_deposit: String(data.rent_deposit || ''),
       status: data.status || 'active',
+      // Needed so the form can load this property's units and preselect the
+      // one the tenancy is already for.
+      property_id: data.property_id || '',
+      unit_id: (data as { unit_id?: string }).unit_id || '',
     });
     setLoading(false);
   };
@@ -50,6 +54,9 @@ export default function ManagerEditTenancy() {
       end_date: data.end_date,
       monthly_rent: parseFloat(data.monthly_rent),
       security_deposit: data.rent_deposit ? parseFloat(data.rent_deposit) : null,
+      unit_id: data.unit_id || undefined,
+      // Kept in step so existing agreements and receipts stay accurate.
+      unit_label: data.unit_label || undefined,
       status: data.status,
     });
     const error = ok ? null : { message: detail || 'Could not update the tenancy.' };

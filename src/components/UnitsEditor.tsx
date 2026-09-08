@@ -27,6 +27,9 @@ export interface DraftUnit {
   floor_level?: string | null;
   bedrooms: number;
   bathrooms: number;
+  /** rental_units carries these too; they were being defaulted to 1. */
+  sitting_rooms?: number;
+  kitchens?: number;
   rent_amount: number;
   security_deposit?: number | null;
   status: string;
@@ -44,6 +47,8 @@ const EMPTY: DraftUnit = {
   floor_level: '',
   bedrooms: 1,
   bathrooms: 1,
+  sitting_rooms: 1,
+  kitchens: 1,
   rent_amount: 0,
   security_deposit: 0,
   status: 'available',
@@ -116,7 +121,7 @@ export function UnitsEditor({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-lg">Additional units</h3>
+        <h3 className="font-bold text-lg">Units</h3>
         {units.length > 0 && (
           <span className="text-sm font-semibold text-primary">
             {min === max ? money(min, currency) : `${money(min, currency)} – ${money(max, currency)}`}
@@ -124,9 +129,9 @@ export function UnitsEditor({
         )}
       </div>
       <p className="text-sm text-muted-foreground">
-        The rent, deposit and rooms above become this property&apos;s first unit. If
-        you let it as several separate spaces at different rents, add the others
-        here — the listing will then show a price range across them all.
+        Every property has at least one unit. Add one for the whole property, or
+        one per space if you let it separately at different rents — the listing
+        shows the range across them.
       </p>
 
       {units.map((unit, i) => (
@@ -186,6 +191,16 @@ export function UnitsEditor({
               <Label>Bathrooms</Label>
               <Input type="number" min={0} value={draft.bathrooms} className="mt-1"
                 onChange={e => setDraft({ ...draft, bathrooms: Number(e.target.value) })} />
+            </div>
+            <div>
+              <Label>Sitting rooms</Label>
+              <Input type="number" min={0} value={draft.sitting_rooms ?? 1} className="mt-1"
+                onChange={e => setDraft({ ...draft, sitting_rooms: Number(e.target.value) })} />
+            </div>
+            <div>
+              <Label>Kitchens</Label>
+              <Input type="number" min={0} value={draft.kitchens ?? 1} className="mt-1"
+                onChange={e => setDraft({ ...draft, kitchens: Number(e.target.value) })} />
             </div>
             <div className="sm:col-span-2">
               <Label>Status</Label>

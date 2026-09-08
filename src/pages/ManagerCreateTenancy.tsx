@@ -45,6 +45,7 @@ export default function ManagerCreateTenancy() {
       status: 'active',
     };
     if (data.rent_deposit) payload.security_deposit = parseFloat(data.rent_deposit);
+    if (data.unit_id) payload.unit_id = data.unit_id;
     if (data.unit_label) payload.unit_label = data.unit_label;
 
     // Through the API so the lease inherits the property's currency.

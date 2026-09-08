@@ -5,12 +5,12 @@
 import { useState } from "react";
 import { StyleSheet, Text, View, Pressable, KeyboardAvoidingView, Platform } from "react-native";
 import { router } from "expo-router";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { Mail, Lock } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BrandMark } from "@/src/components/BrandMark";
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Button } from "@/src/components/Button";
 import { InputField } from "@/src/components/InputField";
@@ -51,10 +51,8 @@ export default function LoginScreen() {
         style={styles.header}
       >
         <View style={styles.logoWrap}>
-          <Image source={require("../assets/images/axis-icon-badge.png")} style={styles.logoIcon} contentFit="contain" />
+          <BrandMark size="md" tone="light" />
         </View>
-        <Text style={styles.appName}>Axis Housing</Text>
-        <Text style={styles.tagline}>Housing Made Easy</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView
@@ -160,19 +158,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.15)",
     overflow: "hidden",
-  },
-  logoIcon: {
-    width: 56,
-    height: 56,
-  },
-  appName: {
-    fontSize: 28,
-    fontWeight: FontWeight.bold,
-    color: "#FFFFFF",
-  },
-  tagline: {
-    fontSize: FontSize.body,
-    color: "rgba(255,255,255,0.7)",
   },
   formWrap: {
     flex: 1,

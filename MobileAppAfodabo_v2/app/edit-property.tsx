@@ -134,6 +134,8 @@ export default function EditPropertyScreen() {
         floor_level: unit.floor_level || null,
         bedrooms: unit.bedrooms,
         bathrooms: unit.bathrooms,
+        sitting_rooms: unit.sitting_rooms ?? 1,
+        kitchens: unit.kitchens ?? 1,
         rent_amount: unit.rent_amount,
         security_deposit: unit.security_deposit ?? 0,
         status: unit.status,
@@ -293,13 +295,19 @@ export default function EditPropertyScreen() {
         address: address.trim(),
         property_type: category === "commercial" ? "Office Space" : "Residential",
         property_type_slug: type || null,
-        monthly_rent: Number(rent),
         rent_currency: currency,
-        bedrooms: Number(beds) || 1,
-        bathrooms: Number(baths) || 1,
-        sitting_rooms: 1,
-        kitchens: 1,
-        security_deposit: deposit ? Number(deposit) : 0,
+        // Derived from the units, which are edited below and are the source of
+        // truth. These columns stay populated so listing search and filters
+        // keep working; the listing leads with the lowest unit rent.
+        ...(units.length > 0
+          ? {
+              monthly_rent: Math.min(...units.map((u) => u.rent_amount)),
+              bedrooms: units[0].bedrooms || 1,
+              bathrooms: units[0].bathrooms || 1,
+              sitting_rooms: units[0].sitting_rooms ?? 1,
+              security_deposit: units[0].security_deposit ?? 0,
+            }
+          : {}),
         latitude: locationCoords?.lat ?? null,
         longitude: locationCoords?.lng ?? null,
         description: description.trim() || null,
@@ -406,39 +414,6 @@ export default function EditPropertyScreen() {
           onSelect={setCurrencyOverride}
           placeholder="Select currency"
         />
-        <View style={{ height: Spacing.md }} />
-        <InputField
-          label={`Rent per Month (${currency})`}
-          value={rent}
-          onChangeText={(v) => {
-            setRent(v);
-            if (errors.rent && Number(v) > 0) setErrors((prev) => ({ ...prev, rent: undefined }));
-          }}
-          error={errors.rent}
-          placeholder="0"
-          keyboardType="numeric"
-        />
-
-        <View style={{ height: Spacing.lg }} />
-        <Text style={styles.sectionLabel}>Unit Details</Text>
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <InputField label="Bedrooms" value={beds} onChangeText={setBeds} placeholder="0" keyboardType="numeric" />
-          </View>
-          <View style={{ width: Spacing.md }} />
-          <View style={{ flex: 1 }}>
-            <InputField label="Bathrooms" value={baths} onChangeText={setBaths} placeholder="0" keyboardType="numeric" />
-          </View>
-        </View>
-        <View style={{ height: Spacing.md }} />
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-          </View>
-          <View style={{ width: Spacing.md }} />
-          <View style={{ flex: 1 }}>
-            <InputField label="Deposit (UGX)" value={deposit} onChangeText={setDeposit} placeholder="0" keyboardType="numeric" />
-          </View>
-        </View>
 
         <View style={{ height: Spacing.lg }} />
         <Text style={styles.sectionLabel}>Description</Text>
