@@ -21,7 +21,6 @@ from models import (
 )
 
 from .base import BaseService, with_retry
-from .boost import BoostService
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +102,33 @@ def _cached_region_ids(country: str, supabase: Client) -> list[str]:
     return ids
 
 
+def _fetch_active_boost_rows(supabase: Client) -> dict[str, dict]:
+    """Single fetch of all active boosts: {property_id: raw boost row}.
+
+    Used by the public listings path so ranking (created_at) and enrichment
+    (expires_at, duration_days) share one query instead of two.
+    """
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC).isoformat()
+    result = (
+        supabase.table("property_boosts")
+        .select("property_id,created_at,expires_at,duration_days")
+        .eq("status", "active")
+        .gt("expires_at", now)
+        .execute()
+    )
+    rows: dict[str, dict] = {}
+    for b in (result.data or []):
+        pid = b.get("property_id")
+        if pid and pid not in rows:
+            rows[pid] = b
+    return rows
+
+
 def _enrich_with_boost_info(
-    props: list[dict[str, Any]], supabase: Client
+    props: list[dict[str, Any]], supabase: Client,
+    boost_rows: dict[str, dict] | None = None,
 ) -> list[dict[str, Any]]:
     from datetime import UTC, datetime
 
@@ -115,20 +139,23 @@ def _enrich_with_boost_info(
     if not property_ids:
         return props
 
-    now = datetime.now(UTC).isoformat()
-    result = (
-        supabase.table("property_boosts")
-        .select("property_id,expires_at,duration_days")
-        .in_("property_id", property_ids)
-        .eq("status", "active")
-        .gt("expires_at", now)
-        .execute()
-    )
-    boosts_by_property: dict[str, dict] = {}
-    for b in (result.data or []):
-        pid = b.get("property_id")
-        if pid and pid not in boosts_by_property:
-            boosts_by_property[pid] = b
+    if boost_rows is None:
+        now = datetime.now(UTC).isoformat()
+        result = (
+            supabase.table("property_boosts")
+            .select("property_id,expires_at,duration_days")
+            .in_("property_id", property_ids)
+            .eq("status", "active")
+            .gt("expires_at", now)
+            .execute()
+        )
+        boost_rows = {}
+        for b in (result.data or []):
+            pid = b.get("property_id")
+            if pid and pid not in boost_rows:
+                boost_rows[pid] = b
+
+    boosts_by_property = boost_rows
 
     for p in props:
         pid = str(p.get("id", ""))
@@ -631,6 +658,7 @@ class PropertyService(BaseService):
         rent_period: str | None = None,
         min_price: float | None = None,
         max_price: float | None = None,
+        include_manager_contacts: bool = True,
     ) -> tuple[list[dict[str, Any]], int]:
         region_ids_for_country: list[str] | None = None
         if country:
@@ -665,7 +693,10 @@ class PropertyService(BaseService):
         # Boosted properties rank first (by boost recency), then all others by
         # recency. Active boosts are few, so fetch them fully and paginate only
         # the large non-boosted set in SQL instead of loading the whole table.
-        boost_map = BoostService(self.supabase).get_active_boost_map()
+        # One fetch feeds both ranking (created_at) and enrichment below —
+        # previously this ran two separate queries against property_boosts.
+        boost_rows = _fetch_active_boost_rows(self.supabase)
+        boost_map = {pid: row.get("created_at", "") for pid, row in boost_rows.items()}
 
         page_rows: list[dict[str, Any]] = []
         non_skip, non_limit = skip, limit
@@ -698,8 +729,11 @@ class PropertyService(BaseService):
             page_rows += page_resp.data or []
 
         page_rows = [_normalize_property(r) for r in page_rows]
-        page_rows = _enrich_with_manager_contact(page_rows, self.supabase)
-        page_rows = _enrich_with_boost_info(page_rows, self.supabase)
+        # Anonymous callers never see manager contacts (the router strips
+        # them), so skip the profiles lookup entirely for guest traffic.
+        if include_manager_contacts:
+            page_rows = _enrich_with_manager_contact(page_rows, self.supabase)
+        page_rows = _enrich_with_boost_info(page_rows, self.supabase, boost_rows)
         return page_rows, total
 
     @with_retry
@@ -719,7 +753,7 @@ class PropertyService(BaseService):
         return enriched[0]
 
     @with_retry
-    def get_by_id_public(self, property_id: UUID) -> dict[str, Any] | None:
+    def get_by_id_public(self, property_id: UUID, include_manager_contacts: bool = True) -> dict[str, Any] | None:
         response = (
             self.table.select("*")
             .eq("id", str(property_id))
@@ -729,7 +763,11 @@ class PropertyService(BaseService):
         if not row:
             return None
         prop = _normalize_property(row)
-        enriched = _enrich_with_manager_contact([prop], self.supabase)
+        enriched = [prop]
+        # Guests never receive contacts (router strips them), so skip the
+        # profiles lookup for anonymous traffic.
+        if include_manager_contacts:
+            enriched = _enrich_with_manager_contact(enriched, self.supabase)
         enriched = _enrich_with_boost_info(enriched, self.supabase)
         return enriched[0]
 

@@ -86,10 +86,12 @@ export default function EditPropertyScreen() {
     [regions],
   );
 
-  const categoryOptions = useMemo(() => [
-    { label: "All Categories", value: "" },
-    ...categories.map((c) => ({ label: c.label, value: c.slug })),
-  ], [categories]);
+  // No "All" entry here (unlike the explore filters) — the property must
+  // always sit under a real category and type.
+  const categoryOptions = useMemo(() =>
+    categories.map((c) => ({ label: c.label, value: c.slug })),
+    [categories],
+  );
 
   const typeOptions = useMemo(() =>
     types.map((t) => ({ label: t.label, value: t.slug })),
@@ -248,6 +250,14 @@ export default function EditPropertyScreen() {
   const handleSave = async () => {
     if (subscription?.status !== "active") {
       setShowGate(true);
+      return;
+    }
+    if (!category) {
+      toast.show("Select a property category (Residential or Commercial).", "error");
+      return;
+    }
+    if (!type) {
+      toast.show("Select the property type under that category.", "error");
       return;
     }
     const titleMsg = title.trim() ? undefined : "Give the property a title.";

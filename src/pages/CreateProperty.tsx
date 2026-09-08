@@ -43,7 +43,7 @@ export default function CreateProperty() {
     // the rent, deposit and rooms above. A property is its units.
     const { ok, id: newId, detail } = await createProperty({
       title: data.title, description: data.description || null,
-      property_type: data.property_type, state: data.state || null,
+      property_type: data.property_type, property_type_slug: data.property_type_slug || null, state: data.state || null,
       address: data.address || '', city: '', zip_code: '',
       bedrooms: units[0]?.bedrooms ?? 1, sitting_rooms: 1,
       bathrooms: units[0]?.bathrooms ?? 1,

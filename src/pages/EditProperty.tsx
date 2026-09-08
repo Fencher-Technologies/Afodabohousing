@@ -80,7 +80,7 @@ export default function EditProperty() {
     }))));
     setInitialData({
       title: data.title || '', description: data.description || '',
-      property_type: data.property_type || 'Residential', state: data.state || '',
+      property_type: data.property_type || 'Residential', property_type_slug: (data as { property_type_slug?: string }).property_type_slug || '', state: data.state || '',
       address: data.address || '',
       bedrooms: data.bedrooms || 1, sitting_rooms: data.sitting_rooms || 1,
       bathrooms: data.bathrooms || 1,
@@ -101,7 +101,7 @@ export default function EditProperty() {
     if (!id) return;
     const { error } = await supabase.from('properties').update({
       title: data.title, description: data.description || null,
-      property_type: data.property_type, state: data.state,
+      property_type: data.property_type, property_type_slug: data.property_type_slug || null, state: data.state,
       address: data.address || null,
       // Derived from the units, which are edited below and are the source of
       // truth. These columns stay populated so listing search and filters keep

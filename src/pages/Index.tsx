@@ -650,7 +650,7 @@ export default function HomePage() {
               <span className="h-px flex-1 bg-foreground/15" />
             </div>
             <h2 className="font-display text-4xl sm:text-5xl text-foreground leading-tight mb-16">
-              Trusted across Uganda
+              Trusted globally
             </h2>
           </Reveal>
           <div className="grid md:grid-cols-3 gap-12 md:gap-10">

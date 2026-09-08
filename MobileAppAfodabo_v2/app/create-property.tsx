@@ -100,10 +100,12 @@ export default function CreatePropertyScreen() {
     [regions],
   );
 
-  const categoryOptions = useMemo(() => [
-    { label: "All Categories", value: "" },
-    ...categories.map((c) => ({ label: c.label, value: c.slug })),
-  ], [categories]);
+  // No "All" entry here (unlike the explore filters) — listing a property
+  // requires picking a real category first, then a type under it.
+  const categoryOptions = useMemo(() =>
+    categories.map((c) => ({ label: c.label, value: c.slug })),
+    [categories],
+  );
 
   const typeOptions = useMemo(() =>
     types.map((t) => ({ label: t.label, value: t.slug })),
@@ -158,6 +160,14 @@ export default function CreatePropertyScreen() {
 
   const validateStep = (s: number): boolean => {
     if (s === 0) {
+      if (!category) {
+        toast.show("Select a property category (Residential or Commercial).", "error");
+        return false;
+      }
+      if (!type) {
+        toast.show("Select the property type under that category.", "error");
+        return false;
+      }
       const okTitle = validateTitle();
       // A property is its units, so it must have at least one. There is no
       // property-level rent to fall back on any more.

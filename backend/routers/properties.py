@@ -102,6 +102,7 @@ def list_public_properties(
             property_type=property_type,
             property_type_slug=property_type_slug,
             min_price=min_price, max_price=max_price,
+            include_manager_contacts=current_user is not None,
         )
     except Exception as e:
         msg = str(e)
@@ -192,7 +193,7 @@ def get_public_property(
         "private, no-cache" if current_user else "public, max-age=30, stale-while-revalidate=60"
     )
     svc = PropertyService(get_service_client())
-    property_data = svc.get_by_id_public(property_id)
+    property_data = svc.get_by_id_public(property_id, include_manager_contacts=current_user is not None)
     if not property_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

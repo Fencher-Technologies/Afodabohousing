@@ -7,7 +7,7 @@ import heroHills from '@/assets/hero-bg.jpg';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import Footer from '@/components/Footer';
 import { Search, SlidersHorizontal, RotateCcw, Compass, MapPin } from 'lucide-react';
@@ -15,14 +15,10 @@ import { usePropertyBookmarks } from '@/hooks/usePropertyBookmarks';
 import { apiGet } from '@/services/api';
 
 
-const PROPERTY_TYPES = [
-  { label: 'All Types', value: '' },
-  { label: 'Apartment', value: 'apartment' },
-  { label: 'House', value: 'house' },
-  { label: 'Studio', value: 'studio' },
-  { label: 'Single Room', value: 'single_room' },
-  { label: 'Shop / Office', value: 'shop' },
-];
+// Types come from the backend catalog (same source as the listing form and
+// the mobile app), grouped by category: Residential / Commercial.
+interface PropertyCategory { slug: string; label: string; sort_order: number; }
+interface PropertyTypeOption { slug: string; label: string; category_slug: string; sort_order: number; }
 
 const BEDROOM_OPTIONS = [
   { label: 'Any', value: '' },
@@ -71,6 +67,17 @@ export default function GuestExplore() {
   const [bathrooms, setBathrooms] = useState('');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [categories, setCategories] = useState<PropertyCategory[]>([]);
+  const [typeOptions, setTypeOptions] = useState<PropertyTypeOption[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      apiGet<PropertyCategory[]>('/property-types/categories'),
+      apiGet<PropertyTypeOption[]>('/property-types/types'),
+    ])
+      .then(([cats, types]) => { setCategories(cats); setTypeOptions(types); })
+      .catch(() => {});
+  }, []);
 
   // Debounce price inputs so typing doesn't fire a request per keystroke.
   const [debouncedPrice, setDebouncedPrice] = useState({ min: minPrice, max: maxPrice });
@@ -84,7 +91,7 @@ export default function GuestExplore() {
   // backend-side filters → API params
   const apiParams = useMemo(() => ({
     state: district || undefined,
-    property_type: propertyType || undefined,
+    property_type_slug: propertyType || undefined,
     min_price: debouncedPrice.min ? Number(debouncedPrice.min) : undefined,
     max_price: debouncedPrice.max ? Number(debouncedPrice.max) : undefined,
   }), [district, propertyType, debouncedPrice.min, debouncedPrice.max]);
@@ -94,7 +101,7 @@ export default function GuestExplore() {
     setError(null);
     const params = new URLSearchParams();
     if (apiParams.state) params.set('state', apiParams.state);
-    if (apiParams.property_type) params.set('property_type', apiParams.property_type);
+    if (apiParams.property_type_slug) params.set('property_type_slug', apiParams.property_type_slug);
     if (apiParams.min_price) params.set('min_price', String(apiParams.min_price));
     if (apiParams.max_price) params.set('max_price', String(apiParams.max_price));
     params.set('limit', '50');
@@ -228,8 +235,14 @@ export default function GuestExplore() {
                 <Select value={propertyType || 'all'} onValueChange={v => setPropertyType(v === 'all' ? '' : v)}>
                   <SelectTrigger><SelectValue placeholder="All types" /></SelectTrigger>
                   <SelectContent>
-                    {PROPERTY_TYPES.map(t => (
-                      <SelectItem key={t.value} value={t.value || 'all'}>{t.label}</SelectItem>
+                    <SelectItem value="all">All Types</SelectItem>
+                    {categories.map(c => (
+                      <SelectGroup key={c.slug}>
+                        <SelectLabel>{c.label}</SelectLabel>
+                        {typeOptions.filter(t => t.category_slug === c.slug).map(t => (
+                          <SelectItem key={t.slug} value={t.slug}>{t.label}</SelectItem>
+                        ))}
+                      </SelectGroup>
                     ))}
                   </SelectContent>
                 </Select>

@@ -22,18 +22,24 @@ interface Property {
 
 const fallbackImages = [prop1, prop2, prop3];
 
+// Labels mirror the property_types catalog (migration 044). Unknown slugs
+// fall through to the prettifier in typeLabel().
 const typeLabels: Record<string, string> = {
   Residential: 'Residential',
   'Office Space': 'Office Space',
-  apartment: 'Apartment',
-  house: 'House',
+  apartment: 'Apartments',
+  bungalow: 'Bungalow',
+  mansion: 'Mansion',
+  villa: 'Villa',
   studio: 'Studio',
-  single_room: 'Single Room',
-  shop: 'Shop / Office',
-  rental_units: 'Rental Units',
-  commercial_building: 'Commercial',
-  land: 'Land',
+  house: 'House',
+  office_space: 'Office Building',
   warehouse: 'Warehouse',
+  shop: 'Shop',
+  commercial_building: 'Commercial Building',
+  single_room: 'Single Room',
+  rental_units: 'Rental Units',
+  land: 'Land',
 };
 
 function typeLabel(raw: string): string {

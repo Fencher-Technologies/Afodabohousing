@@ -52,7 +52,7 @@
           "backgroundColor": "#ffffff",
           "android": {
             "image": "./assets/images/axis-splash-mark.png",
-            "imageWidth": 180,
+            "imageWidth": 288,
             "resizeMode": "contain",
             "backgroundColor": "#ffffff"
           }

@@ -25,6 +25,8 @@ const CURRENCY_MAP: Record<string, string> = {
 
 interface Country { iso2: string; name: string; }
 interface Region { id: string; country_id: string; name: string; admin_level: string; geonames_id: string; }
+interface PropertyCategory { slug: string; label: string; sort_order: number; }
+interface PropertyTypeOption { slug: string; label: string; category_slug: string; sort_order: number; }
 const AMENITIES = ['Water', 'Electricity', 'WiFi', 'Parking', 'Security', 'Garden', 'Generator', 'DSTV', 'Borehole', 'Tiled Floors'];
 
 export interface PropertyFormData {
@@ -34,6 +36,7 @@ export interface PropertyFormData {
   manager_phone: string; manager_email: string; amenities: string[];
   images: string[]; latitude: string; longitude: string;
   country: string; region_id: string; rent_currency: string;
+  property_type_slug: string;
 }
 
 interface Props {
@@ -61,6 +64,14 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
   const [deprecatedWarning, setDeprecatedWarning] = useState('');
   const [regionLabel, setRegionLabel] = useState('District');
 
+  // Listing flow: 1) Property Category (Residential / Commercial),
+  // then 2) Property Type filtered by that category — same as the mobile app.
+  const [categories, setCategories] = useState<PropertyCategory[]>([]);
+  const [typeOptions, setTypeOptions] = useState<PropertyTypeOption[]>([]);
+  const [category, setCategory] = useState<string>(
+    initialData?.property_type === 'Office Space' ? 'commercial' : 'residential',
+  );
+
   const [form, setForm] = useState<PropertyFormData>({
     title: '', description: '', property_type: 'Residential', state: '',
     address: '', bedrooms: 1, sitting_rooms: 1,
@@ -68,6 +79,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
     manager_phone: '', manager_email: '', amenities: [], images: [],
     latitude: '', longitude: '',
     country: 'UG', region_id: '', rent_currency: 'UGX',
+    property_type_slug: '',
     ...initialData,
   });
 
@@ -77,6 +89,31 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
       .then((data: Country[]) => setCountries(data))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetch(`${API}/property-types/categories`)
+      .then(r => r.json())
+      .then((data: PropertyCategory[]) => setCategories(data))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!category) { setTypeOptions([]); return; }
+    fetch(`${API}/property-types/types?category=${encodeURIComponent(category)}`)
+      .then(r => r.json())
+      .then((data: PropertyTypeOption[]) => setTypeOptions(data))
+      .catch(() => setTypeOptions([]));
+  }, [category]);
+
+  const handleCategoryChange = (slug: string) => {
+    setCategory(slug);
+    setForm(f => ({
+      ...f,
+      // Keep the legacy ENUM in sync — backend filters still rely on it.
+      property_type: slug === 'commercial' ? 'Office Space' : 'Residential',
+      property_type_slug: '',
+    }));
+  };
 
   useEffect(() => {
     if (!form.country) { setRegions([]); return; }
@@ -196,6 +233,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
     if (!form.country) { toast({ title: 'Country is required', variant: 'destructive' }); return; }
     if (!form.region_id) { toast({ title: `${regionLabel} is required`, variant: 'destructive' }); return; }
     if (!form.latitude || !form.longitude) { setGeoError('Please add property location via Maps URL or enter coordinates manually.'); return; }
+    if (typeOptions.length > 0 && !form.property_type_slug) { toast({ title: 'Property type is required', variant: 'destructive' }); return; }
     setGeoError('');
     onSave(form);
   };
@@ -211,13 +249,24 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-sm font-semibold mb-2">Type</p>
-            <select value={form.property_type} onChange={e => setForm(f => ({ ...f, property_type: e.target.value }))}
+            <p className="text-sm font-semibold mb-2">Category</p>
+            <select value={category} onChange={e => handleCategoryChange(e.target.value)}
               className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm">
-              <option value="Residential">Residential</option>
-              <option value="Office Space">Office Space</option>
+              {categories.length === 0 && <option value={category}>{category === 'commercial' ? 'Commercial' : 'Residential'}</option>}
+              {categories.map(c => <option key={c.slug} value={c.slug}>{c.label}</option>)}
             </select>
           </div>
+          <div>
+            <p className="text-sm font-semibold mb-2">Property Type</p>
+            <select value={form.property_type_slug}
+              onChange={e => setForm(f => ({ ...f, property_type_slug: e.target.value }))}
+              className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm">
+              <option value="">Select type</option>
+              {typeOptions.map(t => <option key={t.slug} value={t.slug}>{t.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm font-semibold mb-2">Rent Period</p>
             <select value={form.rent_period} onChange={e => setForm(f => ({ ...f, rent_period: e.target.value }))}
