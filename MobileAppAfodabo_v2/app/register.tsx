@@ -200,16 +200,19 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   logoWrap: {
-    width: 96,
-    height: 96,
+    // Matches login.tsx. Two fixes here: the 96x96 square cropped the wide
+    // 3.149:1 lockup, and the solid white fill sat behind the white-tone
+    // BrandMark, so the logo was invisible against its own tile.
+    alignSelf: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     borderRadius: 20,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xs,
     borderWidth: 1,
-    borderColor: "transparent",
-    overflow: "hidden",
+    borderColor: "rgba(255,255,255,0.15)",
   },
   appName: { fontSize: FontSize.display, fontWeight: FontWeight.bold, color: "#FFFFFF" },
   tagline: { fontSize: FontSize.body, color: "rgba(255,255,255,0.7)" },

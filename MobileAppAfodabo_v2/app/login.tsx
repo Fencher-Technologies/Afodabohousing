@@ -148,8 +148,12 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   logoWrap: {
-    width: 72,
-    height: 72,
+    // The brand lockup is a wide 3.149:1 image (BrandMark "md" is 139x44), so
+    // the tile is sized by padding rather than pinned to a square. The old
+    // 72x72 box with overflow:"hidden" cropped the logo to its middle third.
+    alignSelf: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
@@ -157,7 +161,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.15)",
-    overflow: "hidden",
   },
   formWrap: {
     flex: 1,
