@@ -202,21 +202,27 @@ DO $$
 BEGIN
     -- Only try to create policies if profiles table exists
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles') THEN
+        DROP POLICY IF EXISTS "Users can view active countries" ON countries;
         CREATE POLICY "Users can view active countries" ON countries FOR SELECT
             USING (is_active = true);
 
+        DROP POLICY IF EXISTS "Admins can manage countries" ON countries;
         CREATE POLICY "Admins can manage countries" ON countries FOR ALL
             USING (EXISTS (SELECT 1 FROM profiles WHERE user_id = auth.uid() AND role = 'admin'));
 
+        DROP POLICY IF EXISTS "Users can view active regions" ON regions;
         CREATE POLICY "Users can view active regions" ON regions FOR SELECT
             USING (deprecated_at IS NULL);
 
+        DROP POLICY IF EXISTS "Admins can manage regions" ON regions;
         CREATE POLICY "Admins can manage regions" ON regions FOR ALL
             USING (EXISTS (SELECT 1 FROM profiles WHERE user_id = auth.uid() AND role = 'admin'));
 
+        DROP POLICY IF EXISTS "Admins can review pending changes" ON pending_region_review;
         CREATE POLICY "Admins can review pending changes" ON pending_region_review FOR ALL
             USING (EXISTS (SELECT 1 FROM profiles WHERE user_id = auth.uid() AND role = 'admin'));
 
+        DROP POLICY IF EXISTS "Admins can view sync history" ON sync_history;
         CREATE POLICY "Admins can view sync history" ON sync_history FOR SELECT
             USING (EXISTS (SELECT 1 FROM profiles WHERE user_id = auth.uid() AND role = 'admin'));
     END IF;
@@ -236,16 +242,19 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('property-images', 'property-images', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
+DROP POLICY IF EXISTS "Authenticated users can upload property images" ON storage.objects;
 CREATE POLICY "Authenticated users can upload property images"
 ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (bucket_id = 'property-images');
 
+DROP POLICY IF EXISTS "Anyone can view property images" ON storage.objects;
 CREATE POLICY "Anyone can view property images"
 ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'property-images');
 
+DROP POLICY IF EXISTS "Owners can delete their property images" ON storage.objects;
 CREATE POLICY "Owners can delete their property images"
 ON storage.objects FOR DELETE
 TO authenticated
@@ -256,11 +265,13 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('payment-proofs', 'payment-proofs', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
+DROP POLICY IF EXISTS "Authenticated users can upload payment proofs" ON storage.objects;
 CREATE POLICY "Authenticated users can upload payment proofs"
 ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (bucket_id = 'payment-proofs');
 
+DROP POLICY IF EXISTS "Anyone can view payment proofs" ON storage.objects;
 CREATE POLICY "Anyone can view payment proofs"
 ON storage.objects FOR SELECT
 TO public
@@ -344,8 +355,6 @@ UPDATE properties SET state = '' WHERE state IS NULL;
 -- property_type ENUM column is retained for backward compatibility.
 -- A new nullable property_type_slug column stores the specific type.
 -- ============================================================================
-
-BEGIN;
 
 -- ============================================================================
 -- 1. PROPERTY CATEGORIES
@@ -452,13 +461,13 @@ ON CONFLICT (slug, category_slug) DO NOTHING;
 ALTER TABLE property_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE property_types ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view active categories" ON property_categories;
 CREATE POLICY "Anyone can view active categories"
     ON property_categories FOR SELECT USING (is_active = true);
 
+DROP POLICY IF EXISTS "Anyone can view active types" ON property_types;
 CREATE POLICY "Anyone can view active types"
     ON property_types FOR SELECT USING (is_active = true);
-
-COMMIT;
 
 -- ── 044_axis_property_hierarchy.sql ──────────────────────────────────────────────
 -- ============================================================================
@@ -485,8 +494,6 @@ COMMIT;
 -- properties that reference their slugs keep working; they simply no
 -- longer appear in the listing dropdowns.
 -- ============================================================================
-
-BEGIN;
 
 -- ============================================================================
 -- 1. NEW TYPE: Mansion (residential)
@@ -538,8 +545,6 @@ UPDATE property_types SET label = 'Commercial Building', sort_order = 4, is_acti
 UPDATE property_types SET is_active = false
     WHERE category_slug = 'commercial'
       AND slug NOT IN ('office_space', 'warehouse', 'shop', 'commercial_building');
-
-COMMIT;
 
 -- ── 044_restore_payments_proof_url.sql ──────────────────────────────────────────────
 -- Restore payments.proof_url.
