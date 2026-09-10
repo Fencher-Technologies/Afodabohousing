@@ -157,7 +157,7 @@ class TestPesapalWebhook:
                 content=body,
                 headers={"Content-Type": "application/json"},
             )
-        assert resp.status_code == 200
+        assert resp.status_code == 401
 
     def test_rejects_bad_signature(self, client, pesapal_secret):
         body = self._ipn("txn-003", "ref-003")
@@ -210,7 +210,7 @@ class TestPesapalWebhook:
                 content=body,
                 headers={"Content-Type": "application/json"},
             )
-        assert resp.status_code == 200
+        assert resp.status_code == 401
 
         get_settings().pesapal_consumer_secret = secret
 
