@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiGet, apiPost, apiDelete } from '@/services/api';
+import { useToast } from '@/hooks/use-toast';
 
-// Batched bookmark state for a list page: ONE query for the whole page
-// instead of one query per card.
 export function usePropertyBookmarks(propertyIds: string[]) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
 
   const idsKey = propertyIds.join('|');
@@ -14,33 +14,39 @@ export function usePropertyBookmarks(propertyIds: string[]) {
     setBookmarks(new Set());
     if (!user || !idsKey) return undefined;
     let cancelled = false;
-    supabase
-      .from('property_bookmarks')
-      .select('property_id')
-      .eq('user_id', user.id)
-      .in('property_id', propertyIds)
-      .then(({ data }) => {
-        if (!cancelled) setBookmarks(new Set((data || []).map(r => r.property_id)));
+    apiGet<any[]>('/bookmarks')
+      .then(data => {
+        if (cancelled) return;
+        const filtered = (data || []).map((r: any) => r.property_id).filter((id: string) => propertyIds.includes(id));
+        setBookmarks(new Set(filtered));
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) toast({ title: 'Error', description: 'Could not load bookmarks.', variant: 'destructive' });
+      });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, idsKey]);
+  }, [user, idsKey, toast]);
 
   const toggle = useCallback(async (propertyId: string, next: boolean) => {
     if (!user) return;
-    if (next) {
-      await supabase.from('property_bookmarks').insert({ user_id: user.id, property_id: propertyId });
-    } else {
-      await supabase.from('property_bookmarks').delete().eq('user_id', user.id).eq('property_id', propertyId);
-    }
     setBookmarks(prev => {
-      const nextSet = new Set(prev);
-      if (next) nextSet.add(propertyId);
-      else nextSet.delete(propertyId);
-      return nextSet;
+      const n = new Set(prev);
+      if (next) n.add(propertyId);
+      else n.delete(propertyId);
+      return n;
     });
-  }, [user]);
+    try {
+      if (next) await apiPost(`/bookmarks/${propertyId}`);
+      else await apiDelete(`/bookmarks/${propertyId}`);
+    } catch {
+      setBookmarks(prev => {
+        const n = new Set(prev);
+        if (next) n.delete(propertyId);
+        else n.add(propertyId);
+        return n;
+      });
+      toast({ title: 'Error', description: next ? 'Could not save bookmark.' : 'Could not remove bookmark.', variant: 'destructive' });
+    }
+  }, [user, toast]);
 
   return { bookmarks, toggle };
 }

@@ -3,8 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, Bed, Bath, Sofa, Sparkles, Heart, Phone, Mail } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { isPropertyBoosted } from '@/services/property-boosts';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { addBookmark, removeBookmark } from '@/services/bookmarks';
 import { formatCurrency } from '@/utils/currency';
 import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
@@ -103,11 +103,8 @@ function PropertyCard({ property, index = 0, bookmarks, onToggleBookmark }: Prop
     if (onToggleBookmark) {
       await onToggleBookmark(property.id, !isBookmarked);
     } else {
-      if (isBookmarked) {
-        await supabase.from('property_bookmarks').delete().eq('user_id', user.id).eq('property_id', property.id);
-      } else {
-        await supabase.from('property_bookmarks').insert({ user_id: user.id, property_id: property.id });
-      }
+      if (isBookmarked) await removeBookmark(property.id);
+      else await addBookmark(property.id);
       setBookmarked(!isBookmarked);
     }
     setToggling(false);
