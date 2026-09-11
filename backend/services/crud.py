@@ -1433,13 +1433,20 @@ class LeaseService(BaseService):
 class BookmarkService(BaseService):
     def __init__(self, supabase: Client):
         super().__init__(supabase)
-        self._table = "property_bookmarks"
+        self._table = "saved_properties"
+
+    def _profile_id(self, user_id: UUID) -> str | None:
+        res = self.supabase.table("profiles").select("id").eq("user_id", str(user_id)).maybe_single().execute()
+        return res.data.get("id") if res.data else None
 
     @with_retry
     def get_user_bookmarks(self, user_id: UUID) -> list[dict[str, Any]]:
+        pid = self._profile_id(user_id)
+        if not pid:
+            return []
         response = (
             self.table.select("*")
-            .eq("user_id", str(user_id))
+            .eq("user_id", pid)
             .order("created_at", desc=True)
             .execute()
         )
@@ -1447,16 +1454,19 @@ class BookmarkService(BaseService):
 
     @with_retry
     def add_bookmark(self, user_id: UUID, property_id: UUID) -> dict[str, Any]:
+        pid = self._profile_id(user_id)
+        if not pid:
+            raise ValueError("Profile not found")
         existing = (
             self.table.select("*")
-            .eq("user_id", str(user_id))
+            .eq("user_id", pid)
             .eq("property_id", str(property_id))
             .execute()
         )
         if existing.data:
             return existing.data[0]
         payload = {
-            "user_id": str(user_id),
+            "user_id": pid,
             "property_id": str(property_id),
         }
         response = self.table.insert(payload).execute()
@@ -1464,9 +1474,12 @@ class BookmarkService(BaseService):
 
     @with_retry
     def remove_bookmark(self, user_id: UUID, property_id: UUID) -> bool:
+        pid = self._profile_id(user_id)
+        if not pid:
+            return False
         response = (
             self.table.delete()
-            .eq("user_id", str(user_id))
+            .eq("user_id", pid)
             .eq("property_id", str(property_id))
             .execute()
         )
@@ -1474,9 +1487,12 @@ class BookmarkService(BaseService):
 
     @with_retry
     def is_bookmarked(self, user_id: UUID, property_id: UUID) -> bool:
+        pid = self._profile_id(user_id)
+        if not pid:
+            return False
         response = (
             self.table.select("id", count="exact")
-            .eq("user_id", str(user_id))
+            .eq("user_id", pid)
             .eq("property_id", str(property_id))
             .execute()
         )
