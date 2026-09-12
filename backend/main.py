@@ -268,6 +268,17 @@ def _validate_required_settings():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _scheduler_started
+    try:
+        import inspect as _inspect
+        import subprocess as _sp
+        _app_file = _inspect.getfile(app)
+        try:
+            _git_sha = _sp.check_output(["git", "rev-parse", "HEAD"], cwd="/home/joel/Documents/GitHub/Afodabohousing", timeout=2).decode().strip()[:7]
+        except Exception:
+            _git_sha = "unknown"
+        logger.info(dumps({"event": "startup", "app_file": _app_file, "git_sha": _git_sha, "version": app.version}))
+    except Exception:
+        pass
     logger.info(f"Starting Rental Management API v{app.version}")
     _validate_required_settings()
     if settings.environment != "test" and not _scheduler_started:

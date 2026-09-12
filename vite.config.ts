@@ -2,6 +2,36 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
+const backendPrefixes = [
+  '/auth',
+  '/admin',
+  '/agreements',
+  '/bookmarks',
+  '/boosts',
+  '/exports',
+  '/forex',
+  '/leases',
+  '/maintenance',
+  '/managers',
+  '/messages',
+  '/notifications',
+  '/payments',
+  '/payment-verifications',
+  '/properties',
+  '/property-types',
+  '/receipts',
+  '/regions',
+  '/rental-units',
+  '/reports',
+  '/saved-phones',
+  '/subscriptions',
+  '/tenants',
+  '/terms',
+  '/tracking',
+  '/uploads',
+  '/webhooks',
+];
+
 // https://vitejs.dev/config/
 export default defineConfig({
   server: {
@@ -10,26 +40,9 @@ export default defineConfig({
     hmr: {
       overlay: false,
     },
-    proxy: {
-      '/auth': { target: 'http://localhost:8000', changeOrigin: true },
-      '/admin': { target: 'http://localhost:8000', changeOrigin: true },
-      '/payments': { target: 'http://localhost:8000', changeOrigin: true },
-      '/boosts': { target: 'http://localhost:8000', changeOrigin: true },
-      '/webhooks': { target: 'http://localhost:8000', changeOrigin: true },
-      '/properties': { target: 'http://localhost:8000', changeOrigin: true },
-      '/regions': { target: 'http://localhost:8000', changeOrigin: true },
-      '/uploads': { target: 'http://localhost:8000', changeOrigin: true },
-      '/tenants': { target: 'http://localhost:8000', changeOrigin: true },
-      '/rental-units': { target: 'http://localhost:8000', changeOrigin: true },
-      '/messages': { target: 'http://localhost:8000', changeOrigin: true },
-      '/leases': { target: 'http://localhost:8000', changeOrigin: true },
-      '/maintenance-requests': { target: 'http://localhost:8000', changeOrigin: true },
-      '/subscriptions': { target: 'http://localhost:8000', changeOrigin: true },
-      '/forex': { target: 'http://localhost:8000', changeOrigin: true },
-      '/reports': { target: 'http://localhost:8000', changeOrigin: true },
-      '/exports': { target: 'http://localhost:8000', changeOrigin: true },
-      '/agreements': { target: 'http://localhost:8000', changeOrigin: true },
-    },
+    proxy: Object.fromEntries(
+      backendPrefixes.map(prefix => [prefix, { target: 'http://localhost:8000', changeOrigin: true }])
+    ),
   },
   plugins: [react()],
   resolve: {

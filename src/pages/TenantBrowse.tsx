@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Heart, MapPin, Home, DollarSign, Search, Star } from 'lucide-react';
-import { addBookmark, removeBookmark } from '@/services/bookmarks';
+import { addBookmark, listBookmarks, removeBookmark } from '@/services/bookmarks';
 import { apiGet } from '@/services/api';
 
 export default function TenantBrowse() {
@@ -50,11 +50,12 @@ export default function TenantBrowse() {
       setProperties(props || []);
     }
 
-    const { data: bm } = await supabase
-      .from('bookmarks')
-      .select('property_id')
-      .eq('user_id', user?.id);
-    if (bm) setBookmarked(new Set(bm.map(b => b.property_id)));
+    try {
+      const bm = await listBookmarks();
+      setBookmarked(new Set(bm.map(b => b.property_id)));
+    } catch {
+      setBookmarked(new Set());
+    }
 
     setLoading(false);
   };
