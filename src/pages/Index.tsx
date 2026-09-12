@@ -180,25 +180,26 @@ export default function HomePage() {
 
   useEffect(() => {
     fetch(`${API}/regions/countries`)
-      .then(r => r.json())
-      .then((data: Country[]) => setCountries(data))
-      .catch(() => {});
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then(data => setCountries(Array.isArray(data) ? data : []))
+      .catch(() => setCountries([]));
   }, []);
 
   useEffect(() => {
     if (!selectedCountry) { setRegions([]); return; }
     setLoadingRegions(true);
     fetch(`${API}/regions/regions?country_id=${selectedCountry}&active_only=true`)
-      .then(r => r.json())
-      .then((data: Region[]) => {
-        setRegions(data);
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then(data => {
+        const list: Region[] = Array.isArray(data) ? data : [];
+        setRegions(list);
         setSelectedRegion('__all__');
-        if (data.length > 0) {
-          const label = data[0].admin_level || 'District';
+        if (list.length > 0) {
+          const label = list[0].admin_level || 'District';
           setRegionLabel(label.charAt(0).toUpperCase() + label.slice(1));
         }
       })
-      .catch(() => {})
+      .catch(() => setRegions([]))
       .finally(() => setLoadingRegions(false));
   }, [selectedCountry]);
 

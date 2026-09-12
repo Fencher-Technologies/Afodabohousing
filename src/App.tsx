@@ -72,7 +72,10 @@ const AgreementSummary = lazy(() => import("./pages/AgreementSummary"));
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
   static getDerivedStateFromError(error: Error) { return { error }; }
-  componentDidCatch(error: Error, info: ErrorInfo) { console.error('ErrorBoundary caught:', error, info); }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('ErrorBoundary caught:', error, info);
+    if (import.meta.env.DEV) console.error('Component stack:', info.componentStack);
+  }
   render() {
     if (this.state.error) {
       return (
