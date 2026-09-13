@@ -49,7 +49,7 @@ export default function AgreementPreview() {
       const { data: { session } } = await supabase.auth.getSession();
       const headers = { Authorization: `Bearer ${session?.access_token}` };
       const [leaseRes, tmplRes] = await Promise.all([
-        fetch(`${API_BASE}/tenancies/${leaseId}`, { headers }),
+        fetch(`${API_BASE}/leases/${leaseId}`, { headers }),
         fetch(`${API_BASE}/agreements/template`, { headers }),
       ]);
       if (!leaseRes.ok) throw new Error('Failed to load tenancy');
@@ -117,7 +117,7 @@ export default function AgreementPreview() {
             </Button>
             <div>
               <h1 className="text-xl font-semibold">Preview Agreement</h1>
-              <p className="text-sm text-muted-foreground">{lease?.property.title}</p>
+              <p className="text-sm text-muted-foreground">{lease?.property?.title}</p>
             </div>
           </div>
         </div>

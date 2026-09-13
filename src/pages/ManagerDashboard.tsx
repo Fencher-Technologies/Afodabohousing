@@ -93,9 +93,6 @@ export default function ManagerDashboard() {
   const [otpPassword, setOtpPassword] = useState<string | null>(null);
   const [copiedPwd, setCopiedPwd] = useState(false);
 
-  // Which table the tenancy rows came from (new schema vs legacy)
-  const [tenancySource, setTenancySource] = useState<'tenancies' | 'leases'>('tenancies');
-
   const [unitForm, setUnitForm] = useState({
     unit_number: '', floor_level: '', bedrooms: 1, bathrooms: 1, sitting_rooms: 1,
     kitchens: 1, rent_amount: 0, security_deposit: 0, description: '',
@@ -122,7 +119,7 @@ export default function ManagerDashboard() {
     });
     const [propsRes, tenancyRes, leaseRes, tenantRes, payRes, profileRes, subscriptionData] = await Promise.all([
       propsPromise,
-      supabase.from('tenancies').select('*').eq('manager_id', user.id).order('created_at', { ascending: false }),
+      apiGet<{ items: any[] }>('/leases?limit=100').catch(() => ({ items: [] as any[] })),
       supabase.from('leases').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
       supabase.from('tenants').select('id, first_name, last_name, phone, user_id').eq('owner_id', user.id),
       listPayments().catch(() => ({ items: [], total: 0 })),
@@ -144,12 +141,12 @@ export default function ManagerDashboard() {
 
     setProperties(propsRes.items || []);
 
-    // Prefer tenancies (new schema), fallback to leases (old schema)
-    const tenancyRows = tenancyRes.data || [];
+    // Tenancies live in the leases table (there is no tenancies table).
+    // Prefer the /leases API, fallback to the direct query for resilience.
+    const tenancyRows = (tenancyRes as any).items || [];
     const leaseRows = leaseRes.data || [];
     const rawTenancies = tenancyRows.length > 0 ? tenancyRows : leaseRows;
-    const isTenancies = tenancyRows.length > 0;
-    setTenancySource(isTenancies ? 'tenancies' : 'leases');
+    const isTenancies = false;
 
     const tenancyMap: Record<string, { property_id: string; tenant_id: string }> = {};
     rawTenancies.forEach(t => {
@@ -967,7 +964,7 @@ export default function ManagerDashboard() {
                                     disabled={sendingAction === `deact-${t.id}`}
                               onClick={async () => {
                                 setSendingAction(`deact-${t.id}`);
-                                const { error } = await supabase.from(tenancySource).update({ status: 'inactive' }).eq('id', t.id);
+                                const { error } = await supabase.from('leases').update({ status: 'inactive' }).eq('id', t.id);
                                 if (error) toast({ title: 'Error', description: cleanDbError(error), variant: 'destructive' });
                                 else { toast({ title: 'Tenancy deactivated' }); fetchData(); }
                                 setSendingAction('');

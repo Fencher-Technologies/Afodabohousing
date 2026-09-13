@@ -128,7 +128,7 @@ export default function ManagerReports() {
     const a = document.createElement('a');
     a.href = `${base}/exports/report-pdf`;
     a.target = '_blank';
-    if (token) a.href += `&token=${token}`;
+    if (token) a.href += `?token=${encodeURIComponent(token)}`;
     a.click();
   };
 
