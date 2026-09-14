@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { apiDownload } from '@/services/api';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -54,21 +55,10 @@ export async function downloadReceiptPdf(
   receiptNumber?: string,
 ): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/receipts/${receiptId}/pdf`, {
-      headers: await authHeaders(),
-    });
-    if (!res.ok) return false;
-
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `receipt-${receiptNumber || receiptId}.pdf`.replace(/[^a-zA-Z0-9._-]/g, '-');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    // Revoke on the next tick so the download has started.
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    await apiDownload(
+      `/receipts/${receiptId}/pdf`,
+      `receipt-${receiptNumber || receiptId}.pdf`,
+    );
     return true;
   } catch (error) {
     console.error('Receipt PDF download failed:', error);

@@ -66,7 +66,10 @@ export default function AvatarUpload({
 
     setUploading(true);
     try {
-      const path = `avatars/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      // Avatars-bucket policies require the object path to start with the
+      // uploader's auth UID; a static "avatars/" prefix fails the check and
+      // the upload is rejected.
+      const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { data, error: uploadErr } = await supabase.storage.from('avatars').upload(path, file);
       if (uploadErr) throw uploadErr;
 

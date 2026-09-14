@@ -15,6 +15,7 @@ import {
   getFinancialSummary, getRentCollection, getOutstanding, getPaymentHistory,
   type FinancialSummary, type RentCollection, type OutstandingItem, type PaymentHistoryItem,
 } from '@/services/reports';
+import { apiDownload } from '@/services/api';
 
 type Tab = 'overview' | 'outstanding' | 'payments';
 
@@ -53,6 +54,8 @@ export default function ManagerReports() {
   const [outstandingTotal, setOutstandingTotal] = useState(0);
   const [payments, setPayments] = useState<PaymentHistoryItem[]>([]);
   const [paymentsTotal, setPaymentsTotal] = useState(0);
+  // Which export is in flight ('pdf' or a CSV resource), if any.
+  const [exporting, setExporting] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -100,36 +103,35 @@ export default function ManagerReports() {
     setLoading(false);
   }, [from, to]);
 
+  // File downloads go through fetch with the session token (apiDownload)
+  // because an anchor click cannot send an Authorization header and the
+  // export routes require one. Carry the on-screen filters into the file
+  // so the export matches what the manager is looking at.
   const downloadExport = async (resource: string) => {
-    const base = import.meta.env.VITE_API_URL || '';
-    const { supabase } = await import('@/integrations/supabase/client');
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    // Carry the on-screen filters into the file so the export matches what the
-    // manager is looking at.
-    const params = new URLSearchParams({ format: 'csv' });
-    if (statusFilter) params.set('status', statusFilter);
-    if (propertyFilter) params.set('property_id', propertyFilter);
-    if (from) params.set('start_date', from);
-    if (to) params.set('end_date', to);
-    if (token) params.set('token', token);
-
-    const a = document.createElement('a');
-    a.href = `${base}/exports/${resource}?${params.toString()}`;
-    a.target = '_blank';
-    a.click();
+    setExporting(resource);
+    try {
+      const params = new URLSearchParams({ format: 'csv' });
+      if (statusFilter) params.set('status', statusFilter);
+      if (propertyFilter) params.set('property_id', propertyFilter);
+      if (from) params.set('start_date', from);
+      if (to) params.set('end_date', to);
+      await apiDownload(`/exports/${resource}?${params.toString()}`, `${resource}.csv`);
+    } catch (e: any) {
+      toast({ title: 'Export failed', description: e?.message || `Could not download ${resource} export.`, variant: 'destructive' });
+    } finally {
+      setExporting(null);
+    }
   };
 
   const downloadPdfReport = async () => {
-    const base = import.meta.env.VITE_API_URL || '';
-    const { supabase } = await import('@/integrations/supabase/client');
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    const a = document.createElement('a');
-    a.href = `${base}/exports/report-pdf`;
-    a.target = '_blank';
-    if (token) a.href += `?token=${encodeURIComponent(token)}`;
-    a.click();
+    setExporting('pdf');
+    try {
+      await apiDownload('/exports/report-pdf', 'portfolio_report.pdf');
+    } catch (e: any) {
+      toast({ title: 'Export failed', description: e?.message || 'Could not download PDF report.', variant: 'destructive' });
+    } finally {
+      setExporting(null);
+    }
   };
 
   const downloadTenantStatement = async (tenantId: string) => {
@@ -314,12 +316,14 @@ export default function ManagerReports() {
               <div className="flex flex-wrap gap-2">
                 {EXPORTS.map(e => (
                   <Button key={e.resource} variant="outline" size="sm"
-                    onClick={() => downloadExport(e.resource)} className="gap-2">
-                    <FileText className="h-4 w-4" /> {e.label}
+                    onClick={() => downloadExport(e.resource)} className="gap-2"
+                    disabled={exporting !== null}>
+                    <FileText className="h-4 w-4" /> {exporting === e.resource ? 'Exporting…' : e.label}
                   </Button>
                 ))}
-                <Button variant="outline" size="sm" onClick={downloadPdfReport} className="gap-2">
-                  <Printer className="h-4 w-4" /> PDF Report
+                <Button variant="outline" size="sm" onClick={downloadPdfReport} className="gap-2"
+                  disabled={exporting !== null}>
+                  <Printer className="h-4 w-4" /> {exporting === 'pdf' ? 'Exporting…' : 'PDF Report'}
                 </Button>
               </div>
             </div>
