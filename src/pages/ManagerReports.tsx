@@ -126,7 +126,13 @@ export default function ManagerReports() {
   const downloadPdfReport = async () => {
     setExporting('pdf');
     try {
-      await apiDownload('/exports/report-pdf', 'portfolio_report.pdf');
+      // Same on-screen date range as the dashboard tables: the PDF labels
+      // it as the reporting period and counts only payments inside it.
+      const params = new URLSearchParams();
+      if (from) params.set('start_date', from);
+      if (to) params.set('end_date', to);
+      const qs = params.toString();
+      await apiDownload(`/exports/report-pdf${qs ? `?${qs}` : ''}`, 'portfolio_report.pdf');
     } catch (e: any) {
       toast({ title: 'Export failed', description: e?.message || 'Could not download PDF report.', variant: 'destructive' });
     } finally {

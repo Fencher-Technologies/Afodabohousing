@@ -4,6 +4,11 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from supabase import Client
 
 from dependencies import (
@@ -229,62 +234,290 @@ def export_boosts(
     )
 
 
+def _location_line(*parts: object) -> str:
+    """Join address parts, skipping the empty strings that nullable
+    address/city/state columns (migrations 040/041/042) leave behind."""
+    return ", ".join(str(p).strip() for p in parts if str(p or "").strip())
+
+
+def _money(amount: object, currency: str) -> str:
+    try:
+        return f"{currency} {float(amount or 0):,.0f}"
+    except (TypeError, ValueError):
+        return f"{currency} {amount}"
+
+
+def _portfolio_styles():
+    from services.receipt_pdf import CHARCOAL, MUTED, NAVY
+
+    styles = getSampleStyleSheet()
+    return {
+        "title": ParagraphStyle("Title", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=20, textColor=NAVY, spaceAfter=2),
+        "subtitle": ParagraphStyle("Subtitle", parent=styles["Normal"], fontName="Helvetica", fontSize=10, textColor=MUTED, spaceAfter=0),
+        "brand": ParagraphStyle("brand", fontName="Helvetica-Bold", fontSize=16, textColor=NAVY),
+        "doc": ParagraphStyle("doc", fontName="Helvetica-Bold", fontSize=12, textColor=CHARCOAL),
+        "h2": ParagraphStyle("H2", parent=styles["Heading2"], fontSize=13, spaceAfter=6, spaceBefore=14, textColor=CHARCOAL),
+        "empty": ParagraphStyle("Empty", parent=styles["Normal"], fontName="Helvetica-Oblique", fontSize=10, textColor=MUTED, spaceAfter=4),
+        "cell_h": ParagraphStyle("cell_h", fontName="Helvetica-Bold", fontSize=9, textColor=colors.white, leading=12),
+        "cell": ParagraphStyle("cell", fontName="Helvetica", fontSize=9, textColor=CHARCOAL, leading=12),
+        "foot": ParagraphStyle("foot", fontName="Helvetica", fontSize=8, textColor=MUTED),
+    }
+
+
+def _portfolio_header(st: dict, generated: str):
+    """Logo (repo asset, graceful fallback to styled text) + report title."""
+    from pathlib import Path
+
+    from reportlab.platypus import Image as RLImage
+
+    logo = Path(__file__).resolve().parents[2] / "src" / "assets" / "axis-lockup.png"
+    if logo.exists():
+        left = RLImage(str(logo), width=44 * mm, height=14 * mm, kind="proportional")
+    else:
+        left = Paragraph("AXIS HOUSING", st["brand"])
+    return Table(
+        [[left, Paragraph("PORTFOLIO REPORT", st["doc"])]],
+        colWidths=[87 * mm, 87 * mm],
+    )
+
+
+def _styled_table(header: list, rows: list, widths: list, st: dict) -> Table:
+    from services.receipt_pdf import BORDER, CREAM, NAVY
+
+    data = [[Paragraph(f"<b>{h}</b>", st["cell_h"]) for h in header]]
+    for r in rows:
+        data.append([Paragraph(str(c) if c not in (None, "") else "-", st["cell"]) for c in r])
+    t = Table(data, colWidths=widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, CREAM]),
+        ("GRID", (0, 0), (-1, -1), 0.5, BORDER),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    return t
+
+
+def _portfolio_footer(canvas, doc, generated: str) -> None:
+    from services.receipt_pdf import MUTED
+
+    canvas.saveState()
+    canvas.setFont("Helvetica", 8)
+    canvas.setFillColor(MUTED)
+    canvas.drawString(18 * mm, 12 * mm, f"Axis Housing  •  Generated {generated}")
+    canvas.drawRightString(A4[0] - 18 * mm, 12 * mm, f"Page {doc.page}")
+    canvas.restoreState()
+
+
+def build_portfolio_report_pdf(context: dict) -> bytes:
+    """Render the portfolio report from an assembled context dict.
+
+    Pure builder (no DB): the endpoint assembles `context`, tests and
+    tooling can call this directly with sample data.
+    """
+    from io import BytesIO
+
+    st = _portfolio_styles()
+    generated = context.get("generated_on") or date.today().isoformat()
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        rightMargin=18 * mm, leftMargin=18 * mm, topMargin=18 * mm, bottomMargin=18 * mm,
+        title="Portfolio Report",
+    )
+
+    story = [_portfolio_header(st, generated), Spacer(1, 4 * mm)]
+    story.append(Paragraph("Portfolio Report", st["title"]))
+    story.append(Paragraph(context.get("period_label") or "Reporting period: All time", st["subtitle"]))
+    story.append(Paragraph(f"Prepared for {context.get('manager_name') or 'Property Manager'}", st["subtitle"]))
+    story.append(Spacer(1, 4 * mm))
+
+    properties = context.get("properties") or []
+    story.append(Paragraph(f"Properties ({len(properties)})", st["h2"]))
+    if properties:
+        story.append(_styled_table(
+            ["Title", "Type", "Beds", "Rent", "Status", "Location"],
+            properties,
+            [52 * mm, 26 * mm, 12 * mm, 32 * mm, 20 * mm, 32 * mm],
+            st,
+        ))
+    else:
+        story.append(Paragraph("No properties for this period", st["empty"]))
+
+    tenants = context.get("tenants") or []
+    story.append(Paragraph(f"Tenants ({len(tenants)})", st["h2"]))
+    if tenants:
+        story.append(_styled_table(
+            ["Name", "Email", "Phone", "Status"],
+            tenants,
+            [45 * mm, 55 * mm, 32 * mm, 42 * mm],
+            st,
+        ))
+    else:
+        story.append(Paragraph("No tenants for this period", st["empty"]))
+
+    story.append(Paragraph("Summary", st["h2"]))
+    summary_rows = context.get("summary") or []
+    if summary_rows:
+        story.append(_styled_table(
+            ["Metric", "Value"],
+            summary_rows,
+            [87 * mm, 87 * mm],
+            st,
+        ))
+    else:
+        story.append(Paragraph("No activity for this period", st["empty"]))
+
+    doc.build(
+        story,
+        onFirstPage=lambda c, d: _portfolio_footer(c, d, generated),
+        onLaterPages=lambda c, d: _portfolio_footer(c, d, generated),
+    )
+    return buf.getvalue()
+
+
 @router.get("/report-pdf")
 def export_report_pdf(
     current_user: CurrentUser = Depends(require_super_admin_or_manager),
     supabase: Client = Depends(get_service_client),
+    start_date: date | None = Query(None, description="Only count payments on/after this date"),
+    end_date: date | None = Query(None, description="Only count payments on/before this date"),
 ):
-    from io import BytesIO
+    from services import get_lease_service
 
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table
+    generated = date.today().isoformat()
 
-    props = supabase.table("properties").select("title, property_type, bedrooms, monthly_rent, status, city, state").eq("owner_id", current_user.id).execute()
-    tenants_data = supabase.table("tenants").select("first_name, last_name, email, phone, status").eq("owner_id", current_user.id).execute()
-    leases_data = supabase.table("leases").select("id, monthly_rent, status, start_date, end_date").eq("owner_id", current_user.id).execute()
+    profile = (
+        supabase.table("profiles").select("full_name").eq("user_id", current_user.id).limit(1).execute()
+    )
+    manager_name = (profile.data or [{}])[0].get("full_name") or None
+
+    props = supabase.table("properties").select(
+        "title, property_type, bedrooms, monthly_rent, rent_currency, status, city, state, address"
+    ).eq("owner_id", current_user.id).execute()
+    tenants_data = supabase.table("tenants").select(
+        "first_name, last_name, email, phone, status, user_id"
+    ).eq("owner_id", current_user.id).execute()
+
+    # Phone fallback: tenants.phone is often empty while profiles.phone holds
+    # the number (same auth user, different row). One batched lookup.
+    tenants_list = list(tenants_data.data or [])
+    missing = [t for t in tenants_list if not (t.get("phone") or "").strip() and t.get("user_id")]
+    if missing:
+        profs = (
+            supabase.table("profiles").select("user_id, phone")
+            .in_("user_id", [str(t["user_id"]) for t in missing])
+            .execute()
+        )
+        by_uid = {str(p.get("user_id")): (p.get("phone") or "") for p in (profs.data or [])}
+        for t in missing:
+            fallback = by_uid.get(str(t.get("user_id")), "")
+            if fallback.strip():
+                t["phone"] = fallback
+
+    leases_data = supabase.table("leases").select(
+        "id, monthly_rent, currency, status, start_date, end_date"
+    ).eq("owner_id", current_user.id).execute()
     lease_ids = [str(l.get("id")) for l in (leases_data.data or []) if l.get("id")]
+    currency_of = {str(l.get("id")): (l.get("currency") or "UGX") for l in (leases_data.data or [])}
     if lease_ids:
-        payments_data = supabase.table("payments").select("amount, status, paid_date").in_("lease_id", lease_ids).execute()
+        payments_data = supabase.table("payments").select(
+            "amount, status, paid_date, created_at, lease_id"
+        ).in_("lease_id", lease_ids).execute()
     else:
         payments_data = type("EmptyResponse", (), {"data": []})()
 
-    buf = BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=18*mm, leftMargin=18*mm, topMargin=18*mm, bottomMargin=18*mm, title="Portfolio Report")
-    styles = getSampleStyleSheet()
-    title_s = ParagraphStyle("Title", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=20, textColor=colors.HexColor("#0F766E"), spaceAfter=12)
-    h2 = ParagraphStyle("H2", parent=styles["Heading2"], fontSize=13, spaceAfter=6, spaceBefore=14)
-    body = styles["Normal"]
+    def _in_period(p: dict) -> bool:
+        day = (p.get("paid_date") or (p.get("created_at") or "")[:10] or "")
+        if start_date and day < start_date.isoformat():
+            return False
+        if end_date and day > end_date.isoformat():
+            return False
+        return True
 
-    story = [Paragraph("Axis", styles["Normal"]), Paragraph("Portfolio Report", title_s), Spacer(1, 6*mm)]
+    confirmed = [
+        p for p in (payments_data.data or [])
+        if p.get("status") in ("confirmed", "completed") and _in_period(p)
+    ]
+    collected_by_ccy: dict[str, float] = {}
+    for p in confirmed:
+        ccy = currency_of.get(str(p.get("lease_id")), "UGX")
+        collected_by_ccy[ccy] = collected_by_ccy.get(ccy, 0.0) + float(p.get("amount") or 0)
+    rent_by_ccy: dict[str, float] = {}
+    for l in (leases_data.data or []):
+        ccy = l.get("currency") or "UGX"
+        rent_by_ccy[ccy] = rent_by_ccy.get(ccy, 0.0) + float(l.get("monthly_rent") or 0)
 
-    p_rows = [[r.get("title",""), r.get("property_type",""), str(r.get("bedrooms","")), f"{r['monthly_rent']:,.0f}" if r.get("monthly_rent") else "", r.get("status",""), f"{r.get('city','')}, {r.get('state','')}"] for r in (props.data or [])]
-    if p_rows:
-        story.append(Paragraph(f"Properties ({len(p_rows)})", h2))
-        story.append(Table([["Title","Type","Beds","Rent","Status","Location"]] + p_rows, colWidths=[60*mm,30*mm,16*mm,30*mm,22*mm,40*mm], repeatRows=1, hAlign="LEFT"))
+    # Snapshot figures reuse the dashboard's money-ledger enrichment
+    # (LeaseService.get_all), so the PDF can never disagree with it.
+    lease_svc = get_lease_service(supabase)
+    enriched, _ = lease_svc.get_all(current_user.id, skip=0, limit=500)
+    outstanding = round(sum(float(l.get("balance_due") or 0) for l in enriched), 2)
+    expected = sum(float(l.get("expected_rent") or 0) for l in enriched)
+    active = sum(1 for l in enriched if l.get("effective_status") == "active")
+    total_leases = len(enriched) or 1
+    occupancy = round((active / total_leases) * 100, 2)
+    collection_rate = round((sum(float(l.get("total_paid") or 0) for l in enriched) / expected) * 100, 2) if expected else 0.0
 
-    t_rows = [[f"{r.get('first_name','')} {r.get('last_name','')}".strip(), r.get("email",""), r.get("phone",""), r.get("status","")] for r in (tenants_data.data or [])]
-    if t_rows:
-        story.append(Spacer(1, 6*mm))
-        story.append(Paragraph(f"Tenants ({len(t_rows)})", h2))
-        story.append(Table([["Name","Email","Phone","Status"]] + t_rows, colWidths=[40*mm,60*mm,50*mm,28*mm], repeatRows=1, hAlign="LEFT"))
+    if start_date or end_date:
+        period_label = f"Reporting period: {start_date.isoformat() if start_date else '…'} to {end_date.isoformat() if end_date else '…'} (payments); portfolio snapshot as of {generated}"
 
-    total_rent = sum(float(r.get("monthly_rent", 0)) for r in (leases_data.data or []))
-    total_paid = sum(float(r.get("amount", 0)) for r in (payments_data.data or []) if r.get("status") in ("confirmed","completed"))
-    story.append(Spacer(1, 6*mm))
-    story.append(Paragraph("Summary", h2))
-    story.append(Table([["Metric","Value"],[
-        "Total Monthly Rent", f"{total_rent:,.0f}"],
-        ["Total Collected", f"{total_paid:,.0f}"],
-        ["Active Leases", str(sum(1 for l in (leases_data.data or []) if l.get("status")=="active"))],
-        ["Tenants", str(len(t_rows))],
-    ], colWidths=[60*mm, 60*mm], hAlign="LEFT"))
-    story.append(Spacer(1, 6*mm))
-    story.append(Paragraph(f"Generated on {date.today().isoformat()}", body))
-    doc.build(story)
-    buf.seek(0)
+        def collected_label(c: str) -> str:
+            return f"Total collected ({c}, period)"
+    else:
+        period_label = f"Reporting period: All time (portfolio snapshot as of {generated})"
+
+        def collected_label(c: str) -> str:
+            return f"Total collected ({c})"
+
+    properties = [
+        [
+            r.get("title", ""),
+            r.get("property_type", ""),
+            str(r.get("bedrooms", "")),
+            _money(r.get("monthly_rent"), r.get("rent_currency") or "UGX"),
+            r.get("status", ""),
+            _location_line(r.get("address"), r.get("city"), r.get("state")),
+        ]
+        for r in (props.data or [])
+    ]
+    tenants = [
+        [
+            f"{r.get('first_name', '')} {r.get('last_name', '')}".strip(),
+            r.get("email", ""),
+            (r.get("phone") or "").strip(),
+            r.get("status", ""),
+        ]
+        for r in tenants_list
+    ]
+
+    summary: list = []
+    for ccy in sorted(set(rent_by_ccy) | set(collected_by_ccy)):
+        summary.append([f"Total monthly rent ({ccy})", _money(rent_by_ccy.get(ccy, 0.0), ccy)])
+    for ccy in sorted(set(rent_by_ccy) | set(collected_by_ccy)):
+        summary.append([collected_label(ccy), f"{_money(collected_by_ccy.get(ccy, 0.0), ccy)} ({len(confirmed)} payment(s))"])
+    summary += [
+        ["Active leases", f"{active} of {len(enriched)}"],
+        ["Tenants", str(len(tenants))],
+        ["Occupancy rate", f"{occupancy}%"],
+        ["Total outstanding", _money(outstanding, next(iter(sorted(set(rent_by_ccy) | set(collected_by_ccy))), "UGX"))],
+        ["Collection rate", f"{collection_rate}%"],
+    ]
+
+    pdf = build_portfolio_report_pdf({
+        "generated_on": generated,
+        "period_label": period_label,
+        "manager_name": manager_name,
+        "properties": properties,
+        "tenants": tenants,
+        "summary": summary,
+    })
+    buf = io.BytesIO(pdf)
     return StreamingResponse(
         buf, media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="portfolio_report_{date.today()}.pdf"'},
