@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import AvatarUpload from '@/components/AvatarUpload';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +18,7 @@ export default function EditProfile() {
   const { toast } = useToast();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -41,6 +43,7 @@ export default function EditProfile() {
     if (data) {
       setFullName(data.full_name || '');
       setPhone(data.phone || '');
+      setPhotoUrl(data.photo_url || null);
     }
     setLoading(false);
   };
@@ -126,6 +129,16 @@ export default function EditProfile() {
         </div>
 
         <form onSubmit={handleSave} className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-5">
+          <div className="flex justify-center">
+            <AvatarUpload
+              userId={user?.id || ''}
+              photoUrl={photoUrl}
+              fullName={fullName}
+              email={user?.email || ''}
+              size="xl"
+              onUpdate={(url) => setPhotoUrl(url)}
+            />
+          </div>
           <div>
             <Label>Full Name</Label>
             <Input value={fullName} onChange={e => setFullName(e.target.value)}
