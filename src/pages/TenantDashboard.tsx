@@ -349,9 +349,9 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
     if (maintenancePhoto) {
       const ext = maintenancePhoto.name.split('.').pop();
       const path = `maintenance/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from('photos').upload(path, maintenancePhoto);
+      const { error: uploadErr } = await supabase.storage.from('maintenance-photos').upload(path, maintenancePhoto);
       if (!uploadErr) {
-        const { data: { publicUrl } } = supabase.storage.from('photos').getPublicUrl(path);
+        const { data: { publicUrl } } = supabase.storage.from('maintenance-photos').getPublicUrl(path);
         photoURL = publicUrl;
       }
     }
