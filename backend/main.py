@@ -229,7 +229,7 @@ def _error_response(
     *,
     request_id: str,
     status_code: int,
-    detail: str,
+    detail: str | dict,
     error: str,
     extra: dict | None = None,
     headers: dict[str, str] | None = None,
@@ -361,10 +361,13 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code >= 500:
         capture_sentry_exception(exc)
 
+    # Preserve structured (dict) details so routes can return
+    # machine-readable errors (e.g. quota codes); plain strings unchanged.
+    detail = exc.detail if isinstance(exc.detail, dict) else str(exc.detail)
     return _error_response(
         request_id=request_id,
         status_code=exc.status_code,
-        detail=str(exc.detail),
+        detail=detail,
         error="http_exception",
         headers=dict(exc.headers or {}),
     )

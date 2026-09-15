@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { listPayments, updatePayment, fetchFinancialSummary, type FinancialSummary, PaymentData } from '@/services/payments';
-import { getCurrentSubscription } from '@/services/subscriptions';
+import { getCurrentSubscription, getPropertyQuota, type PropertyQuota } from '@/services/subscriptions';
 import { apiGet } from '@/services/api';
 import { formatCurrency } from '@/utils/currency';
 import { cleanDbError } from '@/utils/dbError';
@@ -85,6 +85,7 @@ export default function ManagerDashboard() {
   const [profile, setProfile] = useState<{ photo_url: string | null; full_name: string | null; email: string; phone: string } | null>(null);
   const [showTenantForm, setShowTenantForm] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
+  const [quota, setQuota] = useState<PropertyQuota | null>(null);
   const [tenantFormData, setTenantFormData] = useState({
     full_name: '', phone: '', email: '', property_id: '',
     start_date: '', end_date: '', monthly_rent: 0,
@@ -127,6 +128,7 @@ export default function ManagerDashboard() {
       getCurrentSubscription().catch(() => null),
     ]);
     setSubscription(subscriptionData);
+    getPropertyQuota().then(setQuota).catch(() => setQuota(null));
 
     const allPayments = payRes.items || [];
     fetchFinancialSummary().then(setSummary).catch(() => setSummary(null));
@@ -399,7 +401,7 @@ export default function ManagerDashboard() {
   });
 
   const statCards = [
-    { label: 'Total Listings', val: properties.length, sub: `${available} available · ${occupied} occupied`, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-muted', trend: null },
+    { label: 'Total Listings', val: properties.length, sub: `${quota && quota.max_properties !== null ? `${quota.properties_used} of ${quota.max_properties} used · ` : ''}${available} available · ${occupied} occupied`, icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-muted', trend: null },
     { label: 'Active Tenants', val: leases.filter(t => t.status === 'active').length, sub: `${dueSoonTenancies.length} rent due soon`, icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-muted', trend: null },
     { label: 'Revenue Confirmed', val: `${confirmedRevenue >= 1000000 ? (confirmedRevenue / 1000000).toFixed(1) + 'M' : confirmedRevenue.toLocaleString()}`, sub: `${pendingPayments.length} awaiting review`, icon: <DollarSign className="h-5 w-5" />, color: 'text-primary', bg: 'bg-muted', trend: null },
   ];

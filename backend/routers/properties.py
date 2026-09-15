@@ -48,6 +48,51 @@ def get_property_svc(supabase: Client = Depends(get_supabase_client)) -> Propert
     return get_property_service(supabase)
 
 
+def require_property_quota(
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
+) -> None:
+    """Block creating a listing the manager's plan does not cover.
+
+    Declared BEFORE require_active_subscription on POST /properties so a
+    manager with no subscription gets the structured no_active_subscription
+    error (with usage fields) instead of the guard's plain string.
+    Grandfathered over-limit rows are never touched — only new creates.
+    """
+    from services.subscriptions import get_subscription_service
+
+    quota = get_subscription_service(supabase).get_property_quota(current_user.id)
+    if quota["can_add_property"]:
+        return
+    if not quota["has_active_subscription"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "no_active_subscription",
+                "message": "An active subscription is required to list properties.",
+                "properties_used": quota["properties_used"],
+                "max_properties": quota["max_properties"],
+                "plan_id": quota["plan_id"],
+                "plan_name": quota["plan_name"],
+            },
+        )
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": "property_limit_reached",
+            "message": (
+                f"Your {quota['plan_name']} plan allows "
+                f"{quota['max_properties']} properties and you have "
+                f"{quota['properties_used']}. Upgrade your subscription to list more properties."
+            ),
+            "properties_used": quota["properties_used"],
+            "max_properties": quota["max_properties"],
+            "plan_id": quota["plan_id"],
+            "plan_name": quota["plan_name"],
+        },
+    )
+
+
 @router.get("", response_model=PaginatedResponse)
 def list_properties(
     skip: int = Query(0, ge=0),
@@ -208,6 +253,7 @@ def get_public_property(
 def create_property(
     data: PropertyCreate,
     current_user: CurrentUser = Depends(get_current_user),
+    _quota_guard: None = Depends(require_property_quota),
     _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: PropertyService = Depends(get_property_svc),
 ) -> PropertyResponse:

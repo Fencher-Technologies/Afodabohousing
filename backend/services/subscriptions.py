@@ -127,6 +127,50 @@ class SubscriptionService:
             days_remaining=days_remaining,
         )
 
+    def get_property_quota(self, manager_id: str) -> dict:
+        """Active-listing usage vs the manager's plan limit.
+
+        Counts owner_id rows with is_active=True (deactivating or deleting
+        frees a slot; occupied still consumes one). Existing over-limit
+        rows are grandfathered — this only reports, never deletes.
+        NULL max_properties means unlimited. No active, unexpired
+        subscription means cannot add.
+        """
+        used = 0
+        try:
+            res = (
+                self.supabase.table("properties")
+                .select("id", count="exact")
+                .eq("owner_id", str(manager_id))
+                .eq("is_active", True)
+                .limit(1)
+                .execute()
+            )
+            used = res.count if res.count is not None else len(res.data or [])
+        except Exception:
+            logger.warning("Property quota count failed for %s", manager_id, exc_info=True)
+
+        sub = self.get_current_subscription(str(manager_id))
+        if sub is None or sub.status != "active":
+            return {
+                "properties_used": used,
+                "max_properties": 0,
+                "can_add_property": False,
+                "plan_id": None,
+                "plan_name": None,
+                "has_active_subscription": False,
+            }
+        plan = self.get_plan(sub.plan_id) or {}
+        limit = plan.get("max_properties")
+        return {
+            "properties_used": used,
+            "max_properties": limit,
+            "can_add_property": True if limit is None else used < int(limit),
+            "plan_id": sub.plan_id,
+            "plan_name": sub.plan_name,
+            "has_active_subscription": True,
+        }
+
     def confirm_subscription(self, payment_reference: str, paid_amount: float | None = None) -> dict | None:
         result = (
             self.supabase.table("manager_subscriptions")

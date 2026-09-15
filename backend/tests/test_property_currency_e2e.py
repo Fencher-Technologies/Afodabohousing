@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from dependencies import get_current_user, get_service_client, require_active_subscription
 from dependencies.database import get_supabase_client
 from main import app
+from routers.properties import require_property_quota
 
 
 CAPTURED = {}
@@ -53,6 +54,9 @@ def client(test_user):
     app.dependency_overrides[get_supabase_client] = lambda: sb
     app.dependency_overrides[get_current_user] = lambda: test_user
     app.dependency_overrides[require_active_subscription] = lambda: test_user
+    # Quota is covered by test_property_quota.py; these tests isolate
+    # currency persistence and bypass plan enforcement like the guard above.
+    app.dependency_overrides[require_property_quota] = lambda: None
     yield TestClient(app)
     app.dependency_overrides.clear()
     CAPTURED.clear()

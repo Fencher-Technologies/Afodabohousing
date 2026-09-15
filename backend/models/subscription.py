@@ -27,6 +27,17 @@ class SubscriptionPlanResponse(BaseModel):
     is_active: bool
     sort_order: int
     popular: bool
+    max_properties: int | None = None
+    max_tenants: int | None = None
+
+
+class PropertyQuotaResponse(BaseModel):
+    properties_used: int
+    max_properties: int | None
+    can_add_property: bool
+    plan_id: str | None = None
+    plan_name: str | None = None
+    has_active_subscription: bool
 
 
 class ManagerSubscription(BaseModel):

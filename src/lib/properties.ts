@@ -18,9 +18,18 @@ async function authHeaders() {
  * so one created by direct insert had no unit and therefore no authoritative
  * price. Returns the created property so units can be attached to its id.
  */
+export interface QuotaError {
+  code: string;
+  message: string;
+  properties_used?: number;
+  max_properties?: number | null;
+  plan_id?: string | null;
+  plan_name?: string | null;
+}
+
 export async function createProperty(
   payload: Record<string, unknown>,
-): Promise<{ ok: boolean; id?: string; detail?: string }> {
+): Promise<{ ok: boolean; id?: string; detail?: string | QuotaError }> {
   const res = await fetch(`${API_BASE}/properties`, {
     method: 'POST',
     headers: await authHeaders(),

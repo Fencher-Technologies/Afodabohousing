@@ -47,3 +47,16 @@ export async function getCurrentSubscription(): Promise<ManagerSubscription | nu
 export async function createSubscription(planId: string, phoneNumber?: string, callbackUrl?: string, currency?: string): Promise<SubscriptionCreateResponse> {
   return apiPost('/subscriptions/create', { plan_id: planId, phone_number: phoneNumber, callback_url: callbackUrl, currency });
 }
+
+export interface PropertyQuota {
+  properties_used: number;
+  max_properties: number | null;
+  can_add_property: boolean;
+  plan_id: string | null;
+  plan_name: string | null;
+  has_active_subscription: boolean;
+}
+
+export async function getPropertyQuota(): Promise<PropertyQuota> {
+  return apiGet('/subscriptions/quota');
+}

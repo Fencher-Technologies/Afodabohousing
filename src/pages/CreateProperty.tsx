@@ -7,10 +7,11 @@ import { UnitsEditor, type DraftUnit } from '@/components/UnitsEditor';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Crown } from 'lucide-react';
 import PropertyForm from '@/components/forms/PropertyForm';
 import type { PropertyFormData } from '@/components/forms/PropertyForm';
 import { cleanDbError } from '@/utils/dbError';
+import { getPropertyQuota, type PropertyQuota } from '@/services/subscriptions';
 
 export default function CreateProperty() {
   const { user, loading: authLoading } = useAuth();
@@ -20,6 +21,7 @@ export default function CreateProperty() {
   // The property's own rent and deposit become its first unit server-side;
   // these are any additional ones for a multi-unit building.
   const [currency, setCurrency] = useState('UGX');
+  const [quota, setQuota] = useState<PropertyQuota | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -29,6 +31,8 @@ export default function CreateProperty() {
         if (data?.role !== 'house_manager' && data?.role !== 'super_admin') navigate('/dashboard/tenant');
       });
     }
+    // Warn before the form, not after it is filled in.
+    getPropertyQuota().then(setQuota).catch(() => setQuota(null));
   }, [user, authLoading]);
 
   const handleSave = async (data: PropertyFormData) => {
@@ -60,7 +64,18 @@ export default function CreateProperty() {
       longitude: data.longitude ? Number(data.longitude) : null,
       country: data.country, region_id: data.region_id || null,
     });
-    if (!ok) { toast({ title: 'Error', description: detail || 'Could not create the property.', variant: 'destructive' }); return; }
+    if (!ok) {
+      // Server quota errors arrive structured ({code, message, ...}); anything
+      // else is a plain string. Never show "[object Object]".
+      const msg = typeof detail === 'object' && detail !== null
+        ? (detail.message || 'Could not create the property.')
+        : (detail || 'Could not create the property.');
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+      if (typeof detail === 'object' && detail !== null && detail.code === 'property_limit_reached') {
+        getPropertyQuota().then(setQuota).catch(() => {});
+      }
+      return;
+    }
 
     // Any extra units the manager added while filling the form.
     if (newId && units.length > 0) {
@@ -107,6 +122,22 @@ export default function CreateProperty() {
             <p className="text-sm text-muted-foreground">List a new property for rent</p>
           </div>
         </div>
+        {quota && !quota.can_add_property ? (
+          <div className="bg-card border border-destructive/30 rounded-xl p-6 shadow-sm text-center space-y-3">
+            <Crown className="h-10 w-10 text-gold mx-auto" />
+            <h2 className="font-display font-bold text-lg">
+              {quota.has_active_subscription ? 'Property limit reached' : 'Subscription required'}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {quota.has_active_subscription
+                ? `Your ${quota.plan_name} plan allows ${quota.max_properties} properties and you have ${quota.properties_used}. Upgrade your subscription to list more properties.`
+                : 'An active subscription is required to list properties.'}
+            </p>
+            <Button className="gap-2" onClick={() => navigate('/subscription')}>
+              <Crown className="h-4 w-4" /> Upgrade subscription
+            </Button>
+          </div>
+        ) : (
         <div className="space-y-6">
           <PropertyForm
             onSave={handleSave}
@@ -118,6 +149,7 @@ export default function CreateProperty() {
             <UnitsEditor units={units} currency={currency} onChange={setUnits} />
           </div>
         </div>
+        )}
       </div>
     </div>
   );

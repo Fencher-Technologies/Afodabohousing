@@ -30,6 +30,7 @@ from .rental_unit import RentalUnit, RentalUnitCreate, RentalUnitResponse, Renta
 from .subscription import (
     ManagerSubscription,
     ManagerSubscriptionResponse,
+    PropertyQuotaResponse,
     SubscriptionCreateRequest,
     SubscriptionCreateResponse,
     SubscriptionPlan,

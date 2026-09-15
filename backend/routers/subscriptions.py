@@ -12,6 +12,7 @@ from dependencies import (
 )
 from models.subscription import (
     ManagerSubscriptionResponse,
+    PropertyQuotaResponse,
     SubscriptionCreateRequest,
     SubscriptionCreateResponse,
     SubscriptionPlanResponse,
@@ -46,6 +47,17 @@ def list_plans(
     service: SubscriptionService = Depends(get_sub_svc),
 ) -> list[SubscriptionPlanResponse]:
     return service.get_active_plans()
+
+
+@router.get("/quota", response_model=PropertyQuotaResponse)
+def get_property_quota(
+    current_user: CurrentUser = Depends(require_active_user),
+    supabase: Client = Depends(get_service_client),
+) -> PropertyQuotaResponse:
+    """Listing usage vs plan limit, so the UI can warn before the form."""
+    return PropertyQuotaResponse(
+        **get_subscription_service(supabase).get_property_quota(current_user.id)
+    )
 
 
 @router.get("/current", response_model=ManagerSubscriptionResponse | None)
