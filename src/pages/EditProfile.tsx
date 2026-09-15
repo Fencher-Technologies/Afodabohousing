@@ -18,6 +18,7 @@ export default function EditProfile() {
   const { toast } = useToast();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,6 +44,7 @@ export default function EditProfile() {
     if (data) {
       setFullName(data.full_name || '');
       setPhone(data.phone || '');
+      setEmail(data.email || user?.email || '');
       setPhotoUrl(data.photo_url || null);
     }
     setLoading(false);
@@ -52,12 +54,24 @@ export default function EditProfile() {
     e.preventDefault();
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase.from('profiles').upsert({
-      user_id: user.id, full_name: fullName, phone: phone,
+    // UPDATE, not upsert: this row must already exist (UNIQUE(user_id)).
+    // An upsert without onConflict targets the PK (id), which the payload
+    // lacks, so it INSERTs a duplicate row instead of updating — and a
+    // duplicate breaks single-row reads downstream. Email is owned by auth
+    // and read-only here, so it stays out of the payload entirely. A blank
+    // phone is stored as NULL: Postgres allows many NULLs under
+    // UNIQUE(phone) but only one ''.
+    const trimmedPhone = phone.trim();
+    const { data, error } = await supabase.from('profiles').update({
+      full_name: fullName.trim(), phone: trimmedPhone ? trimmedPhone : null,
       updated_at: new Date().toISOString(),
-    });
+    }).eq('user_id', user.id).select();
     setSaving(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    if (!data || data.length === 0) {
+      toast({ title: 'Error', description: 'Profile not found. Please contact support.', variant: 'destructive' });
+      return;
+    }
     toast({ title: 'Profile updated' });
   };
 
@@ -151,7 +165,7 @@ export default function EditProfile() {
           </div>
           <div>
             <Label>Email</Label>
-            <Input value={user?.email || ''} disabled className="rounded-lg h-11 mt-1.5 bg-muted/50" />
+            <Input value={email} disabled className="rounded-lg h-11 mt-1.5 bg-muted/50" />
             <p className="text-xs text-muted-foreground mt-1 italic">Email cannot be changed</p>
           </div>
           <div className="flex gap-3 pt-2">

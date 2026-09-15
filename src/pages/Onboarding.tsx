@@ -44,7 +44,9 @@ export default function Onboarding() {
     setSaving(true);
     const updates: any = {};
     if (fullName) updates.full_name = fullName;
-    if (phone) updates.phone = phone;
+    // NULL, never '': UNIQUE(phone) allows many NULLs but only one ''.
+    const trimmedPhone = phone.trim();
+    if (trimmedPhone) updates.phone = trimmedPhone;
 
     if (Object.keys(updates).length > 0) {
       await supabase.from('profiles').upsert({ user_id: user.id, ...updates, updated_at: new Date().toISOString() });
