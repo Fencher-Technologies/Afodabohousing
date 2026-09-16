@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { listPayments, updatePayment, fetchFinancialSummary, type FinancialSummary, PaymentData } from '@/services/payments';
 import { getCurrentSubscription, getPropertyQuota, type PropertyQuota } from '@/services/subscriptions';
 import { apiGet, apiPatch } from '@/services/api';
+import { HIDDEN_STATUS, VISIBLE_STATUS } from '@/constants/propertyStatus';
 import { formatCurrency } from '@/utils/currency';
 import { cleanDbError } from '@/utils/dbError';
 import AvatarUpload from '@/components/AvatarUpload';
@@ -45,6 +46,7 @@ const statusBadge = (s: string) => ({
   occupied: 'status-uploaded',
   available: 'status-confirmed',
   inactive: 'status-pending',
+  unlisted: 'status-pending',
   terminated: 'status-rejected',
 }[s] ?? 'status-pending');
 
@@ -86,8 +88,8 @@ export default function ManagerDashboard() {
     setSendingAction(`toggle-${p.id}`);
     try {
       await apiPatch(`/properties/${p.id}`, toActive
-        ? { status: 'available', is_active: true }
-        : { status: 'inactive', is_active: false });
+        ? { status: VISIBLE_STATUS, is_active: true }
+        : { status: HIDDEN_STATUS, is_active: false });
       toast({
         title: toActive ? 'Listing reactivated' : 'Listing deactivated',
         description: toActive ? undefined : 'This listing is hidden from tenants and frees a subscription slot.',

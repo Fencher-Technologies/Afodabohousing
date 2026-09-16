@@ -1,8 +1,18 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+
+
+# Must match the database CHECK constraint exactly:
+#   properties_status_check CHECK (status = ANY (ARRAY[
+#     'available', 'occupied', 'maintenance', 'unlisted'
+#   ]))
+# A value outside this set fails at Postgres with a 400-mapped check
+# error; declaring it here fails faster with a 422 naming the field.
+PropertyStatus = Literal["available", "occupied", "maintenance", "unlisted"]
 
 
 class Property(BaseModel):
@@ -60,7 +70,7 @@ class PropertyCreate(BaseModel):
     # fell back to the UGX column default.
     rent_currency: str = "UGX"
     security_deposit: Decimal
-    status: str = "available"
+    status: PropertyStatus = "available"
     description: str | None = None
     amenities: list[str] | None = None
     images: list[str] | None = None
@@ -88,7 +98,7 @@ class PropertyUpdate(BaseModel):
     monthly_rent: Decimal | None = None
     rent_currency: str | None = None
     security_deposit: Decimal | None = None
-    status: str | None = None
+    status: PropertyStatus | None = None
     description: str | None = None
     amenities: list[str] | None = None
     images: list[str] | None = None

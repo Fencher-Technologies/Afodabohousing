@@ -24,6 +24,8 @@ router = APIRouter(prefix="/properties", tags=["properties"])
 
 def _clean_db_error(err: APIError) -> str:
     """Turn a raw PostgREST/Postgres error into a specific, user-safe message."""
+    from config import get_settings
+
     msg = getattr(err, "message", "") or str(err)
     col = re.search(r'column "([^"]+)"', msg)
     if "not-null constraint" in msg or "null value in column" in msg:
@@ -33,6 +35,12 @@ def _clean_db_error(err: APIError) -> str:
     if "foreign key constraint" in msg:
         return "A related record could not be found."
     if "check constraint" in msg:
+        # Production callers get the safe sentence; anywhere else (dev,
+        # tests) name the constraint so the next one of these is diagnosable.
+        if get_settings().environment != "production":
+            m = re.search(r'check constraint "([^"]+)"', msg)
+            if m:
+                return f"One of the values provided is invalid ({m.group(1)})."
         return "One of the values provided is invalid."
     return "Could not save the property. Please check your input."
 

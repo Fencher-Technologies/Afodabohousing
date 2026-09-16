@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { apiGet, apiPatch } from '@/services/api';
+import { HIDDEN_STATUS, VISIBLE_STATUS } from '@/constants/propertyStatus';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/utils/currency';
 import { useToast } from '@/hooks/use-toast';
@@ -44,7 +45,8 @@ const periodLabels: Record<string, string> = {
 const statusColor: Record<string, string> = {
   available: 'bg-emerald-500/10 text-emerald-600 border-emerald-200',
   occupied: 'bg-amber-500/10 text-amber-600 border-amber-200',
-  inactive: 'bg-muted text-muted-foreground border-border',
+  maintenance: 'bg-muted text-muted-foreground border-border',
+  unlisted: 'bg-muted text-muted-foreground border-border',
 };
 
 export default function ManagerProperties() {
@@ -80,10 +82,9 @@ export default function ManagerProperties() {
     setLoading(false);
   };
 
-  // Deactivation flips is_active (the quota field); rows deactivated by the
-  // old status-only toggle carry status 'inactive' with is_active still true.
-  // Match either so the tab never hides a hidden listing.
-  const isHidden = (p: PropertyRow) => !(p as any).is_active || p.status === 'inactive';
+  // Visibility for quota purposes is is_active. status 'inactive' can never
+  // be stored (properties_status_check rejects it), so match is_active only.
+  const isHidden = (p: PropertyRow) => !(p as any).is_active;
 
   // Toggle through the API (not a direct table write) so reactivation
   // respects the subscription quota: the backend refuses with
@@ -93,8 +94,8 @@ export default function ManagerProperties() {
     setSendingId(p.id);
     try {
       await apiPatch(`/properties/${p.id}`, toActive
-        ? { status: 'available', is_active: true }
-        : { status: 'inactive', is_active: false });
+        ? { status: VISIBLE_STATUS, is_active: true }
+        : { status: HIDDEN_STATUS, is_active: false });
       toast({
         title: toActive ? 'Listing reactivated' : 'Listing deactivated',
         description: toActive ? undefined : 'This listing is hidden from tenants and frees a subscription slot.',
