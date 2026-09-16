@@ -85,7 +85,7 @@ function getPageTitle(path: string, role: string | null): string {
   if (path === '/dashboard/manager') return 'Dashboard';
   if (path === '/dashboard/manager/properties') return 'Properties';
   if (path.startsWith('/dashboard/manager/properties/')) return 'Property';
-  if (path === '/dashboard/manager/tenancies') return 'Tenancies';
+  if (path === '/dashboard/manager/tenancies') return 'Tenants';
   if (path.startsWith('/dashboard/manager/tenancies/')) return 'Tenancy';
   if (path === '/dashboard/manager/tenants/' || path.startsWith('/dashboard/manager/tenants/')) return 'Tenant';
   if (path === '/dashboard/manager/payment-verifications') return 'Payment Verifications';

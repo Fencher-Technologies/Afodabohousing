@@ -87,6 +87,17 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* About Axis */}
+      <section className="container py-20">
+        <div className="max-w-3xl mx-auto">
+          <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Support &amp; Policies</p>
+          <h2 className="font-display text-4xl font-bold text-foreground mb-6">About Axis</h2>
+          <p className="text-muted-foreground text-lg leading-relaxed">
+            Axis is a digital application that seeks to proffer practical solutions in the housing space by linking potential tenants directly to property owners/managers affordably, safely and hustle free. Through our online platform, we help property managers to better manage their tenants with ease and convenience, providing both visibility and access to their properties. By doing so, we minimize financial losses, promote accountability and transparency, overcome geographical barriers in tenant management, provide legal protection, and warrant value for money.
+          </p>
+        </div>
+      </section>
+
       {/* Values */}
       <section className="bg-secondary pattern-rose rose-photo py-20">
         <div className="rose-photo-bg"><img src={property1} alt="" /></div>

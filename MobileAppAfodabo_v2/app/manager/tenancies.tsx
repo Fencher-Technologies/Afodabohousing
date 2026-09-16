@@ -121,7 +121,7 @@ export default function ManagerTenanciesScreen() {
           <View>
             <Text style={styles.heroTitle}>Tenants</Text>
             <Text style={styles.heroSubtitle}>
-              {tenancies.length} {tenancies.length === 1 ? "tenancy" : "tenancies"} · {currentCount} current
+              {tenancies.length} {tenancies.length === 1 ? "tenancy" : "tenancies"} · {currentCount} active
             </Text>
           </View>
           <Button

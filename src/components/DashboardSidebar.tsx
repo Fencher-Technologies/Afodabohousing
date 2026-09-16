@@ -18,7 +18,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Overview', path: '/dashboard/manager', icon: <LayoutDashboard className="h-4 w-4" />, roles: ['house_manager'] },
   { label: 'Properties', path: '/dashboard/manager/properties', icon: <Building2 className="h-4 w-4" />, roles: ['house_manager'] },
-  { label: 'Tenancies', path: '/dashboard/manager/tenancies', icon: <Users className="h-4 w-4" />, roles: ['house_manager'] },
+  { label: 'Tenants', path: '/dashboard/manager/tenancies', icon: <Users className="h-4 w-4" />, roles: ['house_manager'] },
   { label: 'Payments', path: '/dashboard/manager/payment-verifications', icon: <DollarSign className="h-4 w-4" />, roles: ['house_manager'] },
   { label: 'Reports', path: '/dashboard/manager/reports', icon: <BarChart3 className="h-4 w-4" />, roles: ['house_manager'] },
   { label: 'Account', path: '/account', icon: <User className="h-4 w-4" />, roles: ['house_manager'] },

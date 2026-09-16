@@ -258,7 +258,7 @@ export default function TenancyForm({ mode, initialData, onSave, onCancel, savin
       <div className="flex gap-3">
         <Button type="button" variant="outline" className="flex-1 rounded-lg h-12" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={saving || (mode === 'create' && !form.tenant_id)} className="flex-1 rounded-lg h-12 font-bold gap-2">
-          <Save className="h-4 w-4" /> {saving ? 'Saving...' : mode === 'create' ? 'Create Tenancy' : 'Save Changes'}
+          <Save className="h-4 w-4" /> {saving ? 'Saving...' : mode === 'create' ? 'Add Tenant' : 'Save Changes'}
         </Button>
       </div>
     </form>
