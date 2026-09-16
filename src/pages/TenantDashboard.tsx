@@ -350,10 +350,16 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
       const ext = maintenancePhoto.name.split('.').pop();
       const path = `maintenance/${crypto.randomUUID()}.${ext}`;
       const { error: uploadErr } = await supabase.storage.from('maintenance-photos').upload(path, maintenancePhoto);
-      if (!uploadErr) {
-        const { data: { publicUrl } } = supabase.storage.from('maintenance-photos').getPublicUrl(path);
-        photoURL = publicUrl;
+      if (uploadErr) {
+        // Do NOT submit with photo_url: null — the tenant would believe the
+        // photo was attached when it was not. Stop here so they can retry
+        // or remove the photo and resubmit.
+        setSendingMaintenance(false);
+        toast({ title: 'Photo upload failed', description: 'Your request was not sent. Check your connection and try again, or remove the photo to send without it.', variant: 'destructive' });
+        return;
       }
+      const { data: { publicUrl } } = supabase.storage.from('maintenance-photos').getPublicUrl(path);
+      photoURL = publicUrl;
     }
 
     // Through the API, not straight to the table: the backend scopes the

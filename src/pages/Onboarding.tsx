@@ -48,8 +48,16 @@ export default function Onboarding() {
     const trimmedPhone = phone.trim();
     if (trimmedPhone) updates.phone = trimmedPhone;
 
-    if (Object.keys(updates).length > 0) {
-      await supabase.from('profiles').upsert({ user_id: user.id, ...updates, updated_at: new Date().toISOString() });
+    // onConflict is required: without it supabase-js targets the PK (id),
+    // which the payload lacks, so a re-run would INSERT and hit
+    // UNIQUE(user_id) instead of updating. Email is included only when auth
+    // knows it (fresh email signup INSERT needs a non-null email); it is
+    // never written as '' so an existing address is never clobbered.
+    if (Object.keys(updates).length > 0 || user.email) {
+      await supabase.from('profiles').upsert(
+        { user_id: user.id, ...(user.email ? { email: user.email } : {}), ...updates, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
     }
     if (selectedRole) {
       await supabase.from('profiles').update({ role: selectedRole }).eq('user_id', user.id);
