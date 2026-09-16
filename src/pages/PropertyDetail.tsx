@@ -312,7 +312,7 @@ export default function PropertyDetailPage() {
               <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-2xl p-5 border border-border">
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-display font-bold text-primary">
-                    {formatCurrency(property.rent_amount, displayCurrency)}
+                    {formatCurrency(Number(property.rent_amount), displayCurrency)}
                   </span>
                   <span className="text-lg text-muted-foreground">{periodLabel}</span>
                 </div>
@@ -431,7 +431,7 @@ export default function PropertyDetailPage() {
 
                         <div className="flex items-center justify-between pt-2 border-t border-border">
                           <div>
-                            <span className="text-xl font-bold text-primary font-display">{formatCurrency(unit.rent_amount, 'UGX')}</span>
+                            <span className="text-xl font-bold text-primary font-display">{formatCurrency(Number(unit.rent_amount), 'UGX')}</span>
                             <span className="text-muted-foreground text-xs ml-1">/mo</span>
                           </div>
                           {unit.status === 'available' ? (

@@ -8,12 +8,14 @@ import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { apiGet } from '@/services/api';
+import { apiGet, apiPatch } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/utils/currency';
+import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import {
   Plus, Building2, Search, MapPin, Sparkles,
-  Home, CheckCircle2, XCircle
+  Home, CheckCircle2, XCircle, EyeOff, Eye
 } from 'lucide-react';
 
 type PropertyRow = Database['public']['Tables']['properties']['Row'];
@@ -48,10 +50,13 @@ const statusColor: Record<string, string> = {
 export default function ManagerProperties() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<PropertyRow | null>(null);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -75,6 +80,38 @@ export default function ManagerProperties() {
     setLoading(false);
   };
 
+  // Deactivation flips is_active (the quota field); rows deactivated by the
+  // old status-only toggle carry status 'inactive' with is_active still true.
+  // Match either so the tab never hides a hidden listing.
+  const isHidden = (p: PropertyRow) => !(p as any).is_active || p.status === 'inactive';
+
+  // Toggle through the API (not a direct table write) so reactivation
+  // respects the subscription quota: the backend refuses with
+  // property_limit_reached when the plan is full.
+  const toggleListingActive = async (p: PropertyRow) => {
+    const toActive = !(p as any).is_active;
+    setSendingId(p.id);
+    try {
+      await apiPatch(`/properties/${p.id}`, toActive
+        ? { status: 'available', is_active: true }
+        : { status: 'inactive', is_active: false });
+      toast({
+        title: toActive ? 'Listing reactivated' : 'Listing deactivated',
+        description: toActive ? undefined : 'This listing is hidden from tenants and frees a subscription slot.',
+      });
+    } catch (e: any) {
+      let msg = 'Could not update the listing.';
+      try {
+        const body = JSON.parse(e.message);
+        const d = body.detail;
+        msg = typeof d === 'object' && d?.message ? d.message : (typeof d === 'string' ? d : msg);
+      } catch { if (e.message && !e.message.startsWith('{')) msg = e.message; }
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setSendingId(null); fetchProperties();
+    }
+  };
+
   const filtered = useMemo(() => {
     let list = properties;
     if (statusFilter === 'available') {
@@ -82,7 +119,7 @@ export default function ManagerProperties() {
     } else if (statusFilter === 'occupied') {
       list = list.filter((p) => p.status === 'occupied');
     } else if (statusFilter === 'inactive') {
-      list = list.filter((p) => p.status === 'inactive');
+      list = list.filter(isHidden);
     }
     if (!query) return list;
     const q = query.toLowerCase();
@@ -228,6 +265,11 @@ export default function ManagerProperties() {
                       >
                         {property.status}
                       </Badge>
+                      {!(property as any).is_active && (
+                        <Badge variant="outline" className="text-xs font-semibold bg-muted text-muted-foreground border-border">
+                          Hidden
+                        </Badge>
+                      )}
                       {boosted && (
                         <Badge className="bg-amber-400/15 text-amber-600 border-amber-300 text-xs font-semibold gap-1">
                           <Sparkles className="h-3 w-3" />
@@ -243,6 +285,21 @@ export default function ManagerProperties() {
                         <Sparkles className="h-3.5 w-3.5 text-amber-500" />
                         Boost
                       </Button>
+                      <Button
+                        size="sm"
+                        variant={(property as any).is_active ? 'secondary' : 'default'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if ((property as any).is_active) setDeactivateTarget(property);
+                          else toggleListingActive(property);
+                        }}
+                        disabled={sendingId !== null}
+                        className="gap-1.5 h-8 text-xs rounded-lg"
+                      >
+                        {(property as any).is_active
+                          ? <><EyeOff className="h-3.5 w-3.5" />{sendingId === property.id ? '…' : 'Deactivate'}</>
+                          : <><Eye className="h-3.5 w-3.5" />{sendingId === property.id ? '…' : 'Activate'}</>}
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -251,6 +308,28 @@ export default function ManagerProperties() {
           </div>
         )}
       </div>
+
+      {/* Deactivate Listing Confirmation */}
+      <AlertDialog open={!!deactivateTarget} onOpenChange={o => { if (!o) setDeactivateTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate Listing</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will hide <strong>{deactivateTarget?.title}</strong> from tenants
+              and free a subscription slot — you can reactivate at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { const t = deactivateTarget; setDeactivateTarget(null); if (t) toggleListingActive(t); }}
+              disabled={sendingId !== null}
+            >
+              Deactivate Listing
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
