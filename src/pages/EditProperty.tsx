@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,6 +22,8 @@ export default function EditProperty() {
   const [initialData, setInitialData] = useState<Partial<PropertyFormData> | undefined>();
   const [units, setUnits] = useState<DraftUnit[]>([]);
   const [currency, setCurrency] = useState('UGX');
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   // Units save as they are edited rather than with the property form, so a
   // manager adding one does not have to remember to press Save Changes.
@@ -98,7 +100,10 @@ export default function EditProperty() {
   };
 
   const handleSave = async (data: PropertyFormData) => {
-    if (!id) return;
+    if (!id || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
     const { error } = await supabase.from('properties').update({
       title: data.title, description: data.description || null,
       property_type: data.property_type, property_type_slug: data.property_type_slug || null, state: data.state,
@@ -124,6 +129,10 @@ export default function EditProperty() {
     if (error) { toast({ title: 'Could not update property', description: cleanDbError(error), variant: 'destructive' }); return; }
     toast({ title: 'Property updated!' });
     navigate('/dashboard/manager');
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   if (loading) return (
@@ -150,6 +159,7 @@ export default function EditProperty() {
             onSave={handleSave}
             onCancel={() => navigate('/dashboard/manager')}
             submitLabel="Save Changes"
+            saving={saving}
             onCurrencyChange={setCurrency}
           />
           <div className="bg-card border border-border rounded-xl p-5">

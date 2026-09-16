@@ -17,7 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { listPayments, updatePayment, fetchFinancialSummary, type FinancialSummary, PaymentData } from '@/services/payments';
 import { getCurrentSubscription, getPropertyQuota, type PropertyQuota } from '@/services/subscriptions';
-import { apiGet } from '@/services/api';
+import { apiGet, apiPatch } from '@/services/api';
 import { formatCurrency } from '@/utils/currency';
 import { cleanDbError } from '@/utils/dbError';
 import AvatarUpload from '@/components/AvatarUpload';
@@ -76,6 +76,34 @@ export default function ManagerDashboard() {
   const [propDialogOpen, setPropDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [deleteConfirmProperty, setDeleteConfirmProperty] = useState<Property | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<Property | null>(null);
+
+  // Toggle a listing's visibility through the API (not a direct table
+  // write) so reactivation respects the subscription quota: the backend
+  // refuses with property_limit_reached when the plan is full.
+  const toggleListingActive = async (p: Property) => {
+    const toActive = !p.is_active;
+    setSendingAction(`toggle-${p.id}`);
+    try {
+      await apiPatch(`/properties/${p.id}`, toActive
+        ? { status: 'available', is_active: true }
+        : { status: 'inactive', is_active: false });
+      toast({
+        title: toActive ? 'Listing reactivated' : 'Listing deactivated',
+        description: toActive ? undefined : 'This listing is hidden from tenants and frees a subscription slot.',
+      });
+    } catch (e: any) {
+      let msg = 'Could not update the listing.';
+      try {
+        const body = JSON.parse(e.message);
+        const d = body.detail;
+        msg = typeof d === 'object' && d?.message ? d.message : (typeof d === 'string' ? d : msg);
+      } catch { if (e.message && !e.message.startsWith('{')) msg = e.message; }
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setSendingAction(''); fetchData();
+    }
+  };
   const [tab, setTab] = useState<Tab>('overview');
   const [sendingAction, setSendingAction] = useState('');
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
@@ -829,6 +857,9 @@ export default function ManagerDashboard() {
                               </td>
                               <td className="py-3.5 px-4">
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${statusBadge(p.status)}`}>{p.status}</span>
+                                {!p.is_active && (
+                                  <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground">Hidden</span>
+                                )}
                               </td>
                               <td className="py-3.5 px-4">
                                  <div className="flex gap-1.5 flex-wrap">
@@ -838,20 +869,15 @@ export default function ManagerDashboard() {
                                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleEditProperty(p)}>
                                      <Pencil className="h-3 w-3" />Edit
                                    </Button>
-                                   <Button
-                                     size="sm"
-                                     variant={p.status !== 'inactive' ? 'secondary' : 'default'}
-                                     className={`h-7 text-xs ${p.status === 'inactive' ? 'gradient-primary text-primary-foreground' : ''}`}
-                                     disabled={!!sendingAction}
-                                     onClick={async () => {
-                                       setSendingAction(p.id);
-                                       await supabase.from('properties').update({ status: p.status !== 'inactive' ? 'inactive' : 'available' }).eq('id', p.id);
-                                       toast({ title: p.status !== 'inactive' ? 'Property deactivated' : 'Property activated' });
-                                       setSendingAction(''); fetchData();
-                                     }}
-                                   >
-                                     {sendingAction === p.id ? '...' : p.status !== 'inactive' ? 'Deactivate' : 'Activate'}
-                                   </Button>
+                                    <Button
+                                      size="sm"
+                                      variant={!p.is_active ? 'default' : 'secondary'}
+                                      className={`h-7 text-xs ${!p.is_active ? 'gradient-primary text-primary-foreground' : ''}`}
+                                      disabled={!!sendingAction}
+                                      onClick={() => { if (p.is_active) setDeactivateTarget(p); else toggleListingActive(p); }}
+                                    >
+                                      {sendingAction === `toggle-${p.id}` ? '...' : p.is_active ? 'Deactivate' : 'Activate'}
+                                    </Button>
                                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => navigate(`/dashboard/manager/boost/${p.id}`)}>
                                     <TrendingUp className="h-3 w-3" />Boost
                                   </Button>
@@ -1308,6 +1334,28 @@ export default function ManagerDashboard() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Deactivate Listing Confirmation */}
+      <AlertDialog open={!!deactivateTarget} onOpenChange={o => { if (!o) setDeactivateTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate Listing</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will hide <strong>{deactivateTarget?.title}</strong> from tenants
+              and free a subscription slot. You can reactivate it at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { const t = deactivateTarget; setDeactivateTarget(null); if (t) toggleListingActive(t); }}
+              disabled={!!sendingAction}
+            >
+              Deactivate Listing
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Property Confirmation */}
       <AlertDialog open={!!deleteConfirmProperty} onOpenChange={o => { if (!o) setDeleteConfirmProperty(null); }}>

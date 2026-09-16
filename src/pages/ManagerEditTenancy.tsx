@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { updateLease } from '@/lib/leases';
@@ -16,6 +16,8 @@ export default function ManagerEditTenancy() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [initialData, setInitialData] = useState<Partial<TenancyFormData> | undefined>();
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -46,7 +48,10 @@ export default function ManagerEditTenancy() {
   };
 
   const handleSave = async (data: TenancyFormData) => {
-    if (!id) return;
+    if (!id || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
     // Through the API. Note the column is security_deposit, not rent_deposit:
     // the direct write was sending a field that does not exist on the table.
     const { ok, detail } = await updateLease(id!, {
@@ -63,6 +68,10 @@ export default function ManagerEditTenancy() {
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Tenancy updated' });
     navigate(`/dashboard/manager/tenancies/${id}`);
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   if (loading) return (
@@ -83,7 +92,7 @@ export default function ManagerEditTenancy() {
             <p className="text-sm text-muted-foreground">Update lease terms</p>
           </div>
         </div>
-        <TenancyForm mode="edit" initialData={initialData} onSave={handleSave} onCancel={() => navigate(`/dashboard/manager/tenancies/${id}`)} />
+        <TenancyForm mode="edit" initialData={initialData} onSave={handleSave} onCancel={() => navigate(`/dashboard/manager/tenancies/${id}`)} saving={saving} />
       </div>
     </div>
   );

@@ -154,6 +154,33 @@ def test_expired_subscription_refused(seeded_client):
     assert resp.json()["detail"]["code"] == "no_active_subscription"
 
 
+def test_reactivate_at_cap_refused(seeded_client):
+    seeds = _seeds(3, n_inactive=1)
+    client = seeded_client(user=MANAGER, seeds=seeds)
+    inactive_id = seeds["properties"][3]["id"]
+    resp = client.patch(f"/properties/{inactive_id}", json={"is_active": True})
+    assert resp.status_code == 403, resp.text
+    assert resp.json()["detail"]["code"] == "property_limit_reached"
+    assert client.get("/subscriptions/quota").json()["properties_used"] == 3
+
+
+def test_reactivate_with_free_slot_succeeds(seeded_client):
+    seeds = _seeds(2, n_inactive=1)
+    client = seeded_client(user=MANAGER, seeds=seeds)
+    inactive_id = seeds["properties"][2]["id"]
+    resp = client.patch(f"/properties/{inactive_id}", json={"is_active": True})
+    assert resp.status_code == 200, resp.text
+    assert client.get("/subscriptions/quota").json()["properties_used"] == 3
+
+
+def test_patch_other_fields_at_cap_allowed(seeded_client):
+    seeds = _seeds(3)
+    client = seeded_client(user=MANAGER, seeds=seeds)
+    pid = seeds["properties"][0]["id"]
+    resp = client.patch(f"/properties/{pid}", json={"title": "Renamed"})
+    assert resp.status_code == 200, resp.text
+
+
 def test_quota_endpoint_reports_usage(seeded_client):
     client = seeded_client(user=MANAGER, seeds=_seeds(2))
     resp = client.get("/subscriptions/quota")

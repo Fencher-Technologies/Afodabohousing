@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { createLease } from '@/lib/leases';
@@ -15,6 +15,8 @@ export default function ManagerCreateTenancy() {
   const { toast } = useToast();
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -30,11 +32,14 @@ export default function ManagerCreateTenancy() {
   };
 
   const handleSave = async (data: TenancyFormData) => {
-    if (!user) return;
+    if (!user || savingRef.current) return;
     if (!data.tenant_id) {
       toast({ title: 'Tenant required', description: 'Please find and select a tenant by email first', variant: 'destructive' });
       return;
     }
+    savingRef.current = true;
+    setSaving(true);
+    try {
     const payload: Record<string, any> = {
       property_id: data.property_id,
       tenant_id: data.tenant_id,
@@ -54,6 +59,10 @@ export default function ManagerCreateTenancy() {
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Tenancy created successfully' });
     navigate('/dashboard/manager/tenancies');
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   if (loading) return (
@@ -75,7 +84,7 @@ export default function ManagerCreateTenancy() {
           </div>
         </div>
         <TenancyForm mode="create" onSave={handleSave} onCancel={() => navigate('/dashboard/manager/tenancies')}
-          properties={properties} />
+          properties={properties} saving={saving} />
       </div>
     </div>
   );

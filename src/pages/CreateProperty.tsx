@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { createProperty } from '@/lib/properties';
@@ -22,6 +22,10 @@ export default function CreateProperty() {
   // these are any additional ones for a multi-unit building.
   const [currency, setCurrency] = useState('UGX');
   const [quota, setQuota] = useState<PropertyQuota | null>(null);
+  // Double-submit guard: the button disables via `saving`, the ref guards
+  // the handler itself (Enter key / repeat submit events in the same tick).
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -36,7 +40,10 @@ export default function CreateProperty() {
   }, [user, authLoading]);
 
   const handleSave = async (data: PropertyFormData) => {
-    if (!user) return;
+    if (!user || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
     // A property is its units, so it must have at least one. There is no
     // property-level rent to fall back on any more.
     if (units.length === 0) {
@@ -108,6 +115,10 @@ export default function CreateProperty() {
     }
     toast({ title: 'Property created!' });
     navigate('/dashboard/manager');
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   return (
@@ -143,6 +154,7 @@ export default function CreateProperty() {
             onSave={handleSave}
             onCancel={() => navigate('/dashboard/manager')}
             submitLabel="Create Property"
+            saving={saving}
             onCurrencyChange={setCurrency}
           />
           <div className="bg-card border border-border rounded-xl p-5">

@@ -48,22 +48,17 @@ def get_property_svc(supabase: Client = Depends(get_supabase_client)) -> Propert
     return get_property_service(supabase)
 
 
-def require_property_quota(
-    current_user: CurrentUser = Depends(get_current_user),
-    supabase: Client = Depends(get_service_client),
-) -> None:
-    """Block creating a listing the manager's plan does not cover.
+def _quota_or_403(supabase: Client, user_id: str) -> dict:
+    """Return the quota or raise the structured 403 for it.
 
-    Declared BEFORE require_active_subscription on POST /properties so a
-    manager with no subscription gets the structured no_active_subscription
-    error (with usage fields) instead of the guard's plain string.
-    Grandfathered over-limit rows are never touched — only new creates.
+    Shared by the POST guard and the PATCH reactivation check so both
+    refuse with the same code and message shape.
     """
     from services.subscriptions import get_subscription_service
 
-    quota = get_subscription_service(supabase).get_property_quota(current_user.id)
+    quota = get_subscription_service(supabase).get_property_quota(user_id)
     if quota["can_add_property"]:
-        return
+        return quota
     if not quota["has_active_subscription"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -91,6 +86,20 @@ def require_property_quota(
             "plan_name": quota["plan_name"],
         },
     )
+
+
+def require_property_quota(
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
+) -> None:
+    """Block creating a listing the manager's plan does not cover.
+
+    Declared BEFORE require_active_subscription on POST /properties so a
+    manager with no subscription gets the structured no_active_subscription
+    error (with usage fields) instead of the guard's plain string.
+    Grandfathered over-limit rows are never touched — only new creates.
+    """
+    _quota_or_403(supabase, current_user.id)
 
 
 @router.get("", response_model=PaginatedResponse)
@@ -271,7 +280,19 @@ def update_property(
     current_user: CurrentUser = Depends(get_current_user),
     _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: PropertyService = Depends(get_property_svc),
+    admin: Client = Depends(get_service_client),
 ) -> PropertyResponse:
+    # Reactivation consumes a slot: without this check, deactivate-two /
+    # create-two / reactivate-two walks straight over the limit. Deactivation
+    # and edits that leave is_active untouched are always allowed.
+    if data.is_active is True:
+        current = (
+            admin.table("properties").select("is_active")
+            .eq("id", str(property_id)).eq("owner_id", current_user.id)
+            .execute()
+        )
+        if current.data and not current.data[0].get("is_active"):
+            _quota_or_403(admin, current_user.id)
     try:
         property_data = service.update(property_id, data, current_user.id)
     except APIError as e:
