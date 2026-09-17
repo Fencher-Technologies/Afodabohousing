@@ -1,23 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Lock, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Lock, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react';
 
 const MIN_PASSWORD_LENGTH = 8;
 
-/**
- * Landing page for the emailed password recovery link.
- *
- * ForgotPassword previously sent users to /login, which has no recovery
- * handling — the link opened the sign-in form and the reset silently went
- * nowhere. Supabase puts the recovery tokens in the URL fragment and the
- * client picks them up as a PASSWORD_RECOVERY session, which is what lets
- * updateUser() set the new password here.
- */
 export default function ResetPassword() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -27,66 +18,81 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const submitLock = useRef(false);
 
   useEffect(() => {
-    // Supabase surfaces link failures as query/fragment params rather than
-    // throwing, so read them before waiting on a session that won't arrive.
-    const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    const query = new URLSearchParams(window.location.search);
-    const description = fragment.get('error_description') || query.get('error_description');
-    if (description) {
-      setLinkError(description.replace(/\+/g, ' '));
-      setReady(true);
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const error = params.get('error');
+    const errorDescription = params.get('error_description');
+
+    if (error || errorDescription) {
+      const msg = errorDescription || error || 'Unknown error';
+      setLinkError(msg.replace(/\+/g, ' '));
+      setChecking(false);
+      return;
+    }
+
+    if (!code) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          setReady(true);
+          setChecking(false);
+        } else {
+          setLinkError('This reset link is invalid or has expired. Please request a new one.');
+          setChecking(false);
+        }
+      });
       return;
     }
 
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
         setReady(true);
+        setChecking(false);
       }
     });
 
-    // Cold loads may have consumed the fragment before the listener attached.
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-      else {
-        setTimeout(() => {
-          setReady((current) => {
-            if (!current) {
-              setLinkError('This reset link is invalid or has expired. Please request a new one.');
-            }
-            return true;
-          });
-        }, 2000);
+      if (data.session) {
+        setReady(true);
+        setChecking(false);
       }
     });
 
-    return () => listener.subscription.unsubscribe();
+    const timeout = setTimeout(() => {
+      setChecking(false);
+      if (!ready && !linkError) {
+        setLinkError('This reset link is invalid or has expired. Please request a new one.');
+      }
+    }, 3000);
+
+    return () => {
+      listener.subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLock.current) return;
     if (password.length < MIN_PASSWORD_LENGTH) {
-      toast({
-        title: 'Password too short',
-        description: `Use at least ${MIN_PASSWORD_LENGTH} characters.`,
-        variant: 'destructive',
-      });
+      toast({ title: 'Password too short', description: `Use at least ${MIN_PASSWORD_LENGTH} characters.`, variant: 'destructive' });
       return;
     }
     if (password !== confirm) {
-      toast({
-        title: 'Passwords do not match',
-        description: 'Please re-enter the same password in both fields.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Passwords do not match', description: 'Please re-enter the same password in both fields.', variant: 'destructive' });
       return;
     }
 
-    setLoading(true);
+    submitLock.current = true;
+    setSubmitting(true);
     const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
+    setSubmitting(false);
+    submitLock.current = false;
 
     if (error) {
       toast({ title: 'Could not update password', description: error.message, variant: 'destructive' });
@@ -105,9 +111,7 @@ export default function ResetPassword() {
             <CheckCircle2 className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-2xl font-display font-bold mb-2">Password updated</h1>
-          <p className="text-muted-foreground mb-6">
-            Redirecting you to sign in…
-          </p>
+          <p className="text-muted-foreground mb-6">Redirecting you to sign in…</p>
           <Link to="/login" className="text-primary hover:underline text-sm">Go to sign in</Link>
         </div>
       </div>
@@ -118,6 +122,7 @@ export default function ResetPassword() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="max-w-sm w-full text-center">
+          <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
           <h1 className="text-2xl font-display font-bold mb-2">Link not valid</h1>
           <p className="text-muted-foreground mb-6">{linkError}</p>
           <Button onClick={() => navigate('/forgot-password')} className="w-full">
@@ -153,7 +158,7 @@ export default function ResetPassword() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="At least 8 characters"
               autoComplete="new-password"
-              disabled={!ready || loading}
+              disabled={!ready || loading || submitting}
               required
             />
           </div>
@@ -166,12 +171,12 @@ export default function ResetPassword() {
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="Re-enter your new password"
               autoComplete="new-password"
-              disabled={!ready || loading}
+              disabled={!ready || loading || submitting}
               required
             />
           </div>
-          <Button type="submit" className="w-full" disabled={!ready || loading}>
-            {loading ? 'Updating…' : ready ? 'Update password' : 'Checking link…'}
+          <Button type="submit" className="w-full" disabled={!ready || loading || submitting}>
+            {submitting ? 'Updating…' : ready ? 'Update password' : 'Checking link…'}
           </Button>
         </form>
       </div>

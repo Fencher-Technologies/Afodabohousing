@@ -9,6 +9,8 @@ import logoImg from '@/assets/axis-lockup.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Mail, ArrowLeft } from 'lucide-react';
 
+const SITE_URL = import.meta.env.VITE_SITE_URL || window.location.origin;
+
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,9 +21,7 @@ export default function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      // /login has no recovery handling — the link used to land on the
-      // sign-in form and the reset silently went nowhere.
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${SITE_URL}/reset-password`,
     });
     setLoading(false);
     if (error) {
