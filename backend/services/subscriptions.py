@@ -1,4 +1,5 @@
 import logging
+import math
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -11,9 +12,6 @@ from models.subscription import (
 
 logger = logging.getLogger(__name__)
 
-# Plans are low-churn reference rows queried on every guard/initiate/current-sub
-# call. Cache them briefly; the only writes are direct DB edits, and 60s of
-# staleness is invisible for pricing display.
 _PLANS_TTL = 60.0
 _plans_cache: dict[str, object] = {"at": 0.0, "data": []}
 
@@ -37,6 +35,87 @@ def get_subscription_service(supabase: Client) -> "SubscriptionService":
     return SubscriptionService(supabase)
 
 
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _derive_status(expires_at: str | None, stored_status: str) -> str:
+    if stored_status != "active":
+        return stored_status
+    if expires_at is None:
+        return "expired"
+    expires_dt = _parse_iso(expires_at)
+    if expires_dt is None:
+        return stored_status
+    if expires_dt <= _now():
+        return "expired"
+    return "active"
+
+
+def _parse_iso(raw: str) -> datetime | None:
+    try:
+        return raw if isinstance(raw, datetime) else datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+
+
+def get_current_subscription_raw(supabase: Client, manager_id: str) -> dict | None:
+    """Single source of truth for a manager's current subscription.
+
+    Rules:
+      - A row counts as active ONLY if status == 'active' AND expires_at > now().
+      - If several qualify, the current one is the LATEST expires_at.
+      - Never trusts stored status alone.
+    """
+    now = _now()
+    try:
+        rows = (
+            supabase.table("manager_subscriptions")
+            .select("*")
+            .eq("manager_id", manager_id)
+            .execute()
+        )
+        data = rows.data or []
+    except Exception:
+        logger.warning("Failed to fetch subscriptions for %s", manager_id, exc_info=True)
+        return None
+
+    qualifying = []
+    for row in data:
+        expires_at = row.get("expires_at")
+        expires_dt = _parse_iso(expires_at) if expires_at else None
+        if expires_dt and expires_dt > now:
+            qualifying.append(row)
+
+    if not qualifying:
+        return None
+
+    qualifying.sort(key=lambda r: _parse_iso(r.get("expires_at")) or datetime.min.replace(tzinfo=UTC), reverse=True)
+    return qualifying[0]
+
+
+def derive_subscription(sub: dict, plan_name: str) -> dict:
+    """Return the row plus derived: is_active, days_remaining, derived_status."""
+    now = _now()
+    expires_at = sub.get("expires_at")
+    expires_dt = _parse_iso(expires_at)
+    stored_status = sub["status"]
+    is_active = stored_status == "active" and expires_dt is not None and expires_dt > now
+
+    days_remaining = 0
+    if is_active and expires_dt:
+        remaining = expires_dt - now
+        days_remaining = max(0, math.ceil(remaining.total_seconds() / 86400))
+
+    return {
+        **sub,
+        "is_active": is_active,
+        "days_remaining": days_remaining,
+        "derived_status": "active" if is_active else "expired",
+        "plan_name": plan_name,
+    }
+
+
 class SubscriptionService:
     def __init__(self, supabase: Client):
         self.supabase = supabase
@@ -52,90 +131,36 @@ class SubscriptionService:
                 return row
         return None
 
+    def _get_plan(self, plan_id: str) -> dict | None:
+        return self.get_plan(plan_id)
+
     def get_current_subscription(self, manager_id: str) -> ManagerSubscriptionResponse | None:
-        raw = self.get_current_subscription_raw(manager_id)
+        raw = get_current_subscription_raw(self.supabase, manager_id)
         if raw is None:
             return None
         return self.to_response(raw)
 
-    def get_current_subscription_raw(self, manager_id: str) -> dict | None:
-        now = datetime.now(UTC).isoformat()
-        try:
-            active = (
-                self.supabase.table("manager_subscriptions")
-                .select("*")
-                .eq("manager_id", manager_id)
-                .eq("status", "active")
-                .gt("expires_at", now)
-                .order("expires_at", desc=True)
-                .limit(1)
-                .execute()
-            )
-            if active.data:
-                return active.data[0]
-        except Exception:
-            pass
-        result = (
-            self.supabase.table("manager_subscriptions")
-            .select("*")
-            .eq("manager_id", manager_id)
-            .order("created_at", desc=True)
-            .limit(1)
-            .execute()
-        )
-        if not result.data:
-            return None
-        return result.data[0]
-
     def to_response(self, sub: dict) -> ManagerSubscriptionResponse:
-        plan = self.get_plan(sub["plan_id"])
+        plan = self._get_plan(sub["plan_id"])
         plan_name = plan["name"] if plan else sub["plan_id"]
 
-        now = datetime.now(UTC)
-        expires_dt = None
-        raw_expires = sub.get("expires_at")
-        if raw_expires:
-            try:
-                expires_dt = (
-                    raw_expires
-                    if isinstance(raw_expires, datetime)
-                    else datetime.fromisoformat(str(raw_expires).replace("Z", "+00:00"))
-                )
-            except (TypeError, ValueError):
-                expires_dt = None
-
-        st = sub["status"]
-        if st == "active" and expires_dt and expires_dt <= now:
-            st = "expired"
-
-        days_remaining = 0
-        if st == "active" and expires_dt:
-            remaining = expires_dt - now
-            days_remaining = max(0, remaining.days)
+        derived = derive_subscription(sub, plan_name)
 
         return ManagerSubscriptionResponse(
             id=str(sub["id"]),
             manager_id=str(sub["manager_id"]),
             plan_id=sub["plan_id"],
             plan_name=plan_name,
-            status=st,
+            status=derived["derived_status"],
             started_at=sub.get("started_at"),
             expires_at=sub.get("expires_at"),
             auto_renew=sub.get("auto_renew", True),
             payment_reference=sub.get("payment_reference"),
             payment_status=sub.get("payment_status", "pending"),
-            days_remaining=days_remaining,
+            days_remaining=derived["days_remaining"],
         )
 
     def get_property_quota(self, manager_id: str) -> dict:
-        """Active-listing usage vs the manager's plan limit.
-
-        Counts owner_id rows with is_active=True (deactivating or deleting
-        frees a slot; occupied still consumes one). Existing over-limit
-        rows are grandfathered — this only reports, never deletes.
-        NULL max_properties means unlimited. No active, unexpired
-        subscription means cannot add.
-        """
         used = 0
         try:
             res = (
@@ -160,7 +185,7 @@ class SubscriptionService:
                 "plan_name": None,
                 "has_active_subscription": False,
             }
-        plan = self.get_plan(sub.plan_id) or {}
+        plan = self._get_plan(sub.plan_id) or {}
         limit = plan.get("max_properties")
         return {
             "properties_used": used,
@@ -186,19 +211,20 @@ class SubscriptionService:
 
         # Idempotency: a replayed webhook must not re-extend the subscription.
         if sub.get("status") == "active":
-            return self.get_current_subscription(sub["manager_id"])
+            existing_expires = _parse_iso(sub.get("expires_at"))
+            if existing_expires and existing_expires > _now():
+                return self.get_current_subscription(sub["manager_id"])
+            # Active but expired — treat as no active sub, extend below
 
-        plan = self.get_plan(sub["plan_id"])
+        plan = self._get_plan(sub["plan_id"])
         if not plan:
             return None
 
-        # Amount verification: accept either UGX or USD plan price (dual-currency checkout).
-        # Pesapal forwards amount in the currency submitted; we check both.
         if paid_amount is not None:
             ugx = float(plan["price_ugx"])
             usd = float(plan.get("price_usd") or 0)
             if abs(float(paid_amount) - ugx) > 1.0 and abs(float(paid_amount) - usd) > 0.05:
-                now = datetime.now(UTC)
+                now = _now()
                 logger.warning(
                     "Subscription %s amount mismatch: paid=%s expected UGX=%s USD=%s",
                     sub["id"], paid_amount, ugx, usd,
@@ -209,29 +235,47 @@ class SubscriptionService:
                 return None
 
         duration_days = plan["duration_days"]
-        now = datetime.now(UTC)
+        now = _now()
 
-        sub_payload = {
-            "status": "active",
-            "payment_status": "completed",
-            "started_at": now.isoformat(),
-            "expires_at": (now + timedelta(days=duration_days)).isoformat(),
-            "updated_at": now.isoformat(),
-        }
+        # EXTEND logic: if there is an active (non-expired) subscription,
+        # add duration_days to its existing expires_at. Otherwise start fresh.
+        raw_rows = (
+            self.supabase.table("manager_subscriptions")
+            .select("*")
+            .eq("manager_id", sub["manager_id"])
+            .execute()
+        )
+        current_active = None
+        for row in (raw_rows.data or []):
+            expires_dt = _parse_iso(row.get("expires_at"))
+            if row.get("status") == "active" and expires_dt and expires_dt > now:
+                if current_active is None or expires_dt > _parse_iso(current_active.get("expires_at")):
+                    current_active = row
+
+        if current_active:
+            new_expires = _parse_iso(current_active["expires_at"]) + timedelta(days=duration_days)
+            sub_payload = {
+                "status": "active",
+                "payment_status": "completed",
+                "expires_at": new_expires.isoformat(),
+                "updated_at": now.isoformat(),
+            }
+            target_id = current_active["id"]
+        else:
+            sub_payload = {
+                "status": "active",
+                "payment_status": "completed",
+                "started_at": now.isoformat(),
+                "expires_at": (now + timedelta(days=duration_days)).isoformat(),
+                "updated_at": now.isoformat(),
+            }
+            target_id = sub["id"]
 
         self.supabase.table("manager_subscriptions").update(sub_payload).eq(
-            "id", sub["id"]
+            "id", target_id
         ).eq("status", "pending").execute()
 
         return self.get_current_subscription(sub["manager_id"])
 
     def expire_subscriptions(self) -> int:
-        now = datetime.now(UTC).isoformat()
-        result = (
-            self.supabase.table("manager_subscriptions")
-            .update({"status": "expired", "updated_at": now})
-            .eq("status", "active")
-            .lt("expires_at", now)
-            .execute()
-        )
-        return len(result.data) if result.data else 0
+        return 0

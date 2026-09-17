@@ -1007,9 +1007,10 @@ def get_dashboard_stats(
     sub_growth = 0.0
 
     try:
-        subs = supabase.table("manager_subscriptions").select("plan_id, status, created_at").execute()
+        subs = supabase.table("manager_subscriptions").select("plan_id, status, created_at, expires_at").execute()
         all_subs = subs.data or []
-        active_subs = sum(1 for s in all_subs if s.get("status") == "active")
+        now = datetime.now(UTC)
+        active_subs = sum(1 for s in all_subs if s.get("status") == "active" and s.get("expires_at") and parse_timestamp(s["expires_at"]) > now)
 
         # Last month active subs count for growth
         last_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)

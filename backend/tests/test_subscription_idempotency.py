@@ -168,3 +168,131 @@ class TestConfirmSubscriptionIdempotency:
 
         assert result is not None
         assert result.status == "active"
+
+class TestConfirmSubscriptionExtend:
+    def test_extends_existing_active_subscription(self):
+        """A purchase with an active subscription extends its expiry, not resets."""
+        sb = FakeSupabase()
+        existing_expiry = (datetime.now(UTC) + timedelta(days=60)).isoformat()
+        # Put the pending row FIRST so FakeTable returns it as result.data[0]
+        # (FakeTable does not filter by eq conditions in execute())
+        sb.seed("manager_subscriptions", [
+            make_pending_sub(
+                {
+                    "status": "pending",
+                    "payment_reference": REF,
+                    "payment_status": "pending",
+                    "manager_id": MANAGER_ID,
+                    "id": "sub-2",
+                }
+            ),
+            make_pending_sub(
+                {
+                    "status": "active",
+                    "payment_status": "completed",
+                    "started_at": (datetime.now(UTC) - timedelta(days=10)).isoformat(),
+                    "expires_at": existing_expiry,
+                    "manager_id": MANAGER_ID,
+                    "payment_reference": "existing-ref",
+                }
+            ),
+        ])
+        sb.seed("subscription_plans", [make_plan()])
+
+        result = SubscriptionService(sb).confirm_subscription(REF)
+
+        assert result is not None
+        assert result.status == "active"
+        new_expiry_dt = datetime.fromisoformat(result.expires_at)
+        expected_expiry_dt = datetime.now(UTC) + timedelta(days=90)
+        assert abs((new_expiry_dt - expected_expiry_dt).total_seconds()) < 120
+
+    def test_no_active_sub_creates_fresh(self):
+        """A purchase with no active subscription starts fresh."""
+        sb = FakeSupabase()
+        sb.seed("manager_subscriptions", [
+            make_pending_sub(
+                {
+                    "status": "pending",
+                    "payment_reference": REF,
+                    "manager_id": MANAGER_ID,
+                }
+            ),
+        ])
+        sb.seed("subscription_plans", [make_plan()])
+
+        result = SubscriptionService(sb).confirm_subscription(REF, paid_amount=15000)
+
+        assert result is not None
+        assert result.status == "active"
+        expected_expiry = datetime.now(UTC) + timedelta(days=30)
+        actual_expiry = datetime.fromisoformat(result.expires_at)
+        assert abs((actual_expiry - expected_expiry).total_seconds()) < 60
+
+    def test_days_remaining_rounds_up(self):
+        from services.subscriptions import derive_subscription
+
+        now = datetime.now(UTC)
+        sub = {
+            "id": "sub-1",
+            "manager_id": MANAGER_ID,
+            "plan_id": PLAN_ID,
+            "status": "active",
+            "expires_at": (now + timedelta(hours=4)).isoformat(),
+        }
+        derived = derive_subscription(sub, "Monthly")
+        assert derived["days_remaining"] == 1
+
+    def test_expired_status_not_active(self):
+        from services.subscriptions import derive_subscription
+
+        now = datetime.now(UTC)
+        sub = {
+            "id": "sub-1",
+            "manager_id": MANAGER_ID,
+            "plan_id": PLAN_ID,
+            "status": "active",
+            "expires_at": (now - timedelta(days=1)).isoformat(),
+        }
+        derived = derive_subscription(sub, "Monthly")
+        assert derived["is_active"] is False
+        assert derived["days_remaining"] == 0
+
+    def test_duplicate_active_returns_furthest_expiry(self):
+        from services.subscriptions import get_current_subscription_raw
+
+        now = datetime.now(UTC)
+        sb = FakeSupabase()
+        sb.seed("manager_subscriptions", [
+            {
+                "id": "sub-a",
+                "manager_id": MANAGER_ID,
+                "plan_id": PLAN_ID,
+                "status": "active",
+                "expires_at": (now + timedelta(days=30)).isoformat(),
+            },
+            {
+                "id": "sub-b",
+                "manager_id": MANAGER_ID,
+                "plan_id": PLAN_ID,
+                "status": "active",
+                "expires_at": (now + timedelta(days=90)).isoformat(),
+            },
+        ])
+        sb.seed("subscription_plans", [make_plan()])
+
+        raw = get_current_subscription_raw(sb, MANAGER_ID)
+        assert raw is not None
+        assert raw["id"] == "sub-b"
+
+    def test_failed_payment_grants_no_time(self):
+        sb = FakeSupabase()
+        sb.seed("manager_subscriptions", [make_pending_sub()])
+        sb.seed("subscription_plans", [make_plan()])
+
+        result = SubscriptionService(sb).confirm_subscription(REF, paid_amount=1)
+
+        assert result is None
+        subs_table = sb.tables["manager_subscriptions"]
+        assert subs_table._payload["status"] == "failed"
+

@@ -25,7 +25,7 @@ from services.pesapal import (
     get_transaction_status,
     submit_order,
 )
-from services.subscriptions import SubscriptionService, get_subscription_service
+from services.subscriptions import SubscriptionService, get_subscription_service, get_current_subscription_raw
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ async def get_current_subscription(
     if role not in ("house_manager", "super_admin"):
         return None
 
-    sub = service.get_current_subscription_raw(current_user.id)
+    sub = get_current_subscription_raw(supabase, current_user.id)
 
     # If the subscription is pending and has a tracking ID, reconcile against
     # Pesapal so a missed IPN doesn't strand the user in "pending" forever.
@@ -95,7 +95,7 @@ async def get_current_subscription(
                 )
                 if ps == "completed":
                     service.confirm_subscription(sub["payment_reference"], status_data.get("amount"))
-                    sub = service.get_current_subscription_raw(current_user.id)
+                    sub = get_current_subscription_raw(supabase, current_user.id)
                 elif ps == "failed":
                     from datetime import datetime, timezone
                     supabase.table("manager_subscriptions").update(

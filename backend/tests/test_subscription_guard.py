@@ -259,19 +259,21 @@ def test_read_endpoints_open_when_expired(seeded_client, path, kwargs):
     assert resp.status_code == 200
 
 
-def test_current_subscription_lazy_expiry_reports_expired():
-    # The subscriptions router resolves its supabase client outside the DI
-    # overrides (get_sub_svc calls get_service_client() directly), so the
-    # lazy-expiry behavior is asserted at the service level.
-    from services.subscriptions import SubscriptionService
+def test_current_subscription_lazy_expiry_returns_none():
+    # Expired subscriptions are excluded by get_current_subscription_raw.
+    # to_response still derives expired status correctly for raw rows.
+    from services.subscriptions import SubscriptionService, get_current_subscription_raw, derive_subscription
 
     svc = SubscriptionService(
         MockSupabaseClient(seeds={"manager_subscriptions": [EXPIRED_BY_TIME_ROW]})
     )
-    sub = svc.get_current_subscription(UID_OWNER)
-    assert sub is not None
-    assert sub.status == "expired"
-    assert sub.days_remaining == 0
+    raw = get_current_subscription_raw(svc.supabase, UID_OWNER)
+    assert raw is None
+
+    # But to_response still derives expired status correctly
+    derived = derive_subscription(EXPIRED_BY_TIME_ROW, "12mo")
+    assert derived["derived_status"] == "expired"
+    assert derived["days_remaining"] == 0
 
 
 def test_get_current_subscription_returns_none_without_row():

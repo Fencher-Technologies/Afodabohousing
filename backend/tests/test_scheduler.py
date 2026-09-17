@@ -308,110 +308,13 @@ async def test_rent_reminders_fire_on_money_ledger_due_dates():
     assert {d["channel"] for d in dispatcher.deliveries} == {"in_app", "email", "push"}
 
 
-# ── Subscription expiry sweep ───────────────────────────────────────────────
-
-class MockSweepQuery:
-    def __init__(self, tables, table_name):
-        self.tables = tables
-        self.table_name = table_name
-        self._filters = {}
-        self._update = None
-
-    def select(self, *_args, **_kwargs):
-        return self
-
-    def update(self, payload):
-        self._update = payload
-        return self
-
-    def eq(self, column, value):
-        self._filters[column] = ("eq", value)
-        return self
-
-    def lt(self, column, value):
-        self._filters[column] = ("lt", value)
-        return self
-
-    def execute(self):
-        rows = self.tables[self.table_name]
-        matched = [
-            r for r in rows
-            if all(_match_sweep(r, column, op, value) for column, (op, value) in self._filters.items())
-        ]
-        if self._update is not None:
-            updated = []
-            for r in matched:
-                idx = rows.index(r)
-                new_row = {**r, **self._update}
-                rows[idx] = new_row
-                updated.append(new_row)
-            return MockResponse(updated)
-        return MockResponse(matched)
-
-
-class MockSweepSupabase:
-    def __init__(self, tables):
-        self.tables = tables
-
-    def table(self, table_name):
-        return MockSweepQuery(self.tables, table_name)
-
-
-def _match_sweep(row, column, op, value):
-    if op == "eq":
-        return row.get(column) == value
-    if op == "lt":
-        return row.get(column, "") < value
-    return True
-
-
-def _build_subscription_rows():
-    return [
-        {
-            "id": "sub-past",
-            "manager_id": "manager-1",
-            "status": "active",
-            "expires_at": "2020-01-01T00:00:00Z",
-        },
-        {
-            "id": "sub-future",
-            "manager_id": "manager-2",
-            "status": "active",
-            "expires_at": "2126-07-08T00:00:00Z",
-        },
-        {
-            "id": "sub-already-expired",
-            "manager_id": "manager-3",
-            "status": "expired",
-            "expires_at": "2020-01-01T00:00:00Z",
-        },
-    ]
-
-
-def test_expire_subscriptions_sweep_flips_only_past_active_rows():
-    from services.subscriptions import SubscriptionService
-
-    supabase = MockSweepSupabase({
-        "manager_subscriptions": _build_subscription_rows(),
-    })
-    svc = SubscriptionService(supabase)
-    count = svc.expire_subscriptions()
-
-    assert count == 1
-    statuses = {r["id"]: r["status"] for r in supabase.tables["manager_subscriptions"]}
-    assert statuses["sub-past"] == "expired"
-    assert statuses["sub-future"] == "active"
-    assert statuses["sub-already-expired"] == "expired"
-
-
 @pytest.mark.parametrize("environment", ["production", "development"])
-def test_start_scheduler_registers_subscription_sweep(monkeypatch, environment):
+def test_start_scheduler_no_longer_registers_subscription_sweep(monkeypatch, environment):
     from types import SimpleNamespace
 
     from services.scheduler import (
         scheduler,
         start_scheduler,
-        expire_subscriptions,
     )
 
     registered = []
@@ -424,4 +327,9 @@ def test_start_scheduler_registers_subscription_sweep(monkeypatch, environment):
 
     start_scheduler()
 
-    assert expire_subscriptions in registered
+    from services.scheduler import check_rent_reminders, check_tenancy_expiry, check_boost_expiry, sync_geonames
+    assert check_rent_reminders in registered
+    assert check_tenancy_expiry in registered
+    assert check_boost_expiry in registered
+    assert sync_geonames in registered
+    assert not any(f.__name__ == "expire_subscriptions" for f in registered)

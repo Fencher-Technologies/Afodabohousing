@@ -1,5 +1,5 @@
 from datetime import UTC, datetime, timedelta
-from services.subscriptions import SubscriptionService
+from services.subscriptions import SubscriptionService, get_current_subscription_raw
 
 class FakeTable:
     def __init__(self, rows):
@@ -40,7 +40,7 @@ def test_active_prioritized_over_newer_pending():
     active = {"id":"active-1","manager_id":"m1","plan_id":"plan1","status":"active","payment_status":"completed","payment_reference":"ref-active","started_at":now.isoformat(),"expires_at":(now+timedelta(days=30)).isoformat(),"created_at":(now-timedelta(hours=1)).isoformat()}
     pending = {"id":"pending-2","manager_id":"m1","plan_id":"plan1","status":"pending","payment_status":"pending","payment_reference":"ref-pending","started_at":None,"expires_at":None,"created_at":now.isoformat()}
     svc = SubscriptionService(FakeSupabase([active, pending]))
-    raw = svc.get_current_subscription_raw("m1")
+    raw = get_current_subscription_raw(svc.supabase, "m1")
     assert raw["id"] == "active-1", "active must be returned even though pending is newer"
     assert svc.get_current_subscription("m1").status == "active"
 
@@ -49,5 +49,5 @@ def test_expired_active_not_prioritized():
     expired = {"id":"expired-1","manager_id":"m1","plan_id":"plan1","status":"active","payment_status":"completed","payment_reference":"ref-exp","started_at":(now-timedelta(days=40)).isoformat(),"expires_at":(now-timedelta(days=1)).isoformat(),"created_at":(now-timedelta(days=40)).isoformat()}
     pending = {"id":"pending-2","manager_id":"m1","plan_id":"plan1","status":"pending","payment_status":"pending","payment_reference":"ref-pending","started_at":None,"expires_at":None,"created_at":now.isoformat()}
     svc = SubscriptionService(FakeSupabase([expired, pending]))
-    raw = svc.get_current_subscription_raw("m1")
-    assert raw["id"] == "pending-2"
+    raw = get_current_subscription_raw(svc.supabase, "m1")
+    assert raw is None
