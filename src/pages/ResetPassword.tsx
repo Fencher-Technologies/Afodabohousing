@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react';
+import { PasswordInput } from '@/components/ui/password-input';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -98,9 +99,10 @@ export default function ResetPassword() {
       toast({ title: 'Could not update password', description: error.message, variant: 'destructive' });
       return;
     }
+    await supabase.auth.signOut();
     setDone(true);
-    toast({ title: 'Password updated', description: 'You can now sign in with your new password.' });
-    setTimeout(() => navigate('/login'), 2000);
+    toast({ title: 'Password updated', description: 'Sign in with your new password.' });
+    setTimeout(() => navigate('/login'), 1500);
   };
 
   if (done) {
@@ -111,7 +113,9 @@ export default function ResetPassword() {
             <CheckCircle2 className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-2xl font-display font-bold mb-2">Password updated</h1>
-          <p className="text-muted-foreground mb-6">Redirecting you to sign in…</p>
+          <p className="text-muted-foreground mb-6">
+            Your password has been changed. Sign in with your new password.
+          </p>
           <Link to="/login" className="text-primary hover:underline text-sm">Go to sign in</Link>
         </div>
       </div>
@@ -145,34 +149,32 @@ export default function ResetPassword() {
         </div>
         <h1 className="text-2xl font-display font-bold mb-2">Choose a new password</h1>
         <p className="text-muted-foreground mb-6">
-          Enter a new password for your account.
+          At least {MIN_PASSWORD_LENGTH} characters. Enter a new password for your account.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="password">New password</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
+              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              autoComplete="new-password"
               disabled={!ready || loading || submitting}
               required
+              autoComplete="new-password"
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm">Confirm new password</Label>
-            <Input
+            <PasswordInput
               id="confirm"
-              type="password"
+              placeholder="Re-enter your new password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              placeholder="Re-enter your new password"
-              autoComplete="new-password"
               disabled={!ready || loading || submitting}
               required
+              autoComplete="new-password"
             />
           </div>
           <Button type="submit" className="w-full" disabled={!ready || loading || submitting}>

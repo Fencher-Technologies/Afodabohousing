@@ -79,7 +79,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (_event, newSession) => {
         // Skip the INITIAL_SESSION event that fires before getSession resolves
         if (!initialized && _event === 'INITIAL_SESSION') return;
-        if (_event === 'PASSWORD_RECOVERY') sessionStorage.setItem('pw_recovery', 'true');
+        if (_event === 'PASSWORD_RECOVERY') {
+            // Recovery session is handled by ResetPassword.tsx which
+            // signs out after update; no persistent flag needed.
+        }
 
         setSession(newSession);
         setUser(newSession?.user ?? null);
