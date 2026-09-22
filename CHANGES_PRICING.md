@@ -21,7 +21,7 @@
 - `app/subscription.tsx`, `app/subscription-payment.tsx`, `src/utils/format.ts`: same display fixes
 
 # Support contact numbers
-- Phone: +256 394 709 397 · WhatsApp: +256 201 004 789
+- Phone: +256 394 709 397 · WhatsApp: +256 789 590 007
 - Web: `src/pages/Contact.tsx`, `src/components/Footer.tsx`
 - Mobile: `app/legal.tsx` (Contact Support screen)
 - Web `src/pages/Account.tsx`: "Contact Support" now opens the Contact page (it only opened an email before, so the numbers were never shown)
@@ -200,3 +200,15 @@
   sitemap and keeps crawlers out of private areas.
 - `package.json`: `npm run types:generate` refreshes the generated Supabase types, which are stale and
   are the source of the remaining TypeScript warnings (the build itself does not type-check).
+
+# Floating WhatsApp button (web)
+- `src/components/WhatsAppButton.tsx`, mounted in `src/App.tsx`: opens a chat with
+  +256 789 590 007 with a short opening line prefilled. Shown on public pages only (hidden under
+  /dashboard, /account, /manager, /tenant, /admin), sits below dialogs (z-40) and uses an inline
+  SVG mark, so it adds no extra request.
+
+# Contact number correction + site address
+- WhatsApp is +256 789 590 007 everywhere (floating button, Footer, Contact page, mobile Contact
+  Support, and the Organization schema). The earlier +256 201 004 789 is not on WhatsApp.
+- The live site answers at www.axishousings.com (the bare address redirects there), so canonical
+  URLs, share links, reset links, sitemap and email links now use the www form.

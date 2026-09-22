@@ -28,7 +28,7 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     setError(null);
     try {
-      // The link opens https://axishousings.com/reset-password (the backend
+      // The link opens https://www.axishousings.com/reset-password (the backend
       // default). It used to deep-link to axis://reset-password, but mail
       // apps open links in the browser, and Chrome on Android refuses to
       // follow a redirect to a custom scheme: users got "This site can't be

@@ -16,7 +16,7 @@ const SUPABASE_KEY =
   process.env.SUPABASE_ANON_KEY ||
   process.env.VITE_SUPABASE_ANON_KEY;
 
-const SITE = process.env.VITE_SITE_URL || 'https://axishousings.com';
+const SITE = process.env.VITE_SITE_URL || 'https://www.axishousings.com';
 const FIELDS = 'id,title,description,images,monthly_rent,rent_currency,address,city,bedrooms,bathrooms,is_active';
 
 function escapeHtml(value) {

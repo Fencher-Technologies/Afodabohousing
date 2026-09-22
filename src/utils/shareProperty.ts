@@ -4,7 +4,7 @@
  * Always ends with the listing's link on axishousings.com, so whoever
  * receives it can open the home and find the rest of Axis.
  */
-const SITE_URL = 'https://axishousings.com';
+const SITE_URL = 'https://www.axishousings.com';
 
 export type ShareableProperty = {
   id: string;

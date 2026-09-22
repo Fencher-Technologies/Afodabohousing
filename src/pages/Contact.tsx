@@ -45,13 +45,13 @@ export default function ContactPage() {
   useSeo({
     title: 'Contact Axis Housing',
     description:
-      'Talk to the Axis Housing team. Call +256 394 709 397, message us on WhatsApp at +256 201 004 789, or write to info@axishousings.com.',
+      'Talk to the Axis Housing team. Call +256 394 709 397, message us on WhatsApp at +256 789 590 007, or write to info@axishousings.com.',
     path: '/contact',
     keywords: ['contact Axis Housing', 'Axis Housing support', 'rental support Uganda'],
     jsonLd: {
       '@context': 'https://schema.org',
       '@type': 'ContactPage',
-      url: 'https://axishousings.com/contact',
+      url: 'https://www.axishousings.com/contact',
       mainEntity: {
         '@type': 'Organization',
         name: 'Axis Housing',
@@ -116,8 +116,8 @@ export default function ContactPage() {
                 {
                   icon: <MessageCircle className="h-5 w-5" />,
                   label: 'WhatsApp',
-                  value: '+256 201 004 789',
-                  href: 'https://wa.me/256201004789',
+                  value: '+256 789 590 007',
+                  href: 'https://wa.me/256789590007',
                   sub: 'Fastest response for urgent issues',
                 },
                 {

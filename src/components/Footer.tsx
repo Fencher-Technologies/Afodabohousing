@@ -65,9 +65,9 @@ export default function Footer() {
                 <Phone className="h-4 w-4 text-gold-light shrink-0" />
                 +256 394 709 397
               </a>
-              <a href="https://wa.me/256201004789" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <a href="https://wa.me/256789590007" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <MessageCircle className="h-4 w-4 text-gold-light shrink-0" />
-                WhatsApp: +256 201 004 789
+                WhatsApp: +256 789 590 007
               </a>
               <div className="flex items-center gap-2.5 text-primary-foreground/70">
                 <MapPin className="h-4 w-4 text-gold-light shrink-0" />

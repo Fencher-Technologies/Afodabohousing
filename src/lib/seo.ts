@@ -10,7 +10,7 @@
 import { useEffect } from 'react';
 
 export const SITE_NAME = 'Axis Housing';
-export const SITE_URL = 'https://axishousings.com';
+export const SITE_URL = 'https://www.axishousings.com';
 export const DEFAULT_DESCRIPTION =
   'Find verified rentals and manage them end to end on Axis Housing. Search homes, sign tenancy agreements online, record rent payments and issue receipts.';
 

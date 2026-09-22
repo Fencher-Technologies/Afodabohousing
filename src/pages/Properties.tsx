@@ -49,7 +49,7 @@ export default function PropertiesPage() {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
       name: 'Rentals on Axis Housing',
-      url: 'https://axishousings.com/properties',
+      url: 'https://www.axishousings.com/properties',
     },
   });
 

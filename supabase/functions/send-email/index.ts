@@ -26,7 +26,7 @@ const SMTP_HOST = Deno.env.get("SMTP_HOST") ?? "smtp.dreamhost.com";
 const SMTP_PORT = Number(Deno.env.get("SMTP_PORT") ?? "465");
 const SMTP_USER = Deno.env.get("SMTP_USER") ?? "info@axishousings.com";
 const EMAIL_FROM = Deno.env.get("EMAIL_FROM") ?? "Axis Housing <info@axishousings.com>";
-const SITE_URL = (Deno.env.get("SITE_URL") ?? "https://axishousings.com").replace(/\/$/, "");
+const SITE_URL = (Deno.env.get("SITE_URL") ?? "https://www.axishousings.com").replace(/\/$/, "");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

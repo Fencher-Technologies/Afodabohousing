@@ -68,7 +68,7 @@ import { MessageTemplates, openWhatsApp } from "@/src/utils/whatsapp";
 
 // Shared links always point at the public website, so they work for people
 // who do not have the app.
-const WEB_URL = "https://axishousings.com";
+const WEB_URL = "https://www.axishousings.com";
 
 export default function PropertyDetailScreen() {
   const { id, role } = useLocalSearchParams<{ id: string; role: string }>();

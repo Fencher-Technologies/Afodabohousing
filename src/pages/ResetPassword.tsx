@@ -45,7 +45,7 @@ export default function ResetPassword() {
       return;
     }
 
-    // Branded email link: https://axishousings.com/reset-password?token_hash=…&type=recovery
+    // Branded email link: https://www.axishousings.com/reset-password?token_hash=…&type=recovery
     // (Supabase "Reset Password" template). The one-time token is only used
     // here, when a person opens the page, so mail scanners that pre-open
     // links can no longer expire it, and the link shows our own domain

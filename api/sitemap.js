@@ -11,7 +11,7 @@ const SUPABASE_KEY =
   process.env.SUPABASE_ANON_KEY ||
   process.env.VITE_SUPABASE_ANON_KEY;
 
-const SITE = (process.env.VITE_SITE_URL || 'https://axishousings.com').replace(/\/$/, '');
+const SITE = (process.env.VITE_SITE_URL || 'https://www.axishousings.com').replace(/\/$/, '');
 
 const STATIC_PAGES = [
   { path: '/', priority: '1.0', changefreq: 'daily' },

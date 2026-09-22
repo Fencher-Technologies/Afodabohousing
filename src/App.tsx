@@ -10,6 +10,7 @@ import { usePageViewTracking } from "@/services/tracking";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
 import MobileAppBanner from "./components/MobileAppBanner";
+import WhatsAppButton from "./components/WhatsAppButton";
 
 const Index = lazy(() => import("./pages/Index"));
 const LoginPage = lazy(() => import("./pages/Login"));
@@ -123,6 +124,7 @@ const App = () => (
         <BrowserRouter>
           <ScrollToTop />
           <PageViewTracker />
+          <WhatsAppButton />
           <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>
             <Routes>

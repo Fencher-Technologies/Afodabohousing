@@ -240,7 +240,7 @@ const contactContent = {
     "We're here to help! Reach us through any of these channels:",
     "Email: info@axishousings.com",
     "Phone: +256 394 709 397",
-    "WhatsApp: +256 201 004 789",
+    "WhatsApp: +256 789 590 007",
     "Hours: Monday–Friday, 9am–6pm EAT",
     "For urgent issues, please use WhatsApp for fastest response.",
   ],
