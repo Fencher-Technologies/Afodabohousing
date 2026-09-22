@@ -13,6 +13,7 @@ class Profile(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     avatar_url: str | None = None
+    display_currency: str = "UGX"
     role: str | None = None
     status: Literal["active", "suspended", "pending"] = "active"
     created_by: UUID | None = None
@@ -43,6 +44,9 @@ class ProfileUpdate(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     avatar_url: str | None = None
+    # Currency for dashboard and report totals. Rents, payments and receipts
+    # always stay in the currency of their property.
+    display_currency: str | None = None
 
 
 class ProfileResponse(BaseModel):

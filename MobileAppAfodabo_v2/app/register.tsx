@@ -19,6 +19,7 @@ import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { FloatingBackButton } from "@/src/components/FloatingBackButton";
 import { useAuth } from "@/src/context/auth-context";
 import type { UserRole } from "@/src/types";
+import { PhoneField } from "@/src/components/PhoneField";
 
 export default function RegisterScreen() {
   const { register } = useAuth();
@@ -90,7 +91,7 @@ export default function RegisterScreen() {
 
           <View style={styles.form}>
             <InputField
-              label="Full Name"
+              label="Full Name" autoComplete="name" textContentType="name"
               value={fullName}
               onChangeText={setFullName}
               placeholder="John Mukasa"
@@ -98,7 +99,7 @@ export default function RegisterScreen() {
             />
             <View style={{ height: Spacing.md }} />
             <InputField
-              label="Email"
+              label="Email" autoComplete="email" textContentType="username"
               value={email}
               onChangeText={setEmail}
               placeholder="you@example.com"
@@ -107,17 +108,10 @@ export default function RegisterScreen() {
               leftIcon={<Mail size={20} color={Colors.textMuted} />}
             />
             <View style={{ height: Spacing.md }} />
-            <InputField
-              label="Phone"
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="2567XX XXX XXX"
-              keyboardType="phone-pad"
-              leftIcon={<Phone size={20} color={Colors.textMuted} />}
-            />
+            <PhoneField label="Phone" value={phone} onChangeText={setPhone} />
             <View style={{ height: Spacing.md }} />
             <InputField
-              label="Password"
+              label="Password" autoComplete="new-password" textContentType="newPassword"
               value={password}
               onChangeText={setPassword}
               placeholder="At least 6 characters"
@@ -126,7 +120,7 @@ export default function RegisterScreen() {
             />
             <View style={{ height: Spacing.md }} />
             <InputField
-              label="Confirm Password"
+              label="Confirm Password" autoComplete="new-password" textContentType="newPassword"
               value={confirm}
               onChangeText={setConfirm}
               placeholder="Re-enter password"
@@ -162,17 +156,6 @@ export default function RegisterScreen() {
 
           <View style={{ height: Spacing.lg }} />
           <Button label="Create Account" onPress={handleRegister} loading={loading} fullWidth size="lg" disabled={!termsAccepted} />
-
-          {/* PHONE-AUTH HIDDEN — phone registration preserved for future restore.
-          <OrDivider />
-          <Button
-            label="Register with Phone Number"
-            onPress={() => router.push("/phone-auth")}
-            variant="outline"
-            fullWidth
-            size="lg"
-          />
-          */}
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account? </Text>

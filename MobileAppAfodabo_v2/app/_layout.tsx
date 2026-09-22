@@ -16,6 +16,7 @@ import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 import { ToastProvider } from "@/src/components/Toast";
 import { LoadingState } from "@/src/components/LoadingState";
 import { debugAuth } from "@/src/lib/debug";
+import { usePushNotifications } from "@/src/hooks/usePushNotifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +32,7 @@ const queryClient = new QueryClient({
 function RootLayoutNav() {
   const { user, isLoading, hasSeenOnboarding } = useAuth();
   const queryClient = useQueryClient();
+  usePushNotifications(user?.id);
 
   useEffect(() => {
     SplashScreen.hideAsync();
@@ -79,12 +81,6 @@ function RootLayoutNav() {
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
       <Stack.Screen name="forgot-password" />
-      <Stack.Screen name="phone-auth" />
-      <Stack.Screen name="phone-otp" />
-      <Stack.Screen name="phone-pin-setup" />
-      <Stack.Screen name="phone-signin" />
-      <Stack.Screen name="forgot-pin" />
-      <Stack.Screen name="change-pin" />
       <Stack.Screen name="accept-invite" />
       <Stack.Screen name="manager" />
       <Stack.Screen name="tenant" />

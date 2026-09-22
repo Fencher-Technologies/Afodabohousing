@@ -324,6 +324,21 @@ export default function CreatePropertyScreen() {
       toast.show("Property listed successfully.", "success");
       router.back();
     } catch (e) {
+      // Plan limit reached: explain and offer the upgrade rather than a
+      // toast the manager cannot act on.
+      const detail = (e instanceof ApiError ? (e.data as any)?.detail : null) ?? null;
+      const code = detail && typeof detail === "object" ? detail.code : null;
+      if (code === "property_limit_reached" || code === "no_active_subscription") {
+        Alert.alert(
+          code === "no_active_subscription" ? "Subscription required" : "Property limit reached",
+          `${detail.message} Upgrade to list more properties.`,
+          [
+            { text: "Not now", style: "cancel" },
+            { text: "Upgrade", onPress: () => router.push("/subscription") },
+          ],
+        );
+        return;
+      }
       toast.show(
         e instanceof ApiError ? e.message : "Could not list property. Please try again.",
         "error",

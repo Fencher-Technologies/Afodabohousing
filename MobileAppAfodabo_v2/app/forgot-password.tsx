@@ -5,7 +5,6 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import * as Linking from "expo-linking";
 import { Mail, CheckCircle } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
@@ -29,11 +28,12 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     setError(null);
     try {
-      // Deep link back into the app so the reset completes here rather than
-      // on the web. Requires "axis://reset-password" in the Supabase
-      // dashboard under Authentication -> URL Configuration -> Redirect URLs.
-      const redirectTo = Linking.createURL("/reset-password");
-      await authService.resetPassword(address, redirectTo);
+      // The link opens https://axishousings.com/reset-password (the backend
+      // default). It used to deep-link to axis://reset-password, but mail
+      // apps open links in the browser, and Chrome on Android refuses to
+      // follow a redirect to a custom scheme: users got "This site can't be
+      // reached". A web page works on every phone and computer.
+      await authService.resetPassword(address);
       setSent(true);
     } catch {
       setError("Could not send the reset link. Check your connection and try again.");
@@ -54,6 +54,10 @@ export default function ForgotPasswordScreen() {
           <Text style={styles.description}>
             We&apos;ve sent a password reset link to{"\n"}
             <Text style={styles.emailBold}>{email}</Text>
+          </Text>
+          <View style={{ height: Spacing.md }} />
+          <Text style={styles.description}>
+            Tap the link in the email to choose a new password on the Axis website, then come back here and sign in.
           </Text>
           <View style={{ height: Spacing.xl }} />
           <Button label="Back to Sign In" onPress={() => router.replace("/login")} fullWidth size="lg" />

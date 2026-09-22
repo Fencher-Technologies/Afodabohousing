@@ -43,44 +43,70 @@ def send_push_notification(
     title: str,
     body: str,
     data: dict | None = None,
-) -> None:
+) -> int:
+    """Push to every device the recipient has registered. Returns devices reached.
+
+    Best-effort and never raises. Tokens Expo reports as DeviceNotRegistered
+    (app uninstalled, notifications revoked) are deleted so they are not
+    retried forever.
+    """
     try:
         tokens_result = (
             supabase.table("push_tokens")
             .select("token")
-            .eq("user_id", recipient_id)
+            .eq("user_id", str(recipient_id))
             .execute()
         )
-        tokens = [row["token"] for row in (tokens_result.data or [])]
+        tokens = [row["token"] for row in (tokens_result.data or []) if row.get("token")]
     except Exception as e:
-        logger.warning("Push tokens table not available, skipping push: %s", str(e))
-        return
+        logger.warning("Could not load push tokens for %s: %s", recipient_id, e)
+        return 0
     if not tokens:
-        return
+        return 0
 
-    messages = [
-        {
-            "to": token,
-            "sound": "default",
-            "title": title,
-            "body": body,
-            "data": data or {},
-            "priority": "high",
-        }
-        for token in tokens
-    ]
+    delivered = 0
+    dead: list[str] = []
+    # Expo accepts at most 100 messages per request.
+    for i in range(0, len(tokens), 100):
+        chunk = tokens[i : i + 100]
+        messages = [
+            {
+                "to": token,
+                "sound": "default",
+                "title": title,
+                "body": body,
+                "data": data or {},
+                "priority": "high",
+                "channelId": "default",
+            }
+            for token in chunk
+        ]
+        try:
+            resp = httpx.post(
+                EXPO_PUSH_URL,
+                json=messages,
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            tickets = (resp.json() or {}).get("data") or []
+        except Exception as e:
+            logger.warning("Failed to send push notification: %s", e)
+            continue
+        for token, ticket in zip(chunk, tickets):
+            if ticket.get("status") == "ok":
+                delivered += 1
+            elif (ticket.get("details") or {}).get("error") == "DeviceNotRegistered":
+                dead.append(token)
+            else:
+                logger.warning("Push to %s rejected: %s", recipient_id, ticket.get("message"))
 
-    try:
-        import httpx
-        resp = httpx.post(
-            EXPO_PUSH_URL,
-            json=messages,
-            headers={"Accept": "application/json", "Content-Type": "application/json"},
-            timeout=15,
-        )
-        resp.raise_for_status()
-    except Exception as e:
-        logger.warning("Failed to send push notification: %s", str(e))
+    if dead:
+        try:
+            supabase.table("push_tokens").delete().in_("token", dead).execute()
+        except Exception as e:
+            logger.warning("Could not remove stale push tokens: %s", e)
+    return delivered
 
 
 def send_notification_email(
@@ -161,9 +187,56 @@ def notify(
         body=body,
         data=metadata,
     )
-    send_notification_email(
-        supabase,
-        recipient_id=recipient_id,
-        title=title,
-        body=body,
-    )
+    if type not in NO_EMAIL_TYPES:
+        send_notification_email(
+            supabase,
+            recipient_id=recipient_id,
+            title=title,
+            body=body,
+        )
+
+
+# In-app only: an email for these would be noise.
+NO_EMAIL_TYPES = {"pdf_downloaded"}
+
+
+def profile_label(supabase: Client, user_id: str) -> str:
+    """'Full Name (email)' for admin messages; falls back to the id."""
+    try:
+        res = supabase.table("profiles").select("full_name,email,phone").eq("user_id", str(user_id)).limit(1).execute()
+        row = (res.data or [{}])[0]
+        name = row.get("full_name") or "A property manager"
+        contact = row.get("email") if row.get("email") and not str(row.get("email")).endswith((".app", ".local")) else row.get("phone")
+        return f"{name} ({contact})" if contact else name
+    except Exception:
+        return str(user_id)
+
+
+def notify_admins(
+    supabase: Client,
+    *,
+    type: str,
+    title: str,
+    body: str,
+    metadata: dict | None = None,
+) -> int:
+    """Notify every super admin (in-app, push and email). Never raises.
+
+    Admins previously received no notifications at all, so managers waiting
+    for approval, new listings to review and payments went unnoticed.
+    """
+    try:
+        res = supabase.table("profiles").select("user_id").eq("role", "super_admin").execute()
+        admin_ids = [r["user_id"] for r in (res.data or []) if r.get("user_id")]
+    except Exception as e:
+        logger.warning("Could not look up admins for %s: %s", type, e)
+        return 0
+
+    sent = 0
+    for admin_id in admin_ids:
+        try:
+            notify(supabase, recipient_id=str(admin_id), type=type, title=title, body=body, metadata=metadata)
+            sent += 1
+        except Exception as e:
+            logger.warning("Admin notification %s to %s failed: %s", type, admin_id, e)
+    return sent

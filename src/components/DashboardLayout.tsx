@@ -35,7 +35,11 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     if (role === 'house_manager') {
-      getCurrentSubscription().then(setSub).catch(() => setSub(null));
+      // Keep the last known answer when the request fails. Setting null on
+      // any hiccup made the plan flicker between "active" and "expired".
+      getCurrentSubscription()
+        .then(setSub)
+        .catch(() => {/* offline or server waking: keep what we had */});
     }
   }, [role]);
 

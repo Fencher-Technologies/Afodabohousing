@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react-native";
-import { Pressable, StyleSheet, Text, TextInput, View, ViewStyle } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from "react-native";
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 
 interface InputFieldProps {
@@ -23,6 +23,14 @@ interface InputFieldProps {
   leftIcon?: React.ReactNode;
   style?: ViewStyle;
   accessibilityLabel?: string;
+  /**
+   * Autofill hints. Without them Android Autofill (Google Password Manager)
+   * and iOS Keychain cannot tell which field is the email and which is the
+   * password, so saved passwords were never offered or saved.
+   * Login: "email" + "password"; new/changed password: "new-password".
+   */
+  autoComplete?: TextInputProps["autoComplete"];
+  textContentType?: TextInputProps["textContentType"];
 }
 
 export function InputField({
@@ -41,6 +49,8 @@ export function InputField({
   leftIcon,
   style,
   accessibilityLabel,
+  autoComplete,
+  textContentType,
 }: InputFieldProps) {
   const [showPassword, setShowPassword] = useState(false);
   const isSecure = secureTextEntry && !showPassword;
@@ -63,8 +73,12 @@ export function InputField({
           maxLength={maxLength}
           onBlur={onBlur}
           style={styles.input}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
+          importantForAutofill={autoComplete ? "yes" : "auto"}
           accessibilityLabel={accessibilityLabel ?? label}
-          accessibilityValue={{ text: value }}
+          // Never read a password aloud through the screen reader.
+          accessibilityValue={secureTextEntry ? undefined : { text: value }}
         />
         {secureTextEntry && (
           <Pressable

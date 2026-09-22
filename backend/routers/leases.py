@@ -29,6 +29,26 @@ from services.notifications import notify
 router = APIRouter(prefix="/leases", tags=["leases"])
 
 
+def require_tenant_quota(
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
+) -> None:
+    """Block a new tenancy once the plan's tenant limit is reached."""
+    from services.subscriptions import get_subscription_service
+
+    quota = get_subscription_service(supabase).get_tenant_quota(current_user.id)
+    if quota["can_add_tenant"] or not quota["has_active_subscription"]:
+        # No subscription is handled by require_active_subscription.
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=(
+            f"Your {quota['plan_name']} plan allows {quota['max_tenants']} tenants "
+            f"and you have {quota['tenants_used']}. Upgrade your subscription to add more tenants."
+        ),
+    )
+
+
 def _clean_contact(value) -> str | None:
     """Strip whitespace; treat empties as missing."""
     if value is None:
@@ -161,6 +181,7 @@ def create_lease(
     data: LeaseCreate,
     current_user: CurrentUser = Depends(get_current_user),
     _subscription_guard: CurrentUser = Depends(require_active_subscription),
+    _tenant_quota: None = Depends(require_tenant_quota),
     supabase: Client = Depends(get_supabase_client),
     service: LeaseService = Depends(get_lease_svc),
 ) -> LeaseResponse:

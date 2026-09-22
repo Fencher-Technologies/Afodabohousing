@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
 import { User, Phone, Mail, Send, KeyRound, CheckCircle2, ArrowRight } from 'lucide-react';
+import { PhoneInput } from '@/components/ui/phone-input';
+import { useSeo } from '@/lib/seo';
 
 const API = import.meta.env.VITE_API_URL || '';
 const RESEND_DELAY = 30;
@@ -14,6 +16,14 @@ const RESEND_DELAY = 30;
 type Step = 'form' | 'otp' | 'done';
 
 export default function GettingStarted() {
+  useSeo({
+    title: 'List Your Property and Manage Tenants',
+    description:
+      'Start listing rentals on Axis Housing. Add properties, invite tenants, send rent reminders and issue receipts from one account.',
+    path: '/getting-started',
+    keywords: ['list a property', 'landlord software', 'rent collection', 'property manager account'],
+  });
+
   const navigate = useNavigate();
   const { toast } = useToast();
   const [step, setStep] = useState<Step>('form');
@@ -207,8 +217,7 @@ export default function GettingStarted() {
                   </div>
                   <div>
                     <Label>Phone Number *</Label>
-                    <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                      placeholder="+256 700 000000" className="mt-1" />
+                    <PhoneInput value={phone} onChange={setPhone} className="mt-1" />
                   </div>
                   <div>
                     <Label>Email Address (optional)</Label>

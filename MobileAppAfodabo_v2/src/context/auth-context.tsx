@@ -8,8 +8,12 @@ import { toAppRole } from "../lib/roles";
 import { authService } from "../services/auth";
 import { subscriptionsService } from "../services/subscriptions";
 import type { Subscription, User, UserRole } from "../types";
+import { unregisterPushNotifications } from "@/src/lib/push-notifications";
 
 const SESSION_KEY = "afodabo_session";
+// The plan is cached so a restart (or a server still waking up) shows the
+// real subscription instead of briefly reporting "expired".
+const SUBSCRIPTION_KEY = "afodabo_subscription";
 const ONBOARDING_KEY = "afodabo_onboarding_seen";
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -28,6 +32,24 @@ interface AuthState {
   isLoading: boolean;
   hasSeenOnboarding: boolean;
   subscription: Subscription | null;
+}
+
+async function readCachedSubscription(): Promise<Subscription | null> {
+  try {
+    const raw = await AsyncStorage.getItem(SUBSCRIPTION_KEY);
+    return raw ? (JSON.parse(raw) as Subscription) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedSubscription(sub: Subscription | null): Promise<void> {
+  try {
+    if (sub) await AsyncStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(sub));
+    else await AsyncStorage.removeItem(SUBSCRIPTION_KEY);
+  } catch {
+    // caching is best-effort
+  }
 }
 
 function parseCachedSession(raw: string | null): CachedSession | null {
@@ -128,25 +150,7 @@ function useAuthInner() {
                   }));
 
                   if (role === "manager") {
-                    try {
-                      const sub = await subscriptionsService.getCurrent();
-                      if (sub) {
-                        setSubscription({
-                          id: sub.id,
-                          manager_id: sub.manager_id,
-                          plan_id: sub.plan_id as Subscription["plan_id"],
-                          plan_name: sub.plan_name,
-                          status: sub.status as Subscription["status"],
-                          started_at: sub.started_at,
-                          expires_at: sub.expires_at,
-                          auto_renew: sub.auto_renew,
-                          days_remaining: sub.days_remaining,
-                          payment_reference: sub.payment_reference,
-                        });
-                      }
-                    } catch {
-                      // subscription fetch is best-effort
-                    }
+                    await loadSubscription();
                   }
                 } else if (me.status === "rejected" && (me.reason as { status?: number })?.status === 401) {
                   // Session is genuinely expired - check if refresh works
@@ -199,25 +203,7 @@ function useAuthInner() {
             }));
 
             if (role === "manager") {
-              try {
-                const sub = await subscriptionsService.getCurrent();
-                if (sub) {
-                  setSubscription({
-                    id: sub.id,
-                    manager_id: sub.manager_id,
-                    plan_id: sub.plan_id as Subscription["plan_id"],
-                    plan_name: sub.plan_name,
-                    status: sub.status as Subscription["status"],
-                    started_at: sub.started_at,
-                    expires_at: sub.expires_at,
-                    auto_renew: sub.auto_renew,
-                    days_remaining: sub.days_remaining,
-                    payment_reference: sub.payment_reference,
-                  });
-                }
-              } catch {
-                // subscription fetch is best-effort
-              }
+              await loadSubscription();
             }
           }
         } else {
@@ -231,6 +217,41 @@ function useAuthInner() {
         debugAuth("init - complete, isLoading=false");
       }
     })();
+  }, []);
+
+
+  /**
+   * Load the manager's plan. A failed request (offline, or the backend
+   * waking from sleep) keeps whatever we already knew: treating it as "no
+   * subscription" is what made the plan flip between active and expired.
+   */
+  const loadSubscription = useCallback(async (): Promise<void> => {
+    try {
+      const sub = await subscriptionsService.getCurrent();
+      if (sub) {
+        const next: Subscription = {
+          id: sub.id,
+          manager_id: sub.manager_id,
+          plan_id: sub.plan_id as Subscription["plan_id"],
+          plan_name: sub.plan_name,
+          status: sub.status as Subscription["status"],
+          started_at: sub.started_at,
+          expires_at: sub.expires_at,
+          auto_renew: sub.auto_renew,
+          days_remaining: sub.days_remaining,
+          payment_reference: sub.payment_reference,
+        };
+        setSubscription(next);
+        await writeCachedSubscription(next);
+      } else {
+        // A clear answer from the server: there really is no plan.
+        setSubscription(null);
+        await writeCachedSubscription(null);
+      }
+    } catch {
+      const cached = await readCachedSubscription();
+      if (cached) setSubscription((current) => current ?? cached);
+    }
   }, []);
 
   useEffect(() => {
@@ -293,29 +314,7 @@ function useAuthInner() {
     debugAuth("signIn - SESSION_KEY set to:", role);
 
     if (role === "manager") {
-      try {
-        const sub = await subscriptionsService.getCurrent();
-        if (sub) {
-          setSubscription({
-            id: sub.id,
-            manager_id: sub.manager_id,
-            plan_id: sub.plan_id as Subscription["plan_id"],
-            plan_name: sub.plan_name,
-            status: sub.status as Subscription["status"],
-            started_at: sub.started_at,
-            expires_at: sub.expires_at,
-            auto_renew: sub.auto_renew,
-            days_remaining: sub.days_remaining,
-            payment_reference: sub.payment_reference,
-          });
-          debugAuth("signIn - subscription loaded:", sub.plan_name, sub.status);
-        } else {
-          debugAuth("signIn - no active subscription");
-        }
-      } catch {
-        // subscription fetch is best-effort
-        debugAuth("signIn - subscription fetch failed");
-      }
+      await loadSubscription();
     }
 
     debugAuth("signIn - complete, returning userData");
@@ -362,6 +361,9 @@ function useAuthInner() {
 
   const signOut = useCallback(async () => {
     debugAuth("signOut - starting, user id:", user?.id, "role:", user?.role);
+    // Unregister while still authenticated, so this phone stops receiving
+    // this user's notifications.
+    await unregisterPushNotifications();
     try {
       await authService.signOut();
       debugAuth("signOut - server session revoked");
@@ -384,10 +386,11 @@ function useAuthInner() {
     await AsyncStorage.setItem(ONBOARDING_KEY, "true");
   }, []);
 
-  const updateProfile = useCallback(async (updates: Partial<Pick<User, "full_name" | "email" | "phone">>) => {
+  const updateProfile = useCallback(async (updates: Partial<Pick<User, "full_name" | "email" | "phone" | "display_currency">>) => {
     const result = await authService.updateProfile({
       full_name: updates.full_name,
       phone: updates.phone,
+      display_currency: updates.display_currency,
     });
     setUser((prev) =>
       prev
@@ -395,6 +398,7 @@ function useAuthInner() {
             ...prev,
             full_name: result.full_name || prev.full_name,
             phone: result.phone || prev.phone,
+            display_currency: result.display_currency || prev.display_currency,
           }
         : prev
     );
@@ -454,28 +458,7 @@ function useAuthInner() {
       debugAuth("refreshAuth - SESSION_KEY set to:", role);
 
       if (role === "manager") {
-        try {
-          const sub = await subscriptionsService.getCurrent();
-          if (sub) {
-            setSubscription({
-              id: sub.id,
-              manager_id: sub.manager_id,
-              plan_id: sub.plan_id as Subscription["plan_id"],
-              plan_name: sub.plan_name,
-              status: sub.status as Subscription["status"],
-              started_at: sub.started_at,
-              expires_at: sub.expires_at,
-              auto_renew: sub.auto_renew,
-              days_remaining: sub.days_remaining,
-              payment_reference: sub.payment_reference,
-            });
-            debugAuth("refreshAuth - subscription loaded:", sub.plan_name, sub.status);
-          } else {
-            debugAuth("refreshAuth - no active subscription");
-          }
-        } catch {
-          debugAuth("refreshAuth - subscription fetch failed");
-        }
+        await loadSubscription();
       }
 
       return userData;

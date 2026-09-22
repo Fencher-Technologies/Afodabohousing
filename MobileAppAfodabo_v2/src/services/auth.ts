@@ -22,6 +22,7 @@ interface ProfileResponse {
   id: string;
   user_id: string;
   email: string;
+  display_currency?: string;
   full_name: string | null;
   phone: string | null;
   role: string;

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, ChevronRight, ChevronLeft, Check, Home, User, Shield } from 'lucide-react';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 const STEPS = [
   { title: 'Welcome', icon: Home },
@@ -121,8 +122,7 @@ export default function Onboarding() {
               </div>
               <div>
                 <p className="text-sm font-semibold mb-2">Phone Number</p>
-                <Input value={phone} onChange={e => setPhone(e.target.value)}
-                  placeholder="e.g. +256 700 000 000" className="rounded-lg h-11" />
+                <PhoneInput value={phone} onChange={setPhone} />
               </div>
             </div>
           )}

@@ -27,16 +27,10 @@ const ContactPage = lazy(() => import("./pages/Contact"));
 const PrivacyPage = lazy(() => import("./pages/Privacy"));
 const TermsPage = lazy(() => import("./pages/Terms"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
-const ForgotPin = lazy(() => import("./pages/ForgotPin"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Maintenance = lazy(() => import("./pages/Maintenance"));
-const PhoneAuth = lazy(() => import("./pages/PhoneAuth"));
 const EmailSignup = lazy(() => import("./pages/EmailSignup"));
 const GettingStarted = lazy(() => import("./pages/GettingStarted"));
-const PhoneOtp = lazy(() => import("./pages/PhoneOtp"));
-const PhonePinSetup = lazy(() => import("./pages/PhonePinSetup"));
-const PhoneSignin = lazy(() => import("./pages/PhoneSignin"));
-const ChangePin = lazy(() => import("./pages/ChangePin"));
 const Account = lazy(() => import("./pages/Account"));
 const EditProfile = lazy(() => import("./pages/EditProfile"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
@@ -140,12 +134,10 @@ const App = () => (
               <Route path="/accept-invite" element={<AcceptInvitePage />} />
               <Route path="/properties" element={<PropertiesPage />} />
               <Route path="/properties/:id" element={<PropertyDetailPage />} />
-              <Route path="/phone-auth" element={<PhoneAuth />} />
               <Route path="/getting-started" element={<GettingStarted />} />
-              <Route path="/phone-otp" element={<PhoneOtp />} />
-              <Route path="/phone-pin-setup" element={<PhonePinSetup />} />
-              <Route path="/phone-signin" element={<PhoneSignin />} />
-              <Route path="/forgot-pin" element={<ForgotPin />} />
+
+
+
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/explore" element={<GuestExplore />} />
@@ -191,7 +183,6 @@ const App = () => (
                 <Route path="/account" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><Account /></ProtectedRoute>} />
                 <Route path="/account/edit" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><EditProfile /></ProtectedRoute>} />
                 <Route path="/account/change-password" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><ChangePassword /></ProtectedRoute>} />
-                <Route path="/account/change-pin" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><ChangePin /></ProtectedRoute>} />
                 <Route path="/maintenance" element={<Maintenance />} />
               <Route path="/notifications" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager', 'super_admin']}><Notifications /></ProtectedRoute>} />
                 <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['tenant', 'house_manager']}><Onboarding /></ProtectedRoute>} />

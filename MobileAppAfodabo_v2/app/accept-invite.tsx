@@ -12,6 +12,7 @@ import { PageHeader } from "@/src/components/PageHeader";
 import { authService } from "@/src/services/auth";
 import { setStoredToken } from "@/src/lib/api-client";
 import { useAuth } from "@/src/context/auth-context";
+import { PhoneField } from "@/src/components/PhoneField";
 
 export default function AcceptInviteScreen() {
   const { refreshAuth } = useAuth();
@@ -136,7 +137,7 @@ export default function AcceptInviteScreen() {
         />
 
         <InputField
-          label="Full Name"
+          label="Full Name" autoComplete="name" textContentType="name"
           value={fullName}
           onChangeText={setFullName}
           placeholder="John Mukasa"
@@ -147,7 +148,7 @@ export default function AcceptInviteScreen() {
         {method === "email" ? (
           <>
             <InputField
-              label="Password"
+              label="Password" autoComplete="new-password" textContentType="newPassword"
               value={password}
               onChangeText={setPassword}
               placeholder="At least 6 characters"
@@ -155,7 +156,7 @@ export default function AcceptInviteScreen() {
               leftIcon={<Lock size={20} color={Colors.textMuted} />}
             />
             <InputField
-              label="Confirm Password"
+              label="Confirm Password" autoComplete="new-password" textContentType="newPassword"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Re-enter password"
@@ -167,16 +168,7 @@ export default function AcceptInviteScreen() {
           </>
         ) : step === "form" ? (
           <>
-            <InputField
-              label="Phone Number"
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+2567XX XXX XXX"
-              keyboardType="phone-pad"
-              autoCapitalize="none"
-              leftIcon={<Phone size={20} color={Colors.textMuted} />}
-              error={error}
-            />
+            <PhoneField label="Phone Number" value={phone} onChangeText={setPhone} error={error} />
             <Button label="Send Verification Code" onPress={handleSendOtp} loading={loading} fullWidth size="lg" />
           </>
         ) : step === "otp" ? (

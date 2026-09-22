@@ -6,6 +6,7 @@ from .bookmarks import router as bookmarks_router
 from .boosts import router as boosts_router
 from .exports import router as exports_router
 from .forex import router as forex_router
+from .jobs import router as jobs_router
 from .leases import router as leases_router
 from .maintenance_requests import router as maintenance_requests_router
 from .managers import router as managers_router
@@ -54,6 +55,7 @@ __all__ = [
     "terms_router",
     "tracking_router",
     "forex_router",
+    "jobs_router",
     "uploads_router",
     "webhooks_router",
 ]

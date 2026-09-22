@@ -1,25 +1,32 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 /**
- * send-email — transactional email for the Axis backend.
+ * send-email — transactional email for the Axis backend, sent through the
+ * info@axishousings.com mailbox on DreamHost (the same SMTP account Supabase
+ * Auth uses for password resets).
  *
- * Why this lives in Supabase rather than the FastAPI backend: the backend's
- * NotificationDispatcher needs a provider URL and API key, and those are
- * backend environment variables on Render. Routing through here instead means
- * the provider key is a Supabase secret, and the backend authenticates with
- * the SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY it already holds. No new
- * Render configuration is required.
+ * Previously this called Resend, which was never set up, so every email
+ * returned 503 and no notification email was ever delivered.
  *
- * Secrets required (Supabase dashboard -> Edge Functions -> Secrets):
- *   RESEND_API_KEY   API key from resend.com
- *   EMAIL_FROM       verified sender, e.g. "Axis <no-reply@axishousings.com>"
+ * Required secret (Supabase dashboard -> Edge Functions -> Secrets):
+ *   SMTP_PASSWORD    password of the info@axishousings.com mailbox
+ * Optional overrides: SMTP_HOST, SMTP_PORT, SMTP_USER, EMAIL_FROM, SITE_URL
  *
- * verify_jwt is enabled, so a caller must present a valid Supabase JWT. The
- * backend passes the service role key.
+ * Port 465 (implicit TLS) is used because Supabase Edge Functions block
+ * outbound ports 25 and 587.
+ *
+ * verify_jwt is enabled; the backend authenticates with the service role key.
  *
  * Request:  { "to": "a@b.com", "subject": "...", "text": "...", "html"?: "..." }
- * Response: { "success": true, "id": "..." } | { "success": false, "error": "..." }
+ * Response: { "success": true } | { "success": false, "error": "..." }
  */
+
+const SMTP_HOST = Deno.env.get("SMTP_HOST") ?? "smtp.dreamhost.com";
+const SMTP_PORT = Number(Deno.env.get("SMTP_PORT") ?? "465");
+const SMTP_USER = Deno.env.get("SMTP_USER") ?? "info@axishousings.com";
+const EMAIL_FROM = Deno.env.get("EMAIL_FROM") ?? "Axis Housing <info@axishousings.com>";
+const SITE_URL = (Deno.env.get("SITE_URL") ?? "https://axishousings.com").replace(/\/$/, "");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,19 +40,41 @@ function json(body: unknown, status: number): Response {
   });
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/** Plain notification text wrapped in a simple branded layout. */
+function renderHtml(subject: string, text: string): string {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((p) => `<p style="margin:0 0 14px">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+  return `<!doctype html><html><body style="margin:0;background:#f4f5f4;font-family:Arial,Helvetica,sans-serif;color:#1f2a24">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f4;padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:10px;overflow:hidden">
+<tr><td style="background:#1a4d3a;padding:16px 24px">
+<img src="${SITE_URL}/axis-logo.png" width="36" height="36" alt="Axis" style="vertical-align:middle;border:0">
+<span style="color:#ffffff;font-size:18px;font-weight:bold;vertical-align:middle;padding-left:10px">Axis Housing</span>
+</td></tr>
+<tr><td style="padding:24px;font-size:15px;line-height:1.55">
+<h2 style="margin:0 0 16px;font-size:19px">${escapeHtml(subject)}</h2>
+${paragraphs}
+<p style="margin:22px 0 0"><a href="${SITE_URL}/login" style="background:#1a4d3a;color:#ffffff;padding:11px 18px;border-radius:6px;text-decoration:none;display:inline-block">Open Axis</a></p>
+</td></tr>
+<tr><td style="padding:16px 24px;border-top:1px solid #e6e8e6;font-size:12px;color:#6b756f">
+You received this because you have an Axis account. Questions? Reply to this email or write to info@axishousings.com.
+</td></tr></table></td></tr></table></body></html>`;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ success: false, error: "Method not allowed" }, 405);
 
-  const apiKey = Deno.env.get("RESEND_API_KEY");
-  const from = Deno.env.get("EMAIL_FROM");
-  if (!apiKey || !from) {
-    // Surfaced as a 503 so the caller records a failed delivery rather than
-    // treating a missing secret as a successful send.
-    return json(
-      { success: false, error: "Email provider is not configured (RESEND_API_KEY / EMAIL_FROM)" },
-      503,
-    );
+  const password = Deno.env.get("SMTP_PASSWORD");
+  if (!password) {
+    // 503 so the caller records a failed delivery rather than a false success.
+    return json({ success: false, error: "Email is not configured (SMTP_PASSWORD secret missing)" }, 503);
   }
 
   let payload: { to?: string; subject?: string; text?: string; html?: string };
@@ -60,36 +89,32 @@ Deno.serve(async (req: Request) => {
     return json({ success: false, error: "to, subject and one of text/html are required" }, 400);
   }
 
-  try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject,
-        ...(text ? { text } : {}),
-        ...(html ? { html } : {}),
-      }),
-    });
+  const client = new SMTPClient({
+    connection: {
+      hostname: SMTP_HOST,
+      port: SMTP_PORT,
+      tls: true,
+      auth: { username: SMTP_USER, password },
+    },
+  });
 
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      console.error("Resend rejected the message:", response.status, result);
-      return json(
-        { success: false, error: result?.message ?? `Provider returned ${response.status}` },
-        502,
-      );
-    }
-    return json({ success: true, id: result?.id ?? null }, 200);
+  try {
+    await client.send({
+      from: EMAIL_FROM,
+      to,
+      replyTo: SMTP_USER,
+      subject,
+      content: text ?? "",
+      html: html ?? renderHtml(subject, text ?? ""),
+    });
+    return json({ success: true }, 200);
   } catch (error) {
     console.error("send-email failed:", error);
     return json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       502,
     );
+  } finally {
+    try { await client.close(); } catch { /* already closed */ }
   }
 });

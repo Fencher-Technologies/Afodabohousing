@@ -20,11 +20,21 @@ export default function BoostPage() {
   const [property, setProperty] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [duration, setDuration] = useState(7);
+  const [duration, setDuration] = useState(14);
   const [packages, setPackages] = useState<{ days: number; label: string; price: number }[]>([]);
 
   useEffect(() => {
-    fetch(`${API}/boosts/packages`).then(r => r.json()).then(setPackages).catch(() => {});
+    fetch(`${API}/boosts/packages`)
+      .then(r => r.json())
+      .then((pkgs) => {
+        setPackages(pkgs);
+        // Select a package that actually exists: the durations on offer can
+        // change, and a stale default left the selector blank.
+        if (Array.isArray(pkgs) && pkgs.length > 0) {
+          setDuration(current => (pkgs.some((p) => p.days === current) ? current : pkgs[0].days));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -36,10 +46,12 @@ export default function BoostPage() {
     });
   }, [id]);
 
+  // Prices come from the database; this is only a fallback if that request
+  // fails, so it mirrors the standard rate card.
   const options = packages.length > 0 ? packages : [
-    { days: 7, label: '7 days', price: 15000 },
-    { days: 14, label: '14 days', price: 25000 },
-    { days: 30, label: '30 days', price: 45000 },
+    { days: 14, label: 'Basic (2 weeks)', price: 4000 },
+    { days: 30, label: 'Standard (1 month)', price: 8000 },
+    { days: 90, label: 'Premium (3 months)', price: 12000 },
   ];
   const price = options.find(d => d.days === duration)?.price || 0;
 
@@ -111,7 +123,7 @@ export default function BoostPage() {
                   <SelectContent>
                     {options.map(d => (
                       <SelectItem key={d.days} value={String(d.days)}>
-                        {d.label} — {d.price.toLocaleString()}
+                        {d.label}: UGX {d.price.toLocaleString()}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -119,7 +131,7 @@ export default function BoostPage() {
               </div>
 
               <Button type="submit" disabled={sending} className="w-full gradient-primary text-primary-foreground gap-2">
-                {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><ExternalLink className="h-4 w-4" /> Pay using Pesapal — {price.toLocaleString()}</>}
+                {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><ExternalLink className="h-4 w-4" /> Pay using Pesapal: UGX {price.toLocaleString()}</>}
               </Button>
             </form>
           </CardContent>

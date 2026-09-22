@@ -140,6 +140,8 @@ class TenantStatement(BaseModel):
 
 
 class RentCollectionResponse(BaseModel):
+    currency: str = "UGX"
+    mixed_currencies: bool = False
     period_from: str | None = None
     period_to: str | None = None
     total_expected: float
@@ -153,6 +155,8 @@ class RentCollectionResponse(BaseModel):
 
 
 class FinancialSummary(BaseModel):
+    currency: str = "UGX"
+    mixed_currencies: bool = False
     total_expected: float
     total_collected: float
     total_outstanding: float
@@ -351,10 +355,14 @@ def rent_collection_report(
 ) -> RentCollectionResponse:
     leases, _ = lease_svc.get_all(current_user.id, skip=0, limit=500)
 
-    total_expected = sum(float(l.get("expected_rent") or 0) for l in leases)
-    total_collected = sum(float(l.get("total_paid") or 0) for l in leases)
-    total_outstanding = sum(float(l.get("balance_due") or 0) for l in leases)
-    total_credit = sum(float(l.get("tenant_credit") or 0) for l in leases)
+    currency = _reporting_currency(supabase, current_user.id)
+    totals, mixed = _totals_in(
+        leases, ("expected_rent", "total_paid", "balance_due", "tenant_credit"), currency
+    )
+    total_expected = totals["expected_rent"]
+    total_collected = totals["total_paid"]
+    total_outstanding = totals["balance_due"]
+    total_credit = totals["tenant_credit"]
 
     paid_in_full = sum(1 for l in leases if float(l.get("balance_due") or 0) <= 0)
     with_balance = sum(1 for l in leases if float(l.get("balance_due") or 0) > 0)
@@ -362,6 +370,8 @@ def rent_collection_report(
     collection_pct = round((total_collected / total_expected) * 100, 2) if total_expected > 0 else 0.0
 
     return RentCollectionResponse(
+        currency=currency,
+        mixed_currencies=mixed,
         period_from=from_date,
         period_to=to_date,
         total_expected=round(total_expected, 2),
@@ -375,6 +385,44 @@ def rent_collection_report(
     )
 
 
+def _reporting_currency(supabase: Client, manager_id: str) -> str:
+    """The currency this manager's totals are reported in (their profile setting)."""
+    try:
+        res = (
+            supabase.table("profiles")
+            .select("display_currency")
+            .eq("user_id", str(manager_id))
+            .limit(1)
+            .execute()
+        )
+        code = ((res.data or [{}])[0] or {}).get("display_currency")
+        return (code or "UGX").upper()
+    except Exception:
+        return "UGX"
+
+
+def _totals_in(leases: list[dict[str, Any]], fields: tuple[str, ...], target: str) -> tuple[dict[str, float], bool]:
+    """Sum the given lease fields, converting each from its own currency.
+
+    Properties can be listed in any currency, so a portfolio may hold rents in
+    UGX and KES at once. Adding those raw numbers produced a figure that meant
+    nothing; each lease is now converted into the manager's reporting currency
+    before being added.
+    """
+    from services.forex import convert
+
+    totals = {field: 0.0 for field in fields}
+    seen: set[str] = set()
+    for lease in leases:
+        code = (lease.get("currency") or lease.get("rent_currency") or target).upper()
+        seen.add(code)
+        for field in fields:
+            amount = float(lease.get(field) or 0)
+            if amount:
+                totals[field] += convert(amount, code, target) if code != target else amount
+    return ({f: round(v, 2) for f, v in totals.items()}, len(seen) > 1)
+
+
 @router.get("/summary", response_model=FinancialSummary)
 def financial_summary(
     current_user: CurrentUser = Depends(require_active_user),
@@ -383,10 +431,14 @@ def financial_summary(
 ) -> FinancialSummary:
     leases, _ = lease_svc.get_all(current_user.id, skip=0, limit=500)
 
-    total_expected = sum(float(l.get("expected_rent") or 0) for l in leases)
-    total_collected = sum(float(l.get("total_paid") or 0) for l in leases)
-    total_outstanding = sum(float(l.get("balance_due") or 0) for l in leases)
-    total_credit = sum(float(l.get("tenant_credit") or 0) for l in leases)
+    currency = _reporting_currency(supabase, current_user.id)
+    totals, mixed = _totals_in(
+        leases, ("expected_rent", "total_paid", "balance_due", "tenant_credit"), currency
+    )
+    total_expected = totals["expected_rent"]
+    total_collected = totals["total_paid"]
+    total_outstanding = totals["balance_due"]
+    total_credit = totals["tenant_credit"]
 
     active = sum(1 for l in leases if l.get("effective_status") == "active")
     expired = sum(1 for l in leases if l.get("effective_status") == "expired")
@@ -406,7 +458,7 @@ def financial_summary(
     if lease_ids:
         payments = (
             supabase.table("payments")
-            .select("amount, paid_date, created_at, status")
+            .select("amount, currency, paid_date, created_at, status")
             .in_("lease_id", lease_ids)
             .in_("status", ["confirmed", "completed"])
             .execute()
@@ -414,9 +466,15 @@ def financial_summary(
         for p in payments.data or []:
             effective_date = (p.get("paid_date") or (p.get("created_at") or "")[:10] or "")
             if effective_date >= month_start:
-                collected_month += float(p.get("amount") or 0)
+                from services.forex import convert
+
+                amount = float(p.get("amount") or 0)
+                code = (p.get("currency") or currency).upper()
+                collected_month += convert(amount, code, currency) if code != currency else amount
 
     return FinancialSummary(
+        currency=currency,
+        mixed_currencies=mixed,
         total_expected=round(total_expected, 2),
         total_collected=round(total_collected, 2),
         total_outstanding=round(total_outstanding, 2),

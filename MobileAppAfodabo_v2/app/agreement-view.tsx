@@ -19,6 +19,7 @@ import {
   useRejectAgreement,
 } from "@/src/hooks/useAgreements";
 import { useAuth } from "@/src/context/auth-context";
+import { ApiError } from "@/src/lib/api-client";
 import type { AgreementStatus } from "@/src/types";
 
 const STATUS_CONFIG: Record<AgreementStatus, { label: string; tone: "success" | "warning" | "danger" | "info" | "muted" }> = {
@@ -95,12 +96,17 @@ export default function AgreementViewScreen() {
       setRejectOpen(false);
       setRejectReason("");
       Alert.alert(
-        "Changes requested",
-        "Your comment has been sent to the property manager. They will review and adjust the agreement.",
+        "Changes submitted successfully",
+        "Your comments have been sent to the property manager. You will be notified once they revise the agreement.",
         [{ text: "OK", onPress: () => router.back() }],
       );
-    } catch {
-      Alert.alert("Could not submit", "Please check your connection and try again.");
+    } catch (err) {
+      // Only blame the connection when the request never reached the server.
+      const message =
+        err instanceof ApiError && err.status > 0 && err.message
+          ? err.message
+          : "Please check your connection and try again.";
+      Alert.alert("Could not submit", message);
     }
   }
 

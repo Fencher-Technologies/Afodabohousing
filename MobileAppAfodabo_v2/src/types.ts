@@ -13,6 +13,8 @@ export interface User {
   email_verified: boolean;
   created_at: string;
   avatar_url?: string;
+  /** Currency for dashboard and report totals (managers). */
+  display_currency?: string;
 }
 
 export type PropertyType = string;
@@ -558,6 +560,10 @@ export interface RentCollectionResponse {
 }
 
 export interface FinancialSummary {
+  /** Currency the totals are reported in (the manager's profile setting). */
+  currency?: string;
+  /** True when the properties behind these totals use more than one currency. */
+  mixed_currencies?: boolean;
   total_expected: number;
   total_collected: number;
   total_outstanding: number;

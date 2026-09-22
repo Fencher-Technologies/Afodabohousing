@@ -32,6 +32,9 @@ class MockQuery:
         self.filters.append(("lte", column, value))
         return self
 
+    def limit(self, _count):
+        return self
+
     def in_(self, column, values):
         self.filters.append(("in", column, list(values)))
         return self
@@ -286,24 +289,36 @@ async def test_rent_reminders_fire_on_money_ledger_due_dates():
 
     await check_rent_reminders(supabase, today=today, dispatcher=dispatcher)
 
-    # Only the arrears lease within the 1-3 day window is reminded.
-    # Both anchored leases carry arrears, so both are reminded. The
-    # unanchored lease and the paid-up lease are still skipped.
-    assert len(dispatcher.in_app) == 2
-    assert len(dispatcher.emails) == 2
-    assert len(dispatcher.pushes) == 2
+    # Both anchored leases carry arrears, so the tenant AND the manager are
+    # reminded for each. The unanchored lease and the paid-up lease are skipped.
     assert {m["metadata"]["lease_id"] for m in dispatcher.in_app} == {"lease-arrears", "lease-far"}
+    assert len(dispatcher.in_app) == 4  # 2 leases x (tenant + manager)
+    assert len(dispatcher.pushes) == 4
 
-    message = next(m for m in dispatcher.in_app if m["metadata"]["lease_id"] == "lease-arrears")
-    assert message["title"] == "Rent overdue"
+    tenant_msgs = [m for m in dispatcher.in_app if m["recipient_id"] == "user-tenant-1"]
+    manager_msgs = [m for m in dispatcher.in_app if m["recipient_id"] == "owner-1"]
+    assert len(tenant_msgs) == 2 and len(manager_msgs) == 2
+
+    message = next(m for m in tenant_msgs if m["metadata"]["lease_id"] == "lease-arrears")
+    assert message["title"] == "Your rent is due"
     assert message["metadata"]["next_payment_due_date"] == "2026-07-29"
-    assert message["metadata"]["days_until_due"] == 0
     # Money owed = accrued (466,666.67) minus 100,000 confirmed.
     assert round(message["metadata"]["amount"], 2) == round(366666.67, 2)
     assert "UGX 366,667" in message["body"]
+    assert message["body"].endswith("Kindly make payment today. Thank you.")
+
+    to_manager = next(m for m in manager_msgs if m["metadata"]["lease_id"] == "lease-arrears")
+    assert to_manager["type"] == "tenant_rent_due"
+    assert "UGX 366,667" in to_manager["body"]
+    assert "put money in your pocket" in to_manager["body"]
+
+    # Weekly buckets: one event key per lease per 7-day period, per recipient.
+    period = today.toordinal() // 7
     assert {d["event_key"] for d in dispatcher.deliveries} == {
-        "rent_reminder:lease-arrears:0",
-        "rent_reminder:lease-far:0",
+        f"rent_due:lease-arrears:{period}",
+        f"rent_due:lease-far:{period}",
+        f"rent_due_manager:lease-arrears:{period}",
+        f"rent_due_manager:lease-far:{period}",
     }
     assert {d["channel"] for d in dispatcher.deliveries} == {"in_app", "email", "push"}
 

@@ -92,7 +92,6 @@ export default function ReportsScreen() {
   // Report totals sum across the portfolio, so they can only carry a currency
   // code when every property shares one. Mixed portfolios show the figure
   // without a code rather than mislabelling it.
-  const reportCurrency = aggregateCurrency(properties);
 
   const propertyOptions = useMemo(
     () => [
@@ -115,6 +114,13 @@ export default function ReportsScreen() {
   const outstanding = useOutstandingReport(query, tab === "outstanding");
   const rent = useRentCollection(query, tab === "rent_collection");
   const summary = useFinancialSummary(tab === "summary");
+
+  // The backend converts every total into the manager's reporting currency,
+  // so use the code it reports; fall back to the portfolio's own currency.
+  const summaryCurrency = summary.data?.currency;
+  const reportCurrency = summaryCurrency
+    ? { code: summaryCurrency, isMixed: !!summary.data?.mixed_currencies }
+    : aggregateCurrency(properties);
   const history = usePaymentHistory({}, tab === "payment_history");
   const statement = useTenantStatement(statementTenantId);
 

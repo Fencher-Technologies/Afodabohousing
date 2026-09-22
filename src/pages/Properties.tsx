@@ -12,6 +12,7 @@ import { Search, SlidersHorizontal, MapPin } from 'lucide-react';
 import Footer from '@/components/Footer';
 import { usePropertyBookmarks } from '@/hooks/usePropertyBookmarks';
 import { apiGet } from '@/services/api';
+import { useSeo } from '@/lib/seo';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -38,6 +39,20 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 export default function PropertiesPage() {
+  useSeo({
+    title: 'Houses and Apartments for Rent',
+    description:
+      'Browse verified rentals on Axis Housing. Filter by location, price, bedrooms and property type, then contact the house manager directly.',
+    path: '/properties',
+    keywords: ['houses for rent', 'apartments for rent', 'rentals near me', 'property listings', 'rooms to let'],
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: 'Rentals on Axis Housing',
+      url: 'https://axishousings.com/properties',
+    },
+  });
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);

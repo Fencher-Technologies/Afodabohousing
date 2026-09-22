@@ -243,7 +243,7 @@ export function currencyOptions(iso2: string): { label: string; value: string }[
     }
   }
   return ordered.map((code) => ({
-    label: code === local ? `${code} (local)` : code,
+    label: code,
     value: code,
   }));
 }

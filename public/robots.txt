@@ -1,14 +1,13 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
+# Axis Housing
 User-agent: *
 Allow: /
+# Private areas: nothing useful for search, and they need a login.
+Disallow: /dashboard
+Disallow: /account
+Disallow: /manager
+Disallow: /tenant
+Disallow: /admin
+Disallow: /reset-password
+Disallow: /accept-invite
+
+Sitemap: https://axishousings.com/sitemap.xml

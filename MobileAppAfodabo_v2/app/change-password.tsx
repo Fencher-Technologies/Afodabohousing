@@ -57,11 +57,11 @@ export default function ChangePasswordScreen() {
       <PageHeader title="Change Password" onBack={() => router.back()} />
 
       <View style={styles.content}>
-        <InputField label="Current Password" value={current} onChangeText={setCurrent} secureTextEntry leftIcon={<Lock size={20} color={Colors.textMuted} />} />
+        <InputField label="Current Password" autoComplete="password" textContentType="password" value={current} onChangeText={setCurrent} secureTextEntry leftIcon={<Lock size={20} color={Colors.textMuted} />} />
         <View style={{ height: Spacing.md }} />
-        <InputField label="New Password" value={newPwd} onChangeText={setNewPwd} secureTextEntry leftIcon={<Lock size={20} color={Colors.textMuted} />} error={error} />
+        <InputField label="New Password" autoComplete="new-password" textContentType="newPassword" value={newPwd} onChangeText={setNewPwd} secureTextEntry leftIcon={<Lock size={20} color={Colors.textMuted} />} error={error} />
         <View style={{ height: Spacing.md }} />
-        <InputField label="Confirm New Password" value={confirm} onChangeText={setConfirm} secureTextEntry leftIcon={<Lock size={20} color={Colors.textMuted} />} />
+        <InputField label="Confirm New Password" autoComplete="new-password" textContentType="newPassword" value={confirm} onChangeText={setConfirm} secureTextEntry leftIcon={<Lock size={20} color={Colors.textMuted} />} />
 
         <View style={{ height: Spacing.xl }} />
         <Button label="Change Password" onPress={handleChange} fullWidth size="lg" loading={loading} />

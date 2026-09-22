@@ -273,11 +273,27 @@ def create_property(
     _quota_guard: None = Depends(require_property_quota),
     _subscription_guard: CurrentUser = Depends(require_active_subscription),
     service: PropertyService = Depends(get_property_svc),
+    admin_client: Client = Depends(get_service_client),
 ) -> PropertyResponse:
     try:
         property_data = service.create(data, current_user.id)
     except APIError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_clean_db_error(e))
+
+    from services.notifications import notify_admins, profile_label
+    location = property_data.get("location") or property_data.get("address") or ""
+    notify_admins(
+        admin_client,
+        type="admin_new_property",
+        title="New property listed",
+        body=(
+            f"{profile_label(admin_client, current_user.id)} listed "
+            f"\"{property_data.get('title') or 'a property'}\""
+            + (f" in {location}" if location else "")
+            + ". Please review it in the admin dashboard."
+        ),
+        metadata={"property_id": str(property_data.get("id")), "manager_id": current_user.id},
+    )
     return PropertyResponse(**property_data)
 
 

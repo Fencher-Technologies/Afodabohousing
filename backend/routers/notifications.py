@@ -1,12 +1,13 @@
 # mypy: ignore-errors
 import logging
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from supabase import Client
 
-from dependencies import CurrentUser, get_current_user, get_supabase_client
+from dependencies import CurrentUser, get_current_user, get_service_client, get_supabase_client
 
 logger = logging.getLogger(__name__)
 
@@ -150,25 +151,44 @@ def mark_notification_read(
 class RegisterPushTokenRequest(BaseModel):
     token: str
     platform: str = "expo"
+    device_name: str | None = None
 
 
 @router.post("/push-token", status_code=status.HTTP_201_CREATED)
 def register_push_token(
     data: RegisterPushTokenRequest,
     current_user: CurrentUser = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
+    supabase: Client = Depends(get_service_client),
 ) -> dict:
-    existing = (
-        supabase.table("push_tokens")
-        .select("*")
-        .eq("user_id", str(current_user.id))
-        .eq("token", data.token)
-        .execute()
-    )
-    if not existing.data:
-        supabase.table("push_tokens").insert({
+    """Register this device for push. Called by the app after every sign-in.
+
+    Upserts on the token, so a phone that signs into a different account
+    moves to that account instead of pushing the previous user's alerts.
+    """
+    token = data.token.strip()
+    if not token.startswith(("ExponentPushToken[", "ExpoPushToken[")):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid push token")
+    supabase.table("push_tokens").upsert(
+        {
             "user_id": str(current_user.id),
-            "token": data.token,
+            "token": token,
             "platform": data.platform,
-        }).execute()
+            "device_name": data.device_name,
+            "last_seen_at": datetime.now(UTC).isoformat(),
+        },
+        on_conflict="token",
+    ).execute()
+    return {"success": True}
+
+
+@router.delete("/push-token")
+def unregister_push_token(
+    token: str = Query(..., min_length=10),
+    current_user: CurrentUser = Depends(get_current_user),
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    """Stop pushing to this device (called on sign-out)."""
+    supabase.table("push_tokens").delete().eq("token", token).eq(
+        "user_id", str(current_user.id)
+    ).execute()
     return {"success": True}

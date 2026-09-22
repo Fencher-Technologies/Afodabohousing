@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import logoImg from '@/assets/axis-lockup.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { User, Lock, Phone, Eye, EyeOff, ArrowRight, CheckCircle } from 'lucide-react';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 export default function AcceptInvitePage() {
   const [searchParams] = useSearchParams();
@@ -136,7 +137,7 @@ export default function AcceptInvitePage() {
               <Label htmlFor="phone">Phone Number</Label>
               <div className="relative mt-1.5">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="phone" type="tel" placeholder="+256 700 000000" value={phone} onChange={e => setPhone(e.target.value)} className="pl-9" />
+                <PhoneInput id="phone" value={phone} onChange={setPhone} />
               </div>
             </div>
 

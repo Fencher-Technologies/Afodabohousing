@@ -43,3 +43,8 @@ yarn-error.*
 core
 node_modules
 .expo
+
+# Firebase / Google service-account private keys: upload to Expo, never commit.
+# (google-services.json is fine to commit; it is bundled into the app.)
+*firebase-adminsdk*.json
+*service-account*.json

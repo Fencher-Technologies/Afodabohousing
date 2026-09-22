@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Save, Phone, Lock, Link, Loader2 } from 'lucide-react';
+import { PhoneInput } from '@/components/ui/phone-input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { CURRENCIES, DEFAULT_CURRENCY } from '@/utils/currencies';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -22,6 +25,8 @@ export default function EditProfile() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [displayCurrency, setDisplayCurrency] = useState(DEFAULT_CURRENCY);
+  const [role, setRole] = useState<string | null>(null);
 
   const [linkPhone, setLinkPhone] = useState('');
   const [linkPin, setLinkPin] = useState('');
@@ -46,6 +51,8 @@ export default function EditProfile() {
       setPhone(data.phone || '');
       setEmail(data.email || user?.email || '');
       setPhotoUrl(data.photo_url || null);
+      setDisplayCurrency(data.display_currency || DEFAULT_CURRENCY);
+      setRole(data.role || null);
     }
     setLoading(false);
   };
@@ -64,6 +71,7 @@ export default function EditProfile() {
     const trimmedPhone = phone.trim();
     const { data, error } = await supabase.from('profiles').update({
       full_name: fullName.trim(), phone: trimmedPhone ? trimmedPhone : null,
+      display_currency: displayCurrency,
       updated_at: new Date().toISOString(),
     }).eq('user_id', user.id).select();
     setSaving(false);
@@ -160,9 +168,25 @@ export default function EditProfile() {
           </div>
           <div>
             <Label>Phone Number</Label>
-            <Input value={phone} onChange={e => setPhone(e.target.value)}
-              placeholder="e.g. +256 700 000 000" className="rounded-lg h-11 mt-1.5" />
+            <PhoneInput value={phone} onChange={setPhone} className="mt-1.5" />
           </div>
+          {(role === 'house_manager' || role === 'super_admin') && (
+            <div>
+              <Label>Currency for totals</Label>
+              <SearchableSelect
+                options={CURRENCIES.map(c => ({ value: c.code, label: `${c.code} - ${c.name}` }))}
+                value={displayCurrency}
+                onValueChange={setDisplayCurrency}
+                placeholder="Select currency..."
+                emptyText="No currency matches."
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Dashboard and report totals are shown in this currency, converted at current
+                exchange rates. Each property keeps its own currency for rent, payments and receipts.
+              </p>
+            </div>
+          )}
+
           <div>
             <Label>Email</Label>
             <Input value={email} disabled className="rounded-lg h-11 mt-1.5 bg-muted/50" />
@@ -177,63 +201,6 @@ export default function EditProfile() {
           </div>
         </form>
 
-        {/* Phone Sign-In Section */}
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <h2 className="font-display text-base font-bold mb-1">Phone Sign-In</h2>
-          <p className="text-xs text-muted-foreground mb-4">
-            {isPhoneLinked
-              ? 'Your phone is linked. You can change your PIN in account settings.'
-              : 'Link a phone number to sign in with your phone and PIN.'}
-          </p>
-
-          {linkError && <p className="text-sm text-destructive bg-muted rounded-lg p-3 mb-4">{linkError}</p>}
-
-          {!isPhoneLinked && linkStep === 'form' && (
-            <div className="space-y-4">
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="+256 7XX XXX XXX" value={linkPhone}
-                  onChange={e => setLinkPhone(e.target.value)} className="pl-9 h-11 rounded-lg" />
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
-                <PasswordInput placeholder="Create PIN (4-6 digits)" value={linkPin}
-                  onChange={e => setLinkPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="pl-9 h-11 rounded-lg" maxLength={6} />
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
-                <PasswordInput placeholder="Your current email password" value={linkPassword}
-                  onChange={e => setLinkPassword(e.target.value)} className="pl-9 h-11 rounded-lg" />
-              </div>
-              <Button onClick={handleLinkSendOtp} disabled={linkLoading} className="w-full rounded-lg h-11 gap-2">
-                {linkLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link className="h-4 w-4" />}
-                Send Verification Code
-              </Button>
-            </div>
-          )}
-
-          {!isPhoneLinked && linkStep === 'otp' && (
-            <div className="space-y-4">
-              <div className="relative">
-                <Link className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Verification Code" value={otp}
-                  onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="pl-9 h-11 rounded-lg" maxLength={6} />
-              </div>
-              <Button onClick={handleLinkVerify} disabled={linkLoading} className="w-full rounded-lg h-11 gap-2">
-                {linkLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Verify & Link Phone
-              </Button>
-            </div>
-          )}
-
-          {isPhoneLinked && (
-            <Button variant="outline" className="w-full rounded-lg h-11 gap-2" onClick={() => navigate('/account/change-pin')}>
-              <Lock className="h-4 w-4" /> Change PIN
-            </Button>
-          )}
-        </div>
       </div>
     </div>
   );

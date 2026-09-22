@@ -30,6 +30,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
   Legend
 } from 'recharts';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 type Tab = 'overview' | 'managers' | 'approvals' | 'settings';
 
@@ -1227,8 +1228,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                     </div>
                     <div>
                       <Label>Phone Number *</Label>
-                      <Input type="tel" value={createPhone} onChange={e => setCreatePhone(e.target.value)}
-                        placeholder="+256 700 000000" required className="mt-1" />
+                      <PhoneInput value={createPhone} onChange={setCreatePhone} required className="mt-1" />
                     </div>
                     <Button type="submit" disabled={submitting} className="w-full">
                       {submitting ? 'Creating...' : 'Create Account'}

@@ -13,6 +13,10 @@ from dependencies.database import get_service_client
 
 from .base import with_retry
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 AGREEMENT_BUCKET = "tenancy-agreements"
 AGREEMENT_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 30
 ALLOWED_AGREEMENT_MIME_TYPES = {
@@ -804,14 +808,23 @@ class AgreementService:
         actor_user_id: str, event_type: str, evidence_hash: str,
         metadata: dict[str, Any],
     ) -> None:
-        self.supabase.table("agreement_audit_logs").insert({
-            "lease_id": lease_id,
-            "agreement_document_id": agreement_document_id,
-            "actor_user_id": actor_user_id,
-            "event_type": event_type,
-            "evidence_hash": evidence_hash,
-            "metadata": metadata,
-        }).execute()
+        # The consent row is the legal record; the audit log is supplementary.
+        # A failed audit write must not turn a saved action into an error for
+        # the user (an unlisted event_type once made every tenant "request
+        # changes" report "Could not submit" although it had been saved).
+        try:
+            self.supabase.table("agreement_audit_logs").insert({
+                "lease_id": lease_id,
+                "agreement_document_id": agreement_document_id,
+                "actor_user_id": actor_user_id,
+                "event_type": event_type,
+                "evidence_hash": evidence_hash,
+                "metadata": metadata,
+            }).execute()
+        except Exception:
+            logger.exception(
+                "Agreement audit write failed (lease=%s, event=%s)", lease_id, event_type
+            )
 
 
 def get_agreement_service(supabase: Client = Depends(get_service_client)) -> AgreementService:

@@ -19,6 +19,7 @@ import heroMain from '@/assets/hero-main.jpg';
 import heroBg from '@/assets/hero-bg.jpg';
 import property3 from '@/assets/property-3.jpg';
 import showcaseInterior from '@/assets/showcase-interior.jpg';
+import { useSeo } from '@/lib/seo';
 
 const API = import.meta.env.VITE_API_URL || '';
 interface Country { iso2: string; name: string; }
@@ -163,6 +164,17 @@ const FALLBACK_LOCATIONS = ['Kampala', 'Wakiso', 'Entebbe', 'Jinja', 'Mbarara', 
 const MARQUEE_LOCATIONS = ['Luzira', 'Lira', 'Kampala', 'Masaka', 'Mbarara', 'Mbale', 'Gulu', 'Arua', 'Kigali', 'Dodoma', 'Kisumu', 'Nairobi'];
 
 export default function HomePage() {
+  useSeo({
+    title: 'Axis Housing | Find Rentals and Manage Property Online',
+    description:
+      'Find verified rentals and manage them end to end on Axis Housing. Search homes worldwide, sign tenancy agreements online, record rent payments and issue receipts.',
+    path: '/',
+    keywords: [
+      'houses for rent', 'apartments for rent', 'rentals', 'property management software',
+      'landlord software', 'rent collection', 'tenancy agreement online', 'rental receipts',
+    ],
+  });
+
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('all');

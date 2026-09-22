@@ -153,3 +153,23 @@ export function maskPhone(phone: string | null | undefined): string {
   if (!phone || phone.length < 4) return phone ?? "—";
   return phone.slice(0, 4) + "••••" + phone.slice(-3);
 }
+
+/** "1 day", "3 months", "6 months", "1 year" from a plan's duration_days. */
+export function formatPlanDuration(days: number): string {
+  if (days >= 360 && days <= 366) return "1 year";
+  if (days >= 28 && days % 30 <= 1) {
+    const months = Math.round(days / 30);
+    return `${months} month${months === 1 ? "" : "s"}`;
+  }
+  return `${days} day${days === 1 ? "" : "s"}`;
+}
+
+/** Subscription price in the currency the manager chose to pay in. */
+export function formatPlanPrice(
+  plan: { price_ugx: number; price_usd: number },
+  currency: string | null | undefined,
+): string {
+  return currency === "USD"
+    ? `$${Number(plan.price_usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+    : `UGX ${Number(plan.price_ugx).toLocaleString()}`;
+}

@@ -32,6 +32,9 @@ import {
   Wrench, MessageCircle, ArrowLeft, KeyRound, Ban, Copy, Crown, Sparkles, CheckCircle2
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
+import { PlanLimitDialog } from '@/components/PlanLimitDialog';
+import { planLimitFromError, type PlanLimitInfo } from '@/utils/planLimit';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 type TenancyRow = Database['public']['Tables']['tenancies']['Row'];
@@ -64,6 +67,7 @@ const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 export default function ManagerDashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [planLimit, setPlanLimit] = useState<PlanLimitInfo | null>(null);
   const { toast } = useToast();
 
   const [properties, setProperties] = useState<Property[]>([]);
@@ -266,7 +270,14 @@ export default function ManagerDashboard() {
       ? await supabase.from('properties').update(payload).eq('id', editingProperty.id)
       : await supabase.from('properties').insert({ ...payload, owner_id: user.id });
     setUploading(false);
-    if (error) { toast({ title: 'Error', description: cleanDbError(error), variant: 'destructive' }); return; }
+    if (error) {
+      // The database blocks listings beyond the plan; offer the upgrade
+      // instead of a bare error.
+      const limit = planLimitFromError(error);
+      if (limit) { setPlanLimit(limit); return; }
+      toast({ title: 'Error', description: cleanDbError(error), variant: 'destructive' });
+      return;
+    }
     toast({
       title: editingProperty ? 'Property updated!' : 'Property published!',
       description: editingProperty ? 'Your listing has been updated.' : 'Your listing is now live.',
@@ -478,10 +489,8 @@ export default function ManagerDashboard() {
                       </div>
                       <div>
                         <Label>WhatsApp Phone</Label>
-                        <div className="relative mt-1">
-                          <Input value={tenantFormData.phone} onChange={e => setTenantFormData(f => ({ ...f, phone: e.target.value }))} placeholder="+256 788 100145" required className="pl-9" />
-                          <MessageCircle className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
-                        </div>
+                        <PhoneInput value={tenantFormData.phone} required className="mt-1"
+                          onChange={v => setTenantFormData(f => ({ ...f, phone: v }))} />
                       </div>
                       <div>
                         <Label>Email Address</Label>
@@ -502,7 +511,8 @@ export default function ManagerDashboard() {
                       <Label>Tenant Email</Label>
                       <Input type="email" value={tenantFormData.email} onChange={e => setTenantFormData(f => ({ ...f, email: e.target.value }))} placeholder="tenant@example.com" required className="mt-1" />
                       <Label>Tenant Phone</Label>
-                      <Input value={tenantFormData.phone} onChange={e => setTenantFormData(f => ({ ...f, phone: e.target.value }))} placeholder="+256 788 100145" required className="mt-1" />
+                      <PhoneInput value={tenantFormData.phone} required className="mt-1"
+                        onChange={v => setTenantFormData(f => ({ ...f, phone: v }))} />
                     </div>
                   </div>
                   <div className="flex gap-3">
@@ -1338,6 +1348,8 @@ export default function ManagerDashboard() {
       </Dialog>
 
       {/* Deactivate Listing Confirmation */}
+      <PlanLimitDialog info={planLimit} onClose={() => setPlanLimit(null)} />
+
       <AlertDialog open={!!deactivateTarget} onOpenChange={o => { if (!o) setDeactivateTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>

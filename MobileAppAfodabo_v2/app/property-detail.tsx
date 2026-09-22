@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Platform,
   Share,
   StyleSheet,
   Text,
@@ -64,6 +65,10 @@ import {
   formatDate,
 } from "@/src/utils/format";
 import { MessageTemplates, openWhatsApp } from "@/src/utils/whatsapp";
+
+// Shared links always point at the public website, so they work for people
+// who do not have the app.
+const WEB_URL = "https://axishousings.com";
 
 export default function PropertyDetailScreen() {
   const { id, role } = useLocalSearchParams<{ id: string; role: string }>();
@@ -222,11 +227,18 @@ export default function PropertyDetailScreen() {
         ? `\nAmenities: ${property.amenities.map(formatAmenity).join(", ")}`
         : null,
       property.manager_phone ? `\nContact: ${property.manager_phone}` : null,
+      // The link was missing entirely, so nobody could open the listing or
+      // find Axis from a shared message.
+      `\nView it on Axis: ${WEB_URL}/properties/${property.id}`,
     ]
       .filter(Boolean)
       .join("\n");
     try {
-      await Share.share({ message: details, title: property.title });
+      await Share.share(
+        Platform.OS === "ios"
+          ? { message: details, url: `${WEB_URL}/properties/${property.id}`, title: property.title }
+          : { message: details, title: property.title },
+      );
     } catch {
       // user cancelled
     }

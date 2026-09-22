@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080", "http://localhost:3000", "http://localhost:8081", "https://axishousings.com", "https://afodabohousing.vercel.app"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080", "http://localhost:3000", "http://localhost:8081", "https://axishousings.com", "https://www.axishousings.com", "https://afodabohousing.vercel.app"]
     environment: str = "development"
 
     rate_limit_enabled: bool = True
@@ -68,15 +68,22 @@ class Settings(BaseSettings):
     # Notifications
     email_provider_api_key: str = ""
     email_provider_url: str = ""
-    email_from_address: str = "no-reply@axishousings.com"
+    email_from_address: str = "info@axishousings.com"
     push_provider_api_key: str = ""
     push_provider_url: str = ""
+
+    # How often (days) tenants in arrears and their managers are reminded.
+    # 7 = weekly (current setting for testing). Set RENT_REMINDER_INTERVAL_DAYS to change.
+    rent_reminder_interval_days: int = 7
+
+    # Shared secret for the Supabase cron call to /internal/jobs/run (checked
+    # against the value stored in the Supabase vault, so no Render env var).
 
     # Password reset
     # Supabase mails the recovery link to this URL. Without it the link falls
     # back to the project's Site URL, which had no handler in either client —
     # the mail arrived and the link went nowhere.
-    password_reset_redirect_url: str = "https://afodabohousing.vercel.app/reset-password"
+    password_reset_redirect_url: str = "https://axishousings.com/reset-password"
 
     # Webhooks
     webhook_secret: str = ""

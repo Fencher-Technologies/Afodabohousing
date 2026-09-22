@@ -177,7 +177,7 @@ export default function ResetPasswordScreen() {
         </Text>
         <View style={{ height: Spacing.xl }} />
         <InputField
-          label="New password"
+          label="New password" autoComplete="new-password" textContentType="newPassword"
           value={password}
           onChangeText={setPassword}
           placeholder="At least 8 characters"
@@ -187,7 +187,7 @@ export default function ResetPasswordScreen() {
         />
         <View style={{ height: Spacing.md }} />
         <InputField
-          label="Confirm new password"
+          label="Confirm new password" autoComplete="new-password" textContentType="newPassword"
           value={confirm}
           onChangeText={setConfirm}
           placeholder="Re-enter your new password"

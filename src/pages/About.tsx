@@ -7,6 +7,7 @@ import logoImg from '@/assets/axis-lockup.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import property1 from '@/assets/property-1.jpg';
 import { Shield, Users, MapPin, Star, Award, Building2, HeartHandshake } from 'lucide-react';
+import { useSeo } from '@/lib/seo';
 
 const VALUES = [
   {
@@ -32,6 +33,14 @@ const VALUES = [
 ];
 
 export default function AboutPage() {
+  useSeo({
+    title: 'About Axis Housing',
+    description:
+      'Axis Housing connects house seekers with verified rentals and gives property managers the tools to run them: listings, tenancy agreements, rent tracking and receipts.',
+    path: '/about',
+    keywords: ['about Axis Housing', 'property management platform', 'rental marketplace'],
+  });
+
   const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background">

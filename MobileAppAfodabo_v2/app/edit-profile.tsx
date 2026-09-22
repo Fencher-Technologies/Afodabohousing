@@ -12,11 +12,15 @@ import { InputField } from "@/src/components/InputField";
 import { PageHeader } from "@/src/components/PageHeader";
 import { useAuth } from "@/src/context/auth-context";
 import { authService } from "@/src/services/auth";
+import { PhoneField } from "@/src/components/PhoneField";
+import { CurrencyField } from "@/src/components/CurrencyField";
+import { DEFAULT_CURRENCY } from "@/src/utils/currencies";
 
 export default function EditProfileScreen() {
   const { user, updateProfile } = useAuth();
   const [fullName, setFullName] = useState(user?.full_name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
+  const [displayCurrency, setDisplayCurrency] = useState(user?.display_currency ?? DEFAULT_CURRENCY);
   const [linkPhone, setLinkPhone] = useState("");
   const [linkPin, setLinkPin] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -34,7 +38,11 @@ export default function EditProfileScreen() {
     }
     setLoading(true);
     try {
-      await updateProfile({ full_name: fullName.trim(), phone: phone.trim() });
+      await updateProfile({
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+        display_currency: displayCurrency,
+      });
       Alert.alert("Saved", "Profile updated successfully!", [
         { text: "OK", onPress: () => router.back() },
       ]);
@@ -115,81 +123,22 @@ export default function EditProfileScreen() {
           <Text style={styles.emailHint}>Email cannot be changed.</Text>
         </View>
         <View style={{ height: Spacing.md }} />
-        <InputField label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+        <PhoneField label="Phone" value={phone} onChangeText={setPhone} />
+
+        {(user?.role === "manager" || user?.role === "admin") && (
+          <>
+            <View style={{ height: Spacing.md }} />
+            <CurrencyField
+              label="Currency for totals"
+              value={displayCurrency}
+              onChange={setDisplayCurrency}
+              hint="Dashboard and report totals use this currency, converted at current exchange rates. Each property keeps its own currency for rent, payments and receipts."
+            />
+          </>
+        )}
 
         <View style={{ height: Spacing.xl }} />
         <Button label="Save Changes" onPress={handleSave} fullWidth size="lg" loading={loading} />
-
-        {/* PHONE-AUTH HIDDEN: "Phone Sign-In" section (link phone, OTP, Change PIN)
-            temporarily removed from UI. Kept commented for restore.
-            See edit-profile handlers (handleLinkSendOtp/handleLinkVerifyOtp), src/services/auth.ts,
-            and the phone-auth screens.
-        <View style={styles.sectionDivider} />
-
-        <Text style={styles.sectionTitle}>Phone Sign-In</Text>
-        <Text style={styles.sectionHint}>
-          {isPhoneLinked ? "Your phone is linked. You can change your PIN below." : "Link a phone number to sign in with your phone and PIN."}
-        </Text>
-
-        {!isPhoneLinked && linkStep === "form" && (
-          <>
-            <InputField
-              label="Phone Number"
-              value={linkPhone}
-              onChangeText={setLinkPhone}
-              placeholder="+2567XX XXX XXX"
-              keyboardType="phone-pad"
-              autoCapitalize="none"
-              leftIcon={<Phone size={20} color={Colors.textMuted} />}
-            />
-            <InputField
-              label="Create PIN (4-6 digits)"
-              value={linkPin}
-              onChangeText={(t) => setLinkPin(t.replace(/\D/g, "").slice(0, 6))}
-              placeholder="1234"
-              keyboardType="numeric"
-              secureTextEntry
-              leftIcon={<Lock size={20} color={Colors.textMuted} />}
-            />
-            <InputField
-              label="Current Password"
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              placeholder="Your current email password"
-              secureTextEntry
-              leftIcon={<Lock size={20} color={Colors.textMuted} />}
-              error={error}
-            />
-            <View style={{ height: Spacing.lg }} />
-            <Button label="Send Verification Code" onPress={handleLinkSendOtp} loading={linkLoading} fullWidth size="lg" />
-          </>
-        )}
-
-        {!isPhoneLinked && linkStep === "otp" && (
-          <>
-            <InputField
-              label="Verification Code"
-              value={otp}
-              onChangeText={(t) => setOtp(t.replace(/\D/g, "").slice(0, 6))}
-              placeholder="000000"
-              keyboardType="numeric"
-              leftIcon={<Link size={20} color={Colors.textMuted} />}
-              error={error}
-            />
-            <Button label="Verify & Link Phone" onPress={handleLinkVerifyOtp} loading={linkLoading} fullWidth size="lg" />
-          </>
-        )}
-
-        {isPhoneLinked && (
-          <Button
-            label="Change PIN"
-            onPress={() => router.push("/change-pin")}
-            variant="outline"
-            fullWidth
-            size="lg"
-          />
-        )}
-        */}
       </View>
       <View style={{ height: 100 }} />
     </Screen>

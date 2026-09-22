@@ -32,7 +32,11 @@ const EXPORTS = [
   { resource: 'payments', label: 'Payments' },
 ] as const;
 
-function fmt(n: number) { return `${n.toLocaleString()}`; }
+// Totals arrive already converted into the manager's reporting currency;
+// showing the code stops "1,200,000" being read as the wrong money.
+function fmt(n: number, currency?: string) {
+  return `${currency || 'UGX'} ${n.toLocaleString()}`;
+}
 
 export default function ManagerReports() {
   const { user, loading: authLoading } = useAuth();
@@ -146,10 +150,10 @@ export default function ManagerReports() {
 
   const summaryCards = summary ? [
     { label: 'Active Tenancies', value: summary.active_tenancies, icon: Home, color: 'text-primary', bg: 'bg-muted' },
-    { label: 'Expected Rent', value: fmt(summary.total_expected), icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-100' },
-    { label: 'Collected', value: fmt(summary.total_collected), icon: DollarSign, color: 'text-success', bg: 'bg-muted' },
-    { label: 'Outstanding', value: fmt(summary.total_outstanding), icon: AlertTriangle, color: 'text-destructive', bg: 'bg-muted' },
-    { label: 'Tenant Credit', value: fmt(summary.total_tenant_credit), icon: Users, color: 'text-gold', bg: 'bg-muted' },
+    { label: 'Expected Rent', value: fmt(summary.total_expected, summary.currency), icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-100' },
+    { label: 'Collected', value: fmt(summary.total_collected, summary.currency), icon: DollarSign, color: 'text-success', bg: 'bg-muted' },
+    { label: 'Outstanding', value: fmt(summary.total_outstanding, summary.currency), icon: AlertTriangle, color: 'text-destructive', bg: 'bg-muted' },
+    { label: 'Tenant Credit', value: fmt(summary.total_tenant_credit, summary.currency), icon: Users, color: 'text-gold', bg: 'bg-muted' },
     { label: 'Occupancy Rate', value: `${summary.occupancy_rate}%`, icon: Percent, color: 'text-accent', bg: 'bg-muted' },
   ] : [];
 
@@ -208,6 +212,13 @@ export default function ManagerReports() {
 
         {tab === 'overview' && (
           <div className="space-y-6">
+            {summary?.mixed_currencies && (
+              <p className="text-xs text-muted-foreground">
+                Your properties are priced in more than one currency. Totals are converted to{' '}
+                {summary.currency || 'UGX'} at current exchange rates; each rent, payment and receipt
+                keeps its own currency.
+              </p>
+            )}
             {/* Summary Cards */}
             <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-3">
               {summaryCards.map(c => {

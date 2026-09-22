@@ -9,6 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import logoImg from '@/assets/axis-lockup.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Mail, Lock, ArrowRight, Smartphone, MessageSquare, KeyRound } from 'lucide-react';
+import { savePasswordCredential } from '@/lib/save-credentials';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -58,6 +60,7 @@ export default function LoginPage() {
     setLoading(false);
     if (error) { toast({ title: 'Login failed', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Login successful', description: 'Welcome back!' });
+    await savePasswordCredential(email, password);
     navigateAfterLogin(data.user.id);
   };
 
@@ -135,13 +138,12 @@ export default function LoginPage() {
               phone_<digits>@axis.app email, so removing the backend would lock
               those users out permanently. */}
 
-              {method === 'email' ? (
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
                     <Label htmlFor="email">Email address</Label>
                     <div className="relative mt-1.5">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input id="email" type="email" placeholder="you@example.com" value={email}
+                      <Input id="email" name="email" type="email" placeholder="you@example.com" value={email}
                         onChange={e => setEmail(e.target.value)} required className="pl-9" autoComplete="username" />
                     </div>
               </div>
@@ -152,7 +154,7 @@ export default function LoginPage() {
                     </div>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <PasswordInput id="password" placeholder="••••••••"
+                      <PasswordInput id="password" name="password" placeholder="••••••••"
                         value={password} onChange={e => setPassword(e.target.value)} required className="pl-9 pr-10" autoComplete="current-password" />
                     </div>
               </div>
@@ -169,83 +171,6 @@ export default function LoginPage() {
                     ) : (<>Sign In <ArrowRight className="h-4 w-4" /></>)}
               </Button>
             </form>
-              ) : (
-                <div className="space-y-5">
-                  <div className="flex gap-1 bg-muted rounded-lg p-1">
-                    <button type="button" onClick={() => { setPhoneMethod('otp'); setOtpSent(false); setOtp(''); }}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${phoneMethod === 'otp' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                      <MessageSquare className="h-3 w-3 inline mr-1" />OTP
-                    </button>
-                    <button type="button" onClick={() => setPhoneMethod('pin')}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${phoneMethod === 'pin' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                      <KeyRound className="h-3 w-3 inline mr-1" />PIN
-                    </button>
-                  </div>
-                  <div>
-                    <Label>Phone number</Label>
-                    <div className="relative mt-1.5">
-                      <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input type="tel" placeholder="+256 7XX XXX XXX" value={phone}
-                        onChange={e => { setPhone(e.target.value); setPhoneWarn(phoneWarning(e.target.value)); }}
-                        disabled={otpSent} className="pl-9" required />
-                    </div>
-                    {phoneWarn && <p className="text-xs text-destructive mt-1">{phoneWarn}</p>}
-                  </div>
-                  {phoneMethod === 'otp' ? (
-                    !otpSent ? (
-                      <Button type="button" onClick={handleSendOtp} disabled={loading || !phone.trim()}
-                        className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
-                        {loading ? 'Sending...' : <><MessageSquare className="h-4 w-4" /> Send OTP</>}
-                      </Button>
-                    ) : (
-                      <>
-                        <div>
-                          <Label>Enter OTP</Label>
-                          <Input type="text" inputMode="numeric" placeholder="000000" value={otp}
-                            onChange={e => setOtp(e.target.value)} maxLength={6}
-                            className="mt-1.5 text-center text-2xl tracking-[0.5em] font-mono h-14" />
-                        </div>
-                        <Button type="button" onClick={handleVerifyOtp} disabled={loading || otp.length < 4}
-                          className="w-full gradient-primary text-primary-foreground h-12 text-base font-semibold gap-2">
-                          {loading ? 'Verifying...' : <><ArrowRight className="h-4 w-4" /> Verify & Sign In</>}
-                        </Button>
-                        <div className="text-center">
-                          <button type="button" onClick={() => { setOtpSent(false); setOtp(''); setPhone(''); }}
-                            className="text-xs text-muted-foreground hover:text-foreground underline">
-                            Use a different number
-                          </button>
-                          {cooldown > 0 && (
-                            <span className="text-xs text-muted-foreground ml-3">Resend in {cooldown}s</span>
-                          )}
-                          {cooldown === 0 && otpSent && (
-                            <button type="button" onClick={handleSendOtp} disabled={loading}
-                              className="text-xs text-primary hover:underline ml-3">Resend OTP</button>
-                          )}
-                        </div>
-                      </>
-                    )
-                  ) : (
-                    <>
-                      <div>
-                        <Label>PIN</Label>
-                        <PasswordInput inputMode="numeric" placeholder="Enter your PIN" value={pin}
-                          onChange={e => setPin(e.target.value)} maxLength={6}
-                          className="mt-1.5 text-center text-xl tracking-widest font-mono h-14" />
-                      </div>
-                      <Button type="button" onClick={handlePinSignIn} disabled={loading || !phone.trim() || pin.length < 4}
-                        className="w-full gap-2">
-                        {loading ? 'Signing in...' : <><KeyRound className="h-4 w-4" /> Sign In with PIN</>}
-                      </Button>
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <Link to="/getting-started" className="text-primary hover:underline">Get Started</Link>
-                        <Link to="/forgot-pin" className="text-primary hover:underline">Forgot PIN?</Link>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </>
-          )}
         </div>
       </div>
 

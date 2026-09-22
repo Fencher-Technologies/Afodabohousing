@@ -11,6 +11,8 @@ import { Mail, Phone, MapPin, Clock, Send, MessageSquare, MessageCircle, Headpho
 import PageHero from '@/components/PageHero';
 import showcaseInterior from '@/assets/showcase-interior.jpg';
 import property2 from '@/assets/property-2.jpg';
+import { PhoneInput } from '@/components/ui/phone-input';
+import { useSeo } from '@/lib/seo';
 
 const FAQS = [
   {
@@ -40,6 +42,25 @@ const FAQS = [
 ];
 
 export default function ContactPage() {
+  useSeo({
+    title: 'Contact Axis Housing',
+    description:
+      'Talk to the Axis Housing team. Call +256 394 709 397, message us on WhatsApp at +256 201 004 789, or write to info@axishousings.com.',
+    path: '/contact',
+    keywords: ['contact Axis Housing', 'Axis Housing support', 'rental support Uganda'],
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'ContactPage',
+      url: 'https://axishousings.com/contact',
+      mainEntity: {
+        '@type': 'Organization',
+        name: 'Axis Housing',
+        email: 'info@axishousings.com',
+        telephone: '+256394709397',
+      },
+    },
+  });
+
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
   const [loading, setLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -88,15 +109,15 @@ export default function ContactPage() {
                 {
                   icon: <Phone className="h-5 w-5" />,
                   label: 'Phone',
-                  value: '+256 776 191 117',
-                  href: 'tel:+256776191117',
+                  value: '+256 394 709 397',
+                  href: 'tel:+256394709397',
                   sub: 'Monday to Friday, 8am to 6pm EAT',
                 },
                 {
                   icon: <MessageCircle className="h-5 w-5" />,
                   label: 'WhatsApp',
-                  value: '+256 789 590 007',
-                  href: 'https://wa.me/256789590007',
+                  value: '+256 201 004 789',
+                  href: 'https://wa.me/256201004789',
                   sub: 'Fastest response for urgent issues',
                 },
                 {
@@ -197,12 +218,10 @@ export default function ContactPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="phone">Phone Number</Label>
-                    <Input
+                    <PhoneInput
                       id="phone"
-                      type="tel"
                       value={form.phone}
-                      onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                      placeholder="+256 700 000000"
+                      onChange={v => setForm(f => ({ ...f, phone: v }))}
                       className="mt-1.5"
                     />
                   </div>

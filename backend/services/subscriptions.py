@@ -80,8 +80,14 @@ def get_current_subscription_raw(supabase: Client, manager_id: str) -> dict | No
         logger.warning("Failed to fetch subscriptions for %s", manager_id, exc_info=True)
         return None
 
+    # Status matters as well as the date: a cancelled or refunded row can
+    # still carry a future expiry, and counting it made the app flip between
+    # "active" and "expired" depending on which row sorted first.
+    live_statuses = ("active", "grace")
     qualifying = []
     for row in data:
+        if (row.get("status") or "") not in live_statuses:
+            continue
         expires_at = row.get("expires_at")
         expires_dt = _parse_iso(expires_at) if expires_at else None
         if expires_dt and expires_dt > now:
@@ -331,6 +337,25 @@ class SubscriptionService:
         self.supabase.table("manager_subscriptions").update(sub_payload).eq(
             "id", sub["id"]
         ).eq("status", "pending").execute()
+
+        try:
+            from services.notifications import notify_admins, profile_label
+            plan = self._get_plan(sub.get("plan_id")) or {}
+            amount = f"{sub.get('currency') or 'UGX'} {paid_amount:,.0f}" if paid_amount else ""
+            notify_admins(
+                self.supabase,
+                type="admin_subscription_paid",
+                title=f"Subscription paid: {plan.get('name') or sub.get('plan_id')}",
+                body=(
+                    f"{profile_label(self.supabase, sub['manager_id'])} paid for the "
+                    f"{plan.get('name') or sub.get('plan_id')} plan"
+                    + (f" ({amount})" if amount else "")
+                    + f". Active until {new_expires.date().isoformat()}."
+                ),
+                metadata={"subscription_id": str(sub["id"]), "manager_id": str(sub["manager_id"])},
+            )
+        except Exception:
+            logger.warning("Admin subscription notification failed", exc_info=True)
 
         return self.get_current_subscription(sub["manager_id"])
 

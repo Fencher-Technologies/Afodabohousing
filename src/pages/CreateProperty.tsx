@@ -12,6 +12,8 @@ import PropertyForm from '@/components/forms/PropertyForm';
 import type { PropertyFormData } from '@/components/forms/PropertyForm';
 import { cleanDbError } from '@/utils/dbError';
 import { getPropertyQuota, type PropertyQuota } from '@/services/subscriptions';
+import { PlanLimitDialog } from '@/components/PlanLimitDialog';
+import { planLimitFromError, type PlanLimitInfo } from '@/utils/planLimit';
 
 export default function CreateProperty() {
   const { user, loading: authLoading } = useAuth();
@@ -22,6 +24,7 @@ export default function CreateProperty() {
   // these are any additional ones for a multi-unit building.
   const [currency, setCurrency] = useState('UGX');
   const [quota, setQuota] = useState<PropertyQuota | null>(null);
+  const [planLimit, setPlanLimit] = useState<PlanLimitInfo | null>(null);
   // Double-submit guard: the button disables via `saving`, the ref guards
   // the handler itself (Enter key / repeat submit events in the same tick).
   const [saving, setSaving] = useState(false);
@@ -72,6 +75,8 @@ export default function CreateProperty() {
       country: data.country, region_id: data.region_id || null,
     });
     if (!ok) {
+      const limit = planLimitFromError(detail);
+      if (limit) { setPlanLimit(limit); setSaving(false); getPropertyQuota().then(setQuota).catch(() => {}); return; }
       // Server quota errors arrive structured ({code, message, ...}); anything
       // else is a plain string. Never show "[object Object]".
       const msg = typeof detail === 'object' && detail !== null
@@ -123,6 +128,7 @@ export default function CreateProperty() {
 
   return (
     <div className="min-h-screen bg-background">
+      <PlanLimitDialog info={planLimit} onClose={() => setPlanLimit(null)} />
       <div className="max-w-3xl mx-auto p-4 lg:p-6 space-y-6">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="p-0 h-9 w-9">

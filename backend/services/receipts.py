@@ -6,6 +6,21 @@ from uuid import UUID
 
 from supabase import Client
 
+
+def _as_date(value: Any) -> date | None:
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            return date.fromisoformat(value[:10])
+        except ValueError:
+            return None
+    return None
+
+
+def _iso(value: date | None) -> str | None:
+    return value.isoformat() if isinstance(value, date) else None
+
 logger = logging.getLogger(__name__)
 
 
@@ -117,6 +132,70 @@ class ReceiptService:
 
     # ─── Creation ───────────────────────────────────────────────────────
 
+    def _coverage_period(
+        self, payment: dict[str, Any], coverage_days: Any, payment_date: Any
+    ) -> tuple[str | None, str | None]:
+        """Dates this payment covers, continuing the tenancy's rent ledger.
+
+        Rent runs from the tenancy's effective date, not from the day money
+        changed hands: a tenant whose rent started on 1 Sep and who paid three
+        months on 10 Sep is covered 1 Sep - 30 Nov, not 10 Sep - 9 Dec. So the
+        period starts where earlier payments stopped covering (effective date
+        + days already paid for), which is the same rule the rent ledger and
+        the arrears figures use.
+        """
+        start = self._paid_until(payment) or _as_date(payment_date)
+        if start is None or not coverage_days:
+            return (_iso(start) or payment_date, None)
+        try:
+            end = start + timedelta(days=int(coverage_days))
+        except (ValueError, TypeError):
+            return (_iso(start), None)
+        return (_iso(start), end.isoformat())
+
+    def _paid_until(self, payment: dict[str, Any]) -> date | None:
+        """Effective date + coverage already bought by this tenancy's earlier payments."""
+        lease_id = payment.get("lease_id")
+        if not lease_id:
+            return None
+        try:
+            lr = (
+                self.supabase.table("leases")
+                .select("rent_effective_date, start_date")
+                .eq("id", str(lease_id))
+                .limit(1)
+                .execute()
+            )
+            lease = (lr.data or [{}])[0] or {}
+            anchor = _as_date(lease.get("rent_effective_date") or lease.get("start_date"))
+            if anchor is None:
+                return None
+
+            prior = (
+                self.supabase.table("payments")
+                .select("id, status, payment_type, coverage_days, paid_date, created_at")
+                .eq("lease_id", str(lease_id))
+                .execute()
+            )
+            covered = 0
+            for row in prior.data or []:
+                if str(row.get("id")) == str(payment.get("id")):
+                    continue
+                if row.get("status") not in ("confirmed", "completed"):
+                    continue
+                if (row.get("payment_type") or "rent") != "rent":
+                    continue
+                # Only payments made before this one shift the start date.
+                if _as_date(row.get("paid_date")) and _as_date(payment.get("paid_date")) and (
+                    _as_date(row.get("paid_date")) > _as_date(payment.get("paid_date"))
+                ):
+                    continue
+                covered += int(row.get("coverage_days") or 0)
+            return anchor + timedelta(days=covered)
+        except Exception as e:
+            logger.warning("Could not work out rent coverage for payment %s: %s", payment.get("id"), e)
+            return None
+
     def create_for_payment(self, payment: dict[str, Any]) -> dict[str, Any] | None:
         """Create a receipt for a confirmed payment. Idempotent: returns the
         existing receipt when one already exists for the payment.
@@ -144,22 +223,9 @@ class ReceiptService:
         except Exception:
             amount_value = 0.0
 
-        # Coverage period. The receipt recorded "90 days" but never the dates
-        # that span, so a tenant paying on 1 Apr for three months had no end
-        # date anywhere on their receipt. End is start + coverage_days, which
-        # matches how paid_until_date is derived for the rent ledger.
         payment_date = payment.get("paid_date") or payment.get("due_date")
         coverage_days = payment.get("coverage_days")
-        coverage_start = payment_date
-        coverage_end = None
-        if payment_date and coverage_days:
-            try:
-                start = payment_date
-                if isinstance(start, str):
-                    start = date.fromisoformat(start[:10])
-                coverage_end = (start + timedelta(days=int(coverage_days))).isoformat()
-            except (ValueError, TypeError):
-                coverage_end = None
+        coverage_start, coverage_end = self._coverage_period(payment, coverage_days, payment_date)
 
         payload = {
             "receipt_number": self._next_receipt_number(),

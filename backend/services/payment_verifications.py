@@ -14,6 +14,7 @@ from models.payment_verification import (
 )
 from services.crud import PaymentService
 from services.notifications import notify
+from services import notification_copy as copy
 
 logger = logging.getLogger(__name__)
 
@@ -156,14 +157,18 @@ class PaymentVerificationService:
 
         tenant_name = self._get_tenant_name(tenant_id)
         manager_user_id = self._resolve_manager_user_id(owner_id)
+        ctx = copy.lease_context(self.supabase, payload)
+        _t, _b = copy.payment_submitted_for_manager(
+            copy.first_name(tenant_name, ctx["tenant"]), ctx["place"], data.amount, ctx["currency"]
+        )
         if manager_user_id:
             try:
                 notify(
                     self.supabase,
                     recipient_id=manager_user_id,
                     type="payment_verification_submitted",
-                    title="Payment Awaiting Verification",
-                    body=f"{tenant_name} has submitted a rent payment of {float(data.amount):,.0f} awaiting verification.",
+                    title=_t,
+                    body=_b,
                     metadata={
                         "verification_id": str(submission["id"]),
                         "amount": str(data.amount),
@@ -315,14 +320,17 @@ class PaymentVerificationService:
         )
 
         tenant_user_id = self._get_tenant_user_id(submission["tenant_id"])
+        ctx = copy.lease_context(self.supabase, submission)
+        approver = copy.user_first_name(self.supabase, reviewer_id, ctx["manager"])
+        _t, _b = copy.payment_approved_for_tenant(approver, submission["amount"], ctx["currency"])
         if tenant_user_id:
             try:
                 notify(
                     self.supabase,
                     recipient_id=tenant_user_id,
                     type="payment_verified",
-                    title="Payment Verified",
-                    body=f"Your payment of {float(submission['amount']):,.0f} has been verified by the house manager.",
+                    title=_t,
+                    body=_b,
                     metadata={
                         "verification_id": str(verification_id),
                         "payment_id": str(payment["id"]),
@@ -369,14 +377,19 @@ class PaymentVerificationService:
         )
 
         tenant_user_id = self._get_tenant_user_id(submission["tenant_id"])
+        ctx = copy.lease_context(self.supabase, submission)
+        rejecter = copy.user_first_name(self.supabase, reviewer_id, ctx["manager"])
+        _t, _b = copy.payment_rejected_for_tenant(
+            rejecter, submission["amount"], ctx["currency"], data.rejection_reason
+        )
         if tenant_user_id:
             try:
                 notify(
                     self.supabase,
                     recipient_id=tenant_user_id,
                     type="payment_rejected",
-                    title="Payment Not Verified",
-                    body=f"Your payment of {float(submission['amount']):,.0f} could not be verified. Reason: {data.rejection_reason}",
+                    title=_t,
+                    body=_b,
                     metadata={
                         "verification_id": str(verification_id),
                         "amount": str(submission["amount"]),

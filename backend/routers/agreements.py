@@ -27,6 +27,7 @@ from services.agreement_generator import generate_agreement_pdf
 from services.agreement_pdf import AgreementPDFGenerator
 from services.agreements import AgreementService, get_agreement_service
 from services.notifications import notify
+from services import notification_copy as copy
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,14 @@ def _notify_other_party(
             )
         except Exception as e:
             logger.warning("Failed to notify %s: %s", caller_role, str(e))
+
+
+def _actor_label(supabase: Client, lease: dict, current_user: CurrentUser) -> str:
+    """How the other party sees whoever acted: 'Abed' or 'Yonah of Kisasi'."""
+    ctx = copy.lease_context(supabase, lease)
+    if str(lease.get("owner_id")) == str(current_user.id):
+        return copy.user_first_name(supabase, current_user.id, ctx["manager"])
+    return copy.with_place(ctx["tenant"], ctx["place"])
 
 
 # ─── Template ────────────────────────────────────────────────────────────
@@ -180,8 +189,8 @@ def build_agreement(
     _notify_other_party(
         supabase, svc, lease, current_user,
         event_type="agreement_generated",
-        title="New Tenancy Agreement",
-        body="A new tenancy agreement has been created for your review.",
+        title=copy.agreement_drafted_for_tenant(_actor_label(supabase, lease, current_user))[0],
+        body=copy.agreement_drafted_for_tenant(_actor_label(supabase, lease, current_user))[1],
         metadata={
             "lease_id": str(lease_id),
             "agreement_number": content.get("agreement_number"),
@@ -306,13 +315,13 @@ def record_consent(
     )
 
     # Notify other party
-    other_role = "manager" if party_role == "tenant" else "tenant"
-    other_label = "Tenant" if other_role == "tenant" else "Landlord/Manager"
     _notify_other_party(
         supabase, svc, lease, current_user,
         event_type="agreement_consent",
-        title=f"{other_label} Has Consented",
-        body=f"The {other_label} has signed the tenancy agreement.",
+        # Names whoever signed. It used to name the recipient's own role
+        # ("Landlord/Manager Has Consented" sent to the manager).
+        title=copy.agreement_approved(_actor_label(supabase, lease, current_user))[0],
+        body=copy.agreement_approved(_actor_label(supabase, lease, current_user))[1],
         metadata={
             "lease_id": str(lease_id),
             "agreement_number": content.get("agreement_number"),
@@ -393,12 +402,11 @@ def reject_agreement(
     )
 
     content = document.get("content") or {}
-    other_label = "Tenant" if party_role == "tenant" else "Landlord/Manager"
     _notify_other_party(
         supabase, svc, lease, current_user,
         event_type="agreement_rejected",
-        title=f"{other_label} Requested Changes",
-        body=f"The {other_label} has asked for changes to the tenancy agreement: {reason}",
+        title=copy.agreement_rejected(_actor_label(supabase, lease, current_user), reason)[0],
+        body=copy.agreement_rejected(_actor_label(supabase, lease, current_user), reason)[1],
         metadata={
             "lease_id": str(lease_id),
             "agreement_number": content.get("agreement_number"),
@@ -438,8 +446,8 @@ def cancel_agreement(
     _notify_other_party(
         supabase, svc, lease, current_user,
         event_type="agreement_cancelled",
-        title="Agreement Cancelled",
-        body="The tenancy agreement has been cancelled by the manager.",
+        title=copy.agreement_cancelled_for_tenant(_actor_label(supabase, lease, current_user))[0],
+        body=copy.agreement_cancelled_for_tenant(_actor_label(supabase, lease, current_user))[1],
         metadata={"lease_id": str(lease_id)},
     )
 

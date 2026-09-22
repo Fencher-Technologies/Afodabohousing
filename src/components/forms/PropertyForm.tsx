@@ -6,6 +6,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ArrowLeft, Save, Home, MapPin, DollarSign, Image, Upload, X, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -154,6 +155,14 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
     });
   }, []);
 
+  // Currencies offered on the rent field: the country's own first, then the
+  // ones Axis commonly sees. Any of them can be chosen.
+  const currencyChoices = Array.from(new Set([
+    CURRENCY_MAP[form.country] || 'UGX',
+    form.rent_currency,
+    'UGX', 'USD', 'KES', 'TZS', 'RWF', 'EUR', 'GBP', 'ZAR',
+  ].filter(Boolean)));
+
   const handleCountryChange = (iso: string) => {
     const currency = CURRENCY_MAP[iso] || 'UGX';
     setForm(f => ({ ...f, country: iso, region_id: '', rent_currency: currency }));
@@ -300,6 +309,20 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
         </div>
 
         <div>
+          <p className="text-sm font-semibold mb-2">Rent Currency</p>
+          <SearchableSelect
+            options={currencyChoices.map(c => ({ value: c, label: c }))}
+            value={form.rent_currency}
+            onValueChange={v => { setForm(f => ({ ...f, rent_currency: v })); onCurrencyChange?.(v); }}
+            placeholder="Select currency..."
+            emptyText="No currency matches."
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Rent, payments and receipts for this property use this currency.
+          </p>
+        </div>
+
+        <div>
           <p className="text-sm font-semibold mb-2">{regionLabel}</p>
           <SearchableSelect
             options={regions.map(r => ({ value: r.id, label: r.name }))}
@@ -378,8 +401,8 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm font-semibold mb-2">Contact Phone</p>
-            <Input value={form.manager_phone} onChange={e => setForm(f => ({ ...f, manager_phone: e.target.value }))}
-              placeholder="+256 788 100145" className="rounded-lg h-11" />
+            <PhoneInput value={form.manager_phone}
+              onChange={v => setForm(f => ({ ...f, manager_phone: v }))} />
           </div>
           <div>
             <p className="text-sm font-semibold mb-2">Contact Email</p>

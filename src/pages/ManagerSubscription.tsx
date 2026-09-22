@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Crown, Check, Loader2, ShieldCheck, ExternalLink, XCircle } from 'lucide-react';
-import { listPlans, getCurrentSubscription, createSubscription, SubscriptionPlan } from '@/services/subscriptions';
+import { listPlans, getCurrentSubscription, createSubscription, SubscriptionPlan, formatPlanDuration, formatPlanPrice } from '@/services/subscriptions';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -168,7 +168,7 @@ export default function ManagerSubscription() {
               <div className="space-y-4">
                 <div>
                   <h2 className="font-bold text-lg">{isActive ? 'Change Plan' : 'Choose Your Plan'}</h2>
-                  <p className="text-sm text-muted-foreground">Unlock unlimited properties, payment recording, reports, and WhatsApp reminders.</p>
+                  <p className="text-sm text-muted-foreground">List your properties, find tenants directly and let Axis handle the follow-up: rent reminders, receipts, tenancy agreements and reports.</p>
                 </div>
                 {plans.filter(p => p.is_active).sort((a, b) => a.sort_order - b.sort_order).map(plan => {
                   const isCurrent = currentSub?.plan_id === plan.id;
@@ -193,7 +193,8 @@ export default function ManagerSubscription() {
                         <h3 className="font-bold text-lg">{plan.name}</h3>
                         {isCurrent && <Badge variant="outline" className="text-xs">Current</Badge>}
                       </div>
-                      <p className="text-3xl font-bold text-primary">UGX {plan.price_ugx.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">/ {plan.duration_days} days</span></p>
+                      <p className="text-3xl font-bold text-primary">{formatPlanPrice(plan, currency)} <span className="text-sm font-normal text-muted-foreground">/ {formatPlanDuration(plan.duration_days)}</span></p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{currency === 'UGX' ? `≈ $${plan.price_usd} by card` : `or UGX ${plan.price_ugx.toLocaleString()} by mobile money`}</p>
                       {plan.benefits.length > 0 && (
                         <div className="mt-4 space-y-2">
                           {plan.benefits.map((b, i) => (
@@ -213,11 +214,12 @@ export default function ManagerSubscription() {
             {selectedPlan && (
               <Button onClick={handlePay} disabled={activating} className="w-full h-12 rounded-xl font-bold text-base gap-2 bg-gold hover:bg-gold/90 text-gold-foreground">
                 {activating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Crown className="h-5 w-5" />}
-                {activating ? 'Redirecting...' : `Pay UGX ${selectedPlan.price_ugx.toLocaleString()} via Pesapal`}
+                {activating ? 'Redirecting...' : `Pay ${formatPlanPrice(selectedPlan, currency)} via Pesapal`}
               </Button>
             )}
 
             <p className="text-xs text-muted-foreground text-center">Pay securely via Pesapal. Cards and mobile money accepted.</p>
+            <p className="text-xs text-muted-foreground text-center">Upgrading or renewing early? Your remaining days carry over to the new plan.</p>
           </>
         )}
       </div>

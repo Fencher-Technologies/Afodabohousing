@@ -78,3 +78,7 @@ afodabo-housing-mobile/android/
 afodabo-housing-mobile/ios/
 .opencode
 backend/.coverage
+
+# Firebase / Google service-account private keys (never commit)
+*firebase-adminsdk*.json
+*service-account*.json

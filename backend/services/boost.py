@@ -131,7 +131,23 @@ class BoostService(BaseService):
             .eq("status", "pending")
             .execute()
         )
-        return result.data[0] if result.data else None
+        activated = result.data[0] if result.data else None
+        if activated:
+            try:
+                from services.notifications import notify_admins, profile_label
+                notify_admins(
+                    self.supabase,
+                    type="admin_boost_paid",
+                    title="Property boost purchased",
+                    body=(
+                        f"{profile_label(self.supabase, activated.get('manager_id'))} boosted a property "
+                        f"for {activated.get('duration_days')} days (UGX {float(activated.get('amount_paid') or 0):,.0f})."
+                    ),
+                    metadata={"boost_id": str(activated.get("id")), "property_id": str(activated.get("property_id"))},
+                )
+            except Exception:
+                logger.warning("Admin boost notification failed", exc_info=True)
+        return activated
 
     @with_retry
     def get_by_id(self, boost_id: UUID) -> dict | None:
@@ -197,7 +213,9 @@ class BoostService(BaseService):
     def get_stats(self) -> BoostStats:
         now = datetime.now(UTC).isoformat()
         all_boosts = self.supabase.table(self._table).select("*").execute()
-        data = all_boosts.data or []
+        # Boosts included with a plan (Elite) are free; keep them out of
+        # the revenue figures so the average price is not dragged down.
+        data = [b for b in (all_boosts.data or []) if b.get("payment_method") != "plan_included"]
 
         total = len(data)
         active = sum(1 for b in data if b.get("status") == "active" and b.get("expires_at", "") > now)

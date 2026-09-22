@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react';
 import { PasswordInput } from '@/components/ui/password-input';
+import { savePasswordCredential } from '@/lib/save-credentials';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -22,10 +23,17 @@ export default function ResetPassword() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [resetEmail, setResetEmail] = useState('');
   const submitLock = useRef(false);
+  const readyRef = useRef(false);
+  const markReady = () => { readyRef.current = true; setReady(true); setLinkError(null); setChecking(false); };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    for (const k of ['error', 'error_description']) {
+      if (!params.get(k) && hash.get(k)) params.set(k, hash.get(k) as string);
+    }
     const code = params.get('code');
     const error = params.get('error');
     const errorDescription = params.get('error_description');
@@ -34,6 +42,27 @@ export default function ResetPassword() {
       const msg = errorDescription || error || 'Unknown error';
       setLinkError(msg.replace(/\+/g, ' '));
       setChecking(false);
+      return;
+    }
+
+    // Branded email link: https://axishousings.com/reset-password?token_hash=…&type=recovery
+    // (Supabase "Reset Password" template). The one-time token is only used
+    // here, when a person opens the page, so mail scanners that pre-open
+    // links can no longer expire it, and the link shows our own domain
+    // instead of *.supabase.co, which spam filters treat as phishing.
+    const tokenHash = params.get('token_hash');
+    if (tokenHash) {
+      supabase.auth
+        .verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+        .then(({ error: verifyError }) => {
+          if (verifyError) {
+            setLinkError('This reset link is invalid or has expired. Please request a new one.');
+            setChecking(false);
+          } else {
+            window.history.replaceState({}, '', '/reset-password');
+            markReady();
+          }
+        });
       return;
     }
 
@@ -51,22 +80,17 @@ export default function ResetPassword() {
     }
 
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
-        setReady(true);
-        setChecking(false);
-      }
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') markReady();
     });
 
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setReady(true);
-        setChecking(false);
-      }
+      if (data.session) markReady();
     });
 
     const timeout = setTimeout(() => {
+      if (readyRef.current) return;
       setChecking(false);
-      if (!ready && !linkError) {
+      {
         setLinkError('This reset link is invalid or has expired. Please request a new one.');
       }
     }, 3000);
@@ -76,6 +100,11 @@ export default function ResetPassword() {
       clearTimeout(timeout);
     };
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    supabase.auth.getSession().then(({ data }) => setResetEmail(data.session?.user?.email || ''));
+  }, [ready]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +131,7 @@ export default function ResetPassword() {
     await supabase.auth.signOut();
     setDone(true);
     toast({ title: 'Password updated', description: 'Sign in with your new password.' });
+    if (resetEmail) await savePasswordCredential(resetEmail, password);
     setTimeout(() => navigate('/login'), 1500);
   };
 
@@ -114,7 +144,7 @@ export default function ResetPassword() {
           </div>
           <h1 className="text-2xl font-display font-bold mb-2">Password updated</h1>
           <p className="text-muted-foreground mb-6">
-            Your password has been changed. Sign in with your new password.
+            Your password has been changed. Sign in with your new password on the website or in the Axis app.
           </p>
           <Link to="/login" className="text-primary hover:underline text-sm">Go to sign in</Link>
         </div>
@@ -153,6 +183,7 @@ export default function ResetPassword() {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          <input type="email" name="email" autoComplete="username" value={resetEmail} readOnly hidden />
           <div className="space-y-2">
             <Label htmlFor="password">New password</Label>
             <PasswordInput

@@ -61,13 +61,13 @@ export default function Footer() {
                 <Mail className="h-4 w-4 text-gold-light shrink-0" />
                 info@axishousings.com
               </a>
-              <a href="tel:+256776191117" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <a href="tel:+256394709397" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <Phone className="h-4 w-4 text-gold-light shrink-0" />
-                +256 776 191 117
+                +256 394 709 397
               </a>
-              <a href="https://wa.me/256789590007" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <a href="https://wa.me/256201004789" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <MessageCircle className="h-4 w-4 text-gold-light shrink-0" />
-                WhatsApp: +256 789 590 007
+                WhatsApp: +256 201 004 789
               </a>
               <div className="flex items-center gap-2.5 text-primary-foreground/70">
                 <MapPin className="h-4 w-4 text-gold-light shrink-0" />

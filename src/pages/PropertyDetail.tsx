@@ -24,6 +24,8 @@ import { isPropertyBoosted } from '@/services/property-boosts';
 import prop1 from '@/assets/property-1.jpg';
 import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
+import { propertyShareText, propertyUrl, type ShareableProperty } from '@/utils/shareProperty';
+import { propertyJsonLd, useSeo } from '@/lib/seo';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -138,12 +140,24 @@ export default function PropertyDetailPage() {
     setMessageOpen(false);
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
+    // Always the public listing link, never an internal path, and the
+    // details alongside it so the message reads well in WhatsApp.
+    const url = propertyUrl(String(property?.id ?? id), window.location.origin);
+    const text = property ? propertyShareText(property as ShareableProperty, url) : url;
     if (navigator.share) {
-      navigator.share({ title: property?.title || 'Property', url: window.location.href });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
+      try {
+        await navigator.share({ title: property?.title || 'Property on Axis Housing', text, url });
+        return;
+      } catch {
+        return; // cancelled
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
       toast({ title: 'Link copied!', description: 'Share this property with friends and family.' });
+    } catch {
+      toast({ title: 'Could not copy', description: url, variant: 'destructive' });
     }
   };
 
@@ -167,6 +181,25 @@ export default function PropertyDetailPage() {
     const location = encodeURIComponent(buildOSMQuery(p));
     return `https://www.openstreetmap.org/export/embed.html?layer=mapnik&marker=${encodeURIComponent(location)}`;
   };
+
+  // Each listing gets its own title, description and schema.org data, so it
+  // can rank on its own rather than sharing the site's generic tags.
+  const listingPlace = [property?.address, property?.city].filter(Boolean).join(', ');
+  useSeo({
+    title: property
+      ? `${property.title} for rent${listingPlace ? ` in ${listingPlace}` : ''}`
+      : 'Rental property',
+    description: property
+      ? `${property.title}${listingPlace ? ` in ${listingPlace}` : ''}: ${
+          property.bedrooms ? `${property.bedrooms} bedroom, ` : ''
+        }${property.bathrooms ? `${property.bathrooms} bathroom, ` : ''}${
+          property.rent_currency || 'UGX'
+        } ${Number(property.monthly_rent || 0).toLocaleString()} per month on Axis Housing.`
+      : undefined,
+    path: `/properties/${id}`,
+    image: Array.isArray(property?.images) && property.images.length ? (property.images[0] as string) : undefined,
+    jsonLd: property ? propertyJsonLd({ ...property, id: String(property.id) }) : undefined,
+  });
 
   if (loading) {
     return (

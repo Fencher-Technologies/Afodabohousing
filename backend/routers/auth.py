@@ -317,6 +317,16 @@ def signup(
     except Exception as e:
         logger.warning("Failed to upsert profile after signup: %s", str(e))
 
+    if data.role == "house_manager":
+        from services.notifications import notify_admins
+        notify_admins(
+            service_supabase,
+            type="admin_new_manager",
+            title="New property manager signed up",
+            body=f"{data.full_name or data.email} ({data.email}) created a property manager account.",
+            metadata={"user_id": user_id},
+        )
+
     return TokenResponse(
         access_token=result["session"].access_token,
         refresh_token=getattr(result["session"], "refresh_token", None),
@@ -1121,6 +1131,18 @@ def register_manager(
 
     logger.info("House manager registered pending approval: phone=%s email=%s", phone, internal_email)
 
+    from services.notifications import notify_admins
+    notify_admins(
+        supabase,
+        type="admin_manager_pending",
+        title="Property manager waiting for approval",
+        body=(
+            f"{full_name} ({phone}) registered as a property manager and is waiting for "
+            "approval. Review them in the admin dashboard."
+        ),
+        metadata={"user_id": str(user_id), "phone": phone},
+    )
+
     return PhoneRegisterManagerResponse(
         success=True,
         message="Verification successful. Your registration is pending admin approval.",
@@ -1414,6 +1436,11 @@ def update_profile(
                 raise HTTPException(status_code=422, detail=f"Invalid phone number: {exc}")
         else:
             payload["phone"] = None
+    if "display_currency" in payload:
+        code = (payload["display_currency"] or "").strip().upper()
+        if len(code) != 3 or not code.isalpha():
+            raise HTTPException(status_code=422, detail="Currency must be a 3-letter code, e.g. UGX")
+        payload["display_currency"] = code
     response = supabase.table("profiles").update(payload).eq("user_id", current_user.id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Profile not found")

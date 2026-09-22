@@ -64,7 +64,7 @@ export default function LoginScreen() {
 
         <View style={styles.form}>
           <InputField
-            label="Email"
+            label="Email" autoComplete="email" textContentType="username"
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
@@ -76,7 +76,7 @@ export default function LoginScreen() {
           />
           <View style={{ height: Spacing.md }} />
           <InputField
-            label="Password"
+            label="Password" autoComplete="password" textContentType="password"
             value={password}
             onChangeText={setPassword}
             placeholder="••••••••"
@@ -101,23 +101,6 @@ export default function LoginScreen() {
             fullWidth
             size="lg"
           />
-
-          {/* PHONE-AUTH HIDDEN — phone sign-in preserved for future restore.
-              Matches the block already hidden in register.tsx. The /phone-signin
-              screen and the /auth/phone/* endpoints are intentionally left in
-              place: accounts created by phone hold a synthetic
-              phone_<digits>@axis.app email and a random password they were never
-              shown, so removing the backend would lock them out permanently.
-          <OrDivider />
-
-          <Button
-            label="Sign in with Phone Number"
-            onPress={() => router.push("/phone-signin")}
-            variant="outline"
-            fullWidth
-            size="lg"
-          />
-          */}
 
           {error && <Text style={styles.errorText}>{error}</Text>}
         </View>

@@ -75,8 +75,8 @@ export default function AgreementView() {
         setRejectOpen(false);
         setRejectReason('');
         toast({
-          title: 'Changes requested',
-          description: 'Your comment has been sent to the property manager.',
+          title: 'Changes submitted successfully',
+          description: 'Your comments have been sent to the property manager. You will be notified once they revise the agreement.',
         });
         fetchAgreement();
       } else {

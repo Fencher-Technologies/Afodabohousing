@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import logoImg from '@/assets/axis-lockup.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Mail, Smartphone, ArrowRight, MessageSquare, KeyRound, User, Check } from 'lucide-react';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -99,10 +100,6 @@ export default function RegisterPage() {
             <img src={logoImg} alt="Axis Housing" className="h-14 w-auto" />
           </Link>
 
-          {/* PHONE REGISTRATION HIDDEN — preserved for future restore (matches the
-              phone-auth block hidden in the mobile app). The /auth/phone/* endpoints
-              stay live: existing phone-created accounts depend on them. */}
-
           {method === 'invite' ? (
             <>
               <h1 className="text-3xl font-display font-bold text-foreground mb-1.5">Registration is invite-only</h1>
@@ -145,11 +142,9 @@ export default function RegisterPage() {
                 <div className="space-y-5">
                   <div>
                     <Label>Phone number</Label>
-                    <div className="relative mt-1.5">
-                      <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input type="tel" placeholder="+256 7XX XXX XXX" value={phone}
-                        onChange={e => { setPhone(e.target.value); setPhoneWarn(phoneWarning(e.target.value)); }}
-                        className="pl-9" />
+                    <div className="mt-1.5">
+                      <PhoneInput value={phone}
+                        onChange={v => { setPhone(v); setPhoneWarn(phoneWarning(v)); }} />
                     </div>
                     {phoneWarn && <p className="text-xs text-destructive mt-1">{phoneWarn}</p>}
                   </div>

@@ -1,6 +1,10 @@
 import { apiGet } from './api';
 
 export interface FinancialSummary {
+  /** Currency the totals are reported in (the manager's profile setting). */
+  currency?: string;
+  /** True when the properties behind these totals use more than one currency. */
+  mixed_currencies?: boolean;
   total_expected: number;
   total_collected: number;
   total_outstanding: number;
@@ -12,6 +16,8 @@ export interface FinancialSummary {
 }
 
 export interface RentCollection {
+  currency?: string;
+  mixed_currencies?: boolean;
   period_from: string | null;
   period_to: string | null;
   total_expected: number;

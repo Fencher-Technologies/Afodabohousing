@@ -19,7 +19,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: CORS_ORIGINS
-        value: '["https://afodabohousing.vercel.app"]'
+        value: '["https://axishousings.com","https://www.axishousings.com","https://afodabohousing.vercel.app"]'
       - key: RATE_LIMIT_ENABLED
         value: "true"
       - key: PESAPAL_ENVIRONMENT

@@ -11,6 +11,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[impo
 from config import get_settings
 from services.email import email_endpoint as _email_endpoint
 from services.crud import _compute_rent_financials
+from services import notification_copy as copy
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
@@ -22,19 +23,71 @@ def _get_supabase_for_scheduler():
     return get_service_client()
 
 
-async def check_rent_reminders(supabase=None, today: date | None = None, dispatcher=None):
-    """Money-ledger rent reminders.
+async def _deliver_all_channels(
+    dispatcher: Any,
+    *,
+    event_key: str,
+    recipient_id: str | None,
+    to_email: str | None,
+    type: str,
+    title: str,
+    body: str,
+    metadata: dict[str, Any],
+) -> None:
+    """In-app, email and push for one reminder; each channel sent at most once per event_key."""
+    channels = []
+    if recipient_id:
+        channels.append("in_app")
+    if to_email and not to_email.endswith((".app", ".local")):
+        channels.append("email")
+    if recipient_id:
+        channels.append("push")
 
-    The billing calendar is the rent effective date (anchor): rent is due at
-    each 30-day boundary (next_payment_due_date). Tenants are reminded only
-    when they are in arrears (money owed) AND the next boundary falls within
-    the reminder window (1-3 days away). Reminders are idempotent per
-    lease/milestone/channel.
+    for channel in channels:
+        if await dispatcher.has_delivery(event_key, channel):
+            continue
+        try:
+            if channel == "in_app":
+                await dispatcher.send_in_app(
+                    recipient_id=recipient_id, type=type, title=title, body=body, metadata=metadata
+                )
+                sent = True
+            elif channel == "email":
+                sent = await dispatcher.send_email(to_email=to_email, subject=title, body=body)
+            else:
+                sent = await dispatcher.send_push(recipient_id=recipient_id, title=title, body=body)
+            await dispatcher.record_delivery(
+                event_key=event_key, channel=channel, recipient_id=recipient_id,
+                status="sent" if sent else "skipped",
+            )
+        except Exception as exc:
+            await dispatcher.record_delivery(
+                event_key=event_key, channel=channel, recipient_id=recipient_id,
+                status="failed", error=str(exc),
+            )
+            logger.error("Rent reminder %s via %s failed: %s", event_key, channel, exc)
+
+
+async def check_rent_reminders(supabase=None, today: date | None = None, dispatcher=None):
+    """Rent reminders for tenants AND their property managers.
+
+    * Tenant owes money (arrears > 0): the tenant is told their rent is due
+      and the manager is told which tenant owes how much. Both are repeated
+      every RENT_REMINDER_INTERVAL_DAYS (default 7) until it is paid.
+    * Tenant is paid up but the next rent falls due within 3 days: the
+      tenant gets a heads-up, once per rent period.
+
+    Previously only tenants were reminded (managers never heard about
+    arrears), and only inside a narrow window around the due date.
+    Idempotent per lease / period / channel via notification_deliveries, so
+    it is safe to run many times a day.
     """
     try:
         supabase = supabase or _get_supabase_for_scheduler()
         today = today or date.today()
         dispatcher = dispatcher or NotificationDispatcher(supabase)
+        interval = max(1, int(getattr(get_settings(), "rent_reminder_interval_days", 7) or 7))
+        period = today.toordinal() // interval
 
         leases = (
             supabase.table("leases")
@@ -72,127 +125,66 @@ async def check_rent_reminders(supabase=None, today: date | None = None, dispatc
                 end_date=lease.get("end_date"),
                 today=today,
             )
-
+            arrears = float(fin.get("arrears_amount") or 0)
             next_due = fin.get("next_payment_due_date")
-            arrears = fin.get("arrears_amount") or 0
-            if not next_due or arrears <= 0:
+            days_left = fin.get("rent_days_remaining")
+
+            due_soon = (
+                arrears <= 0
+                and next_due is not None
+                and days_left is not None
+                and 0 <= int(days_left) <= 3
+            )
+            if arrears <= 0 and not due_soon:
                 continue
 
-            days_until_due = _days_until(next_due, today)
-            # Remind in the three days before cover expires, and once cover has
-            # actually run out. next_payment_due_date now tracks rent coverage
-            # rather than a fixed 30-day grid, so a tenant already in arrears
-            # reports "due today" (0) or a date in the past (negative) — those
-            # used to be pushed to a future boundary and are exactly the people
-            # who most need the reminder.
-            if days_until_due > 3:
-                continue
-
-            prop = _fetch_single(supabase, "properties", lease.get("property_id"))
-            tenant = _fetch_single(supabase, "tenants", tenant_id)
-            if not tenant:
-                continue
-
-            recipient_id = tenant.get("user_id")
-            to_email = tenant.get("email")
-            property_title = prop.get("title") if prop else None
-            amount = arrears
-            currency = (prop or {}).get("rent_currency") or "UGX"
-
-            if days_until_due <= 0:
-                title = "Rent overdue"
-                body = (
-                    f"Your rent of {currency} {amount:,.0f} is now overdue. "
-                    "Please make your payment as soon as possible."
-                )
-            elif days_until_due == 1:
-                title = "Rent due tomorrow"
-                body = (
-                    f"Your rent of {currency} {amount:,.0f} is due tomorrow ({next_due}). "
-                    "Please make your payment to avoid any inconvenience."
-                )
-            else:
-                title = f"Rent due in {days_until_due} days"
-                body = (
-                    f"Your rent of {currency} {amount:,.0f} is due on {next_due} "
-                    f"({days_until_due} days away). "
-                    "Please make your payment on time."
-                )
-
-            property_suffix = f" for {property_title}" if property_title else ""
-            body += property_suffix
-
-            event_key = f"rent_reminder:{lease_id}:{days_until_due}"
+            tenant = _fetch_single(supabase, "tenants", tenant_id) or {}
+            ctx = copy.lease_context(supabase, lease)
+            tenant_name = copy.first_name(tenant.get("first_name") or tenant.get("last_name"), ctx["tenant"])
             metadata = {
                 "lease_id": lease_id,
                 "property_id": lease.get("property_id"),
-                "amount": amount,
+                "amount": arrears if arrears > 0 else lease.get("monthly_rent"),
                 "next_payment_due_date": next_due,
-                "days_until_due": days_until_due,
+                "days_until_due": _days_until(next_due, today) if next_due else None,
             }
 
-            if recipient_id and not await dispatcher.has_delivery(event_key, "in_app"):
-                try:
-                    await dispatcher.send_in_app(
-                        recipient_id=recipient_id,
-                        type="rent_reminder",
-                        title=title,
-                        body=body,
-                        metadata=metadata,
-                    )
-                    await dispatcher.record_delivery(
-                        event_key=event_key,
-                        channel="in_app",
-                        recipient_id=recipient_id,
-                        status="sent",
-                    )
-                except Exception as exc:
-                    await dispatcher.record_delivery(
-                        event_key=event_key,
-                        channel="in_app",
-                        recipient_id=recipient_id,
-                        status="failed",
-                        error=str(exc),
-                    )
-                    logger.error("Failed to create rent reminder notification: %s", exc)
+            if arrears > 0:
+                t_title, t_body = copy.rent_due_for_tenant(tenant_name, arrears, ctx["currency"], True, next_due)
+                await _deliver_all_channels(
+                    dispatcher,
+                    event_key=f"rent_due:{lease_id}:{period}",
+                    recipient_id=tenant.get("user_id"),
+                    to_email=tenant.get("email"),
+                    type="rent_reminder", title=t_title, body=t_body, metadata=metadata,
+                )
 
-            if to_email and not await dispatcher.has_delivery(event_key, "email"):
-                try:
-                    sent = await dispatcher.send_email(to_email=to_email, subject=title, body=body)
-                    await dispatcher.record_delivery(
-                        event_key=event_key,
-                        channel="email",
-                        recipient_id=recipient_id,
-                        status="sent" if sent else "skipped",
+                manager_id = lease.get("owner_id")
+                if manager_id:
+                    profile = copy._one(supabase, "profiles", "user_id", manager_id, "full_name,email")
+                    m_title, m_body = copy.rent_due_for_manager(
+                        copy.first_name(profile.get("full_name"), "there"),
+                        tenant_name, ctx["place"], arrears, ctx["currency"],
                     )
-                except Exception as exc:
-                    await dispatcher.record_delivery(
-                        event_key=event_key,
-                        channel="email",
-                        recipient_id=recipient_id,
-                        status="failed",
-                        error=str(exc),
+                    await _deliver_all_channels(
+                        dispatcher,
+                        event_key=f"rent_due_manager:{lease_id}:{period}",
+                        recipient_id=str(manager_id),
+                        to_email=profile.get("email"),
+                        type="tenant_rent_due", title=m_title, body=m_body,
+                        metadata={**metadata, "tenant_id": tenant_id},
                     )
-                    logger.error("Failed to send rent reminder email: %s", exc)
-
-            if recipient_id and not await dispatcher.has_delivery(event_key, "push"):
-                try:
-                    sent = await dispatcher.send_push(recipient_id=recipient_id, title=title, body=body)
-                    await dispatcher.record_delivery(
-                        event_key=event_key,
-                        channel="push",
-                        recipient_id=recipient_id,
-                        status="sent" if sent else "skipped",
-                    )
-                except Exception as exc:
-                    await dispatcher.record_delivery(
-                        event_key=event_key,
-                        channel="push",
-                        recipient_id=recipient_id,
-                        status="failed",
-                        error=str(exc),
-                    )
-                    logger.error("Failed to send rent reminder push: %s", exc)
+            else:
+                t_title, t_body = copy.rent_due_for_tenant(
+                    tenant_name, lease.get("monthly_rent"), ctx["currency"], False, next_due
+                )
+                await _deliver_all_channels(
+                    dispatcher,
+                    event_key=f"rent_due_soon:{lease_id}:{next_due}",
+                    recipient_id=tenant.get("user_id"),
+                    to_email=tenant.get("email"),
+                    type="rent_reminder", title=t_title, body=t_body, metadata=metadata,
+                )
 
     except Exception as e:
         logger.error("Rent reminder check failed: %s", str(e), exc_info=True)
@@ -287,22 +279,23 @@ class NotificationDispatcher:
         return True
 
     async def send_push(self, *, recipient_id: str, title: str, body: str) -> bool:
-        if not self.settings.push_provider_url or not self.settings.push_provider_api_key:
-            logger.info("Push notification skipped; provider is not configured")
-            return False
+        """Push through Expo to the recipient's registered devices.
 
-        async with httpx.AsyncClient(timeout=15) as client:
-            response = await client.post(
-                self.settings.push_provider_url,
-                headers={"Authorization": f"Bearer {self.settings.push_provider_api_key}"},
-                json={
-                    "recipient_id": recipient_id,
-                    "title": title,
-                    "body": body,
-                },
-            )
-            response.raise_for_status()
-        return True
+        Previously required PUSH_PROVIDER_URL / PUSH_PROVIDER_API_KEY, which
+        were never set, so every scheduled reminder push was skipped.
+        """
+        import asyncio
+
+        from services.notifications import send_push_notification
+
+        reached = await asyncio.to_thread(
+            send_push_notification,
+            self.supabase,
+            recipient_id=recipient_id,
+            title=title,
+            body=body,
+        )
+        return reached > 0
 
 
 def _days_until(end_date: str, today: date) -> int:

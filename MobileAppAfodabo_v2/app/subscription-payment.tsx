@@ -14,6 +14,7 @@ import { PageHeader } from "@/src/components/PageHeader";
 import { useSubscriptionPlans, useCreateSubscription } from "@/src/hooks/useSubscriptions";
 import { useAuth } from "@/src/context/auth-context";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatPlanDuration, formatPlanPrice } from "@/src/utils/format";
 
 const POLL_INTERVAL_MS = 5000;
 const POLL_TIMEOUT_MS = 120000;
@@ -277,17 +278,17 @@ export default function SubscriptionPaymentScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.summaryPlanName}>{selectedPlan.name}</Text>
-              <Text style={styles.summaryDuration}>{selectedPlan.duration_days} days</Text>
+              <Text style={styles.summaryDuration}>{formatPlanDuration(selectedPlan.duration_days)}</Text>
             </View>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Price (UGX)</Text>
-            <Text style={styles.summaryValue}>UGX {selectedPlan.price_ugx.toLocaleString()}</Text>
+            <Text style={styles.summaryLabel}>Price ({currency})</Text>
+            <Text style={styles.summaryValue}>{formatPlanPrice(selectedPlan, currency)}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryTotal}>Total (UGX)</Text>
-            <Text style={styles.summaryTotalValue}>UGX {selectedPlan.price_ugx.toLocaleString()}</Text>
+            <Text style={styles.summaryTotal}>Total ({currency})</Text>
+            <Text style={styles.summaryTotalValue}>{formatPlanPrice(selectedPlan, currency)}</Text>
           </View>
           <Text style={{ fontSize: FontSize.caption, color: Colors.textMuted }}>Mobile money, local & international cards via Pesapal</Text>
         </Card>

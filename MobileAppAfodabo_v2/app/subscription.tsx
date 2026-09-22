@@ -16,7 +16,7 @@ import { PageHeader } from "@/src/components/PageHeader";
 import { useAuth } from "@/src/context/auth-context";
 import { useSubscriptionPlans } from "@/src/hooks/useSubscriptions";
 import { useRefresh } from "@/src/hooks/useRefresh";
-import { formatDate } from "@/src/utils/format";
+import { formatDate, formatPlanDuration, formatPlanPrice } from "@/src/utils/format";
 import type { SubscriptionPlanId } from "@/src/types";
 
 export default function SubscriptionScreen() {
@@ -111,7 +111,7 @@ export default function SubscriptionScreen() {
             {isActive ? "Change Plan" : "Choose Your Plan"}
           </Text>
           <Text style={styles.sectionSubtitle}>
-            Unlock unlimited properties, payment recording, reports, and WhatsApp reminders.
+            List your properties, find tenants directly and let Axis handle the follow-up: rent reminders, receipts, tenancy agreements and reports.
           </Text>
 
           <View style={styles.plans}>
@@ -129,7 +129,7 @@ export default function SubscriptionScreen() {
                     pressed && { opacity: 0.9 },
                   ]}
                   accessibilityRole="button"
-                  accessibilityLabel={`${plan.name} plan, ${plan.price_usd} USD`}
+                  accessibilityLabel={`${plan.name} plan, ${formatPlanPrice(plan, currency)} for ${formatPlanDuration(plan.duration_days)}`}
                 >
                   {plan.popular && (
                     <View style={styles.popularBadge}>
@@ -141,7 +141,8 @@ export default function SubscriptionScreen() {
                     <Text style={styles.planName}>{plan.name}</Text>
                     {isCurrent && <Badge label="Current" tone="muted" size="sm" />}
                   </View>
-                  <Text style={styles.planPrice}>UGX {plan.price_ugx.toLocaleString()}</Text>
+                  <Text style={styles.planPrice}>{formatPlanPrice(plan, currency)}</Text>
+                  <Text style={styles.planPriceUgx}>per {formatPlanDuration(plan.duration_days)}</Text>
                   <View style={styles.planBenefits}>
                     {plan.benefits.map((benefit) => (
                       <View key={benefit} style={styles.benefitRow}>

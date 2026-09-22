@@ -24,6 +24,7 @@ from routers import (
     boosts_router,
     exports_router,
     forex_router,
+    jobs_router,
     leases_router,
     maintenance_requests_router,
     managers_router,

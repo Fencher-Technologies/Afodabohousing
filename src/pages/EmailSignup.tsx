@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Mail, Check, User } from 'lucide-react';
 import logoImg from '@/assets/axis-lockup.png';
 import heroBg from '@/assets/hero-bg.jpg';
+import { savePasswordCredential } from '@/lib/save-credentials';
 
 interface SignupFormData {
   email: string;
@@ -57,6 +58,7 @@ export default function EmailSignup() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Signup failed');
       toast({ title: 'Account created', description: 'You can now sign in', variant: 'default' });
+      await savePasswordCredential(form.email, form.password, form.full_name);
       navigate('/login');
     } catch (e: any) {
       const msg = e.message || 'Signup failed';
@@ -89,6 +91,8 @@ export default function EmailSignup() {
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
+                  name="name"
+                  autoComplete="name"
                   value={form.full_name}
                   onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
                   placeholder="Your full name"
@@ -102,6 +106,8 @@ export default function EmailSignup() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="email"
+                  name="email"
+                  autoComplete="username"
                   value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                   placeholder="you@email.com"
@@ -114,6 +120,8 @@ export default function EmailSignup() {
               <Label>Password</Label>
               <div className="relative mt-1.5">
                 <PasswordInput
+                  name="new-password"
+                  autoComplete="new-password"
                   value={form.password}
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                   placeholder="••••••••"

@@ -131,7 +131,6 @@ export default function ManagerAccountScreen() {
             <ActionRow icon={<Lock size={20} color={Colors.textSecondary} />} label="Change Password" onPress={() => router.push("/change-password")} />
             {/* PHONE-AUTH HIDDEN: "Change PIN" (phone sign-in PIN) removed. Kept for restore.
             <Divider />
-            <ActionRow icon={<Lock size={20} color={Colors.textSecondary} />} label="Change PIN" onPress={() => router.push("/change-pin")} />
             */}
           </Card>
         </View>

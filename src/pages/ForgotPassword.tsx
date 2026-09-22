@@ -9,7 +9,9 @@ import logoImg from '@/assets/axis-lockup.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Mail, ArrowLeft } from 'lucide-react';
 
-const SITE_URL = import.meta.env.VITE_SITE_URL || window.location.origin;
+// Always the site the user is on: a build-time VITE_SITE_URL kept sending
+// reset links to the old domain after the move to axishousings.com.
+const SITE_URL = window.location.origin;
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
