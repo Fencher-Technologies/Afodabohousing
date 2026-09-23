@@ -212,3 +212,15 @@
   Support, and the Organization schema). The earlier +256 201 004 789 is not on WhatsApp.
 - The live site answers at www.axishousings.com (the bare address redirects there), so canonical
   URLs, share links, reset links, sitemap and email links now use the www form.
+
+# Vercel deployment failure (functions removed)
+- Deployments were failing (GitHub deployment status "failure" at 21:18 on 22 Sep), so the old build
+  stayed live and none of the web changes appeared. The repo itself builds cleanly: `npm install`
+  plus `npm run build` succeed on a fresh clone of main.
+- The only build surface that exists on Vercel but not locally is `api/`, so those two functions have
+  been parked in `docs/vercel-functions/` and `vercel.json` is back to its original contents.
+- sitemap.xml is now written during the build by `scripts/generate-sitemap.mjs` (wired into the
+  build script). It never fails the build: without database credentials it writes the static pages only.
+- Lost for now: per-property WhatsApp/Facebook preview cards. Shared links show the generic Axis card.
+  To restore, move `docs/vercel-functions/preview.js.txt` to `api/preview.js` and re-add the crawler
+  rewrite, once someone can read the deployment log.
