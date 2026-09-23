@@ -7,7 +7,7 @@ import { PasswordInput } from '@/components/ui/password-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, Check, User } from 'lucide-react';
-import logoImg from '@/assets/axis-lockup.png';
+import logoImg from '@/assets/axis-logo-official.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { savePasswordCredential } from '@/lib/save-credentials';
 import { PhoneInput } from '@/components/ui/phone-input';

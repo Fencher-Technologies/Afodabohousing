@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Home, MapPin, DollarSign, Image, Upload, X, AlertTrian
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { CURRENCIES } from '@/utils/currencies';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -161,7 +162,12 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
     CURRENCY_MAP[form.country] || 'UGX',
     form.rent_currency,
     'UGX', 'USD', 'KES', 'TZS', 'RWF', 'EUR', 'GBP', 'ZAR',
+    ...CURRENCIES.map(c => c.code),
   ].filter(Boolean)));
+  const currencyLabel = (code: string) => {
+    const match = CURRENCIES.find(c => c.code === code);
+    return match ? `${code} - ${match.name}` : code;
+  };
 
   const handleCountryChange = (iso: string) => {
     const currency = CURRENCY_MAP[iso] || 'UGX';
@@ -311,7 +317,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
         <div>
           <p className="text-sm font-semibold mb-2">Rent Currency</p>
           <SearchableSelect
-            options={currencyChoices.map(c => ({ value: c, label: c }))}
+            options={currencyChoices.map(c => ({ value: c, label: currencyLabel(c) }))}
             value={form.rent_currency}
             onValueChange={v => { setForm(f => ({ ...f, rent_currency: v })); onCurrencyChange?.(v); }}
             placeholder="Select currency..."

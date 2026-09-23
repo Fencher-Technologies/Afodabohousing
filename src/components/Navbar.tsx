@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import logoImg from '@/assets/axis-lockup.png';
+import logoImg from '@/assets/axis-logo-official.png';
 import {
   LogOut, LayoutDashboard, Menu, X, Shield, ChevronDown,
   Home, MapPin, Building2, Users, Info, Phone, FileText, Lock
@@ -59,7 +59,7 @@ export default function Navbar() {
 
         {/* Logo */}
         <Link to="/" className="flex items-center shrink-0">
-            <img src={logoImg} alt="Axis Housing" className="h-11 w-auto" />
+            <img src={logoImg} alt="Axis Housing" className="h-12 sm:h-14 w-auto" />
         </Link>
 
         {/* Desktop Nav */}

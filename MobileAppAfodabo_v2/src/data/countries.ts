@@ -1,3 +1,5 @@
+import { CURRENCIES } from "@/src/utils/currencies";
+
 /**
  * Worldwide country reference data (ISO 3166-1 alpha-2) with each country's
  * primary currency (ISO 4217). Bundled locally so the country picker works
@@ -235,15 +237,18 @@ const COMMON_CURRENCIES = ["UGX", "USD", "EUR", "GBP", "KES", "TZS", "RWF", "ZAR
 export function currencyOptions(iso2: string): { label: string; value: string }[] {
   const local = currencyForCountry(iso2);
   const seen = new Set<string>();
-  const ordered: string[] = [];
-  for (const code of [local, ...COMMON_CURRENCIES]) {
-    if (!seen.has(code)) {
+  const ordered: { code: string; name?: string }[] = [];
+  // The country's own currency first, then the ones seen most often here,
+  // then every other currency we know, so a property anywhere can be priced
+  // in its own money.
+  for (const code of [local, ...COMMON_CURRENCIES, ...CURRENCIES.map((c) => c.code)]) {
+    if (code && !seen.has(code)) {
       seen.add(code);
-      ordered.push(code);
+      ordered.push({ code, name: CURRENCIES.find((c) => c.code === code)?.name });
     }
   }
-  return ordered.map((code) => ({
-    label: code,
+  return ordered.map(({ code, name }) => ({
+    label: name ? `${code} - ${name}` : code,
     value: code,
   }));
 }

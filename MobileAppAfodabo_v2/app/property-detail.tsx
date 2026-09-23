@@ -28,7 +28,7 @@ import {
   Bookmark,
   Check,
   Calendar,
-  Car,
+  Sofa,
   Star,
   Sparkles,
   ChevronLeft,
@@ -130,7 +130,6 @@ export default function PropertyDetailScreen() {
   const hasImage = property.images.length > 0;
   const phone = property.manager_phone || "";
   const email = property.manager_email || "";
-  const hasParking = property.amenities.includes("parking" as any);
 
   const handleInquiry = () => {
     // The API strips manager contacts for anonymous visitors, so an empty
@@ -425,25 +424,17 @@ export default function PropertyDetailScreen() {
 
       {/* Badges — now sit just below the image, outside the image container */}
       <View style={styles.imageBadgesRow}>
-        <Badge
-          label={formatPropertyType(property.type)}
-          tone="primary"
-          size="md"
-        />
+        {property.is_boosted && <Badge label="★ Boosted" tone="gold" size="md" />}
+        <Badge label={formatPropertyType(property.type)} tone="primary" size="md" />
         <Badge
           label={
-            property.occupancy_status === "occupied" ? "Occupied" : "Available"
+            property.occupancy_status === "occupied" ? "Occupied" : "Available Now"
           }
-          tone={
-            property.occupancy_status === "occupied" ? "warning" : "success"
-          }
+          tone={property.occupancy_status === "occupied" ? "warning" : "success"}
           size="md"
         />
         {property.status !== "active" && (
           <Badge label="Inactive" tone="muted" size="md" />
-        )}
-        {property.is_boosted && (
-          <Badge label="★ Boosted" tone="gold" size="md" />
         )}
       </View>
 
@@ -504,21 +495,21 @@ export default function PropertyDetailScreen() {
               <View style={styles.quickDetailItem}>
                 <BedDouble size={20} color={Colors.primary} />
                 <Text style={styles.quickDetailValue}>{property.beds}</Text>
-                <Text style={styles.quickDetailLabel}>Beds</Text>
+                <Text style={styles.quickDetailLabel}>Bedrooms</Text>
               </View>
             )}
             {property.baths > 0 && (
               <View style={styles.quickDetailItem}>
                 <Bath size={20} color={Colors.primary} />
                 <Text style={styles.quickDetailValue}>{property.baths}</Text>
-                <Text style={styles.quickDetailLabel}>Baths</Text>
+                <Text style={styles.quickDetailLabel}>Bathrooms</Text>
               </View>
             )}
-            {hasParking && (
+            {(property.sitting_rooms ?? 0) > 0 && (
               <View style={styles.quickDetailItem}>
-                <Car size={20} color={Colors.primary} />
-                <Text style={styles.quickDetailValue}>Yes</Text>
-                <Text style={styles.quickDetailLabel}>Parking</Text>
+                <Sofa size={20} color={Colors.primary} />
+                <Text style={styles.quickDetailValue}>{property.sitting_rooms}</Text>
+                <Text style={styles.quickDetailLabel}>Sitting Rooms</Text>
               </View>
             )}
             {/* Floor area removed: rarely captured accurately for Ugandan
@@ -674,14 +665,7 @@ export default function PropertyDetailScreen() {
                     </View>
                   )}
                 </Pressable>
-              ) : (
-                <View style={styles.contactUnavailable}>
-                  <Phone size={16} color={Colors.textMuted} />
-                  <Text style={styles.contactUnavailableText}>
-                    Phone not provided
-                  </Text>
-                </View>
-              )}
+              ) : null}
               {email ? (
                 <Pressable onPress={handleEmail} accessibilityRole="button">
                   {({ pressed }) => (
@@ -706,14 +690,7 @@ export default function PropertyDetailScreen() {
                     </View>
                   )}
                 </Pressable>
-              ) : (
-                <View style={styles.contactUnavailable}>
-                  <Mail size={16} color={Colors.textMuted} />
-                  <Text style={styles.contactUnavailableText}>
-                    Email not provided
-                  </Text>
-                </View>
-              )}
+              ) : null}
             </View>
           </Card>
         </View>

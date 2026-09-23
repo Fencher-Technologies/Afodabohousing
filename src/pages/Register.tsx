@@ -5,7 +5,7 @@ import { PasswordInput } from '@/components/ui/password-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import logoImg from '@/assets/axis-lockup.png';
+import logoImg from '@/assets/axis-logo-official.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Mail, Smartphone, ArrowRight, MessageSquare, KeyRound, User, Check } from 'lucide-react';
 import { PhoneInput } from '@/components/ui/phone-input';

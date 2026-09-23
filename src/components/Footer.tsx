@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import logoImg from '@/assets/axis-lockup-white.png';
+import logoImg from '@/assets/axis-logo-official.png';
 import { Mail, Phone, MapPin, MessageCircle, Facebook, Twitter, Instagram, Youtube, Smartphone, Apple } from 'lucide-react';
 
 const APP_LINKS = {
@@ -51,7 +51,9 @@ export default function Footer() {
           {/* Brand column */}
           <div className="lg:col-span-2">
             <ScrollLink to="/" className="inline-block mb-5">
-              <img src={logoImg} alt="Axis Housing" className="h-16 w-auto" />
+              <span className="inline-flex items-center rounded-xl bg-white px-4 py-3 shadow-sm">
+                <img src={logoImg} alt="Axis Housing" className="h-14 w-auto" />
+              </span>
             </ScrollLink>
             <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6 max-w-xs">
               Connecting tenants with verified house managers worldwide. Find your perfect home, generate agreements, and manage rent in one platform.

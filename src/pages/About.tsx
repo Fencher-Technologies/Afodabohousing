@@ -3,7 +3,7 @@ import Footer from '@/components/Footer';
 import PageHero from '@/components/PageHero';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import logoImg from '@/assets/axis-lockup.png';
+import logoImg from '@/assets/axis-logo-official.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import property1 from '@/assets/property-1.jpg';
 import { Shield, Users, MapPin, Star, Award, Building2, HeartHandshake } from 'lucide-react';

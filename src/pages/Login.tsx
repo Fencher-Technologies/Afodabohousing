@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
 import { useToast } from '@/hooks/use-toast';
-import logoImg from '@/assets/axis-lockup.png';
+import logoImg from '@/assets/axis-logo-official.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Mail, Lock, ArrowRight, Smartphone, MessageSquare, KeyRound } from 'lucide-react';
 import { savePasswordCredential } from '@/lib/save-credentials';

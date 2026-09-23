@@ -1,39 +1,37 @@
 import { Image, ImageStyle } from "expo-image";
 import React from "react";
-import { StyleProp } from "react-native";
+import { StyleProp, StyleSheet, View } from "react-native";
 
-// Single logo implementation for the whole app. Every header renders the
-// brand through this component so sizing, caching and accessibility stay
-// consistent. The logo is decorative: the brand is already announced by
-// screen titles and header text, so it is hidden from screen readers.
+/**
+ * The Axis logo, used by every header in the app.
+ *
+ * The artwork is the client's logo exactly as supplied, never recoloured or
+ * rearranged. On dark or brand-coloured surfaces it sits on a white panel so
+ * it stays legible, which is how the client asked for it to be handled.
+ */
 
-// The lockup artwork is 1524x484, i.e. 3.149:1. These boxes match that ratio
-// exactly — the previous values (96x30 = 3.20, 124x38 = 3.26) were slightly
-// wide, so contentFit="contain" letterboxed the logo and it sat smaller than
-// its box with uneven padding. `md` is now 44px tall to match the web
-// navbar's h-11, so the brand reads at the same size on both platforms.
+// The supplied logo is 1200x780, i.e. 1.538:1. These boxes keep that ratio so
+// nothing is letterboxed or stretched.
 const SIZES = {
-  sm: { width: 107, height: 34 },
-  md: { width: 139, height: 44 },
+  sm: { width: 52, height: 34 },
+  md: { width: 68, height: 44 },
+  lg: { width: 105, height: 68 },
 } as const;
 
-const SOURCES = {
-  dark: require("@/assets/images/axis-logo.png"),
-  light: require("@/assets/images/axis-logo-white.png"),
-} as const;
+const LOGO = require("@/assets/images/axis-logo.png");
 
 type Props = {
   size?: keyof typeof SIZES;
   /** "dark" (default) for light backgrounds, "light" for dark/brand headers. */
-  tone?: keyof typeof SOURCES;
+  tone?: "dark" | "light";
   style?: StyleProp<ImageStyle>;
 };
 
 export function BrandMark({ size = "md", tone = "dark", style }: Props) {
   const dims = SIZES[size];
-  return (
+  const logo = (
     <Image
-      source={SOURCES[tone]}
+      source={LOGO}
       style={[{ width: dims.width, height: dims.height }, style]}
       contentFit="contain"
       cachePolicy="memory-disk"
@@ -42,4 +40,19 @@ export function BrandMark({ size = "md", tone = "dark", style }: Props) {
       importantForAccessibility="no"
     />
   );
+
+  if (tone === "light") {
+    return <View style={styles.panel}>{logo}</View>;
+  }
+  return logo;
 }
+
+const styles = StyleSheet.create({
+  panel: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: "flex-start",
+  },
+});

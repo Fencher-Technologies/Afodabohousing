@@ -259,3 +259,37 @@
   plus a soft shadow, reaching roughly 4:1 over the scrim.
 - Hero accent eased from #F2564F to #E8423C (closer to brand red, still 3.5:1 over the scrim), and the
   gap between the menu and the overline reduced (pt-40 -> pt-24/28, overline margin mb-6 -> mb-4).
+
+# Android build workflow
+- `.github/workflows/expo-build.yml`: the `android-actions/setup-android@v3` step began failing after
+  GitHub updated the runner image. Replaced with a step that points at the Android SDK already
+  installed on the runner (falling back through ANDROID_SDK_ROOT, ANDROID_HOME and the standard path),
+  so the build no longer depends on that action.
+- Gradle memory raised (-Xmx4g, daemon off) because push notifications pull in Firebase.
+
+# Web/mobile property page parity, round 2
+- Mobile hid nothing when a manager had no phone or email: it announced "Phone not provided" to
+  visitors. Those rows are now hidden, as on the web.
+- The quick stats row showed "Yes / Parking" where the web shows Sitting Rooms. Mobile now shows the
+  same three figures with the same labels (Bedrooms, Bathrooms, Sitting Rooms); parking stays in
+  Amenities, where the web lists it.
+- Badges now match the web in order and wording: Boosted first, then the property type, then
+  "Available Now"/"Occupied", then Inactive.
+- Currency choice when listing a property was a fixed list of eight on both apps. Both now offer every
+  currency in `utils/currencies.ts`, with the country's own first, shown as "KES - Kenyan Shilling".
+
+# Logo
+- The client's logo is used exactly as supplied (no recolouring, no rearranging, no white knocked out).
+  Source: the stacked Axis / house / "Housing Made Easy" artwork; only the flat white margin around it
+  was trimmed so it sits correctly in layouts.
+- Web: `src/assets/axis-logo-official.png` replaces the old wide lockup in the navbar, footer, login,
+  sign-up, register, accept-invite, forgot-password and About pages. The footer sits on the dark brand
+  colour, so the logo is shown on a white rounded panel.
+- Web assets regenerated from it: `public/axis-logo.png` (email header), `public/favicon.png`,
+  `public/favicon.ico` (16-256px), `public/og-image.png` (share card, logo on white).
+- Mobile: `axis-icon.png` (app icon), `axis-adaptive.png` (Android, with safe-zone padding),
+  `axis-favicon.png`, both splash images, and the BrandMark artwork. `BrandMark` now renders the one
+  logo everywhere and puts a white panel behind it on dark headers instead of using a recoloured copy.
+- Exception, unavoidable: the Android *notification* icon must be a flat white silhouette; Android
+  renders it as a mask, so a full-colour logo would appear as a grey square. It stays as the white
+  house mark from the same logo.
