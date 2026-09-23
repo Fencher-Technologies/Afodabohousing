@@ -314,7 +314,7 @@ export default function HomePage() {
           fetchPriority="high"
           className="absolute inset-0 w-full h-full object-cover duotone-img"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0D1322]/85 via-[#131B2E]/55 to-[#090E1A]/35" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0D1322]/92 via-[#131B2E]/68 to-[#090E1A]/48" />
 
         <div className="relative z-10 w-full max-w-6xl mx-auto px-5 sm:px-8 pb-14 pt-40">
           <Reveal>

@@ -274,8 +274,8 @@
     background: hsl(var(--primary));
   }
   .duotone-img {
-    filter: grayscale(6%) contrast(1.03) brightness(1);
-    opacity: 0.96;
+    filter: grayscale(12%) contrast(1.05) brightness(0.96);
+    opacity: 0.92;
   }
 
   /* Hairline rules for editorial rhythm */
@@ -357,9 +357,9 @@
     inset: 0;
     background: linear-gradient(
       180deg,
-      hsl(206 13% 7% / 0.5) 0%,
-      hsl(222 45% 10% / 0.4) 45%,
-      hsl(222 55% 6% / 0.72) 100%
+      hsl(206 13% 7% / 0.62) 0%,
+      hsl(222 45% 10% / 0.53) 45%,
+      hsl(222 55% 6% / 0.83) 100%
     );
     pointer-events: none;
   }
