@@ -249,3 +249,11 @@
 - `.page-hero-shade` (About, Contact, Properties, Terms, Privacy, Explore) lightened: 0.74/0.66/0.94
   down to 0.50/0.40/0.72.
 - Home page hero gradient lightened: 100/80/60 down to 85/55/35.
+
+# Hero headline legibility
+- The red italic line sits on a bright sunset sky: measured 1.9:1 contrast, where large text needs
+  3:1. Darkening the whole photo was the old workaround, and it made the image dull.
+- `src/pages/Index.tsx`: a reading scrim behind the copy only (dark on the left, gone by the middle),
+  so the building stays bright. Top-to-bottom gradient eased to 92/55/30.
+- `.hero-accent` in `src/index.css`: the italic line uses a brighter tint of the brand red (#F2564F)
+  plus a soft shadow, reaching roughly 4:1 over the scrim.

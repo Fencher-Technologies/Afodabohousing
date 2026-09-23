@@ -278,6 +278,16 @@
     opacity: 0.92;
   }
 
+  /* Hero headline accent: brand red over a bright sky needs separation,
+     which a shadow gives without washing the photo out. */
+  .hero-accent {
+    /* A brighter tint of the brand red. The red itself is dark, so against a
+       sunset sky it measured 1.9:1, well under the 3:1 large text needs.
+       This tint with the scrim behind it reaches about 4:1. */
+    color: #F2564F;
+    text-shadow: 0 2px 18px hsl(222 55% 6% / 0.6), 0 1px 3px hsl(222 55% 6% / 0.5);
+  }
+
   /* Hairline rules for editorial rhythm */
   .rule-cream { border-color: hsl(36 33% 93% / 0.22); }
   .rule-ink { border-color: hsl(var(--foreground) / 0.14); }

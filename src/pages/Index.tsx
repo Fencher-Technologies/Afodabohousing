@@ -314,7 +314,9 @@ export default function HomePage() {
           fetchPriority="high"
           className="absolute inset-0 w-full h-full object-cover duotone-img"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0D1322]/92 via-[#131B2E]/68 to-[#090E1A]/48" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0D1322]/92 via-[#131B2E]/55 to-[#090E1A]/30" />
+        {/* Reading scrim: strongest on the left, gone by the middle. */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0D1322]/85 via-[#0D1322]/50 to-transparent" />
 
         <div className="relative z-10 w-full max-w-6xl mx-auto px-5 sm:px-8 pb-14 pt-40">
           <Reveal>
@@ -326,7 +328,7 @@ export default function HomePage() {
           <Reveal delay={0.08}>
             <h1 className="font-display text-cream text-[13.5vw] sm:text-7xl lg:text-[92px] leading-[0.98] tracking-tight text-balance max-w-4xl">
               Find a home that<br className="hidden sm:block" />
-              <span className="italic text-gold"> fits your life.</span>
+              <span className="italic text-gold hero-accent"> fits your life.</span>
             </h1>
           </Reveal>
           <Reveal delay={0.16}>
