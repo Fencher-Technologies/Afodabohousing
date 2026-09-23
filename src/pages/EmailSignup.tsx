@@ -10,11 +10,14 @@ import { Mail, Check, User } from 'lucide-react';
 import logoImg from '@/assets/axis-lockup.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { savePasswordCredential } from '@/lib/save-credentials';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 interface SignupFormData {
   email: string;
   password: string;
   full_name: string;
+  /** Full international number, e.g. "+256752738927". */
+  phone: string;
   role: 'tenant' | 'house_manager';
 }
 
@@ -25,6 +28,7 @@ export default function EmailSignup() {
     email: '',
     password: '',
     full_name: '',
+    phone: '',
     role: 'tenant',
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -34,13 +38,20 @@ export default function EmailSignup() {
   const { toast } = useToast();
 
   useEffect(() => {
-    setForm({ email: '', password: '', full_name: '', role: 'tenant' });
+    setForm({ email: '', password: '', full_name: '', phone: '', role: 'tenant' });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.email || !form.password || !form.role) {
       setError('All fields are required');
+      return;
+    }
+    // The backend stores the number and managers are reached on it, so ask
+    // for a usable one rather than a country code on its own.
+    const localDigits = form.phone.replace(/^\+\d{1,4}/, '').replace(/\D/g, '');
+    if (localDigits.length < 6) {
+      setError('Enter your phone number, including the country from the list');
       return;
     }
     if (!acceptedTerms) {
@@ -112,6 +123,16 @@ export default function EmailSignup() {
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                   placeholder="you@email.com"
                   className="pl-9"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <div className="mt-1.5">
+                <PhoneInput
+                  value={form.phone}
+                  onChange={v => setForm(f => ({ ...f, phone: v }))}
                   required
                 />
               </div>

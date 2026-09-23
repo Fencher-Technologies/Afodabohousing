@@ -16,7 +16,7 @@ import { formatCurrency } from '@/utils/currency';
 import { format } from 'date-fns';
 import {
   MapPin, Bed, Bath, Home, Phone, Mail, ChevronLeft, ChevronRight,
-  Wifi, Car, Zap, Droplets, Shield, Send, MessageSquare, Share2,
+  Wifi, Car, Zap, Droplets, Shield, Send, MessageSquare, MessageCircle, Share2,
   Heart, CheckCircle, TreePine, Tv, Waves, Navigation, Sofa,
   ChefHat, ExternalLink, Building2, Sparkles
 } from 'lucide-react';
@@ -26,6 +26,7 @@ import prop2 from '@/assets/property-2.jpg';
 import prop3 from '@/assets/property-3.jpg';
 import { propertyShareText, propertyUrl, type ShareableProperty } from '@/utils/shareProperty';
 import { propertyJsonLd, useSeo } from '@/lib/seo';
+import { addBookmark, checkBookmark, removeBookmark } from '@/services/bookmarks';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -92,6 +93,7 @@ export default function PropertyDetailPage() {
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savingBookmark, setSavingBookmark] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [regionName, setRegionName] = useState<string>('');
   const { user } = useAuth();
@@ -140,6 +142,31 @@ export default function PropertyDetailPage() {
     setMessageOpen(false);
   };
 
+  useEffect(() => {
+    if (!user || !id) { setSaved(false); return; }
+    checkBookmark(id).then(r => setSaved(!!r.bookmarked)).catch(() => {});
+  }, [user, id]);
+
+  const handleToggleSave = async () => {
+    if (!user) {
+      toast({ title: 'Sign in to save', description: 'Saved properties are kept on your account.' });
+      navigate('/login');
+      return;
+    }
+    if (!id || savingBookmark) return;
+    const next = !saved;
+    setSaved(next);              // respond at once
+    setSavingBookmark(true);
+    try {
+      if (next) await addBookmark(id); else await removeBookmark(id);
+    } catch {
+      setSaved(!next);           // put it back if the save failed
+      toast({ title: 'Could not save', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSavingBookmark(false);
+    }
+  };
+
   const handleShare = async () => {
     // Always the public listing link, never an internal path, and the
     // details alongside it so the message reads well in WhatsApp.
@@ -185,6 +212,9 @@ export default function PropertyDetailPage() {
   // Each listing gets its own title, description and schema.org data, so it
   // can rank on its own rather than sharing the site's generic tags.
   const listingPlace = [property?.address, property?.city].filter(Boolean).join(', ');
+  const periodLabelForSeo =
+    { monthly: 'per month', quarterly: 'per quarter', annually: 'per year' }[property?.rent_period ?? 'monthly'] ||
+    'per month';
   useSeo({
     title: property
       ? `${property.title} for rent${listingPlace ? ` in ${listingPlace}` : ''}`
@@ -194,11 +224,13 @@ export default function PropertyDetailPage() {
           property.bedrooms ? `${property.bedrooms} bedroom, ` : ''
         }${property.bathrooms ? `${property.bathrooms} bathroom, ` : ''}${
           property.rent_currency || 'UGX'
-        } ${Number(property.monthly_rent || 0).toLocaleString()} per month on Axis Housing.`
+        } ${Number(property.rent_amount || 0).toLocaleString()} ${periodLabelForSeo} on Axis Housing.`
       : undefined,
     path: `/properties/${id}`,
     image: Array.isArray(property?.images) && property.images.length ? (property.images[0] as string) : undefined,
-    jsonLd: property ? propertyJsonLd({ ...property, id: String(property.id) }) : undefined,
+    jsonLd: property
+      ? propertyJsonLd({ ...property, id: String(property.id), monthly_rent: Number(property.rent_amount || 0) })
+      : undefined,
   });
 
   if (loading) {
@@ -321,9 +353,10 @@ export default function PropertyDetailPage() {
               <Share2 className="h-4 w-4 text-foreground" />
             </button>
             <button
-              onClick={() => setSaved(!saved)}
+              onClick={handleToggleSave}
               className={`bg-card p-2.5 rounded-full hover:bg-card transition-all shadow ${saved ? 'text-accent' : 'text-foreground'}`}
-              aria-label="Save"
+              aria-label={saved ? 'Remove from saved' : 'Save property'}
+              title={saved ? 'Remove from saved' : 'Save property'}
             >
               <Heart className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />
             </button>
@@ -587,6 +620,22 @@ export default function PropertyDetailPage() {
                       <Button className="w-full gradient-primary text-primary-foreground gap-2 h-11">
                         <Phone className="h-4 w-4" />
                         Call: {property.manager_phone}
+                      </Button>
+                    </a>
+                  )}
+
+                  {property.manager_phone && (
+                    <a
+                      href={`https://wa.me/${String(property.manager_phone).replace(/\D/g, '')}?text=${encodeURIComponent(
+                        `Hello, I am interested in ${property.title} listed on Axis Housing: ${propertyUrl(String(property.id), window.location.origin)}`,
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full"
+                    >
+                      <Button variant="outline" className="w-full gap-2 h-11 border-[#25D366] text-[#128C7E] hover:bg-[#25D366]/10">
+                        <MessageCircle className="h-4 w-4" />
+                        WhatsApp the manager
                       </Button>
                     </a>
                   )}

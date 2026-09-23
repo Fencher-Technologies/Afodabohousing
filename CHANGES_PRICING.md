@@ -224,3 +224,20 @@
 - Lost for now: per-property WhatsApp/Facebook preview cards. Shared links show the generic Axis card.
   To restore, move `docs/vercel-functions/preview.js.txt` to `api/preview.js` and re-add the crawler
   rewrite, once someone can read the deployment log.
+
+# Phone number on web sign-up
+- `/signup` is served by `src/pages/EmailSignup.tsx`, which never asked for a phone number, while the
+  mobile app did. It now has the same country-picker phone field, required, sent to the backend
+  (which already accepted and stored `phone` on signup).
+- `src/pages/Register.tsx` is dead code: `/register` redirects to `/signup`.
+
+# Hero overlay + web property page parity
+- `src/index.css`: hero wash lightened again (0.72/0.40 -> 0.58/0.28).
+- `src/pages/PropertyDetail.tsx`:
+  * The save (heart) button only changed local state, so saving was forgotten on refresh. It now uses
+    the same bookmarks API as the mobile app, updates instantly and rolls back if the save fails.
+    Signed-out visitors are sent to sign in.
+  * Added a "WhatsApp the manager" button with the listing name and link prefilled, as on mobile.
+  * The page reads `rent_amount`, but the SEO description and listing schema were reading
+    `monthly_rent`, so the price was missing from both. Fixed, including the rent period.
+- `src/utils/shareProperty.ts`: accepts `rent_amount` as well, so shared messages include the price.

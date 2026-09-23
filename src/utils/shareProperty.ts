@@ -9,6 +9,8 @@ const SITE_URL = 'https://www.axishousings.com';
 export type ShareableProperty = {
   id: string;
   title?: string | null;
+  /** Web uses rent_amount, the preview function uses monthly_rent. */
+  rent_amount?: number | string | null;
   monthly_rent?: number | string | null;
   rent_currency?: string | null;
   address?: string | null;
@@ -23,8 +25,9 @@ export function propertyUrl(id: string, origin?: string): string {
 }
 
 export function propertyShareText(p: ShareableProperty, url: string): string {
-  const rent = p.monthly_rent
-    ? `${p.rent_currency || 'UGX'} ${Number(p.monthly_rent).toLocaleString()}/month`
+  const amount = p.rent_amount ?? p.monthly_rent;
+  const rent = amount
+    ? `${p.rent_currency || 'UGX'} ${Number(amount).toLocaleString()}/month`
     : null;
   const place = [p.address, p.city].filter(Boolean).join(', ');
   const rooms = [
