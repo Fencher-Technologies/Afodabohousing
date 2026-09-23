@@ -301,3 +301,22 @@
 - Spacing fixed: the navbar was 64px tall with a 56px logo, so the mark was wedged against the edges
   and the tagline was unreadable. The bar is now 96px with a 64px logo. Auth pages use h-16 with a
   little space beneath, and the footer's white panel has more padding.
+
+# Mobile browser fixes
+- WhatsApp button sat too low, partly under the phone's browser bar and gesture area, and shared the
+  bottom-right corner with MobileAppBanner. It now sits above the safe area
+  (`calc(1.5rem + env(safe-area-inset-bottom))`) and the app banner moved up so the two do not collide.
+- The page could be dragged sideways (reads as the layout shifting while scrolling): `overflow-x: hidden`
+  on html and body.
+- Navbar is 80px on phones and 96px from sm up, with the logo scaling to match, so the header no longer
+  takes a large share of a phone screen.
+
+# Map preview on the property page (web)
+- The Location card showed an empty grey box: `getOSMTileEmbed` built the OpenStreetMap embed URL
+  from a place-name query, but that embed needs a numeric bbox and marker. All 21 properties do have
+  coordinates, and the API returns them; the page's own Property type just never declared them.
+- The card now renders the real map with the property marked, roughly 1.5km across, with the address
+  over the bottom edge. Properties without coordinates keep the old placeholder.
+- "Get Directions" now routes to the exact coordinates rather than a name search.
+- Mobile still opens the phone's map app on tap rather than showing a preview; parity there needs a
+  WebView or a maps library, which is a bigger change.

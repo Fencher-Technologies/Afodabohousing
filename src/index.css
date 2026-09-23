@@ -125,8 +125,16 @@
   * {
     @apply border-border;
   }
+  html {
+    /* Stops the page sliding sideways when one element is a little too wide,
+       which reads as the layout shifting while you scroll. */
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+    width: 100%;
     font-family: 'Karla', system-ui, sans-serif;
     font-weight: 400;
     background-image: var(--noise-svg);

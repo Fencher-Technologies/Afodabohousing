@@ -19,6 +19,8 @@ export default function WhatsAppButton() {
   const message = encodeURIComponent('Hello Axis Housing, I would like to ask about');
   const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
 
+  // The inline bottom value clears the phone's home bar and browser chrome;
+  // Tailwind cannot express env(safe-area-inset-bottom) in a class.
   return (
     <a
       href={href}
@@ -26,7 +28,8 @@ export default function WhatsAppButton() {
       rel="noopener noreferrer"
       aria-label="Chat with Axis Housing on WhatsApp"
       title="Chat with us on WhatsApp"
-      className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 md:h-16 md:w-16"
+      style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+      className="fixed right-4 sm:right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 md:h-16 md:w-16"
     >
       {/* Inline mark: no extra request, and it stays crisp at any size. */}
       <svg viewBox="0 0 32 32" className="h-7 w-7 md:h-8 md:w-8" fill="currentColor" aria-hidden="true">

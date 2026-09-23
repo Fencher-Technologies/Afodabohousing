@@ -38,6 +38,7 @@ interface Property {
   amenities: string[] | null; address: string | null; created_at: string;
   security_deposit: number | null;
   manager_phone: string | null; manager_email: string | null; owner_id: string | null;
+  latitude: number | null; longitude: number | null;
   rent_currency: string | null; country: string | null;
 }
 
@@ -205,9 +206,21 @@ export default function PropertyDetailPage() {
   };
 
   const getOSMTileEmbed = (p: Property) => {
-    const location = encodeURIComponent(buildOSMQuery(p));
-    return `https://www.openstreetmap.org/export/embed.html?layer=mapnik&marker=${encodeURIComponent(location)}`;
+    if (p.latitude == null || p.longitude == null) return null;
+    // A window of roughly 1.5km around the property: close enough to place
+    // it on its street, wide enough to show the neighbourhood.
+    const d = 0.012;
+    const bbox = [p.longitude - d, p.latitude - d, p.longitude + d, p.latitude + d]
+      .map(v => v.toFixed(6))
+      .join(',');
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${p.latitude},${p.longitude}`;
   };
+
+  /** Directions straight to the coordinates when we have them. */
+  const getDirectionsUrl = (p: Property) =>
+    p.latitude != null && p.longitude != null
+      ? `https://www.openstreetmap.org/directions?to=${p.latitude},${p.longitude}`
+      : getOSMDirectionsUrl(p);
 
   // Each listing gets its own title, description and schema.org data, so it
   // can rank on its own rather than sharing the site's generic tags.
@@ -574,13 +587,28 @@ export default function PropertyDetailPage() {
             <div>
               <h2 className="font-display font-bold text-xl mb-4">Location</h2>
               <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-                <div className="h-40 bg-secondary flex flex-col items-center justify-center gap-3">
-                  <MapPin className="h-10 w-10 text-accent opacity-40" />
-                  <div className="text-center">
-                    <p className="font-semibold text-foreground text-sm">{fullLocation || `${property.state || property.city || ''}`}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Open a map app below to find exact location</p>
+                {getOSMTileEmbed(property) ? (
+                  <div className="relative">
+                    <iframe
+                      title={`Map showing ${property.title}`}
+                      src={getOSMTileEmbed(property) as string}
+                      className="w-full h-64 sm:h-80 border-0"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 bg-card/90 px-3 py-1.5 text-xs text-muted-foreground">
+                      {fullLocation || property.state || property.city || 'Map data from OpenStreetMap'}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="h-40 bg-secondary flex flex-col items-center justify-center gap-3">
+                    <MapPin className="h-10 w-10 text-accent opacity-40" />
+                    <div className="text-center">
+                      <p className="font-semibold text-foreground text-sm">{fullLocation || `${property.state || property.city || ''}`}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Open a map app below to find exact location</p>
+                    </div>
+                  </div>
+                )}
                 <div className="p-4 flex flex-wrap gap-4 border-t border-border bg-secondary/30">
                   <a
                     href={getOSMSearchUrl(property)}
@@ -592,7 +620,7 @@ export default function PropertyDetailPage() {
                     Search on OpenStreetMap
                   </a>
                   <a
-                    href={getOSMDirectionsUrl(property)}
+                    href={getDirectionsUrl(property)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-sm text-accent font-semibold hover:underline"

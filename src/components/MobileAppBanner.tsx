@@ -23,7 +23,7 @@ export default function MobileAppBanner() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card shadow-lg">
+    <div className="fixed bottom-28 right-4 z-40 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card shadow-lg">
       <div className="flex items-center gap-3 px-4 pt-3">
         <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
           <Smartphone className="h-5 w-5 text-primary-foreground" />
