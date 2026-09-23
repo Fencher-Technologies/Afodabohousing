@@ -241,3 +241,11 @@
   * The page reads `rent_amount`, but the SEO description and listing schema were reading
     `monthly_rent`, so the price was missing from both. Fixed, including the rent period.
 - `src/utils/shareProperty.ts`: accepts `rent_amount` as well, so shared messages include the price.
+
+# Hero grey wash (the real cause)
+- `.duotone-img` blended hero photos with `mix-blend-mode: luminosity` over a navy panel, which
+  strips their colour entirely: that was the grey look, not the gradient I lightened earlier.
+  Now a light wash (6% grayscale, 96% opacity) with the colour kept.
+- `.page-hero-shade` (About, Contact, Properties, Terms, Privacy, Explore) lightened: 0.74/0.66/0.94
+  down to 0.50/0.40/0.72.
+- Home page hero gradient lightened: 100/80/60 down to 85/55/35.
