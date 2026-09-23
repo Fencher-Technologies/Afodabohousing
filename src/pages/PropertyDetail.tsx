@@ -341,7 +341,7 @@ export default function PropertyDetailPage() {
           )}
 
           {/* Badges */}
-          <div className="absolute top-5 left-5 flex gap-2">
+          <div className="absolute top-4 left-4 right-28 sm:right-32 flex flex-wrap gap-2">
             {isBoosted && (
               <Badge className="bg-amber-400 text-amber-950 font-semibold shadow gap-1">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -357,7 +357,7 @@ export default function PropertyDetailPage() {
           </div>
 
           {/* Action buttons */}
-          <div className="absolute top-5 right-5 flex gap-2">
+          <div className="absolute top-4 right-4 flex gap-2">
             <button
               onClick={handleShare}
               className="bg-card p-2.5 rounded-full hover:bg-card transition-all shadow"

@@ -327,3 +327,12 @@
   paper is removed, the navy and red are untouched, and edges fade smoothly so nothing looks jagged.
 - Dark surfaces (footer, brand headers in the app) still put it on a white panel, as the client asked.
 - App icon, splash screens and the email header keep a solid white background, since those need one.
+
+# Complete country and currency coverage
+- `src/utils/countries.ts` (and the mobile copy): 44 countries -> 242, generated from ISO 3166 and the
+  international dialling plan, each with its dial code, flag and currency. East Africa first, then A-Z.
+- `src/utils/currencies.ts` (and the mobile copy): 36 -> 178, the full ISO 4217 list.
+- `PropertyForm`'s country-to-currency map was 63 hand-written entries; it now derives from the full
+  country list, so picking any country sets the right default currency.
+- Property page: on a phone the status badges ran under the share and save buttons. Badges now stop
+  short of them and wrap instead.

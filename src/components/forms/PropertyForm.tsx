@@ -8,22 +8,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { CURRENCIES } from '@/utils/currencies';
+import { COUNTRIES } from '@/utils/countries';
 
 const API = import.meta.env.VITE_API_URL || '';
 
-const CURRENCY_MAP: Record<string, string> = {
-  UG: 'UGX', SD: 'SDG', CD: 'CDF', KE: 'KES', TZ: 'TZS', NG: 'NGN',
-  GH: 'GHS', ZA: 'ZAR', RW: 'RWF', ET: 'ETB', CM: 'XAF', SS: 'SSP',
-  MZ: 'MZN', ZM: 'ZMW', MW: 'MWK', BW: 'BWP', NA: 'NAD', SZ: 'SZL',
-  LS: 'LSL', MU: 'MUR', SC: 'SCR', DJ: 'DJF', SO: 'SOS', BI: 'BIF',
-  UZ: 'UZS', KZ: 'KZT', PK: 'PKR', IN: 'INR', PH: 'PHP', BD: 'BDT',
-  LK: 'LKR', NP: 'NPR', MM: 'MMK', KH: 'KHR', VN: 'VND', TH: 'THB',
-  MY: 'MYR', ID: 'IDR', SG: 'SGD', BN: 'BND', JP: 'JPY', CN: 'CNY',
-  KR: 'KRW', TW: 'TWD', HK: 'HKD', AU: 'AUD', NZ: 'NZD', GB: 'GBP',
-  US: 'USD', CA: 'CAD', MX: 'MXN', BR: 'BRL', AR: 'ARS', CL: 'CLP',
-  CO: 'COP', PE: 'PEN', PY: 'PYG', UY: 'UYU', SE: 'SEK', NO: 'NOK',
-  DK: 'DKK', CH: 'CHF', IS: 'ISK',
-};
+// Country to currency comes from the full country list (242 countries), so
+// a property anywhere gets the right default.
+const CURRENCY_MAP: Record<string, string> = Object.fromEntries(
+  COUNTRIES.map(c => [c.code, c.currency]),
+);
 
 interface Country { iso2: string; name: string; }
 interface Region { id: string; country_id: string; name: string; admin_level: string; geonames_id: string; }
