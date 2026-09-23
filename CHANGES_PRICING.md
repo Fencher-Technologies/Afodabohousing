@@ -320,3 +320,10 @@
 - "Get Directions" now routes to the exact coordinates rather than a name search.
 - Mobile still opens the phone's map app on tap rather than showing a preview; parity there needs a
   WebView or a maps library, which is a bigger change.
+
+# Logo background
+- The supplied artwork has a white background, which showed as a white rectangle on the cream pages
+  (sign-up, login, About). The logo used on light surfaces is now transparent: only the flat white
+  paper is removed, the navy and red are untouched, and edges fade smoothly so nothing looks jagged.
+- Dark surfaces (footer, brand headers in the app) still put it on a white panel, as the client asked.
+- App icon, splash screens and the email header keep a solid white background, since those need one.
