@@ -318,9 +318,9 @@ export default function HomePage() {
         {/* Reading scrim: strongest on the left, gone by the middle. */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#0D1322]/85 via-[#0D1322]/50 to-transparent" />
 
-        <div className="relative z-10 w-full max-w-6xl mx-auto px-5 sm:px-8 pb-14 pt-40">
+        <div className="relative z-10 w-full max-w-6xl mx-auto px-5 sm:px-8 pb-14 pt-24 sm:pt-28">
           <Reveal>
-            <p className="flex items-center gap-3 text-cream/70 text-xs sm:text-sm font-semibold tracking-[0.28em] uppercase mb-6">
+            <p className="flex items-center gap-3 text-cream/70 text-xs sm:text-sm font-semibold tracking-[0.28em] uppercase mb-4">
               <ArrowUpRight className="h-4 w-4 text-gold" strokeWidth={2.5} />
               Axis Housing — Housing Made Easy
             </p>

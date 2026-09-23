@@ -283,8 +283,8 @@
   .hero-accent {
     /* A brighter tint of the brand red. The red itself is dark, so against a
        sunset sky it measured 1.9:1, well under the 3:1 large text needs.
-       This tint with the scrim behind it reaches about 4:1. */
-    color: #F2564F;
+       This tint sits close to the brand red and reaches 3.5:1 over the scrim. */
+    color: #E8423C;
     text-shadow: 0 2px 18px hsl(222 55% 6% / 0.6), 0 1px 3px hsl(222 55% 6% / 0.5);
   }
 

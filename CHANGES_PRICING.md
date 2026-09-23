@@ -257,3 +257,5 @@
   so the building stays bright. Top-to-bottom gradient eased to 92/55/30.
 - `.hero-accent` in `src/index.css`: the italic line uses a brighter tint of the brand red (#F2564F)
   plus a soft shadow, reaching roughly 4:1 over the scrim.
+- Hero accent eased from #F2564F to #E8423C (closer to brand red, still 3.5:1 over the scrim), and the
+  gap between the menu and the overline reduced (pt-40 -> pt-24/28, overline margin mb-6 -> mb-4).
