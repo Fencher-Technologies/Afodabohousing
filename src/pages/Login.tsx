@@ -126,7 +126,7 @@ export default function LoginPage() {
       <div className="flex-1 flex flex-col justify-center px-6 py-12 bg-background max-w-[520px]">
         <div className="mx-auto w-full max-w-sm">
           <Link to="/" className="inline-block mb-10">
-            <img src={logoImg} alt="Axis Housing" className="h-14 w-auto" />
+            <img src={logoImg} alt="Axis Housing" className="h-16 w-auto mb-1" />
           </Link>
 
           <h1 className="text-3xl font-display font-bold text-foreground mb-1.5">Welcome back</h1>

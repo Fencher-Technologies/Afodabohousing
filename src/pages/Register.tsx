@@ -97,7 +97,7 @@ export default function RegisterPage() {
       <div className="flex-1 flex flex-col justify-center px-6 py-12 bg-background max-w-[560px] overflow-y-auto">
         <div className="mx-auto w-full max-w-sm">
           <Link to="/" className="inline-block mb-8">
-            <img src={logoImg} alt="Axis Housing" className="h-14 w-auto" />
+            <img src={logoImg} alt="Axis Housing" className="h-16 w-auto mb-1" />
           </Link>
 
           {method === 'invite' ? (

@@ -51,8 +51,8 @@ export default function Footer() {
           {/* Brand column */}
           <div className="lg:col-span-2">
             <ScrollLink to="/" className="inline-block mb-5">
-              <span className="inline-flex items-center rounded-xl bg-white px-4 py-3 shadow-sm">
-                <img src={logoImg} alt="Axis Housing" className="h-14 w-auto" />
+              <span className="inline-flex items-center rounded-xl bg-white px-5 py-4 shadow-sm">
+                <img src={logoImg} alt="Axis Housing" className="h-16 w-auto" />
               </span>
             </ScrollLink>
             <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6 max-w-xs">

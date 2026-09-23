@@ -293,3 +293,11 @@
 - Exception, unavoidable: the Android *notification* icon must be a flat white silhouette; Android
   renders it as a mask, so a full-colour logo would appear as a grey square. It stays as the white
   house mark from the same logo.
+
+# Logo, second pass (higher resolution file)
+- All assets regenerated from the sharper 1536x1024 artwork: web logo, email header, favicon (.png
+  and multi-size .ico), share card, mobile app icon, Android adaptive icon, both splash screens and
+  the in-app BrandMark.
+- Spacing fixed: the navbar was 64px tall with a 56px logo, so the mark was wedged against the edges
+  and the tagline was unreadable. The bar is now 96px with a 64px logo. Auth pages use h-16 with a
+  little space beneath, and the footer's white panel has more padding.

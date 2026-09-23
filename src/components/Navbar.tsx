@@ -55,11 +55,11 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 bg-card border-b border-border shadow-sm">
-      <div className="container flex items-center justify-between h-16 px-4">
+      <div className="container flex items-center justify-between h-24 px-4">
 
         {/* Logo */}
         <Link to="/" className="flex items-center shrink-0">
-            <img src={logoImg} alt="Axis Housing" className="h-12 sm:h-14 w-auto" />
+            <img src={logoImg} alt="Axis Housing" className="h-16 w-auto" />
         </Link>
 
         {/* Desktop Nav */}
