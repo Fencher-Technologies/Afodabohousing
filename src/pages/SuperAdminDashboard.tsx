@@ -14,7 +14,7 @@ import {
   TrendingUp, AlertTriangle, Home, UserCheck, Calendar, Activity,
   ChevronRight, ArrowUp, ArrowDown, BarChart3, Search, Crown,
   MoreHorizontal, X, Download, ArrowUpDown, ChevronLeft, ChevronsLeft, ChevronsRight,
-  KeyRound, Trash2, XCircle,
+  KeyRound, Trash2, XCircle, Eye,
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -55,6 +55,25 @@ type Manager = {
   created_at: string | null; property_count: number;
   overdue_tenants: number; total_outstanding: number;
   subscription_plan?: string | null; subscription_status?: string | null;
+};
+
+/** A listing waiting on a quality decision before it can go public. */
+type PendingProperty = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  images: string[] | null;
+  address: string | null;
+  city: string | null;
+  monthly_rent: number | null;
+  currency: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  created_at: string | null;
+  submitted_for_review_at: string | null;
+  review_status: string;
+  manager_name: string | null;
+  manager_email: string | null;
 };
 
 function avatarInitials(name: string | null, email: string): string {
@@ -177,6 +196,10 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
   const [boostStats, setBoostStats] = useState<{ total_revenue: number; active_boosts: number } | null>(null);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [pendingManagers, setPendingManagers] = useState<Manager[]>([]);
+  // Listings awaiting a quality decision. A property is public only once it
+  // is approved, which is the promise every subscription plan makes.
+  const [pendingProperties, setPendingProperties] = useState<PendingProperty[]>([]);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -297,16 +320,21 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
     setLoading(true);
     try {
       const headers = await getHeaders();
-      const [statsRes, usersRes, boostRes, pendingRes] = await Promise.all([
+      const [statsRes, usersRes, boostRes, pendingRes, propsRes] = await Promise.all([
         fetch(`${apiBase}/admin/stats`, { headers }),
         fetch(`${apiBase}/admin/users?role=house_manager`, { headers }),
         fetch(`${apiBase}/boosts/stats`, { headers }),
         fetch(`${apiBase}/admin/pending-managers`, { headers }),
+        fetch(`${apiBase}/admin/properties/pending`, { headers }),
       ]);
       if (statsRes.ok) setStats(await statsRes.json());
       if (usersRes.ok) setManagers(await usersRes.json());
       if (boostRes.ok) setBoostStats(await boostRes.json());
       if (pendingRes.ok) setPendingManagers(await pendingRes.json());
+      if (propsRes.ok) {
+        const payload = await propsRes.json();
+        setPendingProperties(payload?.items ?? []);
+      }
     } catch (err: any) {
       console.error('Failed to fetch admin data:', err);
     }
@@ -529,6 +557,40 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
       fetchData();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  /** Approve or reject a listing. Rejection needs a reason, because without
+   *  one the house manager has nothing to act on. */
+  const handleReviewProperty = async (p: PendingProperty, decision: 'approved' | 'rejected') => {
+    let notes = '';
+    if (decision === 'rejected') {
+      notes = (window.prompt(`What needs to change on "${p.title || 'this listing'}"?`) || '').trim();
+      if (!notes) return;
+    }
+    setReviewingId(p.id);
+    try {
+      const headers = await getHeaders();
+      const res = await fetch(`${apiBase}/admin/properties/${p.id}/review`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ decision, notes: notes || null }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail || 'Failed to record the decision');
+      }
+      toast({
+        title: decision === 'approved' ? 'Listing approved' : 'Listing sent back',
+        description:
+          decision === 'approved'
+            ? `"${p.title}" is now live and the manager has been notified.`
+            : `The manager has been told what to change on "${p.title}".`,
+      });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setReviewingId(null);
     }
   };
 
@@ -844,7 +906,10 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-display font-bold text-xl">Pending Approvals</h2>
-                  <p className="text-sm text-muted-foreground">{pendingManagers.length} awaiting review</p>
+                  <p className="text-sm text-muted-foreground">
+                    {pendingManagers.length} manager{pendingManagers.length === 1 ? '' : 's'} and{' '}
+                    {pendingProperties.length} listing{pendingProperties.length === 1 ? '' : 's'} awaiting review
+                  </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={fetchData} className="gap-1.5">
                   <RefreshCcw className="h-3.5 w-3.5" /> Refresh
@@ -883,6 +948,88 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                   ))}
                 </div>
               )}
+
+              {/* ── Listing quality review ──
+                  Every plan promises "Listings reviewed and approved by our QA
+                  team". A property stays invisible to house seekers until it
+                  is approved here. */}
+              <div className="pt-4">
+                <h3 className="font-display font-bold text-lg">Listings in review</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  A listing is not visible to house seekers until it is approved.
+                </p>
+
+                {pendingProperties.length === 0 ? (
+                  <div className="text-center py-16 bg-card border border-border rounded-2xl">
+                    <CheckCircle2 className="h-14 w-14 mx-auto mb-3 text-muted-foreground/20" />
+                    <p className="text-lg font-display font-bold text-foreground">Nothing in the queue</p>
+                    <p className="text-sm mt-1.5 text-muted-foreground">Every listing has been reviewed.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingProperties.map(p => (
+                      <div key={p.id} className="bg-card border border-border rounded-2xl p-5">
+                        <div className="flex gap-4">
+                          {p.images?.[0] ? (
+                            <img
+                              src={p.images[0]}
+                              alt=""
+                              className="h-24 w-32 rounded-xl object-cover shrink-0 bg-muted"
+                            />
+                          ) : (
+                            <div className="h-24 w-32 rounded-xl bg-muted shrink-0 flex items-center justify-center">
+                              <Building2 className="h-7 w-7 text-muted-foreground/30" />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-foreground truncate">{p.title || 'Untitled listing'}</p>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {[p.address, p.city].filter(Boolean).join(', ') || 'No address given'}
+                            </p>
+                            <p className="text-sm text-foreground mt-1">
+                              {p.monthly_rent != null
+                                ? `${p.currency || 'USD'} ${Number(p.monthly_rent).toLocaleString()}/month`
+                                : 'No rent set'}
+                              {p.bedrooms != null && ` · ${p.bedrooms} bed`}
+                              {p.bathrooms != null && ` · ${p.bathrooms} bath`}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1.5">
+                              Listed by {p.manager_name || p.manager_email || 'unknown manager'}
+                              {p.submitted_for_review_at &&
+                                ` · submitted ${format(new Date(p.submitted_for_review_at), 'MMM dd, yyyy')}`}
+                            </p>
+                            {p.description && (
+                              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{p.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-4 justify-end">
+                          <Button
+                            size="sm" variant="outline" className="h-9 gap-1.5"
+                            onClick={() => window.open(`/properties/${p.id}`, '_blank', 'noopener')}
+                          >
+                            <Eye className="h-4 w-4" /> View listing
+                          </Button>
+                          <Button
+                            size="sm" variant="destructive" className="h-9 gap-1"
+                            disabled={reviewingId === p.id}
+                            onClick={() => handleReviewProperty(p, 'rejected')}
+                          >
+                            <XCircle className="h-4 w-4" /> Needs changes
+                          </Button>
+                          <Button
+                            size="sm" className="gradient-primary text-primary-foreground h-9 gap-1"
+                            disabled={reviewingId === p.id}
+                            onClick={() => handleReviewProperty(p, 'approved')}
+                          >
+                            <CheckCircle2 className="h-4 w-4" /> Approve
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     pesapal_consumer_secret: str = ""
     pesapal_environment: str = "sandbox"
     pesapal_ipn_url: str = ""
+    # Currency a checkout uses when the caller does not name one. Axis prices
+    # in US$, but a Pesapal merchant account only settles the currencies it has
+    # been enabled for. If card payments in USD are rejected, set
+    # DEFAULT_PAYMENT_CURRENCY=UGX to fall back without a code change.
+    default_payment_currency: str = "USD"
 
     # SMS
     sms_provider_api_key: str = ""

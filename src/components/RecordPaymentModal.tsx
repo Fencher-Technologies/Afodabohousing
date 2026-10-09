@@ -36,8 +36,13 @@ export default function RecordPaymentModal({ open, onClose, leaseId, tenantId, m
     if (numericAmount <= 0) {
       toast({ title: 'Invalid amount', variant: 'destructive' }); return;
     }
-    if (date > new Date().toISOString().split('T')[0]) {
-      toast({ title: 'Date cannot be in the future', variant: 'destructive' }); return;
+    // This is the effective date, the day the rent starts counting, so it is
+    // allowed to sit ahead of today when a manager records rent for a period
+    // that has not started yet. Only implausible dates are rejected.
+    const oneYearAhead = new Date();
+    oneYearAhead.setFullYear(oneYearAhead.getFullYear() + 1);
+    if (date > oneYearAhead.toISOString().split('T')[0]) {
+      toast({ title: 'Effective date is too far in the future', variant: 'destructive' }); return;
     }
     setSending(true);
     const { error } = await supabase.from('payments').insert({
@@ -77,8 +82,9 @@ export default function RecordPaymentModal({ open, onClose, leaseId, tenantId, m
           )}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Date</Label>
+              <Label>Effective date</Label>
               <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="mt-1 h-11" />
+              <p className="mt-1 text-xs text-muted-foreground">The date when the rent begins counting.</p>
             </div>
             <div>
               <Label>Method</Label>

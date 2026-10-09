@@ -92,7 +92,7 @@ export default function TenantMyTenancy() {
   };
 
   const property = lease?.properties;
-  const propertyCurrency = property?.rent_currency || lease?.rent_currency || 'UGX';
+  const propertyCurrency = property?.rent_currency || lease?.rent_currency || 'USD';
 
   const daysLeft = lease ? daysBetween(new Date().toISOString(), lease.end_date) : 0;
   const isOverdue = daysLeft < 0;

@@ -18,6 +18,8 @@ export interface TenancyFormData {
   unit_id: string;
   unit_label: string;
   status?: string;
+  /** Months between rent reviews, as a form value. '' means no schedule. */
+  rent_revision_months?: string;
 }
 
 interface Property { id: string; title: string; state?: string | null; monthly_rent?: number | null; rent_amount?: number | null; security_deposit?: number | null; }
@@ -52,6 +54,7 @@ export default function TenancyForm({ mode, initialData, onSave, onCancel, savin
   const [form, setForm] = useState<TenancyFormData>({
     property_id: '', tenant_id: '', tenant_email: '', start_date: '',
     end_date: '', monthly_rent: '', rent_deposit: '', unit_id: '', unit_label: '', status: 'active',
+    rent_revision_months: '',
     ...initialData,
   });
 
@@ -216,6 +219,29 @@ export default function TenancyForm({ mode, initialData, onSave, onCancel, savin
             <Input type="number" min="0" value={form.rent_deposit} onChange={e => setForm(f => ({ ...f, rent_deposit: e.target.value }))}
               placeholder="e.g. 500000" className="rounded-lg h-11 mt-1.5" />
           </div>
+        </div>
+
+        {/* The interval the landlord and tenant agree for reviewing rent.
+            Axis computes the next review date from it and reminds both of
+            them when it arrives, and the agreement's Rent Revision clause
+            states the agreed terms. */}
+        <div>
+          <Label className="text-sm font-semibold">Review rent every (optional)</Label>
+          <select
+            value={form.rent_revision_months}
+            onChange={e => setForm(f => ({ ...f, rent_revision_months: e.target.value }))}
+            className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm mt-1.5"
+          >
+            <option value="">No scheduled review</option>
+            <option value="6">Every 6 months</option>
+            <option value="12">Every year</option>
+            <option value="24">Every 2 years</option>
+            <option value="36">Every 3 years</option>
+            <option value="60">Every 5 years</option>
+          </select>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            We will remind you and your tenant when the rent is due for review.
+          </p>
         </div>
       </div>
 

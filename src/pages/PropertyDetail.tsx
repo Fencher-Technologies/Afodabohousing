@@ -236,7 +236,7 @@ export default function PropertyDetailPage() {
       ? `${property.title}${listingPlace ? ` in ${listingPlace}` : ''}: ${
           property.bedrooms ? `${property.bedrooms} bedroom, ` : ''
         }${property.bathrooms ? `${property.bathrooms} bathroom, ` : ''}${
-          property.rent_currency || 'UGX'
+          property.rent_currency || 'USD'
         } ${Number(property.rent_amount || 0).toLocaleString()} ${periodLabelForSeo} on Axis Housing.`
       : undefined,
     path: `/properties/${id}`,
@@ -282,7 +282,7 @@ export default function PropertyDetailPage() {
   }
 
   const displayState = property.state || regionName || property.city || '';
-  const displayCurrency = property.rent_currency || 'UGX';
+  const displayCurrency = property.rent_currency || 'USD';
   const images = property.images?.length ? property.images : fallbackImages;
   const totalImages = images.length;
   const periodLabel = { monthly: 'per month', quarterly: 'per quarter', annually: 'per year' }[property.rent_period] || '';
@@ -510,7 +510,11 @@ export default function PropertyDetailPage() {
 
                         <div className="flex items-center justify-between pt-2 border-t border-border">
                           <div>
-                            <span className="text-xl font-bold text-primary font-display">{formatCurrency(Number(unit.rent_amount), 'UGX')}</span>
+                            {/* A unit is priced in its own currency, falling back to
+                                the property's. This was hardcoded to UGX, so a unit
+                                in a property listed in any other currency showed its
+                                rent with the wrong symbol. */}
+                            <span className="text-xl font-bold text-primary font-display">{formatCurrency(Number(unit.rent_amount), (unit as { rent_currency?: string }).rent_currency || displayCurrency)}</span>
                             <span className="text-muted-foreground text-xs ml-1">/mo</span>
                           </div>
                           {unit.status === 'available' ? (

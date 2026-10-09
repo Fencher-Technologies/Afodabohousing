@@ -6,7 +6,7 @@
  * international number ("+256752738927") is what the app sends.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Phone, Search } from "lucide-react-native";
 import {
   FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, ViewStyle,
@@ -37,20 +37,50 @@ export function PhoneField({
 }: PhoneFieldProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const { country, national } = useMemo(() => splitPhone(value), [value]);
+
+  // The chosen country is held in state, not re-derived from the value on
+  // every render. Deriving it broke the field for anyone outside Uganda:
+  // an empty number carries no country, so picking one before typing snapped
+  // straight back to the default; and 49 of the 242 countries share a dial
+  // code (+1 alone covers 25), so reading the country back out of the digits
+  // always returned the first match.
+  const parsed = useMemo(() => splitPhone(value), [value]);
+  const [country, setCountry] = useState<Country>(parsed.country);
+  const national = parsed.national;
+
+  // Follow the value only when it changes from OUTSIDE, such as a form
+  // loading a saved number. Syncing on every render would undo the user's
+  // pick: an empty field parses as the default, so choosing Kenya before
+  // typing would be reset to Uganda on the very next render.
+  const lastValue = useRef(value);
+  useEffect(() => {
+    if (value === lastValue.current) return;
+    lastValue.current = value;
+    // A cleared field keeps whatever country was chosen.
+    if (!value) return;
+    // A value that merely agrees with the current dial code is left alone, so
+    // an explicit pick is not overwritten by a country sharing its code.
+    if (parsed.country.dial !== country.dial) setCountry(parsed.country);
+  }, [value, parsed.country, country.dial]);
 
   const results = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return COUNTRIES;
     return COUNTRIES.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.dial.includes(q.replace("+", "")),
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.code.toLowerCase() === q ||
+        c.dial.includes(q.replace("+", "")),
     );
   }, [search]);
 
   const choose = (next: Country) => {
-    onChangeText(joinPhone(next, national));
+    setCountry(next);
     setPickerOpen(false);
     setSearch("");
+    // Only re-emit once there are digits; an empty field stays empty rather
+    // than becoming a bare dial code the backend would reject.
+    if (national) onChangeText(joinPhone(next, national));
   };
 
   return (

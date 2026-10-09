@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Lease(BaseModel):
@@ -62,6 +62,9 @@ class LeaseCreate(BaseModel):
     # The unit this tenancy is for. unit_label is kept for display on
     # existing agreements and receipts.
     unit_id: UUID | None = None
+    # Months between rent revisions, agreed with the tenant (e.g. 24 for every
+    # two years). None means the rent is not on a revision schedule.
+    rent_revision_months: int | None = Field(default=None, ge=1, le=120)
 
 
 class LeaseUpdate(BaseModel):
@@ -74,6 +77,8 @@ class LeaseUpdate(BaseModel):
     termination_date: date | None = None
     termination_reason: str | None = None
     unit_id: UUID | None = None
+    rent_revision_months: int | None = Field(default=None, ge=1, le=120)
+    last_rent_revision_date: date | None = None
 
 
 class SetRentEffectiveDate(BaseModel):
@@ -136,6 +141,12 @@ class LeaseResponse(BaseModel):
     rent_days_remaining: int | None = None
     rent_days_in_arrears: int | None = None
     next_payment_due_date: date | None = None
+    # Rent revision — the interval the parties agreed and the date it next
+    # falls due, computed in _enrich_leases. Both parties are reminded on the
+    # day it arrives.
+    rent_revision_months: int | None = None
+    next_rent_revision_date: date | None = None
+    last_rent_revision_date: date | None = None
     # Tenancy progress — computed in _enrich_leases
     tenancy_total_days: int = 1
     tenancy_elapsed_days: int = 0

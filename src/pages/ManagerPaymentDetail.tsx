@@ -161,8 +161,9 @@ export default function ManagerPaymentDetail() {
               <Input value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="50000" className="mt-1" />
             </div>
             <div>
-              <Label>Paid Date</Label>
+              <Label>Effective date</Label>
               <Input type="date" value={form.paid_date} onChange={e => setForm(f => ({ ...f, paid_date: e.target.value }))} className="mt-1" />
+              <p className="mt-1 text-xs text-muted-foreground">The date when the rent begins counting.</p>
             </div>
             <div>
               <Label>Payment Method</Label>
@@ -203,7 +204,7 @@ export default function ManagerPaymentDetail() {
                 <p className="font-bold text-lg capitalize">{payment.method?.replace(/_/g, ' ') || '—'}</p>
               </div>
               <div className="bg-muted/30 rounded-lg p-4">
-                <p className="text-xs text-muted-foreground">Paid Date</p>
+                <p className="text-xs text-muted-foreground">Effective date</p>
                 <p className="font-bold text-lg">{payment.paid_date ? format(new Date(payment.paid_date), 'MMM dd, yyyy') : '—'}</p>
               </div>
               <div className="bg-muted/30 rounded-lg p-4">

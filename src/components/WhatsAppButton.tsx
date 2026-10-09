@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom';
 
-const WHATSAPP_NUMBER = '256789590007';
+const WHATSAPP_NUMBER = '256788459126';
 
 /**
  * Floating WhatsApp button for house seekers and managers who would rather

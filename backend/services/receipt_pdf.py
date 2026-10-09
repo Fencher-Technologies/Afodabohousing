@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 from reportlab.lib import colors
@@ -16,12 +17,19 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
+    Image as RLImage,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
 )
+
+from currency import DEFAULT_CURRENCY
+
+# Shipped with the backend rather than fetched over the network, so a receipt
+# never renders without its logo because an asset host was slow or blocked.
+LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "axis-logo.png"
 
 NAVY = colors.HexColor("#161E31")
 CHARCOAL = colors.HexColor("#353E45")
@@ -53,6 +61,26 @@ def _fmt_date(value: Any) -> str:
         return str(value)[:10]
 
 
+def _logo_flowable(height_mm: float = 14.0) -> Any:
+    """The Axis mark for the receipt header, or the wordmark if it is missing.
+
+    The receipt must still render if the asset is absent from a deployment, so
+    a missing or unreadable file falls back to the text brand rather than
+    raising and losing the whole document.
+    """
+    try:
+        if LOGO_PATH.is_file():
+            from reportlab.lib.utils import ImageReader
+
+            width_px, height_px = ImageReader(str(LOGO_PATH)).getSize()
+            height = height_mm * mm
+            width = height * (width_px / height_px)
+            return RLImage(str(LOGO_PATH), width=width, height=height)
+    except Exception:  # noqa: BLE001 - never let branding break a receipt
+        pass
+    return Paragraph("AXIS HOUSING", _BRAND)
+
+
 def build_receipt_pdf(receipt: dict[str, Any]) -> bytes:
     """Render a one-page A4 receipt PDF from a receipts table row."""
     buf = BytesIO()
@@ -66,13 +94,13 @@ def build_receipt_pdf(receipt: dict[str, Any]) -> bytes:
         title=f"Receipt {receipt.get('receipt_number', '')}",
     )
 
-    currency = receipt.get("currency") or "UGX"
+    currency = receipt.get("currency") or DEFAULT_CURRENCY
     status = (receipt.get("status") or "active").upper()
 
     story: list[Any] = []
 
     header = Table(
-        [[Paragraph("AXIS HOUSING", _BRAND), Paragraph("PAYMENT RECEIPT", _DOC)]],
+        [[_logo_flowable(), Paragraph("PAYMENT RECEIPT", _DOC)]],
         colWidths=[85 * mm, 85 * mm],
     )
     header.setStyle(TableStyle([
@@ -106,7 +134,10 @@ def build_receipt_pdf(receipt: dict[str, Any]) -> bytes:
         ("Unit", receipt.get("unit_label") or "-"),
         ("Payment type", (receipt.get("payment_type") or "rent").replace("_", " ").title()),
         ("Payment method", (receipt.get("payment_method") or "-").replace("_", " ").title()),
-        ("Payment date", _fmt_date(receipt.get("payment_date"))),
+        # Named "Effective date" because it is the day the rent starts
+        # counting, which is what the coverage period below is measured from.
+        # Calling it "Paid date" caused disputes when the two differed.
+        ("Effective date", _fmt_date(receipt.get("payment_date"))),
         ("Transaction reference", receipt.get("transaction_reference") or "-"),
         ("Recorded by", receipt.get("manager_name") or "Property Manager"),
     ]

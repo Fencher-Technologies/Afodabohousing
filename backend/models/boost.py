@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -65,6 +66,9 @@ class InitiateBoostRequest(BaseModel):
     duration_days: int = 7
     phone_number: str | None = None
     callback_url: str | None = None
+    # US$ is the platform's standard currency for boosts. UGX remains
+    # available because Ugandan mobile money cannot settle in dollars.
+    currency: Literal["USD", "UGX"] = "USD"
 
 
 class InitiateBoostResponse(BaseModel):
@@ -77,6 +81,10 @@ class InitiateBoostResponse(BaseModel):
 
 class BoostPackage(BaseModel):
     days: int
+    #: Price in UGX, kept as the historical field name so existing clients
+    #: keep working. New clients should read price_usd.
     price: int
     label: str
     currency: str = "UGX"
+    price_usd: float | None = None
+    price_ugx: int | None = None

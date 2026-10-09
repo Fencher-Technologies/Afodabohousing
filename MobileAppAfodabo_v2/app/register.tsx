@@ -79,7 +79,7 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.label}>I am a…</Text>
+          <Text style={styles.label}>Create account as…</Text>
           <SegmentedControl
             segments={[
               { label: "House Manager", value: "manager" },
@@ -87,7 +87,13 @@ export default function RegisterScreen() {
             ]}
             value={role}
             onChange={(v) => setRole(v as UserRole)}
+            emphasis="strong"
           />
+          <Text style={styles.roleHint}>
+            {role === "manager"
+              ? "House Managers list properties and manage tenants."
+              : "Tenants rent a property and track their own rent."}
+          </Text>
 
           <View style={styles.form}>
             <InputField
@@ -209,6 +215,11 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     color: Colors.textSecondary,
     marginBottom: Spacing.xs,
+  },
+  roleHint: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    marginTop: Spacing.xs,
   },
   form: { marginTop: Spacing.lg },
   footer: {

@@ -118,7 +118,7 @@ export function propertyJsonLd(p: {
       ? {
           '@type': 'Offer',
           price: p.monthly_rent,
-          priceCurrency: p.rent_currency || 'UGX',
+          priceCurrency: p.rent_currency || 'USD',
           availability: 'https://schema.org/InStock',
           url: `${SITE_URL}/properties/${p.id}`,
         }

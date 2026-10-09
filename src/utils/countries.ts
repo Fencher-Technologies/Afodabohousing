@@ -279,8 +279,17 @@ export function splitPhone(value: string | null | undefined): { country: Country
   return { country: DEFAULT_COUNTRY, national: digits.replace(/^0+/, '') };
 }
 
+/**
+ * Countries where a national number keeps its leading zero in the
+ * international form. Most of Africa and the Americas drop it as a trunk
+ * prefix, but Italy's landlines, for instance, genuinely begin with 0, and
+ * stripping it there produces a number that cannot be dialled.
+ */
+const KEEPS_LEADING_ZERO = new Set(['IT', 'VA']);
+
 /** Join a country and a typed local number into "+256752738927". */
 export function joinPhone(country: Country, national: string): string {
-  const local = String(national || '').replace(/\D/g, '').replace(/^0+/, '');
+  const digits = String(national || '').replace(/\D/g, '');
+  const local = KEEPS_LEADING_ZERO.has(country.code) ? digits : digits.replace(/^0+/, '');
   return local ? `+${country.dial}${local}` : '';
 }

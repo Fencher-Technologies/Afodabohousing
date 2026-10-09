@@ -13,6 +13,7 @@ from dependencies import (
     require_active_subscription,
 )
 from models import RentalUnitCreate, RentalUnitResponse, RentalUnitUpdate
+from currency import DEFAULT_CURRENCY
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ def create_unit(
     payload["owner_id"] = current_user.id
     # Inherit the property's currency unless one was given explicitly.
     if not payload.get("rent_currency"):
-        payload["rent_currency"] = prop.data[0].get("rent_currency") or "UGX"
+        payload["rent_currency"] = prop.data[0].get("rent_currency") or DEFAULT_CURRENCY
     result = supabase.table("rental_units").insert(payload).execute()
     return RentalUnitResponse(**result.data[0])
 

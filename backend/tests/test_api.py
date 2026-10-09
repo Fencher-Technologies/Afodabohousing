@@ -282,13 +282,14 @@ class TestAuth:
 
 
 class TestBoosts:
-    def test_default_price(self, client: TestClient):
+    def test_default_price_is_quoted_in_the_standard_currency(self, client: TestClient):
+        """US$ is the platform's standard price for boosts."""
         resp = client.get("/boosts/price/default")
         assert resp.status_code == 200
         data = resp.json()
         assert data["duration_days"] == 7
-        assert data["amount"] == 10000.0
-        assert data["currency"] == "UGX"
+        assert data["amount"] == 2.50
+        assert data["currency"] == "USD"
 
     def test_boost_packages(self, client: TestClient):
         resp = client.get("/boosts/packages")
@@ -298,6 +299,10 @@ class TestBoosts:
         assert [p["price"] for p in packages] == [10000, 20000, 40000]
         assert [p["label"] for p in packages] == ["7 Days", "14 Days", "30 Days"]
         assert all(p["currency"] == "UGX" for p in packages)
+        # Both prices are published so a client can show dollars and still
+        # charge shillings when the manager pays by mobile money.
+        assert [p["price_ugx"] for p in packages] == [10000, 20000, 40000]
+        assert [p["price_usd"] for p in packages] == [2.50, 5.00, 10.00]
 
     def test_boost_packages_excludes_inactive(self, client: TestClient):
         resp = client.get("/boosts/packages")
@@ -434,12 +439,43 @@ class TestBoostInitiate:
         data = resp.json()
         assert data["status"] == "pending"
         assert data["redirect_url"] == "https://pay.pesapal.com/checkout/x"
-        assert "20,000" in data["message"]
+        # No currency was asked for, so the standard one is charged.
+        assert "USD 5.00" in data["message"]
 
+        kwargs = fake_submit.call_args.kwargs
+        assert kwargs["amount"] == 5.00
+        assert kwargs["currency"] == "USD"
+        assert kwargs["order_id"] == data["reference"]
+
+    def test_initiate_in_shillings_charges_the_ugx_price(self, client: TestClient):
+        """Mobile money cannot settle dollars, so UGX stays available.
+
+        The figure charged must be the package's own shilling price, never the
+        dollar price billed as shillings.
+        """
+        from dependencies import CurrentUser, get_current_user
+        from main import app
+
+        manager = CurrentUser(id=UID_OWNER, email="owner@test.com", role="house_manager", status="active")
+        app.dependency_overrides[get_current_user] = lambda: manager
+
+        fake_submit = AsyncMock(return_value={"redirect_url": "https://pay.pesapal.com/checkout/x"})
+        with (
+            patch("routers.boosts.get_auth_token", new=AsyncMock(return_value="token")),
+            patch("routers.boosts.get_ipn_id", return_value="ipn-123"),
+            patch("routers.boosts.submit_order", new=fake_submit),
+        ):
+            resp = client.post("/boosts/initiate", json={
+                "property_id": PID_PROP,
+                "duration_days": 14,
+                "currency": "UGX",
+                "callback_url": "https://afodabohousing.onrender.com",
+            })
+
+        assert resp.status_code == 200
         kwargs = fake_submit.call_args.kwargs
         assert kwargs["amount"] == float(20000)
         assert kwargs["currency"] == "UGX"
-        assert kwargs["order_id"] == data["reference"]
 
     def test_initiate_rejects_invalid_package(self, client: TestClient):
         from dependencies import CurrentUser, get_current_user

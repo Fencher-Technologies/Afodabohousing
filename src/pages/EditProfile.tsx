@@ -170,7 +170,9 @@ export default function EditProfile() {
             <Label>Phone Number</Label>
             <PhoneInput value={phone} onChange={setPhone} className="mt-1.5" />
           </div>
-          {(role === 'house_manager' || role === 'super_admin') && (
+          {/* Tenants need this too: the business asked that a tenant be able to
+              see their figures in US$, and the setting is what provides it. */}
+          {role !== null && (
             <div>
               <Label>Currency for totals</Label>
               <SearchableSelect
@@ -183,6 +185,7 @@ export default function EditProfile() {
               <p className="text-xs text-muted-foreground mt-1.5">
                 Dashboard and report totals are shown in this currency, converted at current
                 exchange rates. Each property keeps its own currency for rent, payments and receipts.
+                Subscriptions and boosts are always priced in US$.
               </p>
             </div>
           )}

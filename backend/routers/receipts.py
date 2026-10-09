@@ -7,6 +7,7 @@ from supabase import Client
 from dependencies.auth import CurrentUser, get_current_user
 from dependencies.database import get_service_client
 from services.receipts import ReceiptService
+from services.tenant_identity import tenant_ids_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +18,13 @@ def get_receipt_svc(supabase: Client = Depends(get_service_client)) -> ReceiptSe
     return ReceiptService(supabase)
 
 
-def _tenant_id_for_user(supabase: Client, user_id: str) -> str | None:
-    result = (
-        supabase.table("tenants")
-        .select("id")
-        .eq("user_id", user_id)
-        .execute()
-    )
-    return result.data[0]["id"] if result.data else None
+def _tenant_ids_for_user(supabase: Client, user_id: str) -> list[str]:
+    """Every tenant record for this user.
+
+    A person has one tenants row per house manager, so returning only the
+    first one hid the receipts from their other tenancies.
+    """
+    return tenant_ids_for_user(supabase, user_id)
 
 
 def _owns_receipt_lease(supabase: Client, receipt: dict, user_id: str) -> bool:
@@ -48,10 +48,10 @@ def list_my_receipts(
     service: ReceiptService = Depends(get_receipt_svc),
 ):
     """List the signed-in tenant's receipts (newest first)."""
-    tenant_id = _tenant_id_for_user(supabase, current_user.id)
-    if not tenant_id:
+    tenant_ids = _tenant_ids_for_user(supabase, current_user.id)
+    if not tenant_ids:
         return {"items": [], "total": 0}
-    items = service.list_for_tenant(tenant_id, status_filter)
+    items = service.list_for_tenant(tenant_ids, status_filter)
     return {"items": items, "total": len(items)}
 
 
@@ -77,8 +77,8 @@ def get_receipt(
     receipt = service.get_by_id(receipt_id)
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
-    tenant_id = _tenant_id_for_user(supabase, current_user.id)
-    if tenant_id and str(receipt.get("tenant_id")) == str(tenant_id):
+    tenant_ids = _tenant_ids_for_user(supabase, current_user.id)
+    if str(receipt.get("tenant_id")) in set(tenant_ids):
         return receipt
     if _owns_receipt_lease(supabase, receipt, current_user.id):
         return receipt
@@ -97,8 +97,8 @@ def get_receipt_pdf(
     receipt = service.get_by_id(receipt_id)
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
-    tenant_id = _tenant_id_for_user(supabase, current_user.id)
-    allowed = (tenant_id and str(receipt.get("tenant_id")) == str(tenant_id)) or _owns_receipt_lease(
+    tenant_ids = _tenant_ids_for_user(supabase, current_user.id)
+    allowed = str(receipt.get("tenant_id")) in set(tenant_ids) or _owns_receipt_lease(
         supabase, receipt, current_user.id
     )
     if not allowed:

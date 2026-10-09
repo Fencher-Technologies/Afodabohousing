@@ -26,6 +26,7 @@ JOBS = {
     "rent_reminders": "check_rent_reminders",
     "tenancy_expiry": "check_tenancy_expiry",
     "boost_expiry": "check_boost_expiry",
+    "rent_revisions": "check_rent_revisions",
 }
 
 

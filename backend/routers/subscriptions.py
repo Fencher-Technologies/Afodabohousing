@@ -26,10 +26,31 @@ from services.pesapal import (
     submit_order,
 )
 from services.subscriptions import SubscriptionService, get_subscription_service, get_current_subscription_raw
+from config import get_settings
+from currency import PAYMENT_CURRENCIES
+from services.forex import charge_amount
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
+
+
+def _checkout_failure_detail(error: Exception, currency: str) -> str:
+    """A message that names the likely cause rather than hiding it.
+
+    A Pesapal merchant account settles only the currencies it has been enabled
+    for. Axis prices in US$, so if the account is shillings-only every card
+    checkout fails here, and a generic "please try again" would send everyone
+    retrying something that cannot succeed.
+    """
+    text = str(error).lower()
+    if "currency" in text or "not supported" in text or "invalid_currency" in text:
+        return (
+            f"This payment could not be started in {currency}. The payment account "
+            f"may not be set up to accept {currency}. Please try another payment "
+            "method or contact support."
+        )
+    return "Payment initiation failed. Please try again."
 
 _SUB_RECONCILE_COOLDOWN = 60.0
 _sub_reconcile_checked_at: dict[str, float] = {}
@@ -163,10 +184,24 @@ async def create_subscription(
             )
 
     reference = str(uuid4())
-    cur = (data.currency or "UGX").upper()
-    if cur not in ("UGX", "USD"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Currency must be UGX or USD")
-    amount = int(plan["price_ugx"]) if cur == "UGX" else float(plan["price_usd"])
+    # Falls back to the configured checkout currency (US$ by default) rather
+    # than a hardcoded one, so a Pesapal account that cannot settle dollars
+    # can be switched with DEFAULT_PAYMENT_CURRENCY instead of a code change.
+    cur = (data.currency or get_settings().default_payment_currency).upper()
+    if cur not in PAYMENT_CURRENCIES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Currency must be one of {', '.join(PAYMENT_CURRENCIES)}",
+        )
+    # Plans are priced in US$. A shilling payer is charged the converted
+    # equivalent at the current rate, not the figure stored when the plan was
+    # created: a fixed price_ugx drifts away from the dollar price as the rate
+    # moves. price_ugx is kept as the floor so a rate glitch cannot undercharge.
+    if cur == "USD":
+        amount = float(plan["price_usd"])
+    else:
+        converted = charge_amount(float(plan["price_usd"]), cur)
+        amount = int(max(converted, float(plan.get("price_ugx") or 0)))
 
     profile = profile or {}
     first_name = ((profile.get("full_name") or "").split() or [current_user.email])[0]
@@ -211,7 +246,7 @@ async def create_subscription(
     except Exception as e:
         logger.error("Pesapal payment initiation failed for subscription %s: %s", subscription_id, str(e))
         supabase.table("manager_subscriptions").update({"status": "cancelled"}).eq("id", subscription_id).execute()
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Payment initiation failed. Please try again.")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=_checkout_failure_detail(e, cur))
 
     redirect_url = pay_resp.get("redirect_url") or ""
     tracking_id = pay_resp.get("order_tracking_id")

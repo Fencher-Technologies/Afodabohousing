@@ -65,6 +65,7 @@ import {
   formatDate,
 } from "@/src/utils/format";
 import { MessageTemplates, openWhatsApp } from "@/src/utils/whatsapp";
+import { GET_APP_URL } from "@/src/config/app-links";
 
 // Shared links always point at the public website, so they work for people
 // who do not have the app.
@@ -227,8 +228,10 @@ export default function PropertyDetailScreen() {
         : null,
       property.manager_phone ? `\nContact: ${property.manager_phone}` : null,
       // The link was missing entirely, so nobody could open the listing or
-      // find Axis from a shared message.
+      // find Axis from a shared message. The download line turns a share into
+      // a route to the app, which is the point of sharing for the business.
       `\nView it on Axis: ${WEB_URL}/properties/${property.id}`,
+      `Get the Axis app: ${GET_APP_URL}`,
     ]
       .filter(Boolean)
       .join("\n");

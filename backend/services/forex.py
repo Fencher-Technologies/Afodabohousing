@@ -79,3 +79,45 @@ def convert(amount: float, from_currency: str = "USD", to_currency: str = "USD")
 
 def get_all_rates() -> dict[str, float]:
     return _fetch_rates()
+
+
+# Smallest unit people actually transact in, per currency. Mobile money and
+# card checkouts are rounded up to this so a converted price never arrives as
+# an unpayable figure like UGX 36,847.23.
+CHARGE_ROUNDING: dict[str, int] = {
+    "UGX": 100,
+    "TZS": 100,
+    "RWF": 100,
+    "BIF": 100,
+    "SSP": 100,
+    "NGN": 10,
+    "KES": 1,
+    "ETB": 1,
+    "INR": 1,
+}
+
+
+def charge_amount(price_usd: float, currency: str) -> float:
+    """What to actually bill for a US$ price in the currency being paid in.
+
+    Axis prices subscriptions and property boosts in US$, but Ugandan mobile
+    money cannot settle dollars, so a shilling payer is charged the converted
+    equivalent at the current rate rather than a figure fixed years ago. The
+    result is rounded UP to the currency's usual transacting unit, so Axis is
+    never left short by the rounding.
+
+    If the live rate service is unreachable, convert() falls back to the rate
+    Axis quotes (1 USD = 4,000 UGX), so a checkout still works.
+    """
+    currency = (currency or BASE_CURRENCY).upper()
+    if currency == BASE_CURRENCY:
+        return round(float(price_usd), 2)
+
+    converted = convert(float(price_usd), BASE_CURRENCY, currency)
+
+    step = CHARGE_ROUNDING.get(currency)
+    if step:
+        import math
+
+        return float(math.ceil(converted / step) * step)
+    return round(converted, 2)

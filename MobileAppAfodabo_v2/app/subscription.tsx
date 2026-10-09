@@ -23,7 +23,10 @@ export default function SubscriptionScreen() {
   const { subscription } = useAuth();
   const { data: plansData, refetch: refetchPlans } = useSubscriptionPlans();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [currency, setCurrency] = useState<"UGX" | "USD">("UGX");
+  // US$ is the platform's standard currency, so prices lead in dollars. UGX
+  // stays selectable because Ugandan mobile money cannot settle in USD;
+  // picking it charges the local equivalent of the same plan.
+  const [currency, setCurrency] = useState<"UGX" | "USD">("USD");
   const { refreshing, onRefresh } = useRefresh({ refetches: [refetchPlans] });
 
   const plans = plansData || [];

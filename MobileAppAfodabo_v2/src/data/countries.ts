@@ -220,7 +220,7 @@ export function countryLabel(iso2: string): string {
 
 /** Primary ISO 4217 currency for a country, UGX as a safe regional default. */
 export function currencyForCountry(iso2: string): string {
-  return BY_ISO2.get(iso2)?.currency ?? "UGX";
+  return BY_ISO2.get(iso2)?.currency ?? "USD";
 }
 
 /**

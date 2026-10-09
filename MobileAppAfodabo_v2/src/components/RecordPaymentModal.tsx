@@ -121,11 +121,14 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
 
             <View style={styles.gap} />
 
+            {/* Renamed from "Payment Date": this is the day the rent starts
+                counting, which drives the receipt's coverage period. It may
+                legitimately be ahead of today, so the future is not blocked. */}
             <DatePickerField
-              label="Payment Date"
+              label="Effective date"
+              hint="The date when the rent begins counting."
               value={date}
               onChange={setDate}
-              disableFuture
             />
 
             <View style={styles.gap} />

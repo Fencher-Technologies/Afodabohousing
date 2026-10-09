@@ -8,6 +8,7 @@ from supabase import Client
 
 from dependencies import CurrentUser, get_service_client, require_active_user
 from services import LeaseService, PaymentService, get_lease_service, get_payment_service
+from currency import DEFAULT_CURRENCY
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,7 @@ class TenantStatement(BaseModel):
 
 
 class RentCollectionResponse(BaseModel):
-    currency: str = "UGX"
+    currency: str = DEFAULT_CURRENCY
     mixed_currencies: bool = False
     period_from: str | None = None
     period_to: str | None = None
@@ -155,7 +156,7 @@ class RentCollectionResponse(BaseModel):
 
 
 class FinancialSummary(BaseModel):
-    currency: str = "UGX"
+    currency: str = DEFAULT_CURRENCY
     mixed_currencies: bool = False
     total_expected: float
     total_collected: float
@@ -236,6 +237,12 @@ def outstanding_report(
         leases = [l for l in leases if str(l.get("property_id")) == str(property_id)]
     if status:
         leases = [l for l in leases if l.get("effective_status") == status]
+    else:
+        # Terminated contracts are excluded from the default view and from the
+        # headline total: carrying a closed tenancy's balance into "total
+        # outstanding" overstates what the manager can actually collect. They
+        # remain visible by filtering on status=terminated.
+        leases = [l for l in leases if l.get("effective_status") != "terminated"]
 
     # Only tenants who still owe money.
     outstanding = [l for l in leases if float(l.get("balance_due") or 0) > 0]
@@ -357,15 +364,22 @@ def rent_collection_report(
 
     currency = _reporting_currency(supabase, current_user.id)
     totals, mixed = _totals_in(
-        leases, ("expected_rent", "total_paid", "balance_due", "tenant_credit"), currency
+        leases, ("expected_rent", "total_paid", "tenant_credit"), currency
     )
     total_expected = totals["expected_rent"]
     total_collected = totals["total_paid"]
-    total_outstanding = totals["balance_due"]
     total_credit = totals["tenant_credit"]
 
-    paid_in_full = sum(1 for l in leases if float(l.get("balance_due") or 0) <= 0)
-    with_balance = sum(1 for l in leases if float(l.get("balance_due") or 0) > 0)
+    # Outstanding counts live tenancies only. Money owed under a contract that
+    # has already been terminated is no longer collectable rent, and rolling it
+    # into the headline made the manager's arrears look larger than they are.
+    live = [l for l in leases if l.get("effective_status") != "terminated"]
+    live_totals, live_mixed = _totals_in(live, ("balance_due",), currency)
+    total_outstanding = live_totals["balance_due"]
+    mixed = mixed or live_mixed
+
+    paid_in_full = sum(1 for l in live if float(l.get("balance_due") or 0) <= 0)
+    with_balance = sum(1 for l in live if float(l.get("balance_due") or 0) > 0)
 
     collection_pct = round((total_collected / total_expected) * 100, 2) if total_expected > 0 else 0.0
 
@@ -396,9 +410,9 @@ def _reporting_currency(supabase: Client, manager_id: str) -> str:
             .execute()
         )
         code = ((res.data or [{}])[0] or {}).get("display_currency")
-        return (code or "UGX").upper()
+        return (code or DEFAULT_CURRENCY).upper()
     except Exception:
-        return "UGX"
+        return DEFAULT_CURRENCY
 
 
 def _totals_in(leases: list[dict[str, Any]], fields: tuple[str, ...], target: str) -> tuple[dict[str, float], bool]:

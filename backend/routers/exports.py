@@ -11,6 +11,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from supabase import Client
 
+from currency import DEFAULT_CURRENCY
 from dependencies import (
     CurrentUser,
     get_service_client,
@@ -424,7 +425,7 @@ def export_report_pdf(
         "id, monthly_rent, currency, status, start_date, end_date"
     ).eq("owner_id", current_user.id).execute()
     lease_ids = [str(l.get("id")) for l in (leases_data.data or []) if l.get("id")]
-    currency_of = {str(l.get("id")): (l.get("currency") or "UGX") for l in (leases_data.data or [])}
+    currency_of = {str(l.get("id")): (l.get("currency") or DEFAULT_CURRENCY) for l in (leases_data.data or [])}
     if lease_ids:
         payments_data = supabase.table("payments").select(
             "amount, status, paid_date, created_at, lease_id"
@@ -446,11 +447,11 @@ def export_report_pdf(
     ]
     collected_by_ccy: dict[str, float] = {}
     for p in confirmed:
-        ccy = currency_of.get(str(p.get("lease_id")), "UGX")
+        ccy = currency_of.get(str(p.get("lease_id")), DEFAULT_CURRENCY)
         collected_by_ccy[ccy] = collected_by_ccy.get(ccy, 0.0) + float(p.get("amount") or 0)
     rent_by_ccy: dict[str, float] = {}
     for l in (leases_data.data or []):
-        ccy = l.get("currency") or "UGX"
+        ccy = l.get("currency") or DEFAULT_CURRENCY
         rent_by_ccy[ccy] = rent_by_ccy.get(ccy, 0.0) + float(l.get("monthly_rent") or 0)
 
     # Snapshot figures reuse the dashboard's money-ledger enrichment
@@ -480,7 +481,7 @@ def export_report_pdf(
             r.get("title", ""),
             r.get("property_type", ""),
             str(r.get("bedrooms", "")),
-            _money(r.get("monthly_rent"), r.get("rent_currency") or "UGX"),
+            _money(r.get("monthly_rent"), r.get("rent_currency") or DEFAULT_CURRENCY),
             r.get("status", ""),
             _location_line(r.get("address"), r.get("city"), r.get("state")),
         ]
@@ -505,7 +506,7 @@ def export_report_pdf(
         ["Active leases", f"{active} of {len(enriched)}"],
         ["Tenants", str(len(tenants))],
         ["Occupancy rate", f"{occupancy}%"],
-        ["Total outstanding", _money(outstanding, next(iter(sorted(set(rent_by_ccy) | set(collected_by_ccy))), "UGX"))],
+        ["Total outstanding", _money(outstanding, next(iter(sorted(set(rent_by_ccy) | set(collected_by_ccy))), DEFAULT_CURRENCY))],
         ["Collection rate", f"{collection_rate}%"],
     ]
 

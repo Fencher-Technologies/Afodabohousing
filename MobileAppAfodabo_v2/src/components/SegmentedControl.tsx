@@ -15,9 +15,23 @@ interface SegmentedControlProps {
   segments: Segment[];
   value: string;
   onChange: (value: string) => void;
+  /**
+   * Fills the selected segment with the brand red instead of plain white.
+   * Used where picking the wrong option has real consequences, such as
+   * choosing House Manager or Tenant when creating an account: people were
+   * signing up under the wrong role because the white-on-grey highlight was
+   * too faint to notice.
+   */
+  emphasis?: "subtle" | "strong";
 }
 
-export function SegmentedControl({ segments, value, onChange }: SegmentedControlProps) {
+export function SegmentedControl({
+  segments,
+  value,
+  onChange,
+  emphasis = "subtle",
+}: SegmentedControlProps) {
+  const strong = emphasis === "strong";
   return (
     <View style={styles.container}>
       {segments.map((seg) => {
@@ -26,12 +40,24 @@ export function SegmentedControl({ segments, value, onChange }: SegmentedControl
           <Pressable
             key={seg.value}
             onPress={() => onChange(seg.value)}
-            style={[styles.segment, active && styles.segmentActive]}
+            style={[
+              styles.segment,
+              active && styles.segmentActive,
+              active && strong && styles.segmentActiveStrong,
+            ]}
             accessibilityRole="button"
             accessibilityLabel={seg.label}
             accessibilityState={{ selected: active }}
           >
-            <Text style={[styles.label, active && styles.labelActive]}>{seg.label}</Text>
+            <Text
+              style={[
+                styles.label,
+                active && styles.labelActive,
+                active && strong && styles.labelActiveStrong,
+              ]}
+            >
+              {seg.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -68,5 +94,12 @@ const styles = StyleSheet.create({
   labelActive: {
     color: Colors.primary,
     fontWeight: FontWeight.semibold,
+  },
+  segmentActiveStrong: {
+    backgroundColor: Colors.accent,
+  },
+  labelActiveStrong: {
+    color: Colors.textOnPrimary,
+    fontWeight: FontWeight.bold,
   },
 });

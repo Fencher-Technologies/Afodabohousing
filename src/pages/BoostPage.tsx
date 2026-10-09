@@ -11,6 +11,29 @@ import { ArrowLeft, TrendingUp, Loader2, ExternalLink } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
 
+/** A boost package as the API returns it. `price` is the legacy UGX field. */
+type BoostPkg = {
+  days: number;
+  label: string;
+  price: number;
+  price_ugx?: number | null;
+  price_usd?: number | null;
+};
+
+/** The amount charged for a package in the chosen currency. */
+function priceIn(pkg: BoostPkg | undefined, currency: 'USD' | 'UGX'): number {
+  if (!pkg) return 0;
+  if (currency === 'USD') return Number(pkg.price_usd ?? 0);
+  return Number(pkg.price_ugx ?? pkg.price ?? 0);
+}
+
+function formatBoostPrice(pkg: BoostPkg | undefined, currency: 'USD' | 'UGX'): string {
+  const amount = priceIn(pkg, currency);
+  return currency === 'USD'
+    ? `$${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+    : `UGX ${amount.toLocaleString()}`;
+}
+
 export default function BoostPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -21,7 +44,10 @@ export default function BoostPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [duration, setDuration] = useState(14);
-  const [packages, setPackages] = useState<{ days: number; label: string; price: number }[]>([]);
+  const [packages, setPackages] = useState<BoostPkg[]>([]);
+  // US$ is the standard boost price. UGX stays available because Ugandan
+  // mobile money cannot settle dollars; it charges the same package locally.
+  const [currency, setCurrency] = useState<'USD' | 'UGX'>('USD');
 
   useEffect(() => {
     fetch(`${API}/boosts/packages`)
@@ -48,12 +74,13 @@ export default function BoostPage() {
 
   // Prices come from the database; this is only a fallback if that request
   // fails, so it mirrors the standard rate card.
-  const options = packages.length > 0 ? packages : [
-    { days: 14, label: 'Basic (2 weeks)', price: 4000 },
-    { days: 30, label: 'Standard (1 month)', price: 8000 },
-    { days: 90, label: 'Premium (3 months)', price: 12000 },
+  const options: BoostPkg[] = packages.length > 0 ? packages : [
+    { days: 14, label: 'Basic (2 weeks)', price: 4000, price_ugx: 4000, price_usd: 1 },
+    { days: 30, label: 'Standard (1 month)', price: 8000, price_ugx: 8000, price_usd: 2 },
+    { days: 90, label: 'Premium (3 months)', price: 20000, price_ugx: 20000, price_usd: 5 },
   ];
-  const price = options.find(d => d.days === duration)?.price || 0;
+  const selected = options.find(d => d.days === duration);
+  const price = priceIn(selected, currency);
 
   const calledRef = useRef(false);
 
@@ -75,6 +102,7 @@ export default function BoostPage() {
         body: JSON.stringify({
           property_id: id,
           duration_days: duration,
+          currency,
           callback_url: window.location.origin,
         }),
       });
@@ -117,13 +145,39 @@ export default function BoostPage() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
+                <Label>Pay in</Label>
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  {(['USD', 'UGX'] as const).map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCurrency(c)}
+                      className={`rounded-xl border-2 py-2.5 text-sm font-bold transition-colors ${
+                        currency === c
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-card text-muted-foreground'
+                      }`}
+                    >
+                      {c === 'USD' ? 'USD — Card' : 'UGX — Mobile Money'}
+                    </button>
+                  ))}
+                </div>
+                {currency === 'UGX' && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Boosts are priced in US$. You will be charged the shilling
+                    equivalent at today's rate.
+                  </p>
+                )}
+              </div>
+
+              <div>
                 <Label>Boost Duration</Label>
                 <Select value={String(duration)} onValueChange={v => setDuration(Number(v))}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {options.map(d => (
                       <SelectItem key={d.days} value={String(d.days)}>
-                        {d.label}: UGX {d.price.toLocaleString()}
+                        {d.label}: {formatBoostPrice(d, currency)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -131,7 +185,7 @@ export default function BoostPage() {
               </div>
 
               <Button type="submit" disabled={sending} className="w-full gradient-primary text-primary-foreground gap-2">
-                {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><ExternalLink className="h-4 w-4" /> Pay using Pesapal: UGX {price.toLocaleString()}</>}
+                {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><ExternalLink className="h-4 w-4" /> Pay using Pesapal: {formatBoostPrice(selected, currency)}</>}
               </Button>
             </form>
           </CardContent>

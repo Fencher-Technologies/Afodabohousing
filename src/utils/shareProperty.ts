@@ -1,9 +1,12 @@
 /**
  * The message used when a listing is shared (WhatsApp, SMS, anywhere).
  *
- * Always ends with the listing's link on axishousings.com, so whoever
- * receives it can open the home and find the rest of Axis.
+ * Ends with the listing's link on axishousings.com plus a line pointing at
+ * the app download, so a share both opens the home and recruits the person
+ * who receives it. That second line is the marketing purpose of sharing.
  */
+import { GET_APP_URL } from '@/config/app-links';
+
 const SITE_URL = 'https://www.axishousings.com';
 
 export type ShareableProperty = {
@@ -27,7 +30,7 @@ export function propertyUrl(id: string, origin?: string): string {
 export function propertyShareText(p: ShareableProperty, url: string): string {
   const amount = p.rent_amount ?? p.monthly_rent;
   const rent = amount
-    ? `${p.rent_currency || 'UGX'} ${Number(amount).toLocaleString()}/month`
+    ? `${p.rent_currency || 'USD'} ${Number(amount).toLocaleString()}/month`
     : null;
   const place = [p.address, p.city].filter(Boolean).join(', ');
   const rooms = [
@@ -42,5 +45,6 @@ export function propertyShareText(p: ShareableProperty, url: string): string {
     rooms || null,
     '',
     `View it on Axis: ${url}`,
+    `Get the Axis app: ${GET_APP_URL}`,
   ].filter((line) => line !== null).join('\n');
 }

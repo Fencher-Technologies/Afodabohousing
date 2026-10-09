@@ -1,10 +1,48 @@
 import { Link, useNavigate } from 'react-router-dom';
 import logoImg from '@/assets/axis-logo-official.png';
-import { Mail, Phone, MapPin, MessageCircle, Facebook, Twitter, Instagram, Youtube, Smartphone, Apple } from 'lucide-react';
+import type { ComponentType, SVGProps } from 'react';
+import { Mail, Phone, MapPin, MessageCircle, Clock, Globe, Facebook, Instagram, Youtube, Smartphone, Apple } from 'lucide-react';
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE_DISPLAY,
+  SUPPORT_PHONE_E164,
+  WHATSAPP_DISPLAY,
+  WHATSAPP_LINK,
+  OFFICE_ADDRESS_LINE,
+  WORK_HOURS_WEEKDAYS,
+  WORK_HOURS_SATURDAY,
+  SOCIAL_LINKS,
+} from '@/config/contact';
+import { APP_LINKS } from '@/config/app-links';
 
-const APP_LINKS = {
-  android: 'https://drive.google.com/drive/folders/1rWCINlslmwcj0sphOExgVSfg4i2dGZsq?usp=sharing',
-  ios: 'https://drive.google.com/drive/folders/14wuFtQkrOrRtoH2lr0D1QK3bnQL64VPq?usp=sharing',
+type IconType = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
+
+/** lucide ships no X, TikTok or KingsChat glyph, so those are drawn inline. */
+const XIcon: IconType = (props) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z" />
+  </svg>
+);
+
+const TikTokIcon: IconType = (props) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+    <path d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-1.83-2.48V9.74a5.72 5.72 0 1 0 4.92 5.66V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.3 4.3 0 0 1-3.24-1.48Z" />
+  </svg>
+);
+
+const KingsChatIcon: IconType = (props) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+    <path d="M12 2a10 10 0 0 0-8.66 15L2 22l5.2-1.3A10 10 0 1 0 12 2Zm-3.6 6h1.9v3.1L13.1 8h2.4l-3.3 3.5 3.5 4.5h-2.4l-2.4-3.2-.6.6V16H8.4V8Z" />
+  </svg>
+);
+
+const SOCIAL_ICONS: Record<string, IconType> = {
+  Facebook,
+  Instagram,
+  X: XIcon,
+  TikTok: TikTokIcon,
+  YouTube: Youtube,
+  KingsChat: KingsChatIcon,
 };
 
 const LINKS = {
@@ -59,41 +97,48 @@ export default function Footer() {
               Connecting tenants with verified house managers worldwide. Find your perfect home, generate agreements, and manage rent in one platform.
             </p>
             <div className="space-y-2.5 text-sm">
-              <a href="mailto:info@axishousings.com" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <Mail className="h-4 w-4 text-gold-light shrink-0" />
-                info@axishousings.com
+                {SUPPORT_EMAIL}
               </a>
-              <a href="tel:+256394709397" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <a href={`tel:${SUPPORT_PHONE_E164}`} className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <Phone className="h-4 w-4 text-gold-light shrink-0" />
-                +256 394 709 397
+                {SUPPORT_PHONE_DISPLAY}
               </a>
-              <a href="https://wa.me/256789590007" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <MessageCircle className="h-4 w-4 text-gold-light shrink-0" />
-                WhatsApp: +256 789 590 007
+                WhatsApp: {WHATSAPP_DISPLAY}
               </a>
-              <div className="flex items-center gap-2.5 text-primary-foreground/70">
-                <MapPin className="h-4 w-4 text-gold-light shrink-0" />
-                Kampala, Uganda
+              <div className="flex items-start gap-2.5 text-primary-foreground/70">
+                <MapPin className="h-4 w-4 text-gold-light shrink-0 mt-0.5" />
+                {OFFICE_ADDRESS_LINE}
+              </div>
+              <div className="flex items-start gap-2.5 text-primary-foreground/70">
+                <Clock className="h-4 w-4 text-gold-light shrink-0 mt-0.5" />
+                <span>
+                  {WORK_HOURS_WEEKDAYS}
+                  <br />
+                  {WORK_HOURS_SATURDAY}
+                </span>
               </div>
             </div>
-            <div className="flex items-center gap-3 mt-6">
-              {[
-                { Icon: Facebook, href: 'https://facebook.com/axishousing', label: 'Facebook' },
-                { Icon: Twitter, href: 'https://twitter.com/axishousing', label: 'Twitter' },
-                { Icon: Instagram, href: 'https://instagram.com/axishousing', label: 'Instagram' },
-                { Icon: Youtube, href: 'https://youtube.com/@axishousing', label: 'YouTube' },
-              ].map(({ Icon, href, label }) => (
-                <a
-                  key={label}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={label}
-                  className="h-9 w-9 rounded-full bg-primary-foreground/15 text-primary-foreground hover:bg-gold hover:text-primary flex items-center justify-center transition-colors"
-                >
-                  <Icon className="h-4 w-4" />
-                </a>
-              ))}
+            <div className="flex flex-wrap items-center gap-3 mt-6">
+              {SOCIAL_LINKS.map(({ name, url }) => {
+                const Icon = SOCIAL_ICONS[name] ?? Globe;
+                return (
+                  <a
+                    key={name}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={name}
+                    title={name}
+                    className="h-9 w-9 rounded-full bg-primary-foreground/15 text-primary-foreground hover:bg-gold hover:text-primary flex items-center justify-center transition-colors"
+                  >
+                    <Icon className="h-4 w-4" />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
@@ -190,8 +235,8 @@ export default function Footer() {
             <span>·</span>
             <ScrollLink to="/terms" className="hover:text-primary-foreground transition-colors">Terms</ScrollLink>
             <span>·</span>
-              <a href="mailto:info@axishousings.com" className="hover:text-primary-foreground transition-colors">
-              info@axishousings.com
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-primary-foreground transition-colors">
+              {SUPPORT_EMAIL}
             </a>
           </div>
         </div>

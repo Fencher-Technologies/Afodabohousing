@@ -97,7 +97,7 @@ export default function PropertiesPage() {
   // Sync currency when country changes
   useEffect(() => {
     if (!country) { setSelectedCurrency('UGX'); return; }
-    setSelectedCurrency(CURRENCY_MAP[country] || 'UGX');
+    setSelectedCurrency(CURRENCY_MAP[country] || 'USD');
   }, [country]);
 
   useEffect(() => {

@@ -43,6 +43,10 @@ export default function ManagerEditTenancy() {
       // one the tenancy is already for.
       property_id: data.property_id || '',
       unit_id: (data as { unit_id?: string }).unit_id || '',
+      rent_revision_months: (data as { rent_revision_months?: number | null })
+        .rent_revision_months
+        ? String((data as { rent_revision_months?: number }).rent_revision_months)
+        : '',
     });
     setLoading(false);
   };
@@ -63,6 +67,10 @@ export default function ManagerEditTenancy() {
       // Kept in step so existing agreements and receipts stay accurate.
       unit_label: data.unit_label || undefined,
       status: data.status,
+      // '' clears the schedule; a value sets or changes the review interval.
+      rent_revision_months: data.rent_revision_months
+        ? parseInt(data.rent_revision_months, 10)
+        : null,
     });
     const error = ok ? null : { message: detail || 'Could not update the tenancy.' };
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }

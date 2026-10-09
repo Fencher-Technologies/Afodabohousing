@@ -12,6 +12,7 @@ from supabase import Client
 from dependencies.database import get_service_client
 
 from .base import with_retry
+from .rent_revision import render_clause as render_revision_clause
 
 import logging
 
@@ -202,6 +203,23 @@ class AgreementService:
             seq_val = seq.data if hasattr(seq, "data") else 1
             year = _now().year
             agreement_number = f"AGR-{year}-{str(seq_val).zfill(4)}"
+
+        # The Rent Revision clause carries {{...}} placeholders so it can state
+        # the interval and date these parties actually agreed rather than
+        # generic wording. Substitution happens here, before the clauses are
+        # frozen into the agreement content.
+        standard_clauses = [
+            {**c, "content": render_revision_clause(c.get("content", ""), lease)}
+            if "{{" in str(c.get("content", ""))
+            else c
+            for c in standard_clauses
+        ]
+        custom_clauses = [
+            {**c, "content": render_revision_clause(c.get("content", ""), lease)}
+            if "{{" in str(c.get("content", ""))
+            else c
+            for c in custom_clauses
+        ]
 
         amenities = []
         if prop:

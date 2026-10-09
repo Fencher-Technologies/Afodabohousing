@@ -381,9 +381,12 @@ export interface Payment {
 
 export interface BoostPackage {
   days: number;
+  /** Legacy UGX field, kept so older clients keep working. */
   price: number;
   label: string;
   currency: string;
+  price_usd?: number | null;
+  price_ugx?: number | null;
 }
 
 export interface BoostInitiateResponse {

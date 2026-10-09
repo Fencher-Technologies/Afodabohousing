@@ -25,6 +25,7 @@ from models import (
 )
 from services import LeaseService, PaymentService, get_lease_service, get_payment_service
 from services.notifications import notify
+from services.tenant_identity import tenant_ids_for_user
 
 router = APIRouter(prefix="/leases", tags=["leases"])
 
@@ -104,14 +105,12 @@ def list_leases(
     supabase: Client = Depends(get_supabase_client),
     service: LeaseService = Depends(get_lease_svc),
 ) -> PaginatedResponse:
-    tenant = (
-        supabase.table("tenants")
-        .select("id")
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    if tenant.data:
-        leases, total = service.get_all_for_tenant(tenant.data[0]["id"], skip, limit)
+    # One person has a tenants row per house manager, so all of them are
+    # passed: a tenant who moved, or who rents two places, must see every
+    # tenancy rather than whichever record happened to come back first.
+    tenant_ids = tenant_ids_for_user(supabase, current_user.id)
+    if tenant_ids:
+        leases, total = service.get_all_for_tenant(tenant_ids, skip, limit)
     else:
         leases, total = service.get_all(current_user.id, skip, limit)
 
@@ -165,10 +164,10 @@ def get_lease(
     service: LeaseService = Depends(get_lease_svc),
 ) -> LeaseResponse:
     if current_user.role == "tenant":
-        tenant = supabase.table("tenants").select("id").eq("user_id", str(current_user.id)).maybe_single().execute()
-        if not tenant.data:
+        tenant_ids = tenant_ids_for_user(supabase, current_user.id)
+        if not tenant_ids:
             raise HTTPException(status_code=404, detail="Lease not found")
-        lease = service.get_by_id_for_tenant(lease_id, UUID(tenant.data["id"]))
+        lease = service.get_by_id_for_tenant(lease_id, tenant_ids)
     else:
         lease = service.get_by_id(lease_id, current_user.id)
     if not lease:
@@ -325,15 +324,17 @@ def create_renewal_request(
     supabase: Client = Depends(get_supabase_client),
     service: LeaseService = Depends(get_lease_svc),
 ) -> RenewalRequestCreateResponse:
-    tenant = supabase.table("tenants").select("id").eq("user_id", str(current_user.id)).execute()
-    if not tenant.data:
+    tenant_ids = tenant_ids_for_user(supabase, current_user.id)
+    if not tenant_ids:
         raise HTTPException(status_code=403, detail="Only tenants can request renewal")
-    tenant_id = tenant.data[0]["id"]
 
     lease = supabase.table("leases").select("*").eq("id", str(lease_id)).execute()
     if not lease.data:
         raise HTTPException(status_code=404, detail="Lease not found")
-    if lease.data[0]["tenant_id"] != tenant_id:
+    # Match against every tenant record the caller holds, so renewing a second
+    # tenancy is not refused because it sits under a different record.
+    tenant_id = str(lease.data[0]["tenant_id"])
+    if tenant_id not in set(tenant_ids):
         raise HTTPException(status_code=403, detail="This lease does not belong to you")
 
     try:

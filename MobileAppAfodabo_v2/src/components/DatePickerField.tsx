@@ -31,6 +31,8 @@ interface DatePickerFieldProps {
   error?: string | null;
   /** Disallow dates after today (e.g. payment dates). */
   disableFuture?: boolean;
+  /** Short explanatory line shown under the field. */
+  hint?: string;
 }
 
 export function DatePickerField({
@@ -40,6 +42,7 @@ export function DatePickerField({
   placeholder = "Select date",
   error = null,
   disableFuture = false,
+  hint,
 }: DatePickerFieldProps) {
   const [open, setOpen] = useState(false);
   const today = useMemo(() => parseISO(toLocalISODate(new Date()))!, []);
@@ -93,6 +96,7 @@ export function DatePickerField({
         </Text>
       </Pressable>
       {error && <Text style={styles.errorText}>{error}</Text>}
+      {!error && hint ? <Text style={styles.hintText}>{hint}</Text> : null}
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.overlay} onPress={() => setOpen(false)}>
@@ -189,6 +193,7 @@ const styles = StyleSheet.create({
   value: { flex: 1, fontSize: FontSize.body, color: Colors.textPrimary },
   placeholder: { color: Colors.textMuted },
   errorText: { fontSize: FontSize.caption, color: Colors.danger },
+  hintText: { fontSize: FontSize.caption, color: Colors.textMuted, marginTop: 4 },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

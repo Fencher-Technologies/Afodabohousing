@@ -15,6 +15,15 @@ import { boostsService } from "@/src/services/boosts";
 import { useAuth } from "@/src/context/auth-context";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import type { BoostPackage } from "@/src/types";
+
+/** What a package costs in the currency the manager is paying in. */
+function formatBoostPrice(pkg: BoostPackage, currency: "USD" | "UGX"): string {
+  if (currency === "USD") {
+    const amount = Number(pkg.price_usd ?? 0);
+    return `$${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  }
+  return `UGX ${Number(pkg.price_ugx ?? pkg.price ?? 0).toLocaleString()}`;
+}
 import { api } from "@/src/lib/api-client";
 import { API_BASE_URL } from "@/constants/config";
 
@@ -29,6 +38,9 @@ export default function BoostPropertyScreen() {
   const isExpired = subscription?.status !== "active";
   const [showGate, setShowGate] = useState(false);
   const [packages, setPackages] = useState<BoostPackage[]>([]);
+  // US$ is the standard boost price. UGX stays available because Ugandan
+  // mobile money cannot settle dollars; it charges the same package locally.
+  const [currency, setCurrency] = useState<"USD" | "UGX">("USD");
   const [selectedDays, setSelectedDays] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -128,7 +140,7 @@ export default function BoostPropertyScreen() {
     }
     setSubmitting(true);
     try {
-      const result = await boostsService.initiateBoost(propertyId, selectedDays, API_BASE_URL);
+      const result = await boostsService.initiateBoost(propertyId, selectedDays, API_BASE_URL, currency);
       boostIdRef.current = result.reference;
       if (result.redirect_url) {
         setPaymentUrl(result.redirect_url);
@@ -358,6 +370,37 @@ export default function BoostPropertyScreen() {
         Promote your property to appear first in search results.
       </Text>
 
+      {/* Payment currency: dollars by default, shillings for mobile money. */}
+      <View style={styles.packagesSection}>
+        <Text style={styles.sectionTitle}>Pay in</Text>
+        <View style={styles.currencyRow}>
+          {(["USD", "UGX"] as const).map((c) => (
+            <Pressable
+              key={c}
+              onPress={() => setCurrency(c)}
+              style={[styles.currencyToggle, currency === c && styles.currencyToggleActive]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: currency === c }}
+            >
+              <Text
+                style={[
+                  styles.currencyToggleText,
+                  currency === c && styles.currencyToggleTextActive,
+                ]}
+              >
+                {c === "USD" ? "USD — Card" : "UGX — Mobile Money"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {currency === "UGX" ? (
+          <Text style={styles.currencyNote}>
+            Boosts are priced in US$. You will be charged the shilling
+            equivalent at today's rate.
+          </Text>
+        ) : null}
+      </View>
+
       {/* Package Selection */}
       <View style={styles.packagesSection}>
         <Text style={styles.sectionTitle}>Select Package</Text>
@@ -379,7 +422,7 @@ export default function BoostPropertyScreen() {
                       {pkg.label}
                     </Text>
                     <Text style={styles.packagePrice}>
-                      UGX {pkg.price.toLocaleString()}
+                      {formatBoostPrice(pkg, currency)}
                     </Text>
                   </View>
                   {isSelected && (
@@ -399,7 +442,7 @@ export default function BoostPropertyScreen() {
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total to Pay</Text>
             <Text style={styles.totalAmount}>
-              UGX {selectedPkg.price.toLocaleString()}
+              {formatBoostPrice(selectedPkg, currency)}
             </Text>
           </View>
         </Card>
@@ -470,6 +513,36 @@ const styles = StyleSheet.create({
   packagesSection: {
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
+  },
+  currencyRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  currencyToggle: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: Radii.pill,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+  },
+  currencyToggleActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  currencyToggleText: {
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.bold,
+    color: Colors.textMuted,
+  },
+  currencyToggleTextActive: {
+    color: Colors.textOnPrimary,
+  },
+  currencyNote: {
+    fontSize: FontSize.caption,
+    color: Colors.textMuted,
+    marginTop: Spacing.xs,
   },
   packagesList: {
     gap: Spacing.sm,

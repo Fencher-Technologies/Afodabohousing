@@ -13,6 +13,18 @@ import showcaseInterior from '@/assets/showcase-interior.jpg';
 import property2 from '@/assets/property-2.jpg';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { useSeo } from '@/lib/seo';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE_DISPLAY,
+  SUPPORT_PHONE_E164,
+  WHATSAPP_DISPLAY,
+  WHATSAPP_LINK,
+  OFFICE_ADDRESS_LINE,
+  WORK_HOURS_WEEKDAYS,
+  WORK_HOURS_SATURDAY,
+  OPENING_HOURS_SCHEMA,
+} from '@/config/contact';
 
 const FAQS = [
   {
@@ -44,8 +56,7 @@ const FAQS = [
 export default function ContactPage() {
   useSeo({
     title: 'Contact Axis Housing',
-    description:
-      'Talk to the Axis Housing team. Call +256 394 709 397, message us on WhatsApp at +256 789 590 007, or write to info@axishousings.com.',
+    description: `Talk to the Axis Housing team. Call ${SUPPORT_PHONE_DISPLAY}, message us on WhatsApp at ${WHATSAPP_DISPLAY}, or write to ${SUPPORT_EMAIL}.`,
     path: '/contact',
     keywords: ['contact Axis Housing', 'Axis Housing support', 'rental support Uganda'],
     jsonLd: {
@@ -55,13 +66,16 @@ export default function ContactPage() {
       mainEntity: {
         '@type': 'Organization',
         name: 'Axis Housing',
-        email: 'info@axishousings.com',
-        telephone: '+256394709397',
+        email: SUPPORT_EMAIL,
+        telephone: SUPPORT_PHONE_E164,
+        openingHoursSpecification: OPENING_HOURS_SCHEMA,
       },
     },
   });
 
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
+  // Hidden honeypot. Humans leave it empty; bots fill everything in.
+  const [company, setCompany] = useState('');
   const [loading, setLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const { toast } = useToast();
@@ -69,14 +83,27 @@ export default function ContactPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate sending (in a real deployment this would call an edge function to send email)
-    await new Promise(r => setTimeout(r, 1200));
-    setLoading(false);
-    toast({
-      title: 'Message received!',
-      description: 'Thank you for reaching out. Our support team will respond within 24 hours via email.',
-    });
-    setForm({ name: '', email: '', phone: '', subject: '', message: '' });
+    try {
+      const { data, error } = await supabase.functions.invoke('contact-support', {
+        body: { ...form, company },
+      });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'Message could not be sent');
+      }
+      toast({
+        title: 'Message sent',
+        description: `Thank you for reaching out. Our support team will respond within 24 hours via email.`,
+      });
+      setForm({ name: '', email: '', phone: '', subject: '', message: '' });
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Message not sent',
+        description: `${err instanceof Error ? err.message : 'Something went wrong.'} Please email ${SUPPORT_EMAIL} directly.`,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -102,37 +129,37 @@ export default function ContactPage() {
                 {
                   icon: <Mail className="h-5 w-5" />,
                   label: 'Email',
-                  value: 'info@axishousings.com',
-                  href: 'mailto:info@axishousings.com',
+                  value: SUPPORT_EMAIL,
+                  href: `mailto:${SUPPORT_EMAIL}`,
                   sub: 'We respond within 24 hours',
                 },
                 {
                   icon: <Phone className="h-5 w-5" />,
                   label: 'Phone',
-                  value: '+256 394 709 397',
-                  href: 'tel:+256394709397',
-                  sub: 'Monday to Friday, 8am to 6pm EAT',
+                  value: SUPPORT_PHONE_DISPLAY,
+                  href: `tel:${SUPPORT_PHONE_E164}`,
+                  sub: WORK_HOURS_WEEKDAYS,
                 },
                 {
                   icon: <MessageCircle className="h-5 w-5" />,
                   label: 'WhatsApp',
-                  value: '+256 789 590 007',
-                  href: 'https://wa.me/256789590007',
+                  value: WHATSAPP_DISPLAY,
+                  href: WHATSAPP_LINK,
                   sub: 'Fastest response for urgent issues',
                 },
                 {
                   icon: <MapPin className="h-5 w-5" />,
                   label: 'Address',
-                  value: 'Kampala, Uganda',
+                  value: OFFICE_ADDRESS_LINE,
                   href: null,
                   sub: 'East Africa',
                 },
                 {
                   icon: <Clock className="h-5 w-5" />,
-                  label: 'Support Hours',
-                  value: 'Mon to Fri: 8am to 6pm',
+                  label: 'Work Hours',
+                  value: WORK_HOURS_WEEKDAYS,
                   href: null,
-                  sub: 'East Africa Time (EAT)',
+                  sub: `${WORK_HOURS_SATURDAY} (East Africa Time)`,
                 },
               ].map(c => (
                 <div key={c.label} className="flex items-start gap-4 py-5 border-b border-border last:border-b-0">
@@ -257,6 +284,18 @@ export default function ContactPage() {
                   />
                 </div>
 
+                {/* Honeypot: visually hidden, never focusable, ignored by humans. */}
+                <input
+                  type="text"
+                  name="company"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={company}
+                  onChange={e => setCompany(e.target.value)}
+                  aria-hidden="true"
+                  className="absolute left-[-9999px] h-0 w-0 opacity-0"
+                />
+
                 <Button
                   type="submit"
                   disabled={loading || !form.subject}
@@ -274,8 +313,8 @@ export default function ContactPage() {
 
                 <p className="text-xs text-muted-foreground text-center">
                   Or email us directly at{' '}
-                  <a href="mailto:info@axishousings.com" className="text-primary font-semibold hover:underline">
-                    info@axishousings.com
+                  <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary font-semibold hover:underline">
+                    {SUPPORT_EMAIL}
                   </a>
                 </p>
               </form>

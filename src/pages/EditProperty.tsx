@@ -72,7 +72,7 @@ export default function EditProperty() {
       toast({ title: 'Error', description: 'Property not found', variant: 'destructive' });
       navigate('/dashboard/manager'); return;
     }
-    setCurrency((data as { rent_currency?: string }).rent_currency || 'UGX');
+    setCurrency((data as { rent_currency?: string }).rent_currency || 'USD');
     listPropertyUnits(id).then(rows => setUnits(rows.map(r => ({
       id: r.id, unit_number: r.unit_number, floor_level: r.floor_level,
       bedrooms: r.bedrooms, bathrooms: r.bathrooms,
@@ -94,7 +94,7 @@ export default function EditProperty() {
       longitude: data.longitude ? String(data.longitude) : '',
       country: data.country || 'UG',
       region_id: data.region_id || '',
-      rent_currency: data.rent_currency || 'UGX',
+      rent_currency: data.rent_currency || 'USD',
     });
     setLoading(false);
   };

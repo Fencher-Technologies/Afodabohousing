@@ -223,16 +223,33 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
     if (!user) return;
     setLoading(true);
 
-    const tenantResult = await supabase.from('tenants').select('*, leases!inner(*, properties(*))').eq('user_id', user.id).maybeSingle();
-    const tenant = tenantResult.data;
+    // A person has one tenants row per house manager, so there can be several.
+    // maybeSingle() errored the moment a second one existed — which is what
+    // left a tenant with a blank dashboard after moving to a new manager.
+    const tenantResult = await supabase
+      .from('tenants')
+      .select('*, leases(*, properties(*))')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    const tenantRows: any[] = tenantResult.data || [];
+
+    // Prefer the record that currently holds a live tenancy; otherwise the
+    // most recent one, so a tenant between tenancies still sees their history.
+    const tenant =
+      tenantRows.find((t: any) =>
+        (t.leases || []).some((l: any) => l.status === 'active'),
+      ) || tenantRows[0] || null;
     setTenantRecord(tenant);
+    const allTenantIds = tenantRows.map((t: any) => t.id).filter(Boolean);
 
     // Read the lease through the API, not the table: _enrich_leases computes
     // the rent ledger (expected rent to date, total paid, arrears, credit,
     // paid-until and next due) from daily accrual. Reading the raw row meant
     // this page derived its own figures and disagreed with the mobile app and
     // the receipts about the same tenancy.
-    let lease = tenant?.leases?.[0] || null;
+    const allLeases = tenantRows.flatMap((t: any) => t.leases || []);
+    let lease =
+      allLeases.find((l: any) => l.status === 'active') || allLeases[0] || null;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${API_BASE}/leases?limit=20`, {
@@ -252,6 +269,9 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
     setActiveLease(lease);
 
     const tenantId = tenant?.id;
+    // Payments and requests are pulled across every tenant record, so moving
+    // to a new manager does not hide the history from the previous tenancy.
+    const historyIds = allTenantIds.length ? allTenantIds : tenantId ? [tenantId] : [];
 
     if (lease?.owner_id) {
       const { data: mp } = await supabase.from('profiles').select('*').eq('user_id', lease.owner_id).maybeSingle();
@@ -261,10 +281,10 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
     const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
     setProfile(p);
 
-    if (tenantId) {
-      const { data: pays } = await supabase.from('payments').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
+    if (historyIds.length) {
+      const { data: pays } = await supabase.from('payments').select('*').in('tenant_id', historyIds).order('created_at', { ascending: false });
       setPayments(pays || []);
-      const { data: reqs } = await supabase.from('maintenance_requests').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
+      const { data: reqs } = await supabase.from('maintenance_requests').select('*').in('tenant_id', historyIds).order('created_at', { ascending: false });
       setMaintenanceReqs(reqs || []);
     }
 
@@ -277,7 +297,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
   const isOverdue = daysLeft !== null && daysLeft < 0;
   const isDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
   const property = activeLease?.properties;
-  const propertyCurrency = property?.rent_currency || activeLease?.rent_currency || 'UGX';
+  const propertyCurrency = property?.rent_currency || activeLease?.rent_currency || 'USD';
 
   // The agreed rent for this tenancy. Never fall back to the property's
   // listing price: a negotiated rent is often lower, and using the listing

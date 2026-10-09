@@ -21,6 +21,8 @@ from models import (
 )
 
 from .base import BaseService, with_retry
+from .rent_revision import compute_next_revision_date
+from currency import DEFAULT_CURRENCY
 
 logger = logging.getLogger(__name__)
 
@@ -250,6 +252,7 @@ def _compute_rent_financials(
     start_date: Any = None,
     end_date: Any = None,
     today: date | None = None,
+    accrual_end_date: Any = None,
 ) -> dict[str, Any]:
     """Money-ledger rent position (billing anchor + money) — source of truth.
 
@@ -332,7 +335,24 @@ def _compute_rent_financials(
         return result
 
     today = today or date.today()
-    elapsed = max(0, (today - eff).days)
+
+    # Rent stops accruing the day a tenancy ends. Without this the ledger kept
+    # billing terminated tenants forever, so their "debt" grew every day and
+    # inflated the manager's total outstanding, which is misleading: once a
+    # contract is over, no further rent is owed under it.
+    accrual_until = today
+    if accrual_end_date:
+        try:
+            ended = (
+                accrual_end_date
+                if isinstance(accrual_end_date, date)
+                else date.fromisoformat(str(accrual_end_date)[:10])
+            )
+            accrual_until = min(today, ended)
+        except (TypeError, ValueError):
+            pass
+
+    elapsed = max(0, (accrual_until - eff).days)
 
     rent_accrued = round(monthly_rent_f * elapsed / 30.0, 2)
     balance = round(total_paid - rent_accrued, 2)
@@ -550,8 +570,27 @@ def _enrich_leases(
                 monthly_rent,
                 start_date=l.get("start_date"),
                 end_date=l.get("end_date"),
+                # A terminated tenancy stops billing on its termination date;
+                # one that simply ran its term stops at the contract end.
+                accrual_end_date=(
+                    l.get("termination_date") or l.get("end_date")
+                    if effective_status == "terminated"
+                    else None
+                ),
             )
         )
+        # When the rent next falls due for revision, from the interval the
+        # parties agreed. Computed rather than stored so it stays right if the
+        # interval or the rent anchor changes.
+        l["next_rent_revision_date"] = (
+            l.get("next_rent_revision_date")
+            or (
+                compute_next_revision_date(l).isoformat()
+                if compute_next_revision_date(l)
+                else None
+            )
+        )
+
         # Deprecated aliases — kept for one release. The money-ledger
         # canonical fields (rent_accrued/arrears_amount/advance_amount) are
         # the source of truth; these exist only for old API consumers.
@@ -665,7 +704,16 @@ class PropertyService(BaseService):
             region_ids_for_country = _cached_region_ids(country, self.supabase)
 
         def _filtered(columns: str, count: str | None = None):
-            query = self.supabase.table(self._table).select(columns, count=count).eq("is_active", True)
+            # Only listings the Axis QA team has approved are public. This is
+            # the gate behind the "reviewed and approved by our QA team"
+            # promise on every plan and the Quality Assurance clause in the
+            # terms; before it, a listing went live the moment it was saved.
+            query = (
+                self.supabase.table(self._table)
+                .select(columns, count=count)
+                .eq("is_active", True)
+                .eq("review_status", "approved")
+            )
             if state:
                 term = f"%{state}%"
                 query = query.or_(f"state.ilike.{term},city.ilike.{term}")
@@ -808,7 +856,7 @@ class PropertyService(BaseService):
                 "bathrooms": prop.get("bathrooms") or 1,
                 "sitting_rooms": prop.get("sitting_rooms") or 1,
                 "rent_amount": prop.get("monthly_rent") or 0,
-                "rent_currency": prop.get("rent_currency") or "UGX",
+                "rent_currency": prop.get("rent_currency") or DEFAULT_CURRENCY,
                 "security_deposit": prop.get("security_deposit") or 0,
                 "status": "available",
             }).execute()
@@ -989,19 +1037,38 @@ class LeaseService(BaseService):
 
     @with_retry
     def get_all_for_tenant(
-        self, tenant_id: UUID, skip: int = 0, limit: int = 100
+        self,
+        tenant_id: UUID | str | list[str],
+        skip: int = 0,
+        limit: int = 100,
     ) -> tuple[list[dict[str, Any]], int]:
+        """Leases for a tenant.
+
+        Accepts several tenant ids because one person holds a separate
+        ``tenants`` row per house manager. Passing them all is what lets a
+        tenant who moved, or who rents two places, see every tenancy on one
+        dashboard instead of only the first record found.
+        """
+        ids = (
+            [str(t) for t in tenant_id]
+            if isinstance(tenant_id, (list, tuple, set))
+            else [str(tenant_id)]
+        )
+        ids = [i for i in ids if i]
+        if not ids:
+            return [], 0
+
         count_resp = (
             self.supabase.table(self._table)
             .select("*", count="exact")
-            .eq("tenant_id", str(tenant_id))
+            .in_("tenant_id", ids)
             .execute()
         )
         total = count_resp.count if hasattr(count_resp, "count") else 0
 
         response = (
             self.table.select("*")
-            .eq("tenant_id", str(tenant_id))
+            .in_("tenant_id", ids)
             .order("created_at", desc=True)
             .range(skip, skip + limit - 1)
             .execute()
@@ -1049,11 +1116,22 @@ class LeaseService(BaseService):
         return _enrich_leases([_normalize_lease(row)], self.supabase)[0]
 
     @with_retry
-    def get_by_id_for_tenant(self, lease_id: UUID, tenant_id: UUID) -> dict[str, Any] | None:
+    def get_by_id_for_tenant(
+        self, lease_id: UUID, tenant_id: UUID | str | list[str]
+    ) -> dict[str, Any] | None:
+        """One lease, if it belongs to any of this person's tenant records."""
+        ids = (
+            [str(t) for t in tenant_id]
+            if isinstance(tenant_id, (list, tuple, set))
+            else [str(tenant_id)]
+        )
+        ids = [i for i in ids if i]
+        if not ids:
+            return None
         response = (
             self.table.select("*")
             .eq("id", str(lease_id))
-            .eq("tenant_id", str(tenant_id))
+            .in_("tenant_id", ids)
             .execute()
         )
         row = response.data[0] if response.data else None
@@ -1506,18 +1584,36 @@ class PaymentService(BaseService):
 
     @with_retry
     def get_all_for_tenant(
-        self, tenant_id: UUID, skip: int = 0, limit: int = 100
+        self,
+        tenant_id: UUID | str | list[str],
+        skip: int = 0,
+        limit: int = 100,
     ) -> tuple[list[dict[str, Any]], int]:
+        """Payments for a tenant, across all of their tenant records.
+
+        One person holds a separate ``tenants`` row per house manager, so a
+        list of ids is accepted: a tenant who moved must still see the
+        payment history from their previous tenancy.
+        """
+        ids = (
+            [str(t) for t in tenant_id]
+            if isinstance(tenant_id, (list, tuple, set))
+            else [str(tenant_id)]
+        )
+        ids = [i for i in ids if i]
+        if not ids:
+            return [], 0
+
         count_resp = (
             self.supabase.table(self._table)
             .select("*", count="exact")
-            .eq("tenant_id", str(tenant_id))
+            .in_("tenant_id", ids)
             .execute()
         )
         total = count_resp.count if hasattr(count_resp, "count") else 0
         response = (
             self.table.select("*")
-            .eq("tenant_id", str(tenant_id))
+            .in_("tenant_id", ids)
             .order("created_at", desc=True)
             .range(skip, skip + limit - 1)
             .execute()

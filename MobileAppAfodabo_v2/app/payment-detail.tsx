@@ -211,7 +211,7 @@ export default function PaymentDetailScreen() {
               error={error ?? undefined}
             />
             <InputField
-              label="Paid Date (YYYY-MM-DD)"
+              label="Effective date (YYYY-MM-DD)"
               value={paidDate}
               onChangeText={setPaidDate}
               placeholder="YYYY-MM-DD"
@@ -250,7 +250,7 @@ export default function PaymentDetailScreen() {
               <DetailRow label="Type" value={payment.payment_type} />
               <DetailRow label="Method" value={formatMethod(payment.method)} />
               <DetailRow label="Due Date" value={formatDate(payment.due_date)} />
-              <DetailRow label="Paid Date" value={formatDate(payment.paid_date)} />
+              <DetailRow label="Effective date" value={formatDate(payment.paid_date)} />
               {payment.coverage_start_date && payment.coverage_end_date ? (
                 <DetailRow
                   label="Covers"

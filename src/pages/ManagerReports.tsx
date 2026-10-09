@@ -35,7 +35,7 @@ const EXPORTS = [
 // Totals arrive already converted into the manager's reporting currency;
 // showing the code stops "1,200,000" being read as the wrong money.
 function fmt(n: number, currency?: string) {
-  return `${currency || 'UGX'} ${n.toLocaleString()}`;
+  return `${currency || 'USD'} ${n.toLocaleString()}`;
 }
 
 export default function ManagerReports() {
@@ -215,7 +215,7 @@ export default function ManagerReports() {
             {summary?.mixed_currencies && (
               <p className="text-xs text-muted-foreground">
                 Your properties are priced in more than one currency. Totals are converted to{' '}
-                {summary.currency || 'UGX'} at current exchange rates; each rent, payment and receipt
+                {summary.currency || 'USD'} at current exchange rates; each rent, payment and receipt
                 keeps its own currency.
               </p>
             )}

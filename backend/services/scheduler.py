@@ -12,6 +12,7 @@ from config import get_settings
 from services.email import email_endpoint as _email_endpoint
 from services.crud import _compute_rent_financials
 from services import notification_copy as copy
+from services.rent_revision import compute_next_revision_date
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
@@ -188,6 +189,108 @@ async def check_rent_reminders(supabase=None, today: date | None = None, dispatc
 
     except Exception as e:
         logger.error("Rent reminder check failed: %s", str(e), exc_info=True)
+
+
+async def check_rent_revisions(supabase=None, today: date | None = None, dispatcher=None):
+    """Remind both parties when the rent falls due for revision.
+
+    The business asked that agreeing a revision interval with a tenant makes
+    the system compute that date and tell both sides when it arrives: "if I
+    agree with my tenant that we shall increase rent every 2 years, the system
+    should compute that date and notify both the tenant and landlord".
+
+    Only tenancies with an agreed interval are considered, so nothing changes
+    for tenancies that are not on a revision schedule. The event key is the
+    revision date itself, so each revision is announced exactly once however
+    often the job runs.
+    """
+    try:
+        supabase = supabase or _get_supabase_for_scheduler()
+        today = today or date.today()
+        dispatcher = dispatcher or NotificationDispatcher(supabase)
+
+        leases = (
+            supabase.table("leases")
+            .select(
+                "id, owner_id, property_id, tenant_id, monthly_rent, currency, status, "
+                "start_date, rent_effective_date, rent_revision_months, "
+                "next_rent_revision_date, last_rent_revision_date"
+            )
+            .eq("status", "active")
+            .execute()
+        )
+
+        # Filtered here rather than in the query: only tenancies where the
+        # parties agreed an interval are on a revision schedule, and keeping
+        # the predicate in Python avoids depending on null-filter syntax.
+        scheduled = [l for l in (leases.data or []) if l.get("rent_revision_months")]
+
+        for lease in scheduled:
+            due = compute_next_revision_date(lease, today=today)
+            if due is None or due > today:
+                continue
+
+            lease_id = lease["id"]
+            tenant_id = lease.get("tenant_id")
+            if not tenant_id:
+                continue
+
+            tenant = _fetch_single(supabase, "tenants", tenant_id) or {}
+            ctx = copy.lease_context(supabase, lease)
+            tenant_name = copy.first_name(
+                tenant.get("first_name") or tenant.get("last_name"), ctx["tenant"]
+            )
+            metadata = {
+                "lease_id": lease_id,
+                "property_id": lease.get("property_id"),
+                "revision_date": due.isoformat(),
+                "current_rent": lease.get("monthly_rent"),
+            }
+
+            t_title, t_body = copy.rent_revision_for_tenant(
+                tenant_name, ctx["place"], due, lease.get("monthly_rent"), ctx["currency"]
+            )
+            await _deliver_all_channels(
+                dispatcher,
+                event_key=f"rent_revision:{lease_id}:{due.isoformat()}",
+                recipient_id=tenant.get("user_id"),
+                to_email=tenant.get("email"),
+                type="rent_revision", title=t_title, body=t_body, metadata=metadata,
+            )
+
+            manager_id = lease.get("owner_id")
+            if manager_id:
+                profile = copy._one(
+                    supabase, "profiles", "user_id", manager_id, "full_name,email"
+                )
+                m_title, m_body = copy.rent_revision_for_manager(
+                    copy.first_name(profile.get("full_name"), "there"),
+                    tenant_name, ctx["place"], due,
+                    lease.get("monthly_rent"), ctx["currency"],
+                )
+                await _deliver_all_channels(
+                    dispatcher,
+                    event_key=f"rent_revision_manager:{lease_id}:{due.isoformat()}",
+                    recipient_id=str(manager_id),
+                    to_email=profile.get("email"),
+                    type="rent_revision", title=m_title, body=m_body,
+                    metadata={**metadata, "tenant_id": tenant_id},
+                )
+
+            # Record the date that was announced, so the lease carries the
+            # review it is currently waiting on rather than recomputing it.
+            if str(lease.get("next_rent_revision_date") or "")[:10] != due.isoformat():
+                try:
+                    supabase.table("leases").update(
+                        {"next_rent_revision_date": due.isoformat()}
+                    ).eq("id", lease_id).execute()
+                except Exception as exc:  # noqa: BLE001 - the notice already went out
+                    logger.warning(
+                        "Could not store revision date for lease %s: %s", lease_id, exc
+                    )
+
+    except Exception as e:
+        logger.error("Rent revision check failed: %s", str(e), exc_info=True)
 
 
 async def check_tenancy_expiry():
@@ -504,11 +607,13 @@ def start_scheduler():
         scheduler.add_job(check_rent_reminders, "cron", hour=8, minute=0, replace_existing=True)
         scheduler.add_job(check_tenancy_expiry, "cron", hour=6, minute=0, replace_existing=True)
         scheduler.add_job(check_boost_expiry, "cron", hour=6, minute=30, replace_existing=True)
+        scheduler.add_job(check_rent_revisions, "cron", hour=7, minute=0, replace_existing=True)
         scheduler.add_job(sync_geonames, "cron", day=1, hour=3, minute=0, replace_existing=True)
     else:
         scheduler.add_job(check_rent_reminders, "interval", hours=6, replace_existing=True)
         scheduler.add_job(check_tenancy_expiry, "interval", hours=12, replace_existing=True)
         scheduler.add_job(check_boost_expiry, "interval", hours=12, replace_existing=True)
+        scheduler.add_job(check_rent_revisions, "interval", hours=12, replace_existing=True)
         scheduler.add_job(sync_geonames, "interval", hours=24 * 30, replace_existing=True)
     logger.info("Background scheduler started")
 

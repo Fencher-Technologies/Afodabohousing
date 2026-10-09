@@ -271,6 +271,19 @@ export default function ManagerProperties() {
                           Hidden
                         </Badge>
                       )}
+                      {/* A listing is public only once our QA team approves it.
+                          Without this badge a manager would see their property
+                          saved and assume it was live. */}
+                      {(property as any).review_status === 'pending' && (
+                        <Badge variant="outline" className="text-xs font-semibold bg-amber-50 text-amber-700 border-amber-200">
+                          In review
+                        </Badge>
+                      )}
+                      {(property as any).review_status === 'rejected' && (
+                        <Badge variant="outline" className="text-xs font-semibold bg-destructive/10 text-destructive border-destructive/20">
+                          Needs changes
+                        </Badge>
+                      )}
                       {boosted && (
                         <Badge className="bg-amber-400/15 text-amber-600 border-amber-300 text-xs font-semibold gap-1">
                           <Sparkles className="h-3 w-3" />

@@ -40,16 +40,22 @@ export default function TenantPayments() {
 
   const fetchPayments = async () => {
     if (!user) return;
-    const { data: tenant } = await supabase.from('tenants').select('id').eq('user_id', user.id).maybeSingle();
-    if (!tenant) { setLoading(false); return; }
+    // One tenants row per house manager, so a tenant who moved or who rents
+    // two places has several. maybeSingle() errored in that case and the page
+    // came up empty; every record is read instead.
+    const { data: tenantRows } = await supabase
+      .from('tenants').select('id')
+      .eq('user_id', user.id);
+    const tenantIds = (tenantRows || []).map((t: { id: string }) => t.id);
+    if (!tenantIds.length) { setLoading(false); return; }
     const { data } = await supabase
       .from('payments').select('*')
-      .eq('tenant_id', tenant.id)
+      .in('tenant_id', tenantIds)
       .order('created_at', { ascending: false });
     setPayments(data || []);
     const { data: leases } = await supabase
       .from('leases').select('monthly_rent, rent_period, start_date, end_date, status')
-      .eq('tenant_id', tenant.id)
+      .in('tenant_id', tenantIds)
       .order('created_at', { ascending: false });
     setLease(leases?.find((l: any) => l.status === 'active') ?? leases?.[0] ?? null);
     setLoading(false);

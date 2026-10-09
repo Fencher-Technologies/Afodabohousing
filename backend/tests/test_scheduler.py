@@ -151,7 +151,7 @@ def build_supabase(today):
                 "last_name": "Tenant",
             }
         ],
-        "properties": [{"id": "property-1", "title": "Ntinda Apartment"}],
+        "properties": [{"id": "property-1", "title": "Ntinda Apartment", "currency": "UGX"}],
         "notifications": [],
         "notification_deliveries": [],
     })
@@ -194,7 +194,7 @@ async def test_tenancy_expiry_reminders_are_idempotent_per_channel():
             }
         ],
         "tenants": [{"id": "tenant-1", "user_id": "user-tenant-1", "email": "tenant@example.com"}],
-        "properties": [{"id": "property-1", "title": "Ntinda Apartment"}],
+        "properties": [{"id": "property-1", "title": "Ntinda Apartment", "currency": "UGX"}],
         "notifications": [],
         "notification_deliveries": [],
     })
@@ -281,7 +281,7 @@ async def test_rent_reminders_fire_on_money_ledger_due_dates():
         "tenants": [
             {"id": "tenant-1", "user_id": "user-tenant-1", "email": "tenant@example.com"}
         ],
-        "properties": [{"id": "property-1", "title": "Ntinda Apartment"}],
+        "properties": [{"id": "property-1", "title": "Ntinda Apartment", "currency": "UGX"}],
         "notifications": [],
         "notification_deliveries": [],
     })
@@ -348,3 +348,141 @@ def test_start_scheduler_no_longer_registers_subscription_sweep(monkeypatch, env
     assert check_boost_expiry in registered
     assert sync_geonames in registered
     assert not any(f.__name__ == "expire_subscriptions" for f in registered)
+
+
+# ─── Rent revision reminders ─────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_rent_revision_notifies_both_parties_when_the_date_arrives():
+    """The business's example: rent reviewed every two years.
+
+    When the agreed date arrives, both the tenant and the landlord must hear
+    about it. Tenancies with no agreed interval must be left alone.
+    """
+    from services.scheduler import check_rent_revisions
+
+    today = date(2028, 1, 1)
+    supabase = MockSupabase({
+        "leases": [
+            {
+                # Agreed two-yearly review, anchored 1 Jan 2026 — due today.
+                "id": "lease-due",
+                "owner_id": "owner-1",
+                "property_id": "property-1",
+                "tenant_id": "tenant-1",
+                "monthly_rent": 500000,
+                "currency": "UGX",
+                "status": "active",
+                "start_date": "2026-01-01",
+                "rent_effective_date": "2026-01-01",
+                "rent_revision_months": 24,
+                "next_rent_revision_date": None,
+                "last_rent_revision_date": None,
+            },
+            {
+                # Same anchor, but the review is not due for another year.
+                "id": "lease-not-yet",
+                "owner_id": "owner-1",
+                "property_id": "property-1",
+                "tenant_id": "tenant-1",
+                "monthly_rent": 400000,
+                "currency": "UGX",
+                "status": "active",
+                "start_date": "2026-01-01",
+                "rent_effective_date": "2027-01-01",
+                "rent_revision_months": 24,
+            },
+            {
+                # No agreed interval: never on a revision schedule.
+                "id": "lease-no-schedule",
+                "owner_id": "owner-1",
+                "property_id": "property-1",
+                "tenant_id": "tenant-1",
+                "monthly_rent": 300000,
+                "currency": "UGX",
+                "status": "active",
+                "start_date": "2020-01-01",
+                "rent_effective_date": "2020-01-01",
+                "rent_revision_months": None,
+            },
+        ],
+        "tenants": [
+            {"id": "tenant-1", "user_id": "user-tenant-1", "email": "tenant@example.com",
+             "first_name": "Yonah", "last_name": "Kato"}
+        ],
+        "profiles": [
+            {"user_id": "owner-1", "full_name": "Eric Mukasa", "email": "eric@example.com"}
+        ],
+        "properties": [{"id": "property-1", "title": "Kololo", "currency": "UGX"}],
+        "notifications": [],
+        "notification_deliveries": [],
+    })
+    dispatcher = FakeDispatcher()
+
+    await check_rent_revisions(supabase, today=today, dispatcher=dispatcher)
+
+    # Only the lease whose review is due generates notices.
+    assert {m["metadata"]["lease_id"] for m in dispatcher.in_app} == {"lease-due"}
+    # One to the tenant, one to the landlord.
+    assert len(dispatcher.in_app) == 2
+
+    to_tenant = next(m for m in dispatcher.in_app if m["recipient_id"] == "user-tenant-1")
+    to_manager = next(m for m in dispatcher.in_app if m["recipient_id"] == "owner-1")
+
+    assert "Yonah" in to_tenant["body"]
+    assert "2028-01-01" in to_tenant["body"]
+    assert to_tenant["metadata"]["revision_date"] == "2028-01-01"
+
+    assert "Eric" in to_manager["body"]
+    assert "Yonah" in to_manager["body"]
+    assert "Kololo" in to_manager["body"]
+
+    # The revision is announced once, keyed on the date itself.
+    assert {d["event_key"] for d in dispatcher.deliveries} == {
+        "rent_revision:lease-due:2028-01-01",
+        "rent_revision_manager:lease-due:2028-01-01",
+    }
+
+
+@pytest.mark.asyncio
+async def test_rent_revision_is_announced_only_once():
+    """A second run on the same day must not repeat the notice."""
+    from services.scheduler import check_rent_revisions
+
+    today = date(2028, 1, 1)
+    tables = {
+        "leases": [
+            {
+                "id": "lease-due",
+                "owner_id": "owner-1",
+                "property_id": "property-1",
+                "tenant_id": "tenant-1",
+                "monthly_rent": 500000,
+                "currency": "UGX",
+                "status": "active",
+                "start_date": "2026-01-01",
+                "rent_effective_date": "2026-01-01",
+                "rent_revision_months": 24,
+            },
+        ],
+        "tenants": [{"id": "tenant-1", "user_id": "user-tenant-1", "email": "t@example.com"}],
+        "profiles": [{"user_id": "owner-1", "full_name": "Eric", "email": "e@example.com"}],
+        "properties": [{"id": "property-1", "title": "Kololo", "currency": "UGX"}],
+        "notifications": [],
+        "notification_deliveries": [],
+    }
+    dispatcher = FakeDispatcher(existing=[
+        ("rent_revision:lease-due:2028-01-01", "in_app"),
+        ("rent_revision:lease-due:2028-01-01", "email"),
+        ("rent_revision:lease-due:2028-01-01", "push"),
+        ("rent_revision_manager:lease-due:2028-01-01", "in_app"),
+        ("rent_revision_manager:lease-due:2028-01-01", "email"),
+        ("rent_revision_manager:lease-due:2028-01-01", "push"),
+    ])
+
+    await check_rent_revisions(MockSupabase(tables), today=today, dispatcher=dispatcher)
+
+    assert dispatcher.in_app == []
+    assert dispatcher.emails == []
+    assert dispatcher.pushes == []

@@ -33,9 +33,19 @@ out
 *.cache
 *.swp
 *.bak
-*_old.*
-*_backup.*
-*_copy.*
+# Duplicate files left behind by file managers and editors.
+#
+# These were previously written as *_old.*, *_backup.* and *_copy.*, which
+# matched real source files: services/notification_copy.py was silently
+# excluded from every commit, so the backend imported a module that was never
+# pushed and crashed on startup. The patterns now match only the shapes an OS
+# or editor actually produces when it duplicates a file.
+* copy.*
+* copy [0-9].*
+* - Copy.*
+*(copy).*
+*.orig
+*.rej
 
 # OS files
 .DS_Store

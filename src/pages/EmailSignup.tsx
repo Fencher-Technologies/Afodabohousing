@@ -150,17 +150,44 @@ export default function EmailSignup() {
                 />
               </div>
             </div>
+            {/* A plain dropdown let people sign up under the wrong role without
+                noticing. A two-button toggle with the choice filled in the brand
+                red makes the selection impossible to miss. */}
             <div>
-              <Label>Role</Label>
-              <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v as SignupFormData['role'] }))}>
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tenant">Tenant</SelectItem>
-                  <SelectItem value="house_manager">House Manager</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Create account as…</Label>
+              <div
+                role="radiogroup"
+                aria-label="Create account as"
+                className="mt-1.5 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1"
+              >
+                {([
+                  { value: 'house_manager', label: 'House Manager', hint: 'List properties and manage tenants' },
+                  { value: 'tenant', label: 'Tenant', hint: 'Rent a property and track your rent' },
+                ] as const).map(opt => {
+                  const active = form.role === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setForm(f => ({ ...f, role: opt.value as SignupFormData['role'] }))}
+                      className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 ${
+                        active
+                          ? 'bg-accent text-accent-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-background/60'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {form.role === 'house_manager'
+                  ? 'House Managers list properties and manage tenants.'
+                  : 'Tenants rent a property and track their own rent.'}
+              </p>
             </div>
             <label className="flex items-start gap-3 cursor-pointer">
               <input type="checkbox" checked={acceptedTerms}

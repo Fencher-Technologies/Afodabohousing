@@ -6,6 +6,15 @@ import { Colors, FontSize, FontWeight, Spacing } from "@/constants/theme";
 import { Screen } from "@/src/components/Screen";
 import { Card } from "@/src/components/Card";
 import { PageHeader } from "@/src/components/PageHeader";
+import {
+  ABOUT_AXIS_BLURB,
+  OFFICE_ADDRESS_LINE,
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE_DISPLAY,
+  WHATSAPP_DISPLAY,
+  WORK_HOURS_SATURDAY,
+  WORK_HOURS_WEEKDAYS,
+} from "@/src/config/contact";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -228,6 +237,8 @@ const termsContent = {
 const aboutContent = {
   title: "About Axis",
   body: [
+    // The business asked for this paragraph specifically, word for word.
+    ABOUT_AXIS_BLURB,
     "Axis is a digital application that seeks to proffer practical solutions in the housing space by linking potential tenants directly to property owners/managers affordably, safely and hustle free.",
     "Through our online platform, we help property managers to better manage their tenants with ease and convenience, providing both visibility and access to their properties.",
     "By doing so, we minimize financial losses, promote accountability and transparency, overcome geographical barriers in tenant management, provide legal protection, and warrant value for money.",
@@ -238,10 +249,12 @@ const contactContent = {
   title: "Contact Support",
   body: [
     "We're here to help! Reach us through any of these channels:",
-    "Email: info@axishousings.com",
-    "Phone: +256 394 709 397",
-    "WhatsApp: +256 789 590 007",
-    "Hours: Monday–Friday, 9am–6pm EAT",
+    `Email: ${SUPPORT_EMAIL}`,
+    `Phone: ${SUPPORT_PHONE_DISPLAY}`,
+    `WhatsApp: ${WHATSAPP_DISPLAY}`,
+    OFFICE_ADDRESS_LINE,
+    WORK_HOURS_WEEKDAYS,
+    WORK_HOURS_SATURDAY,
     "For urgent issues, please use WhatsApp for fastest response.",
   ],
 };

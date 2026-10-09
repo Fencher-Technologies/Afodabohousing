@@ -152,7 +152,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
   // Currencies offered on the rent field: the country's own first, then the
   // ones Axis commonly sees. Any of them can be chosen.
   const currencyChoices = Array.from(new Set([
-    CURRENCY_MAP[form.country] || 'UGX',
+    CURRENCY_MAP[form.country] || 'USD',
     form.rent_currency,
     'UGX', 'USD', 'KES', 'TZS', 'RWF', 'EUR', 'GBP', 'ZAR',
     ...CURRENCIES.map(c => c.code),
@@ -163,7 +163,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
   };
 
   const handleCountryChange = (iso: string) => {
-    const currency = CURRENCY_MAP[iso] || 'UGX';
+    const currency = CURRENCY_MAP[iso] || 'USD';
     setForm(f => ({ ...f, country: iso, region_id: '', rent_currency: currency }));
     onCurrencyChange?.(currency);
     setDeprecatedWarning('');

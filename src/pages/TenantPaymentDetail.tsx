@@ -121,9 +121,9 @@ export default function TenantPaymentDetail() {
                 <DollarSign className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Paid Date</p>
+                <p className="text-xs text-muted-foreground">Effective date</p>
                 <p className="text-sm font-semibold">
-                  {payment.paid_date ? format(new Date(payment.paid_date), 'MMM dd, yyyy') : 'Not yet paid'}
+                  {payment.paid_date ? format(new Date(payment.paid_date), 'MMM dd, yyyy') : 'Not yet set'}
                 </p>
               </div>
             </div>

@@ -52,6 +52,11 @@ export default function ManagerCreateTenancy() {
     if (data.rent_deposit) payload.security_deposit = parseFloat(data.rent_deposit);
     if (data.unit_id) payload.unit_id = data.unit_id;
     if (data.unit_label) payload.unit_label = data.unit_label;
+    // The agreed rent review interval. Axis computes the next review date
+    // from it and reminds both parties when it arrives.
+    if (data.rent_revision_months) {
+      payload.rent_revision_months = parseInt(data.rent_revision_months, 10);
+    }
 
     // Through the API so the lease inherits the property's currency.
     const { ok, detail } = await createLease(payload);

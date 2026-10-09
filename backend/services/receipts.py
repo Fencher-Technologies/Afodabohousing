@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from supabase import Client
+from currency import DEFAULT_CURRENCY
 
 
 def _as_date(value: Any) -> date | None:
@@ -40,6 +41,19 @@ class ReceiptService:
     def __init__(self, supabase: Client):
         self.supabase = supabase
         self._table = "receipts"
+
+    # ─── Currency ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def _payment_currency(payment: dict[str, Any]) -> str:
+        """The currency to print on the receipt for this payment.
+
+        A payment that states its currency keeps it, always: tenancies priced
+        in shillings have receipts already in a tenant's hands, and re-reading
+        those amounts as dollars would misstate real money. US$ is used only
+        when nothing was stated, which is the platform standard.
+        """
+        return payment.get("currency") or DEFAULT_CURRENCY
 
     # ─── Numbering ──────────────────────────────────────────────────────
 
@@ -238,7 +252,7 @@ class ReceiptService:
             "unit_label": ctx["unit_label"],
             "manager_name": ctx["manager_name"],
             "amount": amount_value,
-            "currency": payment.get("currency") or "UGX",
+            "currency": self._payment_currency(payment),
             "payment_method": payment.get("payment_method") or payment.get("method"),
             "payment_type": payment.get("payment_type") or "rent",
             "payment_date": payment_date,
@@ -286,11 +300,27 @@ class ReceiptService:
         )
         return result.data[0] if result.data else None
 
-    def list_for_tenant(self, tenant_id: str, status_filter: str | None = None) -> list[dict[str, Any]]:
+    def list_for_tenant(
+        self, tenant_id: str | list[str], status_filter: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Receipts for a tenant, across all of their tenant records.
+
+        One person holds a separate ``tenants`` row per house manager, so a
+        list is accepted: after moving, a tenant must still be able to reach
+        the receipts from their previous tenancy.
+        """
+        ids = (
+            [str(t) for t in tenant_id]
+            if isinstance(tenant_id, (list, tuple, set))
+            else [str(tenant_id)]
+        )
+        ids = [i for i in ids if i]
+        if not ids:
+            return []
         query = (
             self.supabase.table(self._table)
             .select("*")
-            .eq("tenant_id", tenant_id)
+            .in_("tenant_id", ids)
             .order("created_at", desc=True)
         )
         if status_filter:

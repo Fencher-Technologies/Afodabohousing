@@ -46,12 +46,26 @@ def get_boost_package(supabase: Client, duration_days: int) -> dict | None:
     return None
 
 
-def calculate_boost_price(supabase: Client, duration_days: int) -> Decimal:
-    """Return the authoritative UGX price for a boost duration from the database."""
+def calculate_boost_price(
+    supabase: Client, duration_days: int, currency: str = "UGX"
+) -> Decimal:
+    """The authoritative price for a boost duration, from the database.
+
+    US$ is the platform's standard currency, but Ugandan mobile money can only
+    settle in shillings, so both prices are stored per package and the caller
+    says which one it is charging. The default stays UGX so existing callers
+    keep their behaviour.
+    """
     pkg = get_boost_package(supabase, duration_days)
     if not pkg:
         raise ValueError(f"Invalid boost duration: {duration_days}")
-    return Decimal(str(pkg["price_ugx"]))
+    column = "price_usd" if str(currency).upper() == "USD" else "price_ugx"
+    value = pkg.get(column)
+    if value is None:
+        # A package missing its USD price must not silently charge shillings
+        # as if they were dollars.
+        raise ValueError(f"Boost package {duration_days}d has no {column}")
+    return Decimal(str(value))
 
 
 class BoostService(BaseService):

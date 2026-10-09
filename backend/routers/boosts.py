@@ -23,6 +23,9 @@ from models.boost import (
     InitiateBoostResponse,
 )
 from phone import normalize_phone
+from config import get_settings
+from currency import PAYMENT_CURRENCIES
+from services.forex import charge_amount
 from services.boost import (
     BoostService,
     calculate_boost_price,
@@ -39,6 +42,24 @@ from services.pesapal import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/boosts", tags=["boosts"])
+
+
+def _checkout_failure_detail(error: Exception, currency: str) -> str:
+    """A message that names the likely cause rather than hiding it.
+
+    A Pesapal merchant account settles only the currencies it has been enabled
+    for. Axis prices in US$, so if the account is shillings-only every card
+    checkout fails here, and a generic "please try again" would send everyone
+    retrying something that cannot succeed.
+    """
+    text = str(error).lower()
+    if "currency" in text or "not supported" in text or "invalid_currency" in text:
+        return (
+            f"This payment could not be started in {currency}. The payment account "
+            f"may not be set up to accept {currency}. Please try another payment "
+            "method or contact support."
+        )
+    return "Payment initiation failed. Please try again."
 
 
 def get_boost_svc(supabase: Client = Depends(get_service_client)) -> BoostService:
@@ -70,7 +91,13 @@ class BoostCancelResponse(BaseModel):
 def list_boost_packages(supabase: Client = Depends(get_service_client)) -> list[BoostPackage]:
     """Get available boost packages. Public endpoint."""
     return [
-        BoostPackage(days=pkg["days"], price=int(pkg["price_ugx"]), label=pkg["label"])
+        BoostPackage(
+            days=pkg["days"],
+            price=int(pkg["price_ugx"]),
+            label=pkg["label"],
+            price_ugx=int(pkg["price_ugx"]),
+            price_usd=float(pkg["price_usd"]) if pkg.get("price_usd") is not None else None,
+        )
         for pkg in get_boost_packages(supabase)
     ]
 
@@ -246,7 +273,28 @@ async def initiate_boost(
     pkg = get_boost_package(supabase, data.duration_days)
     if not pkg:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid boost package")
-    amount = int(pkg["price_ugx"])
+
+    # US$ is the standard price; UGX is charged when the manager pays by
+    # mobile money, which cannot settle dollars.
+    pay_currency = (data.currency or get_settings().default_payment_currency).upper()
+    if pay_currency not in PAYMENT_CURRENCIES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Currency must be one of {', '.join(PAYMENT_CURRENCIES)}",
+        )
+    if pkg.get("price_usd") is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This boost package has no USD price configured",
+        )
+    if pay_currency == "USD":
+        amount = float(pkg["price_usd"])
+    else:
+        # Converted at the current rate rather than billed from a shilling
+        # figure fixed when the package was created. The stored price_ugx is
+        # the floor, so a rate glitch cannot undercharge.
+        converted = charge_amount(float(pkg["price_usd"]), pay_currency)
+        amount = float(max(converted, float(pkg.get("price_ugx") or 0)))
 
     pending = (
         supabase.table("property_boosts")
@@ -279,7 +327,7 @@ async def initiate_boost(
     boost_data = BoostCreate(
         property_id=data.property_id,
         duration_days=data.duration_days,
-        amount_paid=Decimal(str(pkg["price_ugx"])),
+        amount_paid=Decimal(str(amount)),
     )
 
     result = service.create_pending(boost_data, UUID(current_user.id), reference, "pesapal")
@@ -311,7 +359,7 @@ async def initiate_boost(
             token=token,
             order_id=order_id,
             amount=float(amount),
-            currency="UGX",
+            currency=pay_currency,
             description=f"Boost {prop_title} ({data.duration_days} days)",
             callback_url=callback_url,
             ipn_id=ipn_id,
@@ -327,7 +375,7 @@ async def initiate_boost(
     except Exception as e:
         logger.error("Pesapal payment initiation failed for boost %s: %s", result["id"], str(e))
         service.cancel(result["id"])
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Payment initiation failed. Please try again.")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=_checkout_failure_detail(e, pay_currency))
 
     redirect_url = pay_resp.get("redirect_url", "")
     tracking_id = pay_resp.get("order_tracking_id")
@@ -342,7 +390,7 @@ async def initiate_boost(
         reference=reference,
         status="pending",
         redirect_url=redirect_url,
-        message=f"Redirecting to Pesapal to complete payment of {amount:,}.",
+        message=f"Redirecting to Pesapal to complete payment of {pay_currency} {amount:,.2f}.",
     )
 
 
@@ -354,6 +402,6 @@ def default_boost_price(supabase: Client = Depends(get_service_client)) -> Boost
     """Get the default boost pricing. Public endpoint."""
     return BoostPriceResponse(
         duration_days=7,
-        amount=float(calculate_boost_price(supabase, 7)),
-        currency="UGX",
+        amount=float(calculate_boost_price(supabase, 7, "USD")),
+        currency="USD",
     )

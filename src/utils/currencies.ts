@@ -186,4 +186,11 @@ export const CURRENCIES: CurrencyOption[] = [
   { code: 'ZWG', name: 'Zimbabwe Gold' },
 ];
 
-export const DEFAULT_CURRENCY = 'UGX';
+/**
+ * The platform's standard currency.
+ *
+ * US$ throughout: subscribing, listing a property, recording a payment, the
+ * reports and the tenant's dashboard. A manager may still price a property in
+ * any currency from the picker; this is only what is assumed when none is set.
+ */
+export const DEFAULT_CURRENCY = 'USD';

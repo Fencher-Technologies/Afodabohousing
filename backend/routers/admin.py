@@ -17,6 +17,7 @@ from phone import normalize_phone
 from models.subscription import ManagerSubscriptionResponse
 from services.crud import _enrich_leases
 from services.pesapal import register_ipn_for_url
+from services.notifications import notify
 from services.subscriptions import get_subscription_service
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,17 @@ class RemoveManagerRequest(BaseModel):
 
 class StatusUpdateRequest(BaseModel):
     status: str  # "active" | "suspended"
+
+
+class PropertyReviewRequest(BaseModel):
+    """A quality decision on a listing.
+
+    ``notes`` is required when rejecting: without a reason the house manager
+    cannot correct the listing.
+    """
+
+    decision: str  # "approved" | "rejected"
+    notes: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -933,6 +945,160 @@ def update_user_status(
     logger.info("User %s status updated to %s by super admin %s", user_id, data.status, current_user.id)
 
     return {"message": f"User status updated to {data.status}", "user_id": user_id, "status": data.status}
+
+
+# ─── Property quality assurance ──────────────────────────────────────────
+#
+# Every subscription plan promises "Listings reviewed and approved by our QA
+# team" and the terms carry a Quality Assurance clause, but nothing enforced
+# it: a listing went public the moment a manager saved it. These endpoints are
+# the review queue behind that promise. A listing is public only while
+# review_status is 'approved' (see PropertyService.get_public_listings).
+
+
+@router.get("/properties/pending")
+def list_properties_for_review(
+    review_status: str = Query("pending", description="pending|approved|rejected"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    current_user: CurrentUser = Depends(require_super_admin),
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    """Listings awaiting a quality decision, oldest submission first."""
+    if review_status not in ("pending", "approved", "rejected"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="review_status must be 'pending', 'approved' or 'rejected'",
+        )
+
+    columns = (
+        "id, title, description, images, address, city, state, country, "
+        "monthly_rent, currency, property_type, bedrooms, bathrooms, "
+        "manager_id, owner_id, created_at, review_status, review_notes, "
+        "submitted_for_review_at, reviewed_at, is_active"
+    )
+    query = (
+        supabase.table("properties")
+        .select(columns, count="exact")
+        .eq("review_status", review_status)
+    )
+    # Oldest first while reviewing, so nobody waits behind a newer listing.
+    query = query.order(
+        "submitted_for_review_at", desc=(review_status != "pending")
+    ).range(skip, skip + limit - 1)
+    result = query.execute()
+    rows = result.data or []
+
+    # Attach the manager so a reviewer can see who listed it.
+    owner_ids = {str(r["owner_id"]) for r in rows if r.get("owner_id")}
+    managers: dict[str, dict] = {}
+    if owner_ids:
+        profiles = (
+            supabase.table("profiles")
+            .select("user_id, full_name, email, phone")
+            .in_("user_id", list(owner_ids))
+            .execute()
+        )
+        managers = {str(p["user_id"]): p for p in (profiles.data or [])}
+
+    for r in rows:
+        m = managers.get(str(r.get("owner_id"))) or {}
+        r["manager_name"] = m.get("full_name")
+        r["manager_email"] = m.get("email")
+        r["manager_phone"] = m.get("phone")
+
+    return {
+        "items": rows,
+        "total": result.count if hasattr(result, "count") else len(rows),
+        "skip": skip,
+        "limit": limit,
+    }
+
+
+@router.post("/properties/{property_id}/review")
+def review_property(
+    property_id: str,
+    data: PropertyReviewRequest,
+    current_user: CurrentUser = Depends(require_super_admin),
+    supabase: Client = Depends(get_service_client),
+) -> dict:
+    """Approve or reject a listing, and tell the house manager either way."""
+    if data.decision not in ("approved", "rejected"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="decision must be 'approved' or 'rejected'",
+        )
+    notes = (data.notes or "").strip()
+    if data.decision == "rejected" and not notes:
+        # Without a reason the manager cannot fix the listing, so the
+        # rejection would just look arbitrary.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A reason is required when rejecting a listing",
+        )
+
+    existing = (
+        supabase.table("properties")
+        .select("id, title, owner_id")
+        .eq("id", property_id)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found")
+    prop = existing.data[0]
+
+    result = (
+        supabase.table("properties")
+        .update(
+            {
+                "review_status": data.decision,
+                "review_notes": notes or None,
+                "reviewed_at": datetime.now(UTC).isoformat(),
+                "reviewed_by": str(current_user.id),
+            }
+        )
+        .eq("id", property_id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found")
+
+    title = prop.get("title") or "Your listing"
+    if data.decision == "approved":
+        subject = "Listing approved"
+        message = (
+            f'"{title}" has passed our quality review and is now live on Axis. '
+            "House seekers can find it from today."
+        )
+    else:
+        subject = "Listing needs changes"
+        message = (
+            f'"{title}" did not pass our quality review, so it is not visible to '
+            f"house seekers yet. {notes} Please update the listing and it will be "
+            "reviewed again."
+        )
+
+    if prop.get("owner_id"):
+        try:
+            notify(
+                supabase,
+                recipient_id=str(prop["owner_id"]),
+                type="property_review",
+                title=subject,
+                body=message,
+                metadata={"property_id": property_id, "decision": data.decision},
+            )
+        except Exception as e:  # noqa: BLE001 - a failed notice must not undo the decision
+            logger.warning("Failed to notify manager of property review: %s", e)
+
+    logger.info(
+        "Property %s %s by super admin %s", property_id, data.decision, current_user.id
+    )
+    return {
+        "message": f"Listing {data.decision}",
+        "property_id": property_id,
+        "review_status": data.decision,
+    }
 
 
 _STATS_CACHE: dict[str, object] = {"at": 0.0, "data": None}

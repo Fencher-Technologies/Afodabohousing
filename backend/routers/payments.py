@@ -18,6 +18,7 @@ from dependencies import (
 )
 from models import PaymentCreate, PaymentResponse, PaymentUpdate
 from services import PaymentService, get_payment_service, pesapal
+from services.tenant_identity import tenant_ids_for_user
 from services.notifications import notify
 
 logger = logging.getLogger(__name__)
@@ -182,29 +183,27 @@ def list_payments(
     supabase: Client = Depends(get_supabase_client),
     service: PaymentService = Depends(get_payment_svc),
 ) -> PaginatedResponse:
-    caller_tenant = (
-        supabase
-        .table("tenants")
-        .select("id")
-        .eq("user_id", str(current_user.id))
-        .execute()
-    )
-    caller_tenant_id = caller_tenant.data[0]["id"] if caller_tenant.data else None
+    # A person holds one tenants row per house manager, so access is checked
+    # against the whole set. Checking only the first record locked tenants out
+    # of tenancies they hold with a different manager.
+    caller_tenant_ids = tenant_ids_for_user(supabase, current_user.id)
+    is_tenant = bool(caller_tenant_ids)
+    owned_tenant_ids = set(caller_tenant_ids)
 
     if lease_id:
         lease = supabase.table("leases").select("owner_id, tenant_id").eq("id", str(lease_id)).execute()
         if not lease.data:
             raise HTTPException(status_code=404, detail="Lease not found")
         l = lease.data[0]
-        if caller_tenant_id and str(l.get("tenant_id")) != str(caller_tenant_id):
+        if is_tenant and str(l.get("tenant_id")) not in owned_tenant_ids:
             raise HTTPException(status_code=403, detail="Access denied")
-        if not caller_tenant_id and str(l.get("owner_id")) != str(current_user.id):
+        if not is_tenant and str(l.get("owner_id")) != str(current_user.id):
             raise HTTPException(status_code=403, detail="Access denied")
         payments, total = service.get_all_for_lease(lease_id, skip, limit)
     elif tenant_id:
-        if caller_tenant_id and str(tenant_id) != str(caller_tenant_id):
+        if is_tenant and str(tenant_id) not in owned_tenant_ids:
             raise HTTPException(status_code=403, detail="Access denied")
-        if not caller_tenant_id:
+        if not is_tenant:
             owned = (
                 supabase.table("leases")
                 .select("id")
@@ -216,8 +215,8 @@ def list_payments(
             if not owned.data:
                 raise HTTPException(status_code=403, detail="Access denied")
         payments, total = service.get_all_for_tenant(tenant_id, skip, limit)
-    elif caller_tenant_id:
-        payments, total = service.get_all_for_tenant(caller_tenant_id, skip, limit)
+    elif is_tenant:
+        payments, total = service.get_all_for_tenant(caller_tenant_ids, skip, limit)
     else:
         payments, total = service.get_all(current_user.id, skip, limit)
     return PaginatedResponse(
@@ -238,16 +237,12 @@ def get_payment(
     payment = service.get_by_id(payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
-    tenant = (
-        supabase
-        .table("tenants")
-        .select("id")
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    if tenant.data and str(payment["tenant_id"]) != str(tenant.data[0]["id"]):
+    # Every tenants row this person holds: comparing against only the first
+    # one denied access to tenancies held under their other records.
+    tenant_ids = tenant_ids_for_user(supabase, current_user.id)
+    if tenant_ids and str(payment["tenant_id"]) not in set(tenant_ids):
         raise HTTPException(status_code=403, detail="Access denied")
-    if not tenant.data:
+    if not tenant_ids:
         lease = (
             supabase
             .table("leases")
@@ -268,16 +263,12 @@ def create_payment(
     supabase: Client = Depends(get_supabase_client),
     service: PaymentService = Depends(get_payment_svc),
 ) -> PaymentResponse:
-    tenant = (
-        supabase
-        .table("tenants")
-        .select("id")
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    if tenant.data:
+    # Every tenants row this person holds: comparing against only the first
+    # one denied access to tenancies held under their other records.
+    tenant_ids = tenant_ids_for_user(supabase, current_user.id)
+    if tenant_ids:
         payload = data.model_dump(exclude_none=True, mode="json")
-        payload["tenant_id"] = tenant.data[0]["id"]
+        payload["tenant_id"] = tenant_ids[0]
         if not payload.get("due_date"):
             payload["due_date"] = payload.get("paid_date")
         try:
@@ -318,16 +309,12 @@ def update_payment(
     payment = service.get_by_id(payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
-    tenant = (
-        supabase
-        .table("tenants")
-        .select("id")
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    if tenant.data and str(payment["tenant_id"]) != str(tenant.data[0]["id"]):
+    # Every tenants row this person holds: comparing against only the first
+    # one denied access to tenancies held under their other records.
+    tenant_ids = tenant_ids_for_user(supabase, current_user.id)
+    if tenant_ids and str(payment["tenant_id"]) not in set(tenant_ids):
         raise HTTPException(status_code=403, detail="Access denied")
-    if not tenant.data:
+    if not tenant_ids:
         lease = (
             supabase
             .table("leases")
@@ -395,16 +382,12 @@ def delete_payment(
     payment = service.get_by_id(payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
-    tenant = (
-        supabase
-        .table("tenants")
-        .select("id")
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    if tenant.data and str(payment["tenant_id"]) != str(tenant.data[0]["id"]):
+    # Every tenants row this person holds: comparing against only the first
+    # one denied access to tenancies held under their other records.
+    tenant_ids = tenant_ids_for_user(supabase, current_user.id)
+    if tenant_ids and str(payment["tenant_id"]) not in set(tenant_ids):
         raise HTTPException(status_code=403, detail="Access denied")
-    if not tenant.data:
+    if not tenant_ids:
         lease = (
             supabase.table("leases")
             .select("owner_id")

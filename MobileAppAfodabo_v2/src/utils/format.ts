@@ -13,7 +13,7 @@ export function formatMoney(
   currency: string | null | undefined = "UGX",
 ): string {
   const n = typeof amount === "string" ? Number(amount) : (amount ?? 0);
-  const code = (currency || "UGX").toUpperCase();
+  const code = (currency || "USD").toUpperCase();
   return `${code} ${n.toLocaleString("en-UG")}`;
 }
 
@@ -46,7 +46,7 @@ export function formatMoneyShort(
   currency: string | null | undefined = "UGX",
 ): string {
   const n = typeof amount === "string" ? Number(amount) : (amount ?? 0);
-  const code = (currency || "UGX").toUpperCase();
+  const code = (currency || "USD").toUpperCase();
   if (n >= 1_000_000) {
     const m = n / 1_000_000;
     return `${code} ${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}M`;
