@@ -3,6 +3,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+from currency import DEFAULT_CURRENCY
 
 
 class Lease(BaseModel):
@@ -17,7 +18,7 @@ class Lease(BaseModel):
     security_deposit: Decimal
     # Inherited from the property when the lease is created, so every payment
     # and receipt under it reports the currency the rent was agreed in.
-    currency: str = "UGX"
+    currency: str = DEFAULT_CURRENCY
     status: str
     terms: str | None = None
     termination_date: date | None = None

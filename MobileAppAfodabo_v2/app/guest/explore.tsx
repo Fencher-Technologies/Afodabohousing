@@ -256,7 +256,7 @@ export default function ExploreScreen() {
             </View>
             <View style={styles.filterCol}>
               <InputField
-                label="Min Price (UGX)"
+                label="Min Price"
                 value={minPrice}
                 onChangeText={setMinPrice}
                 placeholder="0"
@@ -268,7 +268,7 @@ export default function ExploreScreen() {
           <View style={styles.filterRow}>
             <View style={styles.filterCol}>
               <InputField
-                label="Max Price (UGX)"
+                label="Max Price"
                 value={maxPrice}
                 onChangeText={setMaxPrice}
                 placeholder="Any"

@@ -15,6 +15,7 @@ import {
   useBuildAgreement,
   useEditAgreement,
 } from "@/src/hooks/useAgreements";
+import { formatMoney } from "@/src/utils/format";
 import { useTenancy } from "@/src/hooks/useTenancies";
 import { useAuth } from "@/src/context/auth-context";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
@@ -189,12 +190,12 @@ export default function AgreementSummaryScreen() {
           <Text style={styles.sectionTitle}>Rent & Dates</Text>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Monthly Rent</Text>
-            <Text style={styles.infoValue}>UGX {lease.monthly_rent.toLocaleString()}</Text>
+            <Text style={styles.infoValue}>{formatMoney(lease.monthly_rent, lease.currency)}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Deposit</Text>
             <Text style={styles.infoValue}>
-              {lease.security_deposit ? `UGX ${lease.security_deposit.toLocaleString()}` : "—"}
+              {lease.security_deposit ? formatMoney(lease.security_deposit, lease.currency) : "—"}
             </Text>
           </View>
           <View style={styles.infoRow}>

@@ -27,6 +27,12 @@
 -- payable figure before summing; that tenant is thousands in arrears, so it
 -- cannot change any status.
 
+-- Changing monthly_rent trips the property review trigger, which treats it
+-- as a material edit and pulls the listing off the public site. A currency
+-- re-denomination is not a material edit, so the trigger sits this one out.
+-- (Learned the hard way: without this, all 24 listings vanished at once.)
+set local axis.skip_review_requeue = 'on';
+
 alter table public.payments
   alter column frozen_monthly_rent type numeric using frozen_monthly_rent::numeric;
 

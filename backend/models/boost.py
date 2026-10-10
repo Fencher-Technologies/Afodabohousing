@@ -4,6 +4,7 @@ from uuid import UUID
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
+from currency import DEFAULT_CURRENCY
 
 
 class Boost(BaseModel):
@@ -58,7 +59,7 @@ class BoostPriceRequest(BaseModel):
 class BoostPriceResponse(BaseModel):
     duration_days: int
     amount: float
-    currency: str = "UGX"
+    currency: str = DEFAULT_CURRENCY
 
 
 class InitiateBoostRequest(BaseModel):
@@ -85,6 +86,9 @@ class BoostPackage(BaseModel):
     #: keep working. New clients should read price_usd.
     price: int
     label: str
+    #: Describes `price` above, which is the legacy shilling field. It is
+    #: deliberately NOT the platform's standard currency: saying USD here
+    #: would advertise a shilling figure as dollars. Read price_usd instead.
     currency: str = "UGX"
     price_usd: float | None = None
     price_ugx: int | None = None

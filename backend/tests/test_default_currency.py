@@ -74,3 +74,50 @@ class TestReceiptPdf:
     def test_a_shilling_receipt_still_prints_shillings(self):
         pdf = _load_receipt_pdf()
         assert pdf._fmt_amount(500000, "UGX") == "UGX 500,000.00"
+
+
+class TestNoCurrencyDefaultsDrift:
+    """No model may quietly default a currency field to anything but US$.
+
+    This is the bug class that kept coming back. It hid in three different
+    shapes: a `|| 'UGX'` fallback, a TypeScript default parameter that beat
+    its own fallback, and Pydantic model defaults. Each was fixed in turn
+    while the others stayed. This test looks at every model field at once, so
+    the next one cannot slip through a hand-written sweep.
+    """
+
+    def test_every_model_currency_field_defaults_to_the_standard(self):
+        import importlib
+        import pkgutil
+
+        import models
+        from pydantic import BaseModel
+
+        offenders: list[str] = []
+        checked = 0
+
+        for mod in pkgutil.iter_modules(models.__path__):
+            module = importlib.import_module(f"models.{mod.name}")
+            for name in dir(module):
+                obj = getattr(module, name)
+                if not (isinstance(obj, type) and issubclass(obj, BaseModel)):
+                    continue
+                for field_name, field in obj.model_fields.items():
+                    if "currency" not in field_name:
+                        continue
+                    default = field.get_default(call_default_factory=False)
+                    if not isinstance(default, str) or not default:
+                        continue
+                    checked += 1
+                    # BoostPackage.currency deliberately labels its legacy
+                    # shilling `price` field, so UGX there is correct.
+                    if obj.__name__ == "BoostPackage":
+                        continue
+                    if default != DEFAULT_CURRENCY:
+                        offenders.append(f"{obj.__name__}.{field_name} = {default!r}")
+
+        assert checked > 0, "found no currency fields to check; the scan is broken"
+        assert not offenders, (
+            "these model fields still default to a non-standard currency: "
+            + ", ".join(sorted(set(offenders)))
+        )

@@ -28,8 +28,13 @@ def test_currency_survives_the_create_model():
     assert payload["rent_currency"] == "USD"
 
 
-def test_currency_defaults_to_ugx_when_not_given():
-    assert _property().rent_currency == "UGX"
+def test_currency_defaults_to_the_platform_standard_when_not_given():
+    """US$ is the platform standard, so an unstated currency is dollars.
+
+    This used to default to UGX, which meant a listing created without an
+    explicit currency was silently priced in shillings.
+    """
+    assert _property().rent_currency == "USD"
 
 
 def test_update_carries_currency():

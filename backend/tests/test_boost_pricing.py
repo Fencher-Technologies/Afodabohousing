@@ -49,8 +49,9 @@ def test_ugx_prices_are_unchanged_for_mobile_money(days, expected):
     assert boost.calculate_boost_price(SB, days, "UGX") == expected
 
 
-def test_currency_defaults_to_ugx_for_existing_callers():
-    assert boost.calculate_boost_price(SB, 14) == Decimal("4000")
+def test_currency_defaults_to_the_platform_standard():
+    """US$ is what Axis prices boosts in, so that is the default."""
+    assert boost.calculate_boost_price(SB, 14) == Decimal("1.00")
 
 
 def test_currency_is_case_insensitive():

@@ -337,7 +337,9 @@ class TestBoosts:
         data = resp.json()
         assert data["status"] == "active"
         assert data["duration_days"] == 14
-        assert float(data["amount_paid"]) == 20000.0
+        # Priced in US$, the platform standard. The fixture's 14-day package
+        # is $5.00 / UGX 20,000; this used to assert the shilling figure.
+        assert float(data["amount_paid"]) == 5.0
 
     def test_create_boost_property_not_found(self, admin_client: TestClient):
         resp = admin_client.post("/boosts", json={

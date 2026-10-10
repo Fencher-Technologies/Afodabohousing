@@ -86,7 +86,8 @@ def test_kes_property(client):
     assert CAPTURED["properties"]["rent_currency"] == "KES"
 
 
-def test_defaults_to_ugx_when_omitted(client):
+def test_defaults_to_the_platform_standard_when_omitted(client):
+    """A listing created without a currency is priced in US$, not shillings."""
     resp = client.post("/properties", json=_body())
     assert resp.status_code == 201, resp.text
-    assert CAPTURED["properties"]["rent_currency"] == "UGX"
+    assert CAPTURED["properties"]["rent_currency"] == "USD"

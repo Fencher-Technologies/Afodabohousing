@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import type { AgreementContent } from "@/src/types";
+import { formatMoney } from "@/src/utils/format";
 
 interface Props {
   content: AgreementContent;
@@ -70,11 +71,11 @@ export function AgreementRenderer({ content, mode = "view" }: Props) {
 
         <View style={styles.termRow}>
           <Text style={styles.termLabel}>Monthly Rent:</Text>
-          <Text style={styles.termValue}>UGX {parseInt(tenancy.monthly_rent).toLocaleString()}</Text>
+          <Text style={styles.termValue}>{formatMoney(parseInt(tenancy.monthly_rent), tenancy.currency)}</Text>
         </View>
         <View style={styles.termRow}>
           <Text style={styles.termLabel}>Security Deposit:</Text>
-          <Text style={styles.termValue}>UGX {parseInt(tenancy.security_deposit).toLocaleString()}</Text>
+          <Text style={styles.termValue}>{formatMoney(parseInt(tenancy.security_deposit), tenancy.currency)}</Text>
         </View>
         <View style={styles.termRow}>
           <Text style={styles.termLabel}>Payment Frequency:</Text>

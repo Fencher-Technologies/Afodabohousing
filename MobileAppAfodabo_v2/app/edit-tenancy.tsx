@@ -207,7 +207,7 @@ export default function EditTenancyScreen() {
         <View style={{ height: Spacing.lg }} />
         <Text style={styles.sectionLabel}>Lease Terms</Text>
         <InputField
-          label="Rent Amount (UGX)"
+          label="Rent Amount"
           value={rentAmount}
           onChangeText={(v) => {
             setRentAmount(v);
@@ -239,7 +239,7 @@ export default function EditTenancyScreen() {
         />
 
         <View style={{ height: Spacing.md }} />
-        <InputField label="Initial Balance / Deposit (UGX)" value={initialBalance} onChangeText={setInitialBalance} placeholder="0" keyboardType="numeric" />
+        <InputField label="Initial Balance / Deposit" value={initialBalance} onChangeText={setInitialBalance} placeholder="0" keyboardType="numeric" />
 
         <View style={{ height: Spacing.md }} />
         <SelectField label="Status" value={status} options={STATUS_OPTIONS} onSelect={setStatus} placeholder="Status" />

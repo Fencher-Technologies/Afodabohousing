@@ -3,6 +3,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+from currency import DEFAULT_CURRENCY
 
 
 class Payment(BaseModel):
@@ -72,7 +73,7 @@ class PaymentResponse(BaseModel):
     # day count.
     coverage_start_date: date | None = None
     coverage_end_date: date | None = None
-    currency: str = "UGX"
+    currency: str = DEFAULT_CURRENCY
     tenant_name: str | None = None
     property_title: str | None = None
     method: str | None = None

@@ -4,6 +4,7 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+from currency import DEFAULT_CURRENCY
 
 
 # Must match the database CHECK constraint exactly:
@@ -36,7 +37,7 @@ class Property(BaseModel):
     # properties since the schema was created, but no model exposed it, so
     # Pydantic silently dropped whatever the client sent and every property
     # fell back to the UGX column default.
-    rent_currency: str = "UGX"
+    rent_currency: str = DEFAULT_CURRENCY
     security_deposit: Decimal
     status: str
     description: str | None = None
@@ -68,7 +69,7 @@ class PropertyCreate(BaseModel):
     # properties since the schema was created, but no model exposed it, so
     # Pydantic silently dropped whatever the client sent and every property
     # fell back to the UGX column default.
-    rent_currency: str = "UGX"
+    rent_currency: str = DEFAULT_CURRENCY
     security_deposit: Decimal
     status: PropertyStatus = "available"
     description: str | None = None
@@ -137,7 +138,7 @@ class PropertyResponse(BaseModel):
     # properties since the schema was created, but no model exposed it, so
     # Pydantic silently dropped whatever the client sent and every property
     # fell back to the UGX column default.
-    rent_currency: str = "UGX"
+    rent_currency: str = DEFAULT_CURRENCY
     security_deposit: Decimal
     status: str
     description: str | None = None

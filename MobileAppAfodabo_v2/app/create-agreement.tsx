@@ -1,3 +1,4 @@
+import { DEFAULT_CURRENCY } from "@/src/utils/currencies";
 import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View, Alert, Switch } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -22,9 +23,15 @@ import type {
   AgreementTemplateClause,
 } from "@/src/types";
 
-function formatCurrency(amount: number | null | undefined): string {
+function formatCurrency(
+  amount: number | null | undefined,
+  currency: string | null | undefined,
+): string {
   if (amount == null) return "—";
-  return `UGX ${amount.toLocaleString("en-UG")}`;
+  // The tenancy's own currency: this used to be a hardcoded UGX, so an
+  // agreement drafted for a property priced in anything else stated the
+  // wrong currency on a document the tenant signs.
+  return `${(currency || DEFAULT_CURRENCY).toUpperCase()} ${amount.toLocaleString("en-UG")}`;
 }
 
 function formatDate(iso: string): string {
@@ -239,13 +246,13 @@ export default function CreateAgreementScreen() {
           <Text style={styles.cardSectionLabel}>Lease Terms</Text>
           <InfoRow
             label="Monthly Rent"
-            value={formatCurrency(lease.monthly_rent)}
+            value={formatCurrency(lease.monthly_rent, lease.currency)}
           />
           <InfoRow
             label="Deposit"
             value={
               lease.security_deposit != null
-                ? formatCurrency(lease.security_deposit)
+                ? formatCurrency(lease.security_deposit, lease.currency)
                 : "—"
             }
           />

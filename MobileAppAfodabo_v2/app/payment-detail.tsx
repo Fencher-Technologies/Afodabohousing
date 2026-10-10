@@ -203,7 +203,7 @@ export default function PaymentDetailScreen() {
         {editing ? (
           <Card padding="lg" style={{ gap: Spacing.md }}>
             <InputField
-              label="Amount (UGX)"
+              label="Amount"
               value={amount}
               onChangeText={setAmount}
               placeholder="0"

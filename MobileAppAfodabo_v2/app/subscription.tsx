@@ -106,7 +106,7 @@ export default function SubscriptionScreen() {
           <Pressable onPress={() => setCurrency("UGX")} style={[styles.currencyToggle, currency === "UGX" && styles.currencyToggleActive]}><Text style={[styles.currencyToggleText, currency === "UGX" && styles.currencyToggleTextActive]}>UGX — Mobile Money</Text></Pressable>
           <Pressable onPress={() => setCurrency("USD")} style={[styles.currencyToggle, currency === "USD" && styles.currencyToggleActive]}><Text style={[styles.currencyToggleText, currency === "USD" && styles.currencyToggleTextActive]}>USD — Card</Text></Pressable>
         </View>
-        <Text style={{ fontSize: FontSize.caption, color: Colors.textMuted, textAlign: "center" }}>Default UGX. USD for international/virtual cards. Pesapal accepts both.</Text>
+        <Text style={{ fontSize: FontSize.caption, color: Colors.textMuted, textAlign: "center" }}>Priced in US$. Pay by card, or by mobile money in the shilling equivalent.</Text>
 
         {/* Plans */}
         <View style={styles.section}>

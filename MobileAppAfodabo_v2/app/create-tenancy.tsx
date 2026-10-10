@@ -246,7 +246,7 @@ export default function CreateTenancyScreen() {
           <>
             <Text style={styles.sectionLabel}>Lease Terms</Text>
             <InputField
-              label="Rent Amount (UGX)"
+              label="Rent Amount"
               value={rentAmount}
               onChangeText={(v) => {
                 setRentAmount(v);
@@ -284,7 +284,7 @@ export default function CreateTenancyScreen() {
             />
 
             <View style={{ height: Spacing.md }} />
-            <InputField label="Initial Balance / Deposit (UGX)" value={initialBalance} onChangeText={setInitialBalance} placeholder="0" keyboardType="numeric" />
+            <InputField label="Initial Balance / Deposit" value={initialBalance} onChangeText={setInitialBalance} placeholder="0" keyboardType="numeric" />
             {selectedProperty && (
               <Text style={styles.hint}>
                 Auto-filled with {selectedProperty.title}&apos;s security deposit ({formatMoney(selectedProperty.security_deposit ?? 0, selectedProperty?.rent_currency)}). You can adjust it.

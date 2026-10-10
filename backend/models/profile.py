@@ -3,6 +3,7 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+from currency import DEFAULT_CURRENCY
 
 
 class Profile(BaseModel):
@@ -13,7 +14,7 @@ class Profile(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     avatar_url: str | None = None
-    display_currency: str = "UGX"
+    display_currency: str = DEFAULT_CURRENCY
     role: str | None = None
     status: Literal["active", "suspended", "pending"] = "active"
     created_by: UUID | None = None

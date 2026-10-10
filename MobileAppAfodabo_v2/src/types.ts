@@ -50,7 +50,7 @@ export interface BackendProperty {
   square_feet: number | null;
   monthly_rent: number;
   rent_amount?: number;
-  /** ISO 4217 code the listing is priced in. Defaults to UGX server-side. */
+  /** ISO 4217 code the listing is priced in. Defaults to USD, the platform standard. */
   rent_currency?: string | null;
   security_deposit: number;
   status: string;
@@ -78,7 +78,7 @@ export interface RentalUnit {
   property_id: string;
   unit_label: string;
   rent_amount: number;
-  /** ISO 4217 code the listing is priced in. Defaults to UGX server-side. */
+  /** ISO 4217 code the listing is priced in. Defaults to USD, the platform standard. */
   rent_currency?: string | null;
   /** Summary of the property's units, for showing a price range on cards. */
   unit_count?: number;
@@ -100,7 +100,7 @@ export interface Property {
   area: string;
   type: PropertyType;
   rent_amount: number;
-  /** ISO 4217 code the listing is priced in. Defaults to UGX server-side. */
+  /** ISO 4217 code the listing is priced in. Defaults to USD, the platform standard. */
   rent_currency?: string | null;
   /** Summary of the property's units, for showing a price range on cards. */
   unit_count?: number;
@@ -677,7 +677,7 @@ export interface PropertyListItem {
   city: string;
   type: PropertyType;
   rent_amount: number;
-  /** ISO 4217 code the listing is priced in. Defaults to UGX server-side. */
+  /** ISO 4217 code the listing is priced in. Defaults to USD, the platform standard. */
   rent_currency?: string | null;
   /** Summary of the property's units, for showing a price range on cards. */
   unit_count?: number;

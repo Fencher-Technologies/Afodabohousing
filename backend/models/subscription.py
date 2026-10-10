@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel
+from currency import DEFAULT_CURRENCY
 
 
 class SubscriptionPlan(BaseModel):
@@ -79,7 +80,7 @@ class SubscriptionCreateResponse(BaseModel):
     subscription_id: str
     plan_id: str
     amount: float
-    currency: str = "UGX"
+    currency: str = DEFAULT_CURRENCY
     payment_reference: str
     redirect_url: str | None = None
     message: str

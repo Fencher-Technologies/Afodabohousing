@@ -69,6 +69,8 @@ class TenantReportItem(BaseModel):
     balance_due: float
     tenant_credit: float
     lease_id: str
+    #: The tenancy's own currency, sent per row so a client never guesses.
+    currency: str = DEFAULT_CURRENCY
     # False when the lease has no rent_effective_date anchor, so
     # _compute_rent_financials returned an all-None position. Clients must show
     # "not tracked yet" rather than a confident 0.00 — the float coercions above
@@ -94,6 +96,9 @@ class OutstandingItem(BaseModel):
     last_payment_date: str | None = None
     last_payment_method: str | None = None
     lease_id: str
+    #: The tenancy's own currency. Sent per row so the apps label each figure
+    #: with what it actually is, rather than falling back to a default.
+    currency: str = DEFAULT_CURRENCY
 
 
 class OutstandingResponse(BaseModel):
@@ -212,6 +217,7 @@ def tenants_report(
             balance_due=float(l.get("balance_due") or 0),
             tenant_credit=float(l.get("tenant_credit") or 0),
             lease_id=str(l.get("id")),
+            currency=(l.get("currency") or l.get("rent_currency") or DEFAULT_CURRENCY),
             money_position_known=(
                 l.get("arrears_amount") is not None or l.get("balance_due") is not None
             ),
@@ -264,6 +270,7 @@ def outstanding_report(
             last_payment_date=str(l.get("last_payment_date")) if l.get("last_payment_date") else None,
             last_payment_method=l.get("last_payment_method"),
             lease_id=str(l.get("id")),
+            currency=(l.get("currency") or l.get("rent_currency") or DEFAULT_CURRENCY),
         )
         for l in page
     ]

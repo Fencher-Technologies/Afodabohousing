@@ -85,6 +85,8 @@ def make_package():
         "id": "7d",
         "days": 7,
         "price_ugx": 500,
+        # Real rows carry both prices; US$ is the one Axis quotes.
+        "price_usd": 0.13,
         "label": "7 Days",
         "is_active": True,
         "sort_order": 1,

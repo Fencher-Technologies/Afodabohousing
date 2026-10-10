@@ -180,7 +180,7 @@ export default function MaintenanceScreen() {
 
               {/* Only ever present for the manager — the API redacts these for tenants. */}
               {item.cost != null && (
-                <Text style={styles.meta}>Cost {formatMoney(item.cost, "UGX")}</Text>
+                <Text style={styles.meta}>Cost {formatMoney(item.cost)}</Text>
               )}
               {!!item.notes && <Text style={styles.notes}>{item.notes}</Text>}
 

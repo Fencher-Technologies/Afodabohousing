@@ -1,3 +1,5 @@
+import { DEFAULT_CURRENCY } from "./currencies";
+
 /**
  * Formatting utilities — currency, dates, phone, labels.
  */
@@ -10,7 +12,7 @@
  */
 export function formatMoney(
   amount: number | string | null | undefined,
-  currency: string | null | undefined = "UGX",
+  currency: string | null | undefined = DEFAULT_CURRENCY,
 ): string {
   const n = typeof amount === "string" ? Number(amount) : (amount ?? 0);
   const code = (currency || "USD").toUpperCase();
@@ -43,7 +45,7 @@ export function formatListingPrice(
 /** Compact form of formatMoney, e.g. "USD 1.2M". */
 export function formatMoneyShort(
   amount: number | string | null | undefined,
-  currency: string | null | undefined = "UGX",
+  currency: string | null | undefined = DEFAULT_CURRENCY,
 ): string {
   const n = typeof amount === "string" ? Number(amount) : (amount ?? 0);
   const code = (currency || "USD").toUpperCase();

@@ -147,7 +147,7 @@ export default function SuperAdminHome() {
             />
             <Stat
               label="Revenue"
-              value={formatMoney(boosts.data.total_revenue ?? 0, "UGX")}
+              value={formatMoney(boosts.data.total_revenue ?? 0)}
               icon={<TrendingUp size={18} color={Colors.success} />}
             />
           </View>
@@ -155,7 +155,7 @@ export default function SuperAdminHome() {
       )}
 
       <Text style={styles.footnote}>
-        Boost and subscription revenue is charged in UGX. Rent figures are not shown
+        Boost and subscription revenue is priced in US$. Rent figures are not shown
         here because properties may be listed in different currencies.
       </Text>
     </ScrollView>

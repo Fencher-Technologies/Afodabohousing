@@ -8,6 +8,7 @@ from supabase import Client
 
 from models.boost import BoostCreate, BoostStats
 from services.base import BaseService, with_retry
+from currency import DEFAULT_CURRENCY
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ def get_boost_package(supabase: Client, duration_days: int) -> dict | None:
 
 
 def calculate_boost_price(
-    supabase: Client, duration_days: int, currency: str = "UGX"
+    supabase: Client, duration_days: int, currency: str = DEFAULT_CURRENCY
 ) -> Decimal:
     """The authoritative price for a boost duration, from the database.
 
@@ -122,8 +123,24 @@ class BoostService(BaseService):
             return None
         boost = pending.data[0]
         if paid_amount is not None:
-            expected = float(calculate_boost_price(self.supabase, int(boost["duration_days"])))
-            if abs(float(paid_amount) - expected) > 1.0:
+            # Check against the amount this boost was actually created with,
+            # recorded at checkout in the currency the manager chose. Recomputing
+            # the price here used a default currency instead, so a shilling
+            # payment was compared against the dollar price and rejected.
+            expected = float(boost.get("amount_paid") or 0)
+            if not expected:
+                expected = float(
+                    calculate_boost_price(
+                        self.supabase,
+                        int(boost["duration_days"]),
+                        str(boost.get("currency") or DEFAULT_CURRENCY),
+                    )
+                )
+            # A flat tolerance of one currency unit was fine for shillings and
+            # far too loose for dollars, where it would wave through a $1 boost
+            # paid as $0.01. Scale it instead.
+            tolerance = max(0.01, expected * 0.01)
+            if abs(float(paid_amount) - expected) > tolerance:
                 logger.warning(
                     "Boost %s amount mismatch: paid=%s expected=%s",
                     boost["id"], paid_amount, expected,

@@ -758,7 +758,7 @@ export default function PropertyDetailPage() {
                   { label: 'Type', val: typeLabels[property.property_type] || property.property_type },
                   { label: 'District', val: displayState || '—' },
                   { label: 'Rent Period', val: property.rent_period, capitalize: true },
-                  { label: 'Currency', val: 'UGX' },
+                  { label: 'Currency', val: displayCurrency },
                   ...(units.length > 0 ? [{ label: 'Total Units', val: String(units.length) }, { label: 'Available', val: String(availableUnits.length) }] : [
                     { label: 'Bedrooms', val: String(property.bedrooms ?? 1) },
                     { label: 'Bathrooms', val: String((property as any).bathrooms ?? 1) },

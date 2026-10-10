@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DEFAULT_CURRENCY } from '@/utils/currencies';
 import { useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import PageHero from '@/components/PageHero';
@@ -69,7 +70,7 @@ export default function PropertiesPage() {
 
   const [countries, setCountries] = useState<Country[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
-  const [selectedCurrency, setSelectedCurrency] = useState('UGX');
+  const [selectedCurrency, setSelectedCurrency] = useState(DEFAULT_CURRENCY);
 
   const [priceFilters, setPriceFilters] = useState({ min: minPrice, max: maxPrice });
   useEffect(() => {
@@ -96,7 +97,7 @@ export default function PropertiesPage() {
 
   // Sync currency when country changes
   useEffect(() => {
-    if (!country) { setSelectedCurrency('UGX'); return; }
+    if (!country) { setSelectedCurrency(DEFAULT_CURRENCY); return; }
     setSelectedCurrency(CURRENCY_MAP[country] || 'USD');
   }, [country]);
 

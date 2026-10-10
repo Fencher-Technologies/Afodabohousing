@@ -92,7 +92,7 @@ export default function SuperAdminManagerDetail() {
           <Text style={styles.meta}>{manager.overdue_tenants} tenants in arrears</Text>
           {manager.total_outstanding > 0 && (
             <Text style={styles.outstanding}>
-              {formatMoney(manager.total_outstanding, "UGX")} outstanding
+              {formatMoney(manager.total_outstanding)} outstanding
             </Text>
           )}
           <Text style={styles.footnote}>
