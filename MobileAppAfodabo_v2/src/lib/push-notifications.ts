@@ -33,7 +33,7 @@ async function ensureAndroidChannel() {
     name: "Axis notifications",
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: "#1a4d3a",
+    lightColor: "#161E31",
   });
 }
 

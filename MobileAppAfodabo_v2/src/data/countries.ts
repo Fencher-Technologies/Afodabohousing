@@ -238,10 +238,10 @@ export function currencyOptions(iso2: string): { label: string; value: string }[
   const local = currencyForCountry(iso2);
   const seen = new Set<string>();
   const ordered: { code: string; name?: string }[] = [];
-  // The country's own currency first, then the ones seen most often here,
-  // then every other currency we know, so a property anywhere can be priced
-  // in its own money.
-  for (const code of [local, ...COMMON_CURRENCIES, ...CURRENCIES.map((c) => c.code)]) {
+  // US$ first, because that is what Axis prices in. The country's own
+  // currency comes next, then the ones seen most often here, then everything
+  // else, so a property anywhere can still be priced in its own money.
+  for (const code of ["USD", local, ...COMMON_CURRENCIES, ...CURRENCIES.map((c) => c.code)]) {
     if (code && !seen.has(code)) {
       seen.add(code);
       ordered.push({ code, name: CURRENCIES.find((c) => c.code === code)?.name });

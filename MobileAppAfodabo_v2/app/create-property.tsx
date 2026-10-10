@@ -32,7 +32,8 @@ import { useCountries, useRegions } from "@/src/hooks/useGeoLocation";
 import { usePropertyCategories, usePropertyTypes } from "@/src/hooks/usePropertyTypes";
 import { ensureImagesUploaded, MAX_PROPERTY_IMAGES } from "@/src/services/properties";
 import { ApiError } from "@/src/lib/api-client";
-import { COUNTRIES, currencyForCountry, currencyOptions } from "@/src/data/countries";
+import { COUNTRIES, currencyOptions } from "@/src/data/countries";
+import { DEFAULT_CURRENCY } from "@/src/utils/currencies";
 import type { Amenity } from "@/src/types";
 import { formatAmenity } from "@/src/utils/format";
 
@@ -77,11 +78,12 @@ export default function CreatePropertyScreen() {
   const { data: categories = [] } = usePropertyCategories();
   const { data: types = [] } = usePropertyTypes(category || undefined);
 
-  // Defaults to the country's currency but is overridable — a Kampala
-  // property may legitimately be listed in USD.
+  // US$ is the platform's standard currency, so a new listing starts there
+  // and stays there when the country changes. It is still overridable, for a
+  // manager who genuinely prices in local money.
   const [currencyOverride, setCurrencyOverride] = useState<string | null>(null);
   const [units, setUnits] = useState<DraftUnit[]>([]);
-  const currency = currencyOverride ?? currencyForCountry(country);
+  const currency = currencyOverride ?? DEFAULT_CURRENCY;
 
   // Worldwide list bundled with the app; any server-side countries that are
   // missing locally are appended so nothing the backend offers is lost.

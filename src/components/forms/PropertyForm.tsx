@@ -7,7 +7,7 @@ import { ArrowLeft, Save, Home, MapPin, DollarSign, Image, Upload, X, AlertTrian
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { CURRENCIES } from '@/utils/currencies';
+import { CURRENCIES, DEFAULT_CURRENCY } from '@/utils/currencies';
 import { COUNTRIES } from '@/utils/countries';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -73,7 +73,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
     bathrooms: 1, monthly_rent: 0, rent_period: 'monthly',
     manager_phone: '', manager_email: '', amenities: [], images: [],
     latitude: '', longitude: '',
-    country: 'UG', region_id: '', rent_currency: 'UGX',
+    country: 'UG', region_id: '', rent_currency: DEFAULT_CURRENCY,
     property_type_slug: '',
     ...initialData,
   });
@@ -149,12 +149,14 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
     });
   }, []);
 
-  // Currencies offered on the rent field: the country's own first, then the
-  // ones Axis commonly sees. Any of them can be chosen.
+  // US$ is the platform's standard currency, so it leads the list. The
+  // country's own currency and the rest stay reachable underneath for a
+  // manager who genuinely prices in local money.
   const currencyChoices = Array.from(new Set([
-    CURRENCY_MAP[form.country] || 'USD',
+    DEFAULT_CURRENCY,
     form.rent_currency,
-    'UGX', 'USD', 'KES', 'TZS', 'RWF', 'EUR', 'GBP', 'ZAR',
+    CURRENCY_MAP[form.country],
+    'UGX', 'KES', 'TZS', 'RWF', 'EUR', 'GBP', 'ZAR',
     ...CURRENCIES.map(c => c.code),
   ].filter(Boolean)));
   const currencyLabel = (code: string) => {
@@ -163,9 +165,10 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
   };
 
   const handleCountryChange = (iso: string) => {
-    const currency = CURRENCY_MAP[iso] || 'USD';
-    setForm(f => ({ ...f, country: iso, region_id: '', rent_currency: currency }));
-    onCurrencyChange?.(currency);
+    // The currency is deliberately left alone. It used to be overwritten with
+    // the country's own, so selecting Uganda silently re-priced the property
+    // in shillings even after the manager had chosen US$.
+    setForm(f => ({ ...f, country: iso, region_id: '' }));
     setDeprecatedWarning('');
   };
 
@@ -318,6 +321,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
           />
           <p className="text-xs text-muted-foreground mt-1">
             Rent, payments and receipts for this property use this currency.
+            Axis prices in US$ by default.
           </p>
         </div>
 

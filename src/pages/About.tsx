@@ -111,15 +111,25 @@ export default function AboutPage() {
       <section className="container py-20">
         <div className="grid md:grid-cols-2 gap-14 items-center">
           <div>
-            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Our Mission</p>
+            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Our Vision</p>
             <h2 className="font-display text-4xl font-bold text-foreground mb-6 leading-tight">
-              Connecting Tenants with Trusted House Managers
+              Housing Made Easy, Anywhere
             </h2>
-            <p className="text-muted-foreground text-lg leading-relaxed mb-5">
-              Millions of people relocate for work, education and family every year. Finding safe, verified and fairly priced accommodation should not be a struggle. We created Axis to solve exactly that.
-            </p>
             <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-              Our platform connects tenants directly with verified house managers worldwide. No middlemen. No inflated fees. Just honest, transparent housing.
+              A world where finding a home, and managing one, is equally simple wherever you
+              are. Distance should not decide whether a landlord can look after a property or
+              whether a tenant is treated fairly.
+            </p>
+
+            <p className="text-accent font-semibold text-sm uppercase tracking-widest mb-3">Our Mission</p>
+            <h3 className="font-display text-2xl font-bold text-foreground mb-4 leading-tight">
+              Linking tenants directly to property owners
+            </h3>
+            <p className="text-muted-foreground text-lg leading-relaxed mb-8">
+              To proffer practical solutions in the housing space by linking potential tenants
+              directly to property owners and managers affordably, safely and hassle free, and
+              to help managers run their tenancies with ease and convenience, with visibility
+              and access to every property they hold.
             </p>
             <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-3">
               {['Locations Covered', 'Verified Listings Only', 'Secure Online Payments', 'Digital Agreements'].map(f => (

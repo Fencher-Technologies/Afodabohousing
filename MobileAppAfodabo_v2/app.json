@@ -64,7 +64,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#1a4d3a",
+          "color": "#161E31",
           "defaultChannel": "default"
         }
       ]
@@ -79,6 +79,11 @@
       "eas": {
         "projectId": "f8c6c1bf-b032-41b4-ad53-7776f9f8d509"
       }
+    },
+    "notification": {
+      "icon": "./assets/images/notification-icon.png",
+      "color": "#161E31",
+      "androidMode": "default"
     }
   }
 }
