@@ -1,3 +1,4 @@
+import { isCommercial, commercialSummary } from '@/lib/property-kind';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
@@ -34,6 +35,7 @@ interface Property {
   id: string; title: string; status: string; property_type: string;
   rent_amount: number; rent_period: string; bedrooms: number; bathrooms: number;
   sitting_rooms: number; kitchens: number; state: string | null; city: string | null;
+  square_feet?: number | null; floors?: number | null; parking_spaces?: number | null;
   area: string | null; images: string[] | null; description: string | null;
   amenities: string[] | null; address: string | null; created_at: string;
   security_deposit: number | null;
@@ -234,8 +236,8 @@ export default function PropertyDetailPage() {
       : 'Rental property',
     description: property
       ? `${property.title}${listingPlace ? ` in ${listingPlace}` : ''}: ${
-          property.bedrooms ? `${property.bedrooms} bedroom, ` : ''
-        }${property.bathrooms ? `${property.bathrooms} bathroom, ` : ''}${
+          isCommercial(property) ? `${commercialSummary(property).join(', ')}${commercialSummary(property).length ? ', ' : ''}` : property.bedrooms ? `${property.bedrooms} bedroom, ` : ''
+        }${isCommercial(property) ? '' : property.bathrooms ? `${property.bathrooms} bathroom, ` : ''}${
           property.rent_currency || 'USD'
         } ${Number(property.rent_amount || 0).toLocaleString()} ${periodLabelForSeo} on Axis Housing.`
       : undefined,
@@ -411,12 +413,17 @@ export default function PropertyDetailPage() {
               <div>
                 <h2 className="font-display font-bold text-xl mb-4">Property Details</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
+                  {(isCommercial(property) ? [
+                    ...(property.square_feet ? [{ icon: <Home className="h-5 w-5" />, label: 'Floor area (sq ft)', val: Number(property.square_feet).toLocaleString() }] : []),
+                    ...(property.floors ? [{ icon: <Home className="h-5 w-5" />, label: 'Floors', val: property.floors }] : []),
+                    ...(property.parking_spaces ? [{ icon: <Home className="h-5 w-5" />, label: 'Parking spaces', val: property.parking_spaces }] : []),
+                    { icon: <Bath className="h-5 w-5" />, label: 'Washrooms', val: property.bathrooms ?? 0 },
+                  ] : [
                     { icon: <Bed className="h-5 w-5" />, label: 'Bedrooms', val: property.bedrooms ?? 1 },
                     { icon: <Bath className="h-5 w-5" />, label: 'Bathrooms', val: property.bathrooms ?? 1 },
                     { icon: <Sofa className="h-5 w-5" />, label: 'Sitting Rooms', val: (property as any).sitting_rooms ?? 1 },
                     ...((property.kitchens ?? 0) > 0 ? [{ icon: <ChefHat className="h-5 w-5" />, label: 'Kitchens', val: property.kitchens }] : []),
-                  ].map(r => (
+                  ]).map(r => (
                     <div key={r.label} className="bg-card border border-border rounded-2xl p-5 text-center shadow-sm hover:shadow-md transition-shadow">
                       <div className="text-accent mx-auto mb-2 flex justify-center">{r.icon}</div>
                       <div className="text-3xl font-bold font-display text-foreground">{r.val}</div>
@@ -476,8 +483,8 @@ export default function PropertyDetailPage() {
                         {/* Room stats */}
                         <div className="grid grid-cols-2 gap-2 mb-3">
                           {[
-                            { icon: <Bed className="h-3.5 w-3.5" />, val: unit.bedrooms, label: 'Bed' },
-                            { icon: <Bath className="h-3.5 w-3.5" />, val: unit.bathrooms, label: 'Bath' },
+                            ...(isCommercial(property) ? [] : [{ icon: <Bed className="h-3.5 w-3.5" />, val: unit.bedrooms, label: 'Bed' }]),
+                            { icon: <Bath className="h-3.5 w-3.5" />, val: unit.bathrooms, label: isCommercial(property) ? 'Washrooms' : 'Bath' },
                             ...(unit.sitting_rooms > 0 ? [{ icon: <Sofa className="h-3.5 w-3.5" />, val: unit.sitting_rooms, label: 'Sitting' }] : []),
                             ...(unit.kitchens > 0 ? [{ icon: <ChefHat className="h-3.5 w-3.5" />, val: unit.kitchens, label: 'Kitchen' }] : []),
                           ].map(r => (
@@ -510,10 +517,7 @@ export default function PropertyDetailPage() {
 
                         <div className="flex items-center justify-between pt-2 border-t border-border">
                           <div>
-                            {/* A unit is priced in its own currency, falling back to
-                                the property's. This was hardcoded to UGX, so a unit
-                                in a property listed in any other currency showed its
-                                rent with the wrong symbol. */}
+                            {/* A unit is priced in its own currency, falling back to the property's. */}
                             <span className="text-xl font-bold text-primary font-display">{formatCurrency(Number(unit.rent_amount), (unit as { rent_currency?: string }).rent_currency || displayCurrency)}</span>
                             <span className="text-muted-foreground text-xs ml-1">/mo</span>
                           </div>
@@ -760,8 +764,15 @@ export default function PropertyDetailPage() {
                   { label: 'Rent Period', val: property.rent_period, capitalize: true },
                   { label: 'Currency', val: displayCurrency },
                   ...(units.length > 0 ? [{ label: 'Total Units', val: String(units.length) }, { label: 'Available', val: String(availableUnits.length) }] : [
-                    { label: 'Bedrooms', val: String(property.bedrooms ?? 1) },
-                    { label: 'Bathrooms', val: String((property as any).bathrooms ?? 1) },
+                    ...(isCommercial(property) ? [
+                      ...(property.square_feet ? [{ label: 'Floor area', val: `${Number(property.square_feet).toLocaleString()} sq ft` }] : []),
+                      ...(property.floors ? [{ label: 'Floors', val: String(property.floors) }] : []),
+                      ...(property.parking_spaces ? [{ label: 'Parking spaces', val: String(property.parking_spaces) }] : []),
+                      { label: 'Washrooms', val: String((property as any).bathrooms ?? 0) },
+                    ] : [
+                      { label: 'Bedrooms', val: String(property.bedrooms ?? 1) },
+                      { label: 'Bathrooms', val: String((property as any).bathrooms ?? 1) },
+                    ]),
                   ]),
                 ].map(r => (
                   <div key={r.label} className="flex justify-between text-sm">

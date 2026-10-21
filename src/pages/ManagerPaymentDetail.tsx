@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { deletePayment, updatePayment } from '@/lib/payments';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -67,7 +68,7 @@ export default function ManagerPaymentDetail() {
   const startEdit = () => { setEditing(true); };
 
   const handleSave = async () => {
-    const numericAmount = parseInt(form.amount.replace(/[^0-9]/g, ''), 10) || 0;
+    const numericAmount = parseFloat(form.amount.replace(/[^0-9.]/g, '')) || 0;
     if (numericAmount <= 0) { toast({ title: 'Invalid amount', variant: 'destructive' }); return; }
     setSaving(true);
     // Through the API: changing an amount must recompute coverage_days and
@@ -162,7 +163,7 @@ export default function ManagerPaymentDetail() {
             </div>
             <div>
               <Label>Effective date</Label>
-              <Input type="date" value={form.paid_date} onChange={e => setForm(f => ({ ...f, paid_date: e.target.value }))} className="mt-1" />
+              <DatePickerField value={form.paid_date} onChange={v => setForm(f => ({ ...f, paid_date: v }))} />
               <p className="mt-1 text-xs text-muted-foreground">The date when the rent begins counting.</p>
             </div>
             <div>

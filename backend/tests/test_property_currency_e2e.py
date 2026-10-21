@@ -80,10 +80,10 @@ def test_usd_property_is_persisted_as_usd(client):
     assert resp.json()["rent_currency"] == "USD"
 
 
-def test_kes_property(client):
+def test_non_usd_request_is_forced_to_usd(client):
     resp = client.post("/properties", json=_body(rent_currency="KES", city="Nairobi"))
     assert resp.status_code == 201, resp.text
-    assert CAPTURED["properties"]["rent_currency"] == "KES"
+    assert CAPTURED["properties"]["rent_currency"] == "USD"  # forced to US$
 
 
 def test_defaults_to_the_platform_standard_when_omitted(client):

@@ -264,8 +264,8 @@ def _compute_rent_financials(
       * rent_accrued   = daily rate * elapsed days since the anchor (money
                          due by the billing schedule up to today).
       * total_paid     = sum of confirmed/completed RENT payments only.
-      * advance_amount = max(0, total_paid - rent_accrued)   (credit, UGX).
-      * arrears_amount = max(0, rent_accrued - total_paid)   (UGX).
+      * advance_amount = max(0, total_paid - rent_accrued)   (credit, USD).
+      * arrears_amount = max(0, rent_accrued - total_paid)   (USD).
       * is_overdue     = arrears_amount > 0.
 
     Day fields (paid_until_date, rent_days_remaining, rent_days_in_arrears)
@@ -848,13 +848,23 @@ class PropertyService(BaseService):
         than breaks.
         """
         try:
+            # Commercial space (shop, warehouse, office...) has no bedrooms,
+            # sitting rooms or kitchens. Test for None rather than falsiness:
+            # `x or 1` turned a legitimate 0 back into 1.
+            commercial = str(prop.get("property_type") or "").lower() == "office space"
+
+            def _count(key: str, default: int = 1) -> int:
+                value = prop.get(key)
+                return default if value is None else value
+
             self.supabase.table("rental_units").insert({
                 "property_id": str(prop["id"]),
                 "owner_id": str(prop["owner_id"]),
                 "unit_number": "Main unit",
-                "bedrooms": prop.get("bedrooms") or 1,
-                "bathrooms": prop.get("bathrooms") or 1,
-                "sitting_rooms": prop.get("sitting_rooms") or 1,
+                "bedrooms": 0 if commercial else _count("bedrooms"),
+                "bathrooms": _count("bathrooms"),
+                "sitting_rooms": 0 if commercial else _count("sitting_rooms"),
+                "kitchens": 0 if commercial else 1,
                 "rent_amount": prop.get("monthly_rent") or 0,
                 "rent_currency": prop.get("rent_currency") or DEFAULT_CURRENCY,
                 "security_deposit": prop.get("security_deposit") or 0,
@@ -1144,9 +1154,8 @@ class LeaseService(BaseService):
         payload = data.model_dump(exclude_none=True, mode="json")
         payload["owner_id"] = str(owner_id)
 
-        # Inherit the currency the property was listed in. Without this the
-        # lease takes the UGX column default, and every payment and receipt
-        # under it reports UGX no matter how the listing was priced.
+        # Inherit the property's currency (USD), so every payment and receipt
+        # under the lease carries it explicitly.
         if not payload.get("currency") and payload.get("property_id"):
             try:
                 prop = (

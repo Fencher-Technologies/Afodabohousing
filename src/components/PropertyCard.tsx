@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, Bed, Bath, Sofa, Sparkles, Heart, Phone, Mail } from 'lucide-react';
+import { isCommercial, commercialSummary } from '@/lib/property-kind';
 import { Badge } from '@/components/ui/badge';
 import { isPropertyBoosted } from '@/services/property-boosts';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,6 +16,7 @@ interface Property {
   rent_amount: number; rent_period: string; bedrooms: number; bathrooms: number;
   sitting_rooms: number; state: string | null; city: string | null;
   area: string | null; images: string[] | null; rent_currency?: string | null;
+  square_feet?: number | null; floors?: number | null; parking_spaces?: number | null;
   manager_phone?: string | null; manager_email?: string | null;
   /** Summary of the property's units, for showing a price range. */
   unit_count?: number; unit_rent_min?: number | null; unit_rent_max?: number | null;
@@ -165,6 +167,11 @@ function PropertyCard({ property, index = 0, bookmarks, onToggleBookmark }: Prop
           </div>
 
           {/* Room breakdown */}
+          {isCommercial(property) ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mb-4">
+              {commercialSummary(property).map(t => <span key={t}>{t}</span>)}
+            </div>
+          ) : (
           <div className="flex items-center gap-3 text-sm text-muted-foreground mb-4">
             <div className="flex items-center gap-1">
               <Bed className="h-3.5 w-3.5" />
@@ -181,6 +188,7 @@ function PropertyCard({ property, index = 0, bookmarks, onToggleBookmark }: Prop
               </div>
             )}
           </div>
+          )}
 
           {/* Price */}
           <div className="flex items-end justify-between border-t border-border pt-3">

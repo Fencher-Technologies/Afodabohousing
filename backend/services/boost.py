@@ -9,6 +9,7 @@ from supabase import Client
 from models.boost import BoostCreate, BoostStats
 from services.base import BaseService, with_retry
 from currency import DEFAULT_CURRENCY
+from services.forex import charge_amount
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +53,8 @@ def calculate_boost_price(
 ) -> Decimal:
     """The authoritative price for a boost duration, from the database.
 
-    US$ is the platform's standard currency, but Ugandan mobile money can only
-    settle in shillings, so both prices are stored per package and the caller
-    says which one it is charging. The default stays UGX so existing callers
-    keep their behaviour.
+    US$ is the platform's standard currency. The UGX price is only used when
+    the gateway charges shillings; the caller says which one it is charging.
     """
     pkg = get_boost_package(supabase, duration_days)
     if not pkg:
@@ -73,6 +72,15 @@ class BoostService(BaseService):
     def __init__(self, supabase: Client):
         super().__init__(supabase)
         self._table = "property_boosts"
+
+    def _usd_label(self, boost: dict) -> str:
+        """The boost's price in US$. amount_paid may be shillings (mobile money),
+        so quote the package's dollar price rather than labelling it wrongly."""
+        try:
+            usd = float(calculate_boost_price(self.supabase, int(boost["duration_days"]), "USD"))
+            return f"USD {usd:,.2f}"
+        except Exception:  # noqa: BLE001 - notification copy must never fail a payment
+            return f"USD {float(boost.get('amount_paid') or 0):,.2f}"
 
     # ── CRUD ──
 
@@ -140,7 +148,13 @@ class BoostService(BaseService):
             # far too loose for dollars, where it would wave through a $1 boost
             # paid as $0.01. Scale it instead.
             tolerance = max(0.01, expected * 0.01)
-            if abs(float(paid_amount) - expected) > tolerance:
+            matches_usd = abs(float(paid_amount) - expected) <= tolerance
+            # The stored amount is always US$, but the gateway may have billed
+            # the shilling equivalent (mobile money). Accept that too, within
+            # 5% for rate movement between checkout and confirmation.
+            ugx_expected = charge_amount(expected, "UGX")
+            matches_ugx = abs(float(paid_amount) - ugx_expected) <= max(100.0, ugx_expected * 0.05)
+            if not (matches_usd or matches_ugx):
                 logger.warning(
                     "Boost %s amount mismatch: paid=%s expected=%s",
                     boost["id"], paid_amount, expected,
@@ -172,7 +186,7 @@ class BoostService(BaseService):
                     title="Property boost purchased",
                     body=(
                         f"{profile_label(self.supabase, activated.get('manager_id'))} boosted a property "
-                        f"for {activated.get('duration_days')} days (UGX {float(activated.get('amount_paid') or 0):,.0f})."
+                        f"for {activated.get('duration_days')} days ({self._usd_label(activated)})."
                     ),
                     metadata={"boost_id": str(activated.get("id")), "property_id": str(activated.get("property_id"))},
                 )

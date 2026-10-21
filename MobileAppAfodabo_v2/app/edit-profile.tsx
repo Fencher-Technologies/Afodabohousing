@@ -13,14 +13,11 @@ import { PageHeader } from "@/src/components/PageHeader";
 import { useAuth } from "@/src/context/auth-context";
 import { authService } from "@/src/services/auth";
 import { PhoneField } from "@/src/components/PhoneField";
-import { CurrencyField } from "@/src/components/CurrencyField";
-import { DEFAULT_CURRENCY } from "@/src/utils/currencies";
 
 export default function EditProfileScreen() {
   const { user, updateProfile } = useAuth();
   const [fullName, setFullName] = useState(user?.full_name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
-  const [displayCurrency, setDisplayCurrency] = useState(user?.display_currency ?? DEFAULT_CURRENCY);
   const [linkPhone, setLinkPhone] = useState("");
   const [linkPin, setLinkPin] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -41,7 +38,7 @@ export default function EditProfileScreen() {
       await updateProfile({
         full_name: fullName.trim(),
         phone: phone.trim(),
-        display_currency: displayCurrency,
+        display_currency: "USD",
       });
       Alert.alert("Saved", "Profile updated successfully!", [
         { text: "OK", onPress: () => router.back() },
@@ -125,15 +122,6 @@ export default function EditProfileScreen() {
         <View style={{ height: Spacing.md }} />
         <PhoneField label="Phone" value={phone} onChangeText={setPhone} />
 
-        {/* Tenants need this too: the business asked that a tenant be able to
-            see their figures in US$, and the setting is what provides it. */}
-        <View style={{ height: Spacing.md }} />
-        <CurrencyField
-          label="Currency for totals"
-          value={displayCurrency}
-          onChange={setDisplayCurrency}
-          hint="Dashboard and report totals use this currency, converted at current exchange rates. Each property keeps its own currency for rent, payments and receipts. Subscriptions and boosts are always priced in US$."
-        />
 
         <View style={{ height: Spacing.xl }} />
         <Button label="Save Changes" onPress={handleSave} fullWidth size="lg" loading={loading} />

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,7 +28,7 @@ export default function RecordPaymentModal({ open, onClose, leaseId, tenantId, m
   const [notes, setNotes] = useState('');
   const [sending, setSending] = useState(false);
 
-  const numericAmount = parseInt(amount.replace(/[^0-9]/g, ''), 10) || 0;
+  const numericAmount = parseFloat(amount.replace(/[^0-9.]/g, '')) || 0;
   const exceedsBalance = numericAmount > balanceDue && balanceDue > 0;
   const monthsCovered = monthlyRent > 0 ? numericAmount / monthlyRent : 0;
   const daysCovered = Math.round(monthsCovered * 30);
@@ -83,7 +84,7 @@ export default function RecordPaymentModal({ open, onClose, leaseId, tenantId, m
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Effective date</Label>
-              <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="mt-1 h-11" />
+              <DatePickerField value={date} onChange={setDate} />
               <p className="mt-1 text-xs text-muted-foreground">The date when the rent begins counting.</p>
             </div>
             <div>

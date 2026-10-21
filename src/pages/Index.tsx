@@ -77,8 +77,8 @@ const WHY_AXIS = [
   },
   {
     icon: <CreditCard className="h-5 w-5" />,
-    title: 'Flexible Payments',
-    desc: 'Pay rent via mobile money (MTN, Airtel) or card. Upload proof instantly. Automated SMS confirmation.',
+    title: 'Payment Records & Receipts',
+    desc: 'Pay your house manager directly, then upload your proof. Once your manager confirms it, your payment history updates and you get a receipt and an SMS confirmation.',
   },
 ];
 
@@ -88,7 +88,7 @@ const ROLES = [
     title: 'Tenants',
     points: [
       'Browse and bookmark verified properties',
-      'Pay rent via MTN/Airtel or card',
+      'Upload payment proof and get receipts',
       'Track payments and tenancy progress',
       'Request maintenance and get updates',
       'Sign agreements digitally',
@@ -132,7 +132,7 @@ const STEPS = [
   {
     numeral: '03',
     title: 'Move In and Manage',
-    desc: 'Sign a digital tenancy agreement, pay rent via mobile money or card, receive SMS confirmations and track everything from your dashboard.',
+    desc: 'Sign a digital tenancy agreement, pay your manager directly and upload your proof, receive SMS confirmations and track everything from your dashboard.',
   },
 ];
 
@@ -144,8 +144,8 @@ const CALLOUTS = [
   },
   {
     icon: <Wallet className="h-5 w-5" />,
-    title: 'Mobile Money & Cards',
-    desc: 'MTN Mobile Money, Airtel Money, Visa or Mastercard. All major Ugandan payment methods.',
+    title: 'Plans & Boosts, Paid Securely',
+    desc: 'Managers pay for Axis plans and listing boosts through Pesapal, by mobile money or card. Rent itself is always paid directly to your house manager.',
   },
   {
     icon: <MapPinned className="h-5 w-5" />,
@@ -699,7 +699,7 @@ export default function HomePage() {
             <div className="flex-1 text-center md:text-left">
               <h2 className="font-display text-3xl text-cream mb-2">Get the Axis App</h2>
               <p className="text-cream/70 text-sm max-w-lg">
-                Download our Android app for a faster experience. Browse properties, pay rent, message managers, and manage your tenancy on the go.
+                Download our Android app for a faster experience. Browse properties, record rent payments, message managers, and manage your tenancy on the go.
               </p>
             </div>
             <Button size="lg" className="bg-gold text-gold-foreground hover:bg-gold/90 font-semibold shrink-0 gap-2"

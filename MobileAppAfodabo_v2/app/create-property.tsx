@@ -10,7 +10,6 @@ import {
   Grid3X3,
   ImagePlus,
   Home,
-  DollarSign,
 } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -32,7 +31,7 @@ import { useCountries, useRegions } from "@/src/hooks/useGeoLocation";
 import { usePropertyCategories, usePropertyTypes } from "@/src/hooks/usePropertyTypes";
 import { ensureImagesUploaded, MAX_PROPERTY_IMAGES } from "@/src/services/properties";
 import { ApiError } from "@/src/lib/api-client";
-import { COUNTRIES, currencyOptions } from "@/src/data/countries";
+import { COUNTRIES } from "@/src/data/countries";
 import { DEFAULT_CURRENCY } from "@/src/utils/currencies";
 import type { Amenity } from "@/src/types";
 import { formatAmenity } from "@/src/utils/format";
@@ -65,6 +64,9 @@ export default function CreatePropertyScreen() {
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [type, setType] = useState("");
   const [category, setCategory] = useState("");
+  const [floorArea, setFloorArea] = useState("");
+  const [floorsText, setFloorsText] = useState("");
+  const [parkingText, setParkingText] = useState("");
   const [rent, setRent] = useState("");
   const [beds, setBeds] = useState("");
   const [baths, setBaths] = useState("");
@@ -81,9 +83,8 @@ export default function CreatePropertyScreen() {
   // US$ is the platform's standard currency, so a new listing starts there
   // and stays there when the country changes. It is still overridable, for a
   // manager who genuinely prices in local money.
-  const [currencyOverride, setCurrencyOverride] = useState<string | null>(null);
   const [units, setUnits] = useState<DraftUnit[]>([]);
-  const currency = currencyOverride ?? DEFAULT_CURRENCY;
+  const currency = DEFAULT_CURRENCY; // US$ only
 
   // Worldwide list bundled with the app; any server-side countries that are
   // missing locally are appended so nothing the backend offers is lost.
@@ -274,10 +275,14 @@ export default function CreatePropertyScreen() {
         // keep working; the lowest unit rent is what the listing leads with.
         monthly_rent: Math.min(...units.map((u) => u.rent_amount)),
         rent_currency: currency,
-        bedrooms: units[0]?.bedrooms ?? 1,
+        // Commercial space has no bedrooms, sitting rooms or kitchens.
+        bedrooms: category === "commercial" ? 0 : (units[0]?.bedrooms ?? 1),
         bathrooms: units[0]?.bathrooms ?? 1,
-        sitting_rooms: 1,
-        kitchens: 1,
+        sitting_rooms: category === "commercial" ? 0 : 1,
+        kitchens: category === "commercial" ? 0 : 1,
+        square_feet: category === "commercial" && floorArea ? Number(floorArea) : null,
+        floors: category === "commercial" && floorsText ? Number(floorsText) : null,
+        parking_spaces: category === "commercial" && parkingText ? Number(parkingText) : null,
         security_deposit: units[0]?.security_deposit ?? 0,
         latitude: locationCoords?.lat ?? null,
         longitude: locationCoords?.lng ?? null,
@@ -300,10 +305,10 @@ export default function CreatePropertyScreen() {
             await rentalUnitsService.create(created.id, {
               unit_number: unit.unit_number,
               floor_level: unit.floor_level || null,
-              bedrooms: unit.bedrooms,
+              bedrooms: category === "commercial" ? 0 : unit.bedrooms,
               bathrooms: unit.bathrooms,
-              sitting_rooms: unit.sitting_rooms ?? 1,
-              kitchens: unit.kitchens ?? 1,
+              sitting_rooms: category === "commercial" ? 0 : (unit.sitting_rooms ?? 1),
+              kitchens: category === "commercial" ? 0 : (unit.kitchens ?? 1),
               rent_amount: unit.rent_amount,
               security_deposit: unit.security_deposit ?? 0,
               status: unit.status,
@@ -389,29 +394,41 @@ export default function CreatePropertyScreen() {
                 onSelect={setType}
                 placeholder="Select type"
               />
+              {category === "commercial" && (
+                <>
+                  <View style={{ height: Spacing.md }} />
+                  <InputField
+                    label="Floor area (sq ft)"
+                    value={floorArea}
+                    onChangeText={(v) => setFloorArea(v.replace(/[^0-9]/g, ""))}
+                    placeholder="e.g. 1200"
+                    keyboardType="numeric"
+                  />
+                  <View style={{ height: Spacing.md }} />
+                  <InputField
+                    label="Floors"
+                    value={floorsText}
+                    onChangeText={(v) => setFloorsText(v.replace(/[^0-9]/g, ""))}
+                    placeholder="e.g. 2"
+                    keyboardType="numeric"
+                  />
+                  <View style={{ height: Spacing.md }} />
+                  <InputField
+                    label="Parking spaces"
+                    value={parkingText}
+                    onChangeText={(v) => setParkingText(v.replace(/[^0-9]/g, ""))}
+                    placeholder="e.g. 10"
+                    keyboardType="numeric"
+                  />
+                </>
+              )}
             </Card>
 
             <View style={{ height: Spacing.md }} />
 
-            <Card padding="md">
-              <View style={styles.sectionHeader}>
-                <DollarSign size={18} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>Currency</Text>
-              </View>
-              <View style={{ height: Spacing.md }} />
-              <SelectField
-                label="Currency"
-                value={currency}
-                options={currencyOptions(country)}
-                onSelect={setCurrencyOverride}
-                placeholder="Select currency"
-              />
-            </Card>
-
-            <View style={{ height: Spacing.md }} />
 
             <Card padding="lg">
-              <UnitsEditor units={units} currency={currency} onChange={setUnits} />
+              <UnitsEditor units={units} currency={currency} commercial={category === "commercial"} onChange={setUnits} />
             </Card>
           </>
         )}

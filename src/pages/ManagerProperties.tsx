@@ -8,7 +8,7 @@ import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { apiGet, apiPatch } from '@/services/api';
+import { apiGet, apiPatch, ApiError } from '@/services/api';
 import { HIDDEN_STATUS, VISIBLE_STATUS } from '@/constants/propertyStatus';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/utils/currency';
@@ -101,12 +101,9 @@ export default function ManagerProperties() {
         description: toActive ? undefined : 'This listing is hidden from tenants and frees a subscription slot.',
       });
     } catch (e: any) {
-      let msg = 'Could not update the listing.';
-      try {
-        const body = JSON.parse(e.message);
-        const d = body.detail;
-        msg = typeof d === 'object' && d?.message ? d.message : (typeof d === 'string' ? d : msg);
-      } catch { if (e.message && !e.message.startsWith('{')) msg = e.message; }
+      // ApiError.message is already a readable sentence (detail string,
+      // detail.message, or validation summary).
+      const msg = e instanceof ApiError ? e.message : (e?.message || 'Could not update the listing.');
       toast({ title: 'Error', description: msg, variant: 'destructive' });
     } finally {
       setSendingId(null); fetchProperties();
@@ -252,7 +249,7 @@ export default function ManagerProperties() {
                           </span>
                         </span>
                         <span className="text-xs text-muted-foreground capitalize">
-                          {property.bedrooms} bed · {property.bathrooms} bath
+                          {(property as any).property_type === 'Office Space' ? `${property.bathrooms} washroom${property.bathrooms === 1 ? '' : 's'}` : `${property.bedrooms} bed · ${property.bathrooms} bath`}
                         </span>
                       </div>
                     </div>

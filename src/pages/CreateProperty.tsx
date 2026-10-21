@@ -22,7 +22,8 @@ export default function CreateProperty() {
   const [units, setUnits] = useState<DraftUnit[]>([]);
   // The property's own rent and deposit become its first unit server-side;
   // these are any additional ones for a multi-unit building.
-  const [currency, setCurrency] = useState('UGX');
+  const [currency, setCurrency] = useState('USD');
+  const [commercial, setCommercial] = useState(false);
   const [quota, setQuota] = useState<PropertyQuota | null>(null);
   const [planLimit, setPlanLimit] = useState<PlanLimitInfo | null>(null);
   // Double-submit guard: the button disables via `saving`, the ref guards
@@ -59,8 +60,12 @@ export default function CreateProperty() {
       title: data.title, description: data.description || null,
       property_type: data.property_type, property_type_slug: data.property_type_slug || null, state: data.state || null,
       address: data.address || '', city: '', zip_code: '',
-      bedrooms: units[0]?.bedrooms ?? 1, sitting_rooms: 1,
+      // Commercial listings have no bedrooms/sitting rooms; washrooms stay in `bathrooms`.
+      bedrooms: commercial ? 0 : (units[0]?.bedrooms ?? 1), sitting_rooms: commercial ? 0 : 1,
       bathrooms: units[0]?.bathrooms ?? 1,
+      square_feet: commercial && data.square_feet ? Number(data.square_feet) : null,
+      floors: commercial && data.floors !== '' ? Number(data.floors) : null,
+      parking_spaces: commercial && data.parking_spaces !== '' ? Number(data.parking_spaces) : null,
       // Derived from the units, which are the source of truth. The
       // property-level columns stay populated so listing search and filters
       // keep working; the listing leads with the lowest unit rent.
@@ -97,12 +102,10 @@ export default function CreateProperty() {
           property_id: newId,
           unit_number: u.unit_number,
           floor_level: u.floor_level || null,
-          bedrooms: u.bedrooms,
+          bedrooms: commercial ? 0 : u.bedrooms,
           bathrooms: u.bathrooms,
-        sitting_rooms: u.sitting_rooms ?? 1,
-        kitchens: u.kitchens ?? 1,
-          sitting_rooms: u.sitting_rooms ?? 1,
-          kitchens: u.kitchens ?? 1,
+          sitting_rooms: commercial ? 0 : (u.sitting_rooms ?? 1),
+          kitchens: commercial ? 0 : (u.kitchens ?? 1),
           rent_amount: u.rent_amount,
           security_deposit: u.security_deposit ?? 0,
         });
@@ -162,9 +165,10 @@ export default function CreateProperty() {
             submitLabel="Create Property"
             saving={saving}
             onCurrencyChange={setCurrency}
+            onCategoryChange={c => setCommercial(c === 'commercial')}
           />
           <div className="bg-card border border-border rounded-xl p-5">
-            <UnitsEditor units={units} currency={currency} onChange={setUnits} />
+            <UnitsEditor units={units} currency={currency} commercial={commercial} onChange={setUnits} />
           </div>
         </div>
         )}

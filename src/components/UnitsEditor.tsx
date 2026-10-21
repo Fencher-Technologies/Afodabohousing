@@ -64,9 +64,12 @@ export function UnitsEditor({
   currency,
   onChange,
   onDelete,
+  commercial = false,
 }: {
   units: DraftUnit[];
   currency: string;
+  /** Commercial units have no bedrooms, sitting rooms or kitchens; only washrooms. */
+  commercial?: boolean;
   onChange: (next: DraftUnit[]) => void;
   /** Called when a saved unit is removed so the parent can delete it server-side. */
   onDelete?: (unit: DraftUnit) => void;
@@ -97,7 +100,11 @@ export function UnitsEditor({
       return;
     }
 
-    const next = { ...draft, unit_number: name };
+    const next = {
+      ...draft,
+      unit_number: name,
+      ...(commercial ? { bedrooms: 0, sitting_rooms: 0, kitchens: 0 } : {}),
+    };
     if (editingIndex === -1) onChange([...units, next]);
     else if (editingIndex !== null) {
       const copy = [...units];
@@ -153,7 +160,10 @@ export function UnitsEditor({
             <p className="text-xs text-muted-foreground">Deposit {money(unit.security_deposit, currency)}</p>
           )}
           <p className="text-xs text-muted-foreground">
-            {unit.bedrooms} bed · {unit.bathrooms} bath{unit.floor_level ? ` · ${unit.floor_level}` : ''}
+            {commercial
+              ? `${unit.bathrooms} washroom${unit.bathrooms === 1 ? '' : 's'}`
+              : `${unit.bedrooms} bed · ${unit.bathrooms} bath`}
+            {unit.floor_level ? ` · ${unit.floor_level}` : ''}
           </p>
         </div>
       ))}
@@ -182,16 +192,19 @@ export function UnitsEditor({
               <Input value={draft.floor_level ?? ''} placeholder="e.g. Ground floor" className="mt-1"
                 onChange={e => setDraft({ ...draft, floor_level: e.target.value })} />
             </div>
+            {!commercial && (
             <div>
               <Label>Bedrooms</Label>
               <Input type="number" min={0} value={draft.bedrooms} className="mt-1"
                 onChange={e => setDraft({ ...draft, bedrooms: Number(e.target.value) })} />
             </div>
+            )}
             <div>
-              <Label>Bathrooms</Label>
+              <Label>{commercial ? 'Washrooms' : 'Bathrooms'}</Label>
               <Input type="number" min={0} value={draft.bathrooms} className="mt-1"
                 onChange={e => setDraft({ ...draft, bathrooms: Number(e.target.value) })} />
             </div>
+            {!commercial && (<>
             <div>
               <Label>Sitting rooms</Label>
               <Input type="number" min={0} value={draft.sitting_rooms ?? 1} className="mt-1"
@@ -202,6 +215,7 @@ export function UnitsEditor({
               <Input type="number" min={0} value={draft.kitchens ?? 1} className="mt-1"
                 onChange={e => setDraft({ ...draft, kitchens: Number(e.target.value) })} />
             </div>
+            </>)}
             <div className="sm:col-span-2">
               <Label>Status</Label>
               <Select value={draft.status} onValueChange={v => setDraft({ ...draft, status: v })}>

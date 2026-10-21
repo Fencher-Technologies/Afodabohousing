@@ -1,9 +1,6 @@
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  UGX: 'UGX', KES: 'KES', NGN: '₦', GHS: 'GH₵', TZS: 'TSh', ZAR: 'R',
-  USD: '$', GBP: '£', EUR: '€', CDF: 'FC', RWF: 'RF', ETB: 'Br',
-  BIF: 'FBu', ZMW: 'ZK', MWK: 'MK', MZN: 'MT', SZL: 'E',
-};
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: '$' };
 
+/** Amounts are US$; any other code (old data) is shown as its ISO code. */
 export function formatCurrency(amount: number | null | undefined, currency?: string | null): string {
   const cur = currency || 'USD';
   const sym = CURRENCY_SYMBOLS[cur] || cur;

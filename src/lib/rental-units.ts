@@ -52,6 +52,8 @@ export interface RentalUnit {
   floor_level: string | null;
   bedrooms: number;
   bathrooms: number;
+  sitting_rooms?: number;
+  kitchens?: number;
   rent_amount: number;
   rent_currency: string;
   security_deposit: number | null;

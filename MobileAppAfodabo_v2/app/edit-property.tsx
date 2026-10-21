@@ -24,7 +24,7 @@ import { usePropertyCategories, usePropertyTypes } from "@/src/hooks/useProperty
 import { ensureImagesUploaded, MAX_PROPERTY_IMAGES } from "@/src/services/properties";
 import { ApiError } from "@/src/lib/api-client";
 import { useToast } from "@/src/components/Toast";
-import { COUNTRIES, currencyForCountry, currencyOptions } from "@/src/data/countries";
+import { COUNTRIES } from "@/src/data/countries";
 import type { Amenity } from "@/src/types";
 import { formatAmenity } from "@/src/utils/format";
 
@@ -54,8 +54,10 @@ export default function EditPropertyScreen() {
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [type, setType] = useState("");
   const [category, setCategory] = useState("");
+  const [floorArea, setFloorArea] = useState("");
+  const [floorsText, setFloorsText] = useState("");
+  const [parkingText, setParkingText] = useState("");
   const [rent, setRent] = useState("");
-  const [currencyOverride, setCurrencyOverride] = useState<string | null>(null);
   const [units, setUnits] = useState<DraftUnit[]>([]);
   const [beds, setBeds] = useState("");
   const [baths, setBaths] = useState("");
@@ -103,7 +105,7 @@ export default function EditPropertyScreen() {
     setType("");
   };
 
-  const currency = currencyOverride ?? currencyForCountry(country);
+  const currency = "USD"; // US$ only
 
   useEffect(() => {
     if (!unitsData?.items) return;
@@ -134,10 +136,10 @@ export default function EditPropertyScreen() {
       const payload = {
         unit_number: unit.unit_number,
         floor_level: unit.floor_level || null,
-        bedrooms: unit.bedrooms,
+        bedrooms: category === "commercial" ? 0 : unit.bedrooms,
         bathrooms: unit.bathrooms,
-        sitting_rooms: unit.sitting_rooms ?? 1,
-        kitchens: unit.kitchens ?? 1,
+        sitting_rooms: category === "commercial" ? 0 : (unit.sitting_rooms ?? 1),
+        kitchens: category === "commercial" ? 0 : (unit.kitchens ?? 1),
         rent_amount: unit.rent_amount,
         security_deposit: unit.security_deposit ?? 0,
         status: unit.status,
@@ -180,7 +182,9 @@ export default function EditPropertyScreen() {
     // Preserve whatever the listing was created with. Recomputing this from
     // the country on save silently reset any deliberate choice (e.g. a
     // Kampala property listed in USD) the first time the manager edited it.
-    setCurrencyOverride(property.rent_currency || null);
+    setFloorArea(property.square_feet ? String(property.square_feet) : "");
+    setFloorsText(property.floors ? String(property.floors) : "");
+    setParkingText(property.parking_spaces ? String(property.parking_spaces) : "");
     setBeds(String(property.beds || ""));
     setBaths(String(property.baths || ""));
     setDeposit(property.security_deposit ? String(property.security_deposit) : "");
@@ -306,15 +310,18 @@ export default function EditPropertyScreen() {
         property_type: category === "commercial" ? "Office Space" : "Residential",
         property_type_slug: type || null,
         rent_currency: currency,
+        square_feet: category === "commercial" && floorArea ? Number(floorArea) : null,
+        floors: category === "commercial" && floorsText ? Number(floorsText) : null,
+        parking_spaces: category === "commercial" && parkingText ? Number(parkingText) : null,
         // Derived from the units, which are edited below and are the source of
         // truth. These columns stay populated so listing search and filters
         // keep working; the listing leads with the lowest unit rent.
         ...(units.length > 0
           ? {
               monthly_rent: Math.min(...units.map((u) => u.rent_amount)),
-              bedrooms: units[0].bedrooms || 1,
+              bedrooms: category === "commercial" ? 0 : (units[0].bedrooms || 1),
               bathrooms: units[0].bathrooms || 1,
-              sitting_rooms: units[0].sitting_rooms ?? 1,
+              sitting_rooms: category === "commercial" ? 0 : (units[0].sitting_rooms ?? 1),
               security_deposit: units[0].security_deposit ?? 0,
             }
           : {}),
@@ -416,14 +423,34 @@ export default function EditPropertyScreen() {
           onSelect={setType}
           placeholder="Select type"
         />
-        <View style={{ height: Spacing.md }} />
-        <SelectField
-          label="Currency"
-          value={currency}
-          options={currencyOptions(country)}
-          onSelect={setCurrencyOverride}
-          placeholder="Select currency"
-        />
+        {category === "commercial" && (
+          <>
+            <View style={{ height: Spacing.md }} />
+            <InputField
+              label="Floor area (sq ft)"
+              value={floorArea}
+              onChangeText={(v) => setFloorArea(v.replace(/[^0-9]/g, ""))}
+              placeholder="e.g. 1200"
+              keyboardType="numeric"
+            />
+            <View style={{ height: Spacing.md }} />
+            <InputField
+              label="Floors"
+              value={floorsText}
+              onChangeText={(v) => setFloorsText(v.replace(/[^0-9]/g, ""))}
+              placeholder="e.g. 2"
+              keyboardType="numeric"
+            />
+            <View style={{ height: Spacing.md }} />
+            <InputField
+              label="Parking spaces"
+              value={parkingText}
+              onChangeText={(v) => setParkingText(v.replace(/[^0-9]/g, ""))}
+              placeholder="e.g. 10"
+              keyboardType="numeric"
+            />
+          </>
+        )}
 
         <View style={{ height: Spacing.lg }} />
         <Text style={styles.sectionLabel}>Description</Text>
@@ -489,6 +516,7 @@ export default function EditPropertyScreen() {
         <UnitsEditor
           units={units}
           currency={currency}
+          commercial={category === "commercial"}
           onChange={persistUnits}
           onDelete={removeUnit}
         />

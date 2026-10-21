@@ -27,8 +27,8 @@ function formatDateTime(d: string): string {
 }
 
 function formatMoney(v: string | number): string {
-  const n = typeof v === "string" ? parseInt(v, 10) : v;
-  return `UGX ${n.toLocaleString()}`;
+  const n = typeof v === "string" ? Number(v) : v;
+  return `USD ${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
 export function buildAgreementHtml(content: AgreementContent): string {

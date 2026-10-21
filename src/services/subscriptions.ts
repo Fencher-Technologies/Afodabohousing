@@ -24,10 +24,8 @@ export function formatPlanDuration(days: number): string {
   return `${days} day${days === 1 ? '' : 's'}`;
 }
 
-export function formatPlanPrice(plan: SubscriptionPlan, currency: 'UGX' | 'USD'): string {
-  return currency === 'USD'
-    ? `$${Number(plan.price_usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-    : `UGX ${Number(plan.price_ugx).toLocaleString()}`;
+export function formatPlanPrice(plan: SubscriptionPlan, _currency?: 'USD'): string {
+  return `$${Number(plan.price_usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
 export interface ManagerSubscription {

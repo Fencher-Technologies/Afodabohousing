@@ -1,3 +1,4 @@
+import { DatePickerField } from "@/src/components/DatePickerField";
 import { useState, useMemo } from "react";
 import {
   StyleSheet,
@@ -218,10 +219,10 @@ export default function SubmitPaymentScreen() {
 
       <View style={styles.form}>
         <InputField
-          label="Amount (UGX)"
+          label="Amount (USD)"
           value={amount}
           onChangeText={setAmount}
-          placeholder="e.g. 500000"
+          placeholder="e.g. 150"
           keyboardType="numeric"
         />
 
@@ -250,11 +251,11 @@ export default function SubmitPaymentScreen() {
           placeholder="Transaction ID or reference"
         />
 
-        <InputField
+        <DatePickerField
           label="Payment Date"
           value={paymentDate}
-          onChangeText={setPaymentDate}
-          placeholder="YYYY-MM-DD"
+          onChange={setPaymentDate}
+          disableFuture
         />
 
         <InputField

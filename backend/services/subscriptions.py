@@ -341,7 +341,8 @@ class SubscriptionService:
         try:
             from services.notifications import notify_admins, profile_label
             plan = self._get_plan(sub.get("plan_id")) or {}
-            amount = f"{sub.get('currency') or 'UGX'} {paid_amount:,.0f}" if paid_amount else ""
+            # Always quote the plan's US$ price: paid_amount may be shillings.
+            amount = f"USD {float(plan.get('price_usd') or 0):,.2f}" if paid_amount else ""
             notify_admins(
                 self.supabase,
                 type="admin_subscription_paid",

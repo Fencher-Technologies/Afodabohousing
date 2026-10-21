@@ -18,6 +18,7 @@ import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
 import { PageHeader } from "@/src/components/PageHeader";
+import { DatePickerField } from "@/src/components/DatePickerField";
 import { usePayment, useUpdatePayment, useDeletePayment } from "@/src/hooks/usePayments";
 import { useAuth } from "@/src/context/auth-context";
 import { useOwnerReceipts } from "@/src/hooks/useReceipts";
@@ -210,12 +211,10 @@ export default function PaymentDetailScreen() {
               keyboardType="decimal-pad"
               error={error ?? undefined}
             />
-            <InputField
-              label="Effective date (YYYY-MM-DD)"
+            <DatePickerField
+              label="Effective date"
               value={paidDate}
-              onChangeText={setPaidDate}
-              placeholder="YYYY-MM-DD"
-              keyboardType="numeric"
+              onChange={setPaidDate}
             />
             <View>
               <Text style={styles.label}>Payment Method</Text>

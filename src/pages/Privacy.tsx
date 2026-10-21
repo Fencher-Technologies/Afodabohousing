@@ -12,7 +12,7 @@ We automatically collect certain technical data when you use the platform, inclu
   },
   {
     title: '2. How We Use Your Information',
-    content: `Your information is used to operate and improve Axis, including verifying your identity, facilitating tenancy agreements, processing payments through PesaPal, sending SMS notifications via EgoSMS (rent reminders, payment confirmations and welcome messages), and providing customer support.
+    content: `Your information is used to operate and improve Axis, including verifying your identity, facilitating tenancy agreements, processing payments for Axis subscriptions and property boosts through PesaPal, sending SMS notifications via EgoSMS (rent reminders, payment confirmations and welcome messages), and providing customer support.
 
 We do not sell your personal data to third parties.`,
   },
@@ -24,7 +24,7 @@ You may opt out of SMS notifications by contacting support@axishousings.com.`,
   },
   {
     title: '4. Payment Security',
-    content: `Online payments are processed by PesaPal, a licensed payment service provider in Uganda and East Africa. Axis does not store your card or mobile money details. Payment proof images uploaded to the platform are stored securely and accessible only to the relevant tenant, house manager and platform administrators.`,
+    content: `Online payments to Axis (for subscriptions and property boosts) are processed by PesaPal, a licensed payment service provider in Uganda and East Africa. Axis does not store your card or mobile money details. Payment proof images uploaded to the platform are stored securely and accessible only to the relevant tenant, house manager and platform administrators.`,
   },
   {
     title: '5. Data Sharing',

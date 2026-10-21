@@ -39,7 +39,7 @@ def test_currency_defaults_to_the_platform_standard_when_not_given():
 
 def test_update_carries_currency():
     payload = PropertyUpdate(rent_currency="KES").model_dump(exclude_none=True)
-    assert payload["rent_currency"] == "KES"
+    assert payload["rent_currency"] == "USD"  # always forced to US$
 
 
 def test_update_omits_currency_when_untouched():

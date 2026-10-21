@@ -6,6 +6,7 @@ import { createRentalUnit } from '@/lib/rental-units';
 import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
@@ -17,7 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { listPayments, updatePayment, fetchFinancialSummary, type FinancialSummary, PaymentData } from '@/services/payments';
 import { getCurrentSubscription, getPropertyQuota, type PropertyQuota } from '@/services/subscriptions';
-import { apiGet, apiPatch } from '@/services/api';
+import { apiGet, apiPatch, ApiError } from '@/services/api';
 import { HIDDEN_STATUS, VISIBLE_STATUS } from '@/constants/propertyStatus';
 import { formatCurrency } from '@/utils/currency';
 import { cleanDbError } from '@/utils/dbError';
@@ -99,12 +100,9 @@ export default function ManagerDashboard() {
         description: toActive ? undefined : 'This listing is hidden from tenants and frees a subscription slot.',
       });
     } catch (e: any) {
-      let msg = 'Could not update the listing.';
-      try {
-        const body = JSON.parse(e.message);
-        const d = body.detail;
-        msg = typeof d === 'object' && d?.message ? d.message : (typeof d === 'string' ? d : msg);
-      } catch { if (e.message && !e.message.startsWith('{')) msg = e.message; }
+      // ApiError.message is already a readable sentence (detail string,
+      // detail.message, or validation summary).
+      const msg = e instanceof ApiError ? e.message : (e?.message || 'Could not update the listing.');
       toast({ title: 'Error', description: msg, variant: 'destructive' });
     } finally {
       setSendingAction(''); fetchData();
@@ -501,8 +499,8 @@ export default function ManagerDashboard() {
                   <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
                     <h3 className="font-display font-semibold text-base">Lease Details</h3>
                     <div className="grid grid-cols-2 gap-4">
-                      <div><Label>Start Date</Label><Input type="date" value={tenantFormData.start_date} onChange={e => setTenantFormData(f => ({ ...f, start_date: e.target.value }))} required className="mt-1" /></div>
-                      <div><Label>End Date</Label><Input type="date" value={tenantFormData.end_date} onChange={e => setTenantFormData(f => ({ ...f, end_date: e.target.value }))} required className="mt-1" /></div>
+                      <div><Label>Start Date</Label><DatePickerField value={tenantFormData.start_date} onChange={v => setTenantFormData(f => ({ ...f, start_date: v }))} required /></div>
+                      <div><Label>End Date</Label><DatePickerField value={tenantFormData.end_date} onChange={v => setTenantFormData(f => ({ ...f, end_date: v }))} min={tenantFormData.start_date} required /></div>
                       <div><Label>Monthly Rent</Label><Input type="number" value={tenantFormData.monthly_rent || ''} onChange={e => setTenantFormData(f => ({ ...f, monthly_rent: Number(e.target.value) }))} className="mt-1" /></div>
                     </div>
                     <div>

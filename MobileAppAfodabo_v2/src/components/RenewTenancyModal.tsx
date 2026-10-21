@@ -1,33 +1,9 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Button } from "./Button";
 import { InputField } from "./InputField";
-import { SelectField } from "./SelectField";
-
-const MONTHS = [
-  { label: "January", value: "01" },
-  { label: "February", value: "02" },
-  { label: "March", value: "03" },
-  { label: "April", value: "04" },
-  { label: "May", value: "05" },
-  { label: "June", value: "06" },
-  { label: "July", value: "07" },
-  { label: "August", value: "08" },
-  { label: "September", value: "09" },
-  { label: "October", value: "10" },
-  { label: "November", value: "11" },
-  { label: "December", value: "12" },
-];
-
-function pad2(n: string): string {
-  return n.length === 1 ? "0" + n : n;
-}
-
-function toIso(day: string, month: string, year: string): string {
-  if (!day || !month || !year) return "";
-  return `${year}-${month}-${pad2(day)}`;
-}
+import { DatePickerField } from "./DatePickerField";
 
 interface RenewTenancyModalProps {
   currentEndDate: string;
@@ -44,14 +20,10 @@ export function RenewTenancyModal({
   onClose,
   onRenew,
 }: RenewTenancyModalProps) {
-  const [day, setDay] = useState("");
-  const [month, setMonth] = useState("");
-  const [year, setYear] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const newEndDate = useMemo(() => toIso(day, month, year), [day, month, year]);
 
   const handleRenew = async () => {
     if (!newEndDate) {
@@ -92,20 +64,11 @@ export function RenewTenancyModal({
             Current period ends {currentEndDate || "—"}. The new end date must be later.
           </Text>
 
-          <Text style={styles.dateLabel}>New End Date</Text>
-          <View style={styles.dateRow}>
-            <View style={{ flex: 1 }}>
-              <InputField label="Day" value={day} onChangeText={setDay} placeholder="DD" keyboardType="numeric" />
-            </View>
-            <View style={{ width: Spacing.sm }} />
-            <View style={{ flex: 2 }}>
-              <SelectField label="Month" value={month} options={MONTHS} onSelect={setMonth} placeholder="Month" />
-            </View>
-            <View style={{ width: Spacing.sm }} />
-            <View style={{ flex: 1.2 }}>
-              <InputField label="Year" value={year} onChangeText={setYear} placeholder="YYYY" keyboardType="numeric" />
-            </View>
-          </View>
+          <DatePickerField
+            label="New End Date"
+            value={newEndDate}
+            onChange={setNewEndDate}
+          />
 
           <Text style={styles.unchangedNote}>
             Renewing extends this tenancy only. The tenancy record, start date, monthly rent, payments, and rent calculations stay unchanged.

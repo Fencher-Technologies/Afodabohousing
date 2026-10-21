@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { Input } from '@/components/ui/input';
 import { listPropertyUnits, type RentalUnit } from '@/lib/rental-units';
 import { Label } from '@/components/ui/label';
@@ -195,13 +196,13 @@ export default function TenancyForm({ mode, initialData, onSave, onCancel, savin
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label className="text-sm font-semibold">Start Date</Label>
-            <Input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
-              required className="rounded-lg h-11 mt-1.5" />
+            <DatePickerField value={form.start_date} onChange={v => setForm(f => ({ ...f, start_date: v }))}
+              required className="rounded-lg mt-1.5" />
           </div>
           <div>
             <Label className="text-sm font-semibold">End Date</Label>
-            <Input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
-              required className="rounded-lg h-11 mt-1.5" />
+            <DatePickerField value={form.end_date} onChange={v => setForm(f => ({ ...f, end_date: v }))}
+              min={form.start_date} required className="rounded-lg mt-1.5" />
           </div>
         </div>
       </div>

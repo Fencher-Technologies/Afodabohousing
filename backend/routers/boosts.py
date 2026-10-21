@@ -324,10 +324,13 @@ async def initiate_boost(
     reference = str(uuid4())
     prop_title = prop.data.get("title", "Property")
 
+    # Record the US$ price, whatever the gateway is charging. `amount` above is
+    # only what Pesapal bills (shillings if the payer chose mobile money), and
+    # storing that would mix currencies into boost revenue.
     boost_data = BoostCreate(
         property_id=data.property_id,
         duration_days=data.duration_days,
-        amount_paid=Decimal(str(amount)),
+        amount_paid=Decimal(str(float(pkg["price_usd"]))),
     )
 
     result = service.create_pending(boost_data, UUID(current_user.id), reference, "pesapal")

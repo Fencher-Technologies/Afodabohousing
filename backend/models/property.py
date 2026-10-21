@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from currency import DEFAULT_CURRENCY
 
 
@@ -32,11 +32,10 @@ class Property(BaseModel):
     bedrooms: int
     bathrooms: float
     square_feet: int | None = None
+    floors: int | None = None
+    parking_spaces: int | None = None
     monthly_rent: Decimal
-    # ISO 4217 code the listing is priced in. The column has existed on
-    # properties since the schema was created, but no model exposed it, so
-    # Pydantic silently dropped whatever the client sent and every property
-    # fell back to the UGX column default.
+    # Always US$ (Axis prices everything in dollars).
     rent_currency: str = DEFAULT_CURRENCY
     security_deposit: Decimal
     status: str
@@ -64,12 +63,18 @@ class PropertyCreate(BaseModel):
     bedrooms: int = 1
     bathrooms: float = 1.0
     square_feet: int | None = None
+    floors: int | None = None
+    parking_spaces: int | None = None
     monthly_rent: Decimal
-    # ISO 4217 code the listing is priced in. The column has existed on
-    # properties since the schema was created, but no model exposed it, so
-    # Pydantic silently dropped whatever the client sent and every property
-    # fell back to the UGX column default.
+    # Always US$ (Axis prices everything in dollars).
     rent_currency: str = DEFAULT_CURRENCY
+
+    @field_validator("rent_currency", mode="before")
+    @classmethod
+    def _force_usd(cls, _v):
+        # Axis prices everything in US$; ignore whatever a client sends.
+        return DEFAULT_CURRENCY
+
     security_deposit: Decimal
     status: PropertyStatus = "available"
     description: str | None = None
@@ -96,8 +101,16 @@ class PropertyUpdate(BaseModel):
     bedrooms: int | None = None
     bathrooms: float | None = None
     square_feet: int | None = None
+    floors: int | None = None
+    parking_spaces: int | None = None
     monthly_rent: Decimal | None = None
     rent_currency: str | None = None
+
+    @field_validator("rent_currency", mode="before")
+    @classmethod
+    def _force_usd(cls, v):
+        return None if v is None else DEFAULT_CURRENCY
+
     security_deposit: Decimal | None = None
     status: PropertyStatus | None = None
     description: str | None = None
@@ -133,11 +146,10 @@ class PropertyResponse(BaseModel):
     bedrooms: int
     bathrooms: float
     square_feet: int | None = None
+    floors: int | None = None
+    parking_spaces: int | None = None
     monthly_rent: Decimal
-    # ISO 4217 code the listing is priced in. The column has existed on
-    # properties since the schema was created, but no model exposed it, so
-    # Pydantic silently dropped whatever the client sent and every property
-    # fell back to the UGX column default.
+    # Always US$ (Axis prices everything in dollars).
     rent_currency: str = DEFAULT_CURRENCY
     security_deposit: Decimal
     status: str

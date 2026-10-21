@@ -22,6 +22,11 @@ services:
         value: '["https://axishousings.com","https://www.axishousings.com","https://afodabohousing.vercel.app"]'
       - key: RATE_LIMIT_ENABLED
         value: "true"
+      # Reverse proxies in front of the API that append to X-Forwarded-For. The
+      # client address is read this many entries from the right; the left side
+      # is caller-controlled. Verify against a live request before changing.
+      - key: TRUSTED_PROXY_HOPS
+        value: "1"
       - key: PESAPAL_ENVIRONMENT
         value: live
       - key: PESAPAL_CONSUMER_KEY

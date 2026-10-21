@@ -160,14 +160,14 @@ export default function CreateTenancyScreen() {
       await createTenancy.mutateAsync({
         property_id: propertyId,
         tenant_id: tenant.id,
-        monthly_rent: parseInt(rentAmount, 10) || 0,
+        monthly_rent: parseFloat(rentAmount) || 0,
         start_date: startDate,
         end_date: endDate,
         unit_id: unitId || undefined,
         // Kept in step with the unit so existing agreements and receipts,
         // which display the label, stay accurate.
         unit_label: selectedUnit?.unit_number || undefined,
-        security_deposit: parseInt(initialBalance, 10) || 0,
+        security_deposit: parseFloat(initialBalance) || 0,
         status: "active",
       });
 

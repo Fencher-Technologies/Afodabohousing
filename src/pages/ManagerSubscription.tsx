@@ -19,10 +19,8 @@ export default function ManagerSubscription() {
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<Step>('plans');
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
-  // US$ is the platform's standard currency, so prices lead in dollars.
-  // UGX stays selectable because Ugandan mobile money cannot settle in USD;
-  // picking it charges the local equivalent of the same plan.
-  const [currency, setCurrency] = useState<'UGX' | 'USD'>('USD');
+  // All plans are priced and paid in US$.
+  const currency = 'USD' as const;
   const [activating, setActivating] = useState(false);
   const calledRef = useRef(false);
 
@@ -155,11 +153,7 @@ export default function ManagerSubscription() {
               </div>
             )}
 
-            <div className="flex gap-2 justify-center">
-              <button onClick={() => setCurrency('UGX')} className={`flex-1 py-2.5 rounded-xl font-bold text-sm border-2 transition-colors ${currency === 'UGX' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}>UGX — Mobile Money</button>
-              <button onClick={() => setCurrency('USD')} className={`flex-1 py-2.5 rounded-xl font-bold text-sm border-2 transition-colors ${currency === 'USD' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}>USD — Card</button>
-            </div>
-            <p className="text-xs text-center text-muted-foreground">Default is UGX. Pesapal accepts both — UGX for mobile money, USD for international/virtual cards.</p>
+            <p className="text-xs text-center text-muted-foreground">All plans are priced and paid in US$.</p>
 
             {plans.filter(p => p.is_active).length === 0 ? (
               <div className="text-center py-16 bg-card border border-border rounded-xl">
@@ -197,8 +191,7 @@ export default function ManagerSubscription() {
                         {isCurrent && <Badge variant="outline" className="text-xs">Current</Badge>}
                       </div>
                       <p className="text-3xl font-bold text-primary">{formatPlanPrice(plan, currency)} <span className="text-sm font-normal text-muted-foreground">/ {formatPlanDuration(plan.duration_days)}</span></p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{currency === 'UGX' ? `$${plan.price_usd}, converted at today's rate (about UGX ${plan.price_ugx.toLocaleString()})` : `or pay by mobile money in shillings`}</p>
-                      {plan.benefits.length > 0 && (
+                                            {plan.benefits.length > 0 && (
                         <div className="mt-4 space-y-2">
                           {plan.benefits.map((b, i) => (
                             <div key={i} className="flex items-center gap-2 text-sm">

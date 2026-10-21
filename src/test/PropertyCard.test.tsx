@@ -1,7 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import PropertyCard from "@/components/PropertyCard";
+
+// useAuth now throws outside <AuthProvider>, so give the card a signed-out user.
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: null, session: null, role: null, loading: false, signOut: async () => {}, refreshRole: async () => {} }),
+}));
 
 const baseProperty = {
   id: "prop-1",
@@ -70,12 +75,12 @@ describe("PropertyCard", () => {
 
   it("formats rent in millions", () => {
     renderCard({ rent_amount: 1500000 });
-    expect(screen.getByText("UGX 1.5M")).toBeDefined();
+    expect(screen.getByText("$ 1.5M")).toBeDefined();
   });
 
   it("formats rent in thousands", () => {
     renderCard({ rent_amount: 800000 });
-    expect(screen.getByText("UGX 800K")).toBeDefined();
+    expect(screen.getByText("$ 800K")).toBeDefined();
   });
 
   it("shows Available badge for available property", () => {

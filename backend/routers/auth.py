@@ -1437,10 +1437,8 @@ def update_profile(
         else:
             payload["phone"] = None
     if "display_currency" in payload:
-        code = (payload["display_currency"] or "").strip().upper()
-        if len(code) != 3 or not code.isalpha():
-            raise HTTPException(status_code=422, detail="Currency must be a 3-letter code, e.g. UGX")
-        payload["display_currency"] = code
+        # Axis shows every total in US$; the display currency is not changeable.
+        payload["display_currency"] = "USD"
     response = supabase.table("profiles").update(payload).eq("user_id", current_user.id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Profile not found")

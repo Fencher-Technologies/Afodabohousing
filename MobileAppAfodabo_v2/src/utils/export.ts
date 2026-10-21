@@ -7,6 +7,7 @@ import {
   StorageAccessFramework,
 } from "expo-file-system/legacy";
 import { Alert, Platform } from "react-native";
+import { AXIS_LOGO_DATA_URI } from "./logo-data";
 
 function escapeHtml(text: string): string {
   return text
@@ -55,6 +56,7 @@ export function buildHtmlTable(
 <html>
 <head><meta charset="utf-8" /></head>
 <body style="font-family:-apple-system,Helvetica,Arial,sans-serif;padding:24px;color:#222;">
+  <img src="${AXIS_LOGO_DATA_URI}" alt="Axis Housing" style="height:44px;margin:0 0 16px;display:block;" />
   <h1 style="font-size:22px;margin:0 0 4px;color:#1a1a1a;">${escapeHtml(title)}</h1>
   <p style="font-size:13px;color:#666;margin:0 0 24px;">${escapeHtml(subtitle)}</p>
   <table style="width:100%;border-collapse:collapse;">

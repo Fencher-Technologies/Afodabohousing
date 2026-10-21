@@ -48,6 +48,8 @@ export interface BackendProperty {
   bedrooms: number;
   bathrooms: number;
   square_feet: number | null;
+  floors?: number | null;
+  parking_spaces?: number | null;
   monthly_rent: number;
   rent_amount?: number;
   /** ISO 4217 code the listing is priced in. Defaults to USD, the platform standard. */
@@ -122,6 +124,10 @@ export interface Property {
   manager_email?: string;
   manager_phone?: string;
   square_feet?: number;
+  /** Commercial listings: floors and parking spaces; no bedrooms or kitchens. */
+  floors?: number;
+  parking_spaces?: number;
+  is_commercial?: boolean;
   security_deposit?: number;
   units: RentalUnit[];
   created_at: string;
@@ -213,6 +219,7 @@ export interface AgreementPropertyInfo {
 export interface AgreementTenancyInfo {
   monthly_rent: string;
   security_deposit: string;
+  currency?: string;
   start_date: string;
   end_date: string;
   payment_frequency: string;

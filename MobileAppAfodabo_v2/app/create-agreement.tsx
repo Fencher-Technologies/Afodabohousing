@@ -31,13 +31,13 @@ function formatCurrency(
   // The tenancy's own currency: this used to be a hardcoded UGX, so an
   // agreement drafted for a property priced in anything else stated the
   // wrong currency on a document the tenant signs.
-  return `${(currency || DEFAULT_CURRENCY).toUpperCase()} ${amount.toLocaleString("en-UG")}`;
+  return `${(currency || DEFAULT_CURRENCY).toUpperCase()} ${amount.toLocaleString("en-US")}`;
 }
 
 function formatDate(iso: string): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleDateString("en-UG", {
+  return d.toLocaleDateString("en-US", {
     day: "numeric",
     month: "short",
     year: "numeric",

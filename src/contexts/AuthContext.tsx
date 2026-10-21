@@ -13,14 +13,9 @@ interface AuthContextType {
   refreshRole: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  session: null,
-  role: null,
-  loading: true,
-  signOut: async () => {},
-  refreshRole: async () => {},
-});
+// No default value: a component rendered outside <AuthProvider> must fail
+// loudly in useAuth() instead of silently behaving as "signed out, loading".
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);

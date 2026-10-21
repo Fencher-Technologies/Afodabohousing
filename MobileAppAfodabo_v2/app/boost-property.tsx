@@ -16,13 +16,10 @@ import { useAuth } from "@/src/context/auth-context";
 import { SubscriptionGate } from "@/src/components/SubscriptionGate";
 import type { BoostPackage } from "@/src/types";
 
-/** What a package costs in the currency the manager is paying in. */
-function formatBoostPrice(pkg: BoostPackage, currency: "USD" | "UGX"): string {
-  if (currency === "USD") {
-    const amount = Number(pkg.price_usd ?? 0);
-    return `$${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  }
-  return `UGX ${Number(pkg.price_ugx ?? pkg.price ?? 0).toLocaleString()}`;
+/** What a package costs, in US$. */
+function formatBoostPrice(pkg: BoostPackage, _currency?: "USD"): string {
+  const amount = Number(pkg.price_usd ?? 0);
+  return `$${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 import { api } from "@/src/lib/api-client";
 import { API_BASE_URL } from "@/constants/config";
@@ -38,9 +35,7 @@ export default function BoostPropertyScreen() {
   const isExpired = subscription?.status !== "active";
   const [showGate, setShowGate] = useState(false);
   const [packages, setPackages] = useState<BoostPackage[]>([]);
-  // US$ is the standard boost price. UGX stays available because Ugandan
-  // mobile money cannot settle dollars; it charges the same package locally.
-  const [currency, setCurrency] = useState<"USD" | "UGX">("USD");
+  const currency = "USD" as const; // boosts are priced and paid in US$
   const [selectedDays, setSelectedDays] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -369,37 +364,6 @@ export default function BoostPropertyScreen() {
       <Text style={styles.subtitle}>
         Promote your property to appear first in search results.
       </Text>
-
-      {/* Payment currency: dollars by default, shillings for mobile money. */}
-      <View style={styles.packagesSection}>
-        <Text style={styles.sectionTitle}>Pay in</Text>
-        <View style={styles.currencyRow}>
-          {(["USD", "UGX"] as const).map((c) => (
-            <Pressable
-              key={c}
-              onPress={() => setCurrency(c)}
-              style={[styles.currencyToggle, currency === c && styles.currencyToggleActive]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: currency === c }}
-            >
-              <Text
-                style={[
-                  styles.currencyToggleText,
-                  currency === c && styles.currencyToggleTextActive,
-                ]}
-              >
-                {c === "USD" ? "USD — Card" : "UGX — Mobile Money"}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        {currency === "UGX" ? (
-          <Text style={styles.currencyNote}>
-            Boosts are priced in US$. You will be charged the shilling
-            equivalent at today's rate.
-          </Text>
-        ) : null}
-      </View>
 
       {/* Package Selection */}
       <View style={styles.packagesSection}>

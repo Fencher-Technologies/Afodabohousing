@@ -10,8 +10,6 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Save, Phone, Lock, Link, Loader2 } from 'lucide-react';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { SearchableSelect } from '@/components/ui/searchable-select';
-import { CURRENCIES, DEFAULT_CURRENCY } from '@/utils/currencies';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -25,7 +23,6 @@ export default function EditProfile() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [displayCurrency, setDisplayCurrency] = useState(DEFAULT_CURRENCY);
   const [role, setRole] = useState<string | null>(null);
 
   const [linkPhone, setLinkPhone] = useState('');
@@ -51,7 +48,6 @@ export default function EditProfile() {
       setPhone(data.phone || '');
       setEmail(data.email || user?.email || '');
       setPhotoUrl(data.photo_url || null);
-      setDisplayCurrency(data.display_currency || DEFAULT_CURRENCY);
       setRole(data.role || null);
     }
     setLoading(false);
@@ -71,7 +67,7 @@ export default function EditProfile() {
     const trimmedPhone = phone.trim();
     const { data, error } = await supabase.from('profiles').update({
       full_name: fullName.trim(), phone: trimmedPhone ? trimmedPhone : null,
-      display_currency: displayCurrency,
+      display_currency: 'USD',
       updated_at: new Date().toISOString(),
     }).eq('user_id', user.id).select();
     setSaving(false);
@@ -172,23 +168,6 @@ export default function EditProfile() {
           </div>
           {/* Tenants need this too: the business asked that a tenant be able to
               see their figures in US$, and the setting is what provides it. */}
-          {role !== null && (
-            <div>
-              <Label>Currency for totals</Label>
-              <SearchableSelect
-                options={CURRENCIES.map(c => ({ value: c.code, label: `${c.code} - ${c.name}` }))}
-                value={displayCurrency}
-                onValueChange={setDisplayCurrency}
-                placeholder="Select currency..."
-                emptyText="No currency matches."
-              />
-              <p className="text-xs text-muted-foreground mt-1.5">
-                Dashboard and report totals are shown in this currency, converted at current
-                exchange rates. Each property keeps its own currency for rent, payments and receipts.
-                Subscriptions and boosts are always priced in US$.
-              </p>
-            </div>
-          )}
 
           <div>
             <Label>Email</Label>

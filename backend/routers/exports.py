@@ -118,12 +118,29 @@ def _make_xlsx(rows: list[dict], columns: list[str]) -> io.BytesIO:
     ws = wb.active
     ws.title = "Export"
 
+    # Branded banner: Axis logo, then the table starts on row 5.
+    first_row = 5
+    try:
+        from pathlib import Path
+
+        from openpyxl.drawing.image import Image as XLImage
+
+        logo_path = Path(__file__).resolve().parents[1] / "assets" / "axis-lockup.png"
+        if logo_path.is_file():
+            img = XLImage(str(logo_path))
+            img.width, img.height = 190, 60
+            ws.add_image(img, "A1")
+            for r in range(1, first_row):
+                ws.row_dimensions[r].height = 16
+    except Exception:  # noqa: BLE001 - a missing logo must never fail an export
+        first_row = 1
+
     header_font = Font(bold=True)
     for i, col in enumerate(columns, 1):
-        cell = ws.cell(row=1, column=i, value=col)
+        cell = ws.cell(row=first_row, column=i, value=col)
         cell.font = header_font
 
-    for r, row in enumerate(rows, 2):
+    for r, row in enumerate(rows, first_row + 1):
         for c, col in enumerate(columns, 1):
             ws.cell(row=r, column=c, value=row.get(col, "") or "")
 
@@ -271,9 +288,11 @@ def _portfolio_header(st: dict, generated: str):
 
     from reportlab.platypus import Image as RLImage
 
-    logo = Path(__file__).resolve().parents[2] / "src" / "assets" / "axis-lockup.png"
+    # The logo ships inside backend/assets: the backend image does not contain
+    # the web app's src/ folder, so the old path never resolved in production.
+    logo = Path(__file__).resolve().parents[1] / "assets" / "axis-lockup.png"
     if logo.exists():
-        left = RLImage(str(logo), width=44 * mm, height=14 * mm, kind="proportional")
+        left = RLImage(str(logo), width=48 * mm, height=15 * mm, kind="proportional", hAlign="LEFT")
     else:
         left = Paragraph("AXIS HOUSING", st["brand"])
     return Table(

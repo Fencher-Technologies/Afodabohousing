@@ -2,12 +2,11 @@
 
 US$ is used throughout Axis: subscribing, listing a property, recording a
 tenant's payment, the reports generated and what a tenant sees on their
-dashboard.
+dashboard. Property, unit, lease and profile currencies are forced to USD by
+the models, and every stored amount has been converted to USD.
 
-A manager may still price a property in any currency from the picker, and
-rows created before this changed keep the currency they were created with.
-This constant is only what is assumed when a record carries no currency of
-its own, so that a missing value can never be silently read as shillings.
+This constant is what is assumed when a record carries no currency of its
+own, so that a missing value can never be silently read as shillings.
 """
 
 DEFAULT_CURRENCY = "USD"

@@ -7,16 +7,10 @@ import { ArrowLeft, Save, Home, MapPin, DollarSign, Image, Upload, X, AlertTrian
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { CURRENCIES, DEFAULT_CURRENCY } from '@/utils/currencies';
-import { COUNTRIES } from '@/utils/countries';
+import { DEFAULT_CURRENCY } from '@/utils/currencies';
+import { imageFileProblem, WEB_IMAGE_TYPES, WEB_IMAGE_ACCEPT } from '@/lib/upload-limits';
 
 const API = import.meta.env.VITE_API_URL || '';
-
-// Country to currency comes from the full country list (242 countries), so
-// a property anywhere gets the right default.
-const CURRENCY_MAP: Record<string, string> = Object.fromEntries(
-  COUNTRIES.map(c => [c.code, c.currency]),
-);
 
 interface Country { iso2: string; name: string; }
 interface Region { id: string; country_id: string; name: string; admin_level: string; geonames_id: string; }
@@ -32,6 +26,8 @@ export interface PropertyFormData {
   images: string[]; latitude: string; longitude: string;
   country: string; region_id: string; rent_currency: string;
   property_type_slug: string;
+  /** Commercial details (floor area is square feet). */
+  square_feet: string; floors: string; parking_spaces: string;
 }
 
 interface Props {
@@ -42,9 +38,11 @@ interface Props {
   saving?: boolean;
   /** Lets a parent (e.g. the units editor) follow the selected currency. */
   onCurrencyChange?: (currency: string) => void;
+  /** Tells the parent whether the listing is commercial, so unit fields can follow. */
+  onCategoryChange?: (category: string) => void;
 }
 
-export default function PropertyForm({ initialData, onSave, onCancel, submitLabel, saving, onCurrencyChange }: Props) {
+export default function PropertyForm({ initialData, onSave, onCancel, submitLabel, saving, onCurrencyChange, onCategoryChange }: Props) {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -75,6 +73,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
     latitude: '', longitude: '',
     country: 'UG', region_id: '', rent_currency: DEFAULT_CURRENCY,
     property_type_slug: '',
+    square_feet: '', floors: '', parking_spaces: '',
     ...initialData,
   });
 
@@ -99,6 +98,8 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
       .then((data: PropertyTypeOption[]) => setTypeOptions(data))
       .catch(() => setTypeOptions([]));
   }, [category]);
+
+  useEffect(() => { onCategoryChange?.(category); }, [category]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCategoryChange = (slug: string) => {
     setCategory(slug);
@@ -149,21 +150,6 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
     });
   }, []);
 
-  // US$ is the platform's standard currency, so it leads the list. The
-  // country's own currency and the rest stay reachable underneath for a
-  // manager who genuinely prices in local money.
-  const currencyChoices = Array.from(new Set([
-    DEFAULT_CURRENCY,
-    form.rent_currency,
-    CURRENCY_MAP[form.country],
-    'UGX', 'KES', 'TZS', 'RWF', 'EUR', 'GBP', 'ZAR',
-    ...CURRENCIES.map(c => c.code),
-  ].filter(Boolean)));
-  const currencyLabel = (code: string) => {
-    const match = CURRENCIES.find(c => c.code === code);
-    return match ? `${code} - ${match.name}` : code;
-  };
-
   const handleCountryChange = (iso: string) => {
     // The currency is deliberately left alone. It used to be overwritten with
     // the country's own, so selecting Uganda silently re-priced the property
@@ -179,7 +165,8 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { toast({ title: 'Only image files allowed', variant: 'destructive' }); return; }
+    const problem = imageFileProblem(file, WEB_IMAGE_TYPES);
+    if (problem) { toast({ title: 'Cannot use this image', description: problem, variant: 'destructive' }); if (fileRef.current) fileRef.current.value = ''; return; }
     setUploading(true);
     try {
       const ext = file.name.split('.').pop();
@@ -277,6 +264,25 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
             </select>
           </div>
         </div>
+        {category === 'commercial' && (
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-sm font-semibold mb-2">Floor area (sq ft)</p>
+              <Input type="number" min={1} value={form.square_feet} placeholder="e.g. 1200"
+                onChange={e => setForm(f => ({ ...f, square_feet: e.target.value }))} className="rounded-lg h-11" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold mb-2">Floors</p>
+              <Input type="number" min={0} value={form.floors} placeholder="e.g. 2"
+                onChange={e => setForm(f => ({ ...f, floors: e.target.value }))} className="rounded-lg h-11" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold mb-2">Parking spaces</p>
+              <Input type="number" min={0} value={form.parking_spaces} placeholder="e.g. 10"
+                onChange={e => setForm(f => ({ ...f, parking_spaces: e.target.value }))} className="rounded-lg h-11" />
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm font-semibold mb-2">Rent Period</p>
@@ -310,20 +316,9 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
           />
         </div>
 
-        <div>
-          <p className="text-sm font-semibold mb-2">Rent Currency</p>
-          <SearchableSelect
-            options={currencyChoices.map(c => ({ value: c, label: currencyLabel(c) }))}
-            value={form.rent_currency}
-            onValueChange={v => { setForm(f => ({ ...f, rent_currency: v })); onCurrencyChange?.(v); }}
-            placeholder="Select currency..."
-            emptyText="No currency matches."
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Rent, payments and receipts for this property use this currency.
-            Axis prices in US$ by default.
-          </p>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          All rent, payments and receipts are in US$ (USD).
+        </p>
 
         <div>
           <p className="text-sm font-semibold mb-2">{regionLabel}</p>
@@ -368,7 +363,7 @@ export default function PropertyForm({ initialData, onSave, onCancel, submitLabe
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-5">
         <h2 className="font-bold text-sm flex items-center gap-2"><Image className="h-4 w-4 text-primary" /> Photos</h2>
         <div>
-          <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+          <input ref={fileRef} type="file" accept={WEB_IMAGE_ACCEPT} onChange={handleUpload} className="hidden" />
           <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading} className="gap-2">
             <Upload className="h-4 w-4" /> {uploading ? 'Uploading...' : 'Upload Photo'}
           </Button>

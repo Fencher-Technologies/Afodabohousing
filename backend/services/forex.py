@@ -18,21 +18,6 @@ BASE_CURRENCY = "USD"
 FALLBACK_RATES: dict[str, float] = {
     "USD": 1.0,
     "UGX": 4000.0,
-    "KES": 129.0,
-    "TZS": 2600.0,
-    "RWF": 1350.0,
-    "BIF": 2900.0,
-    "SSP": 4500.0,
-    "ETB": 125.0,
-    "NGN": 1550.0,
-    "ZAR": 18.0,
-    "GHS": 15.0,
-    "EUR": 0.92,
-    "GBP": 0.79,
-    "AED": 3.67,
-    "CAD": 1.36,
-    "AUD": 1.52,
-    "INR": 84.0,
 }
 
 def _fetch_rates() -> dict[str, float]:
@@ -86,14 +71,6 @@ def get_all_rates() -> dict[str, float]:
 # an unpayable figure like UGX 36,847.23.
 CHARGE_ROUNDING: dict[str, int] = {
     "UGX": 100,
-    "TZS": 100,
-    "RWF": 100,
-    "BIF": 100,
-    "SSP": 100,
-    "NGN": 10,
-    "KES": 1,
-    "ETB": 1,
-    "INR": 1,
 }
 
 

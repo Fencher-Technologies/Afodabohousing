@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Loader2, CalendarDays } from 'lucide-react';
@@ -53,13 +53,8 @@ export default function SetEffectiveDateModal({ open, onClose, leaseId, onSet }:
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>Effective Date (YYYY-MM-DD)</Label>
-            <Input
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              placeholder="YYYY-MM-DD"
-              className="mt-1 h-11"
-            />
+            <Label>Effective Date</Label>
+            <DatePickerField value={date} onChange={setDate} />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex gap-3 pt-2">

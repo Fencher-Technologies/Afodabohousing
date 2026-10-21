@@ -21,10 +21,22 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080", "http://localhost:3000", "http://localhost:8081", "https://www.axishousings.com", "https://www.axishousings.com", "https://afodabohousing.vercel.app"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080", "http://localhost:3000", "http://localhost:8081", "https://axishousings.com", "https://www.axishousings.com", "https://afodabohousing.vercel.app"]
+    # Optional regex for extra origins such as Vercel preview deployments. Empty
+    # (the default) allows only cors_origins. Never use a bare *.vercel.app
+    # pattern: that admits every project on Vercel, not just this one. Pin it to
+    # this project, e.g. ^https://afodabohousing-[a-z0-9-]+-<team>\.vercel\.app$
+    cors_origin_regex: str = ""
     environment: str = "development"
 
     rate_limit_enabled: bool = True
+    # How many reverse proxies sit in front of the API and append to
+    # X-Forwarded-For. The client address is read that many entries from the
+    # RIGHT, where the proxy we trust wrote it; anything further left was
+    # supplied by the caller and is ignored. 0 ignores the header entirely.
+    trusted_proxy_hops: int = 1
+    # Upper bound on distinct clients the in-memory limiter tracks.
+    rate_limit_max_clients: int = 20000
     rate_limit_requests: int = 200
     rate_limit_window_seconds: int = 60
     auth_rate_limit_requests: int = 10

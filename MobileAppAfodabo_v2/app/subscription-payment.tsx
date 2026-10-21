@@ -22,8 +22,8 @@ const POLL_TIMEOUT_MS = 120000;
 type PaymentStatus = "idle" | "processing" | "waiting_payment" | "success" | "failed" | "timeout";
 
 export default function SubscriptionPaymentScreen() {
-  const { plan, currency: paramCurrency } = useLocalSearchParams<{ plan: string; currency: string }>();
-  const currency = (paramCurrency === "USD" ? "USD" : "UGX") as "UGX" | "USD";
+  const { plan } = useLocalSearchParams<{ plan: string }>();
+  const currency = "USD" as const; // checkout is always in US$; any gateway conversion happens server-side
   const { data: plans } = useSubscriptionPlans();
   const createSubscription = useCreateSubscription();
   const { refreshAuth } = useAuth();

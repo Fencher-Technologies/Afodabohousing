@@ -134,10 +134,10 @@ export default function EditTenancyScreen() {
       await updateTenancy.mutateAsync({
         id: id!,
         data: {
-          monthly_rent: parseInt(rentAmount, 10) || 0,
+          monthly_rent: parseFloat(rentAmount) || 0,
           start_date: startDate,
           end_date: endDate,
-          security_deposit: parseInt(initialBalance, 10) || 0,
+          security_deposit: parseFloat(initialBalance) || 0,
           unit_id: unitId || undefined,
           // Kept in step so existing agreements and receipts stay accurate.
           unit_label: units.find((u) => u.id === unitId)?.unit_number,

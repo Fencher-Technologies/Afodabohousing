@@ -20,18 +20,13 @@ type BoostPkg = {
   price_usd?: number | null;
 };
 
-/** The amount charged for a package in the chosen currency. */
-function priceIn(pkg: BoostPkg | undefined, currency: 'USD' | 'UGX'): number {
-  if (!pkg) return 0;
-  if (currency === 'USD') return Number(pkg.price_usd ?? 0);
-  return Number(pkg.price_ugx ?? pkg.price ?? 0);
+/** The US$ price of a package. */
+function priceIn(pkg: BoostPkg | undefined, _currency?: 'USD'): number {
+  return pkg ? Number(pkg.price_usd ?? 0) : 0;
 }
 
-function formatBoostPrice(pkg: BoostPkg | undefined, currency: 'USD' | 'UGX'): string {
-  const amount = priceIn(pkg, currency);
-  return currency === 'USD'
-    ? `$${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-    : `UGX ${amount.toLocaleString()}`;
+function formatBoostPrice(pkg: BoostPkg | undefined, _currency?: 'USD'): string {
+  return `$${priceIn(pkg).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
 export default function BoostPage() {
@@ -45,9 +40,8 @@ export default function BoostPage() {
   const [sending, setSending] = useState(false);
   const [duration, setDuration] = useState(14);
   const [packages, setPackages] = useState<BoostPkg[]>([]);
-  // US$ is the standard boost price. UGX stays available because Ugandan
-  // mobile money cannot settle dollars; it charges the same package locally.
-  const [currency, setCurrency] = useState<'USD' | 'UGX'>('USD');
+  // Boosts are priced and paid in US$.
+  const currency = 'USD' as const;
 
   useEffect(() => {
     fetch(`${API}/boosts/packages`)
@@ -144,32 +138,6 @@ export default function BoostPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <Label>Pay in</Label>
-                <div className="mt-1 grid grid-cols-2 gap-2">
-                  {(['USD', 'UGX'] as const).map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setCurrency(c)}
-                      className={`rounded-xl border-2 py-2.5 text-sm font-bold transition-colors ${
-                        currency === c
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : 'border-border bg-card text-muted-foreground'
-                      }`}
-                    >
-                      {c === 'USD' ? 'USD — Card' : 'UGX — Mobile Money'}
-                    </button>
-                  ))}
-                </div>
-                {currency === 'UGX' && (
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    Boosts are priced in US$. You will be charged the shilling
-                    equivalent at today's rate.
-                  </p>
-                )}
-              </div>
-
               <div>
                 <Label>Boost Duration</Label>
                 <Select value={String(duration)} onValueChange={v => setDuration(Number(v))}>

@@ -12,6 +12,7 @@ from supabase import Client
 from config import get_settings
 from dependencies import CurrentUser, get_service_client, require_super_admin_or_manager
 from services.boost import get_boost_service
+from services.idempotency import WebhookEvents
 from services.notifications import notify
 from services.pesapal import (
     PESAPAL_STATUS_MAP,
@@ -29,6 +30,9 @@ router = APIRouter(prefix="", tags=["webhooks"])
 
 settings = get_settings()
 
+# Best-effort double-send guard for SMS only (a repeated tap on "send reminder").
+# It is deliberately in-process: a missed duplicate costs one extra text. Payment
+# webhooks, where a duplicate would matter, use services.idempotency instead.
 _idempotent_keys: dict[str, dict[str, Any]] = {}
 IDEMPOTENCY_TTL = 86400
 
@@ -87,26 +91,36 @@ async def pesapal_webhook(
     tracking_id = payload.order_tracking_id
     merchant_ref = payload.order_merchant_reference
 
-    # Idempotency: Pesapal may retry; only process each tracking id once.
-    idempotency_key = f"pesapal:{tracking_id}"
-    cached = _check_idempotency(idempotency_key)
-    if cached:
+    # Idempotency: Pesapal retries, and a retry may reach another worker or
+    # arrive after a restart, so the claim lives in the database, not in this
+    # process. Exactly one delivery of a given tracking id gets to act.
+    events = WebhookEvents(supabase, "pesapal")
+    claim = events.claim(tracking_id)
+    if claim.state == "done":
         logger.info("Duplicate Pesapal IPN suppressed for txn=%s", tracking_id)
-        return cached
+        return claim.response
+    if claim.state == "busy":
+        logger.info("Pesapal IPN for txn=%s is already being processed", tracking_id)
+        return {"status": "received", "payment_status": "processing"}
 
     logger.info(
         "Pesapal IPN received: txn=%s ref=%s type=%s",
         tracking_id, merchant_ref, payload.order_notification_type,
     )
 
-    # The IPN payload has no payment status — GetTransactionStatus is the
-    # source of truth. If it fails, return 503: Pesapal retries the IPN and
-    # the payment still gets confirmed later.
-    payment_status = "pending"
-    paid_amount = None
     try:
-        token = await get_auth_token()
-        status_data = await get_transaction_status(token, tracking_id)
+        # The IPN payload has no payment status: GetTransactionStatus is the
+        # source of truth. If it fails, return 503: Pesapal retries the IPN and
+        # the payment still gets confirmed later.
+        try:
+            token = await get_auth_token()
+            status_data = await get_transaction_status(token, tracking_id)
+        except Exception as e:
+            logger.error("GetTransactionStatus failed for txn=%s: %s", tracking_id, str(e))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Status verification pending, retry IPN",
+            )
         paid_amount = status_data.get("amount")
         payment_status = PESAPAL_STATUS_MAP.get(
             (status_data.get("payment_status_description") or "").upper(),
@@ -116,13 +130,30 @@ async def pesapal_webhook(
             "Pesapal txn=%s status_description=%s -> %s",
             tracking_id, status_data.get("payment_status_description"), payment_status,
         )
-    except Exception as e:
-        logger.error("GetTransactionStatus failed for txn=%s: %s", tracking_id, str(e))
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Status verification pending, retry IPN",
-        )
 
+        _apply_pesapal_result(supabase, tracking_id, merchant_ref, payment_status, paid_amount)
+    except BaseException:
+        # Nothing was recorded as done, so let the retry run.
+        events.release(claim, tracking_id)
+        raise
+
+    response = {"status": "received", "payment_status": payment_status}
+    if payment_status in ("completed", "failed"):
+        events.complete(claim, tracking_id, response)
+    else:
+        # Not final yet. Pesapal re-sends the IPN when the status changes;
+        # remembering "pending" would have swallowed the later "completed".
+        events.release(claim, tracking_id)
+    return response
+
+
+def _apply_pesapal_result(
+    supabase: Client,
+    tracking_id: str,
+    merchant_ref: str,
+    payment_status: str,
+    paid_amount: Any,
+) -> None:
     if payment_status == "completed":
         boost_svc = get_boost_service(supabase)
         activated = boost_svc.activate_by_reference(merchant_ref, tracking_id, paid_amount)
@@ -157,10 +188,6 @@ async def pesapal_webhook(
             {"status": "failed", "payment_status": "failed"}
         ).eq("payment_reference", merchant_ref).eq("status", "pending").execute()
         supabase.table("payments").update({"status": "failed"}).eq("transaction_id", merchant_ref).execute()
-
-    response = {"status": "received", "payment_status": payment_status}
-    _set_idempotency(idempotency_key, response)
-    return response
 
 
 @router.post("/sms/send", response_model=SmsSendResponse)

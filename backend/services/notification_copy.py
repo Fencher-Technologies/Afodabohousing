@@ -9,7 +9,7 @@ House style, taken from the wording the business supplied:
 
   * Address people by first name: "Hello Eric, ...".
   * Name the tenant and the place: "your tenant Yonah of Kololo".
-  * Say the amount with its currency: "UGX 500,000".
+  * Say the amount with its currency: "USD 500".
   * Keep each message to one short paragraph. These are read on a phone
     lock screen, so they must survive truncation and read like a message
     from X or Facebook rather than a letter.
@@ -81,17 +81,19 @@ def with_place(name: str, place: str | None) -> str:
 
 
 def money(amount: Any, currency: str | None = None) -> str:
-    """"UGX 500,000".
+    """"USD 500" or "USD 10.50".
 
-    Rounded to whole currency units: a reminder read on a lock screen is
-    clearer without trailing cents, and the exact figure is always available
-    on the receipt and in the dashboard.
+    Whole amounts have no decimals; fractional ones keep their cents so a
+    $10.50 reminder never reads as $10.
     """
     cur = (currency or DEFAULT_CURRENCY).strip() or DEFAULT_CURRENCY
     try:
         value = float(amount or 0)
     except (TypeError, ValueError):
         return f"{cur} {amount}"
+    # Dollars keep their cents; a zero-decimal currency (shillings) is whole.
+    if cur.upper() == "USD" and round(value, 2) != round(value):
+        return f"{cur} {value:,.2f}"
     return f"{cur} {round(value):,}"
 
 

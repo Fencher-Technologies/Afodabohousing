@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Upload, CheckCircle, ShieldCheck, X } from 'lucide-react';
 import { createVerification } from '@/services/payment-verifications';
 import { supabase } from '@/integrations/supabase/client';
-import { PESAPAL_CURRENCIES } from '@/config/currencies';
+import { imageFileProblem, PHOTO_TYPES, PHOTO_ACCEPT } from '@/lib/upload-limits';
 
 const METHODS = [
   { label: 'Cash', value: 'cash' },
@@ -26,7 +27,7 @@ export default function TenantSubmitPayment() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const currency = 'USD'; // all payments are recorded in US$
   const [method, setMethod] = useState('');
   const [reference, setReference] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
@@ -40,7 +41,8 @@ export default function TenantSubmitPayment() {
   async function handleScreenshotUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { toast({ title: 'Only image files allowed', variant: 'destructive' }); return; }
+    const problem = imageFileProblem(file, PHOTO_TYPES);
+    if (problem) { toast({ title: 'Cannot use this image', description: problem, variant: 'destructive' }); if (screenshotRef.current) screenshotRef.current.value = ''; return; }
     setUploadingScreenshot(true);
     try {
       const ext = file.name.split('.').pop();
@@ -129,11 +131,11 @@ export default function TenantSubmitPayment() {
               </div>
               <div>
                 <Label>Payment Date</Label>
-                <Input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="mt-1" required />
+                <DatePickerField value={paymentDate} onChange={setPaymentDate} disableFuture required />
               </div>
               <div>
                 <Label>Screenshot (optional)</Label>
-                <input ref={screenshotRef} type="file" accept="image/*" onChange={handleScreenshotUpload} className="hidden" />
+                <input ref={screenshotRef} type="file" accept={PHOTO_ACCEPT} onChange={handleScreenshotUpload} className="hidden" />
                 <div className="mt-1 flex items-center gap-3">
                   <Button type="button" variant="outline" size="sm" onClick={() => screenshotRef.current?.click()} disabled={uploadingScreenshot} className="gap-2">
                     <Upload className="h-4 w-4" /> {uploadingScreenshot ? 'Uploading...' : 'Upload Proof'}

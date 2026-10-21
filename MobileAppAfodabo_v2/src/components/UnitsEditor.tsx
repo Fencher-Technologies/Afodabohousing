@@ -64,9 +64,12 @@ export function UnitsEditor({
   currency,
   onChange,
   onDelete,
+  commercial = false,
 }: {
   units: DraftUnit[];
   currency: string;
+  /** Commercial units have no bedrooms, sitting rooms or kitchens; only washrooms. */
+  commercial?: boolean;
   onChange: (next: DraftUnit[]) => void;
   /** Called when a saved unit is removed, so the parent can delete it server-side. */
   onDelete?: (unit: DraftUnit) => void;
@@ -118,7 +121,13 @@ export function UnitsEditor({
     }
 
     const deposit = Number(depositText.replace(/[^0-9.]/g, "")) || 0;
-    const next = { ...draft, unit_number: number, rent_amount: rent, security_deposit: deposit };
+    const next = {
+      ...draft,
+      unit_number: number,
+      rent_amount: rent,
+      security_deposit: deposit,
+      ...(commercial ? { bedrooms: 0, sitting_rooms: 0, kitchens: 0 } : {}),
+    };
     if (editingIndex === -1) {
       onChange([...units, next]);
     } else if (editingIndex !== null) {
@@ -183,10 +192,12 @@ export function UnitsEditor({
             </Text>
           )}
           <View style={styles.unitMeta}>
-            <Bed size={14} color={Colors.textMuted} />
-            <Text style={styles.metaText}>{unit.bedrooms}</Text>
+            {!commercial && <Bed size={14} color={Colors.textMuted} />}
+            {!commercial && <Text style={styles.metaText}>{unit.bedrooms}</Text>}
             <Bath size={14} color={Colors.textMuted} />
-            <Text style={styles.metaText}>{unit.bathrooms}</Text>
+            <Text style={styles.metaText}>
+              {commercial ? `${unit.bathrooms} washroom${unit.bathrooms === 1 ? "" : "s"}` : unit.bathrooms}
+            </Text>
             {!!unit.floor_level && <Text style={styles.metaText}>· {unit.floor_level}</Text>}
           </View>
           <View style={styles.unitActions}>
@@ -217,6 +228,7 @@ export function UnitsEditor({
             keyboardType="numeric"
           />
           <View style={styles.row}>
+            {!commercial && (
             <View style={styles.rowItem}>
               <InputField
                 label="Bedrooms"
@@ -225,15 +237,17 @@ export function UnitsEditor({
                 keyboardType="numeric"
               />
             </View>
+            )}
             <View style={styles.rowItem}>
               <InputField
-                label="Bathrooms"
+                label={commercial ? "Washrooms" : "Bathrooms"}
                 value={String(draft.bathrooms)}
                 onChangeText={(v) => setDraft({ ...draft, bathrooms: Number(v.replace(/[^0-9]/g, "")) || 0 })}
                 keyboardType="numeric"
               />
             </View>
           </View>
+          {!commercial && (
           <View style={styles.row}>
             <View style={styles.rowItem}>
               <InputField
@@ -252,6 +266,7 @@ export function UnitsEditor({
               />
             </View>
           </View>
+          )}
           <InputField
             label={`Deposit (${currency})`}
             value={depositText}

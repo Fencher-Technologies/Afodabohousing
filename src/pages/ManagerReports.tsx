@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -186,11 +187,11 @@ export default function ManagerReports() {
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-1.5">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <Input type="date" value={from} onChange={e => setFrom(e.target.value)}
-                className="border-0 p-0 h-8 w-32 text-sm bg-transparent" />
+              <DatePickerField value={from} onChange={setFrom}
+                className="mt-0 h-8 w-36 border-0 px-1 text-sm bg-transparent shadow-none" />
               <span className="text-muted-foreground">–</span>
-              <Input type="date" value={to} onChange={e => setTo(e.target.value)}
-                className="border-0 p-0 h-8 w-32 text-sm bg-transparent" />
+              <DatePickerField value={to} onChange={setTo} min={from}
+                className="mt-0 h-8 w-36 border-0 px-1 text-sm bg-transparent shadow-none" />
             </div>
             <Button variant="outline" size="sm" onClick={fetchData} className="gap-2 h-9">
               <Filter className="h-4 w-4" /> Apply

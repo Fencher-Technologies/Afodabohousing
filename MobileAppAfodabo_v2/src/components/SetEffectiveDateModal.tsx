@@ -9,7 +9,7 @@ import { CalendarDays, X } from "lucide-react-native";
 
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
 import { Button } from "./Button";
-import { InputField } from "./InputField";
+import { DatePickerField } from "./DatePickerField";
 import { useSetEffectiveDate } from "@/src/hooks/useTenancies";
 import { todayLocalISO } from "@/src/lib/dates";
 
@@ -72,12 +72,10 @@ export function SetEffectiveDateModal({
             <Text style={styles.hint}>Usually the date the tenant first moved in or started paying rent.</Text>
           </View>
 
-          <InputField
-            label="Effective Date (YYYY-MM-DD)"
+          <DatePickerField
+            label="Effective Date"
             value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            keyboardType="numeric"
+            onChange={setDate}
             error={error}
           />
 

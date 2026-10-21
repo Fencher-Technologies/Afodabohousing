@@ -106,8 +106,8 @@ export function propertyJsonLd(p: {
     description: p.description || DEFAULT_DESCRIPTION,
     url: `${SITE_URL}/properties/${p.id}`,
     image: images.length ? images : [`${SITE_URL}/og-image.png`],
-    numberOfBedrooms: p.bedrooms ?? undefined,
-    numberOfBathroomsTotal: p.bathrooms ?? undefined,
+    numberOfBedrooms: p.bedrooms || undefined,
+    numberOfBathroomsTotal: p.bathrooms || undefined,
     address: {
       '@type': 'PostalAddress',
       streetAddress: p.address || undefined,

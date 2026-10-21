@@ -23,8 +23,8 @@ from reportlab.platypus import (
 
 
 def _format_money(value: Any) -> str:
-    amount = Decimal(str(value or 0)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    return f"{amount:,.0f}"
+    amount = Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return f"{amount:,.0f}" if amount == amount.to_integral_value() else f"{amount:,.2f}"
 
 
 def _format_date(value: Any) -> str:

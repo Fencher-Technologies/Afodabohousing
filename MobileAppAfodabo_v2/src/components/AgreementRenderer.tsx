@@ -71,11 +71,11 @@ export function AgreementRenderer({ content, mode = "view" }: Props) {
 
         <View style={styles.termRow}>
           <Text style={styles.termLabel}>Monthly Rent:</Text>
-          <Text style={styles.termValue}>{formatMoney(parseInt(tenancy.monthly_rent), tenancy.currency)}</Text>
+          <Text style={styles.termValue}>{formatMoney(Number(tenancy.monthly_rent), tenancy.currency)}</Text>
         </View>
         <View style={styles.termRow}>
           <Text style={styles.termLabel}>Security Deposit:</Text>
-          <Text style={styles.termValue}>{formatMoney(parseInt(tenancy.security_deposit), tenancy.currency)}</Text>
+          <Text style={styles.termValue}>{formatMoney(Number(tenancy.security_deposit), tenancy.currency)}</Text>
         </View>
         <View style={styles.termRow}>
           <Text style={styles.termLabel}>Payment Frequency:</Text>

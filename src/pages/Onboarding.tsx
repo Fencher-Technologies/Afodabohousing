@@ -137,7 +137,7 @@ export default function Onboarding() {
                     selectedRole === 'tenant' ? 'border-primary bg-muted/60' : 'border-border hover:border-primary/50'
                   }`}>
                   <p className="font-bold text-foreground">I'm a Tenant</p>
-                  <p className="text-sm text-muted-foreground mt-1">Browse properties, pay rent, submit maintenance requests</p>
+                  <p className="text-sm text-muted-foreground mt-1">Browse properties, record rent payments, submit maintenance requests</p>
                 </button>
                 <button onClick={() => setSelectedRole('house_manager')}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${

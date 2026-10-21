@@ -42,7 +42,7 @@ export function aggregateCurrency(
       .map((i) => (i.currency ?? i.rent_currency ?? "").toUpperCase())
       .filter(Boolean),
   );
-  return { code: code ?? (distinct.size === 0 ? "UGX" : null), isMixed: distinct.size > 1 };
+  return { code: code ?? (distinct.size === 0 ? "USD" : null), isMixed: distinct.size > 1 };
 }
 
 /**
@@ -54,7 +54,7 @@ export function formatAggregate(
   currency: AggregateCurrency,
 ): string {
   const n = typeof amount === "string" ? Number(amount) : (amount ?? 0);
-  const formatted = n.toLocaleString("en-UG");
+  const formatted = n.toLocaleString("en-US");
   return currency.code ? `${currency.code} ${formatted}` : formatted;
 }
 
@@ -72,7 +72,7 @@ export function formatAggregateShort(
     const k = n / 1_000;
     body = `${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
   } else {
-    body = n.toLocaleString("en-UG");
+    body = n.toLocaleString("en-US");
   }
   return currency.code ? `${currency.code} ${body}` : body;
 }

@@ -13,26 +13,7 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
-import {
-  MapPin,
-  BedDouble,
-  Bath,
-  Share2,
-  Phone,
-  Mail,
-  Navigation,
-  MessageCircle,
-  Pencil,
-  Trash2,
-  Power,
-  Bookmark,
-  Check,
-  Calendar,
-  Sofa,
-  Star,
-  Sparkles,
-  ChevronLeft,
-} from "lucide-react-native";
+import { MapPin, BedDouble, Bath, Share2, Phone, Mail, Navigation, MessageCircle, Pencil, Trash2, Power, Bookmark, Check, Calendar, Sofa, Star, Sparkles, ChevronLeft, Ruler, Layers, Car } from "lucide-react-native";
 
 import {
   Colors,
@@ -221,7 +202,10 @@ export default function PropertyDetailScreen() {
       `Rent: ${formatMoney(property.rent_amount, property.rent_currency)}/month`,
       `Type: ${formatPropertyType(property.type)}`,
       property.beds > 0 ? `Bedrooms: ${property.beds}` : null,
-      property.baths > 0 ? `Bathrooms: ${property.baths}` : null,
+      property.baths > 0 ? `${property.is_commercial ? "Washrooms" : "Bathrooms"}: ${property.baths}` : null,
+      property.square_feet ? `Floor area: ${Number(property.square_feet).toLocaleString()} sq ft` : null,
+      property.floors ? `Floors: ${property.floors}` : null,
+      property.parking_spaces ? `Parking spaces: ${property.parking_spaces}` : null,
       property.description ? `\n${property.description}` : null,
       property.amenities.length > 0
         ? `\nAmenities: ${property.amenities.map(formatAmenity).join(", ")}`
@@ -472,7 +456,9 @@ export default function PropertyDetailScreen() {
                 <View style={styles.unitInfo}>
                   <Text style={styles.unitName}>{u.unit_number}</Text>
                   <Text style={styles.unitMeta}>
-                    {u.bedrooms} bed · {u.bathrooms} bath
+                    {property.is_commercial
+                      ? `${u.bathrooms} washroom${u.bathrooms === 1 ? "" : "s"}`
+                      : `${u.bedrooms} bed · ${u.bathrooms} bath`}
                     {u.floor_level ? ` · ${u.floor_level}` : ""}
                   </Text>
                 </View>
@@ -505,7 +491,28 @@ export default function PropertyDetailScreen() {
               <View style={styles.quickDetailItem}>
                 <Bath size={20} color={Colors.primary} />
                 <Text style={styles.quickDetailValue}>{property.baths}</Text>
-                <Text style={styles.quickDetailLabel}>Bathrooms</Text>
+                <Text style={styles.quickDetailLabel}>{property.is_commercial ? "Washrooms" : "Bathrooms"}</Text>
+              </View>
+            )}
+            {!!property.square_feet && (
+              <View style={styles.quickDetailItem}>
+                <Ruler size={20} color={Colors.primary} />
+                <Text style={styles.quickDetailValue}>{Number(property.square_feet).toLocaleString()}</Text>
+                <Text style={styles.quickDetailLabel}>Sq ft</Text>
+              </View>
+            )}
+            {!!property.floors && (
+              <View style={styles.quickDetailItem}>
+                <Layers size={20} color={Colors.primary} />
+                <Text style={styles.quickDetailValue}>{property.floors}</Text>
+                <Text style={styles.quickDetailLabel}>Floors</Text>
+              </View>
+            )}
+            {!!property.parking_spaces && (
+              <View style={styles.quickDetailItem}>
+                <Car size={20} color={Colors.primary} />
+                <Text style={styles.quickDetailValue}>{property.parking_spaces}</Text>
+                <Text style={styles.quickDetailLabel}>Parking</Text>
               </View>
             )}
             {(property.sitting_rooms ?? 0) > 0 && (

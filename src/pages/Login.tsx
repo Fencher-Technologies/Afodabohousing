@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import logoImg from '@/assets/axis-logo-official.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { Mail, Lock, ArrowRight, Smartphone, MessageSquare, KeyRound } from 'lucide-react';
 import { savePasswordCredential } from '@/lib/save-credentials';
+import { ACCOUNT_NOTICE_KEY } from '@/components/ProtectedRoute';
 import { PhoneInput } from '@/components/ui/phone-input';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -35,6 +36,17 @@ export default function LoginPage() {
   const [phoneWarn, setPhoneWarn] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // The route guard signs out suspended or rejected accounts; say why.
+  useEffect(() => {
+    try {
+      const status = sessionStorage.getItem(ACCOUNT_NOTICE_KEY);
+      if (status) {
+        sessionStorage.removeItem(ACCOUNT_NOTICE_KEY);
+        toast({ title: 'Account not active', description: `Your account is ${status}.`, variant: 'destructive' });
+      }
+    } catch { /* storage unavailable */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const navigateAfterLogin = async (userId: string) => {
     const { data: profile } = await supabase

@@ -21,7 +21,8 @@ export default function EditProperty() {
   const [loading, setLoading] = useState(true);
   const [initialData, setInitialData] = useState<Partial<PropertyFormData> | undefined>();
   const [units, setUnits] = useState<DraftUnit[]>([]);
-  const [currency, setCurrency] = useState('UGX');
+  const [currency, setCurrency] = useState('USD');
+  const [commercial, setCommercial] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
@@ -35,10 +36,10 @@ export default function EditProperty() {
         property_id: id,
         unit_number: u.unit_number,
         floor_level: u.floor_level || null,
-        bedrooms: u.bedrooms,
+        bedrooms: commercial ? 0 : u.bedrooms,
         bathrooms: u.bathrooms,
-        sitting_rooms: u.sitting_rooms ?? 1,
-        kitchens: u.kitchens ?? 1,
+        sitting_rooms: commercial ? 0 : (u.sitting_rooms ?? 1),
+        kitchens: commercial ? 0 : (u.kitchens ?? 1),
         rent_amount: u.rent_amount,
         security_deposit: u.security_deposit ?? 0,
         status: u.status,
@@ -49,6 +50,7 @@ export default function EditProperty() {
     listPropertyUnits(id).then(rows => setUnits(rows.map(r => ({
       id: r.id, unit_number: r.unit_number, floor_level: r.floor_level,
       bedrooms: r.bedrooms, bathrooms: r.bathrooms,
+      sitting_rooms: r.sitting_rooms, kitchens: r.kitchens,
       rent_amount: Number(r.rent_amount),
       security_deposit: r.security_deposit != null ? Number(r.security_deposit) : 0,
       status: r.status,
@@ -72,10 +74,11 @@ export default function EditProperty() {
       toast({ title: 'Error', description: 'Property not found', variant: 'destructive' });
       navigate('/dashboard/manager'); return;
     }
-    setCurrency((data as { rent_currency?: string }).rent_currency || 'USD');
+    setCurrency('USD');
     listPropertyUnits(id).then(rows => setUnits(rows.map(r => ({
       id: r.id, unit_number: r.unit_number, floor_level: r.floor_level,
       bedrooms: r.bedrooms, bathrooms: r.bathrooms,
+      sitting_rooms: r.sitting_rooms, kitchens: r.kitchens,
       rent_amount: Number(r.rent_amount),
       security_deposit: r.security_deposit != null ? Number(r.security_deposit) : 0,
       status: r.status,
@@ -94,8 +97,12 @@ export default function EditProperty() {
       longitude: data.longitude ? String(data.longitude) : '',
       country: data.country || 'UG',
       region_id: data.region_id || '',
-      rent_currency: data.rent_currency || 'USD',
+      rent_currency: 'USD',
+      square_feet: (data as any).square_feet ? String((data as any).square_feet) : '',
+      floors: (data as any).floors != null ? String((data as any).floors) : '',
+      parking_spaces: (data as any).parking_spaces != null ? String((data as any).parking_spaces) : '',
     });
+    setCommercial(data.property_type === 'Office Space');
     setLoading(false);
   };
 
@@ -113,12 +120,15 @@ export default function EditProperty() {
       // working; the listing leads with the lowest unit rent.
       ...(units.length > 0 ? {
         monthly_rent: Math.min(...units.map(u => u.rent_amount)),
-        bedrooms: units[0].bedrooms || 1,
+        bedrooms: commercial ? 0 : (units[0].bedrooms || 1),
         bathrooms: units[0].bathrooms || 1,
-        sitting_rooms: units[0].sitting_rooms ?? 1,
+        sitting_rooms: commercial ? 0 : (units[0].sitting_rooms ?? 1),
         security_deposit: units[0].security_deposit ?? 0,
       } : {}),
       rent_currency: data.rent_currency, rent_period: data.rent_period,
+      square_feet: commercial && data.square_feet ? Number(data.square_feet) : null,
+      floors: commercial && data.floors !== '' ? Number(data.floors) : null,
+      parking_spaces: commercial && data.parking_spaces !== '' ? Number(data.parking_spaces) : null,
       manager_phone: data.manager_phone || null,
       manager_email: data.manager_email || null, amenities: data.amenities,
       images: data.images.length > 0 ? data.images : null,
@@ -161,11 +171,13 @@ export default function EditProperty() {
             submitLabel="Save Changes"
             saving={saving}
             onCurrencyChange={setCurrency}
+            onCategoryChange={c => setCommercial(c === 'commercial')}
           />
           <div className="bg-card border border-border rounded-xl p-5">
             <UnitsEditor
               units={units}
               currency={currency}
+              commercial={commercial}
               onChange={persistUnits}
               onDelete={removeUnit}
             />

@@ -19,7 +19,7 @@ import { formatCurrency } from '@/utils/currency';
 function formatDate(dateStr: string): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function daysBetween(from: string, to: string): number {

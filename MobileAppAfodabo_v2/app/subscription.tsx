@@ -23,10 +23,8 @@ export default function SubscriptionScreen() {
   const { subscription } = useAuth();
   const { data: plansData, refetch: refetchPlans } = useSubscriptionPlans();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  // US$ is the platform's standard currency, so prices lead in dollars. UGX
-  // stays selectable because Ugandan mobile money cannot settle in USD;
-  // picking it charges the local equivalent of the same plan.
-  const [currency, setCurrency] = useState<"UGX" | "USD">("USD");
+  // All plans are priced and paid in US$.
+  const currency = "USD" as const;
   const { refreshing, onRefresh } = useRefresh({ refetches: [refetchPlans] });
 
   const plans = plansData || [];
@@ -102,11 +100,7 @@ export default function SubscriptionScreen() {
           )}
         </Card>
 
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Pressable onPress={() => setCurrency("UGX")} style={[styles.currencyToggle, currency === "UGX" && styles.currencyToggleActive]}><Text style={[styles.currencyToggleText, currency === "UGX" && styles.currencyToggleTextActive]}>UGX — Mobile Money</Text></Pressable>
-          <Pressable onPress={() => setCurrency("USD")} style={[styles.currencyToggle, currency === "USD" && styles.currencyToggleActive]}><Text style={[styles.currencyToggleText, currency === "USD" && styles.currencyToggleTextActive]}>USD — Card</Text></Pressable>
-        </View>
-        <Text style={{ fontSize: FontSize.caption, color: Colors.textMuted, textAlign: "center" }}>Priced in US$. Pay by card, or by mobile money in the shilling equivalent.</Text>
+        <Text style={{ fontSize: FontSize.caption, color: Colors.textMuted, textAlign: "center" }}>All plans are priced and paid in US$.</Text>
 
         {/* Plans */}
         <View style={styles.section}>

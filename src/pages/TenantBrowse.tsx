@@ -46,7 +46,7 @@ export default function TenantBrowse() {
       const data = await apiGet<{ items?: any[] }>(`/properties/public?${params}`);
       setProperties(data.items || []);
     } catch {
-      const { data: props } = await supabase.from('properties').select('id,title,state,city,area,rent_amount,rent_period,bedrooms,bathrooms,images,amenities').eq('status', 'available').order('created_at', { ascending: false }).limit(20);
+      const { data: props } = await supabase.from('properties').select('id,title,state,city,area,rent_amount,rent_period,bedrooms,bathrooms,property_type,square_feet,images,amenities').eq('status', 'available').order('created_at', { ascending: false }).limit(20);
       setProperties(props || []);
     }
 
@@ -163,8 +163,8 @@ export default function TenantBrowse() {
                     <MapPin className="h-3 w-3 text-accent shrink-0" /> {p.state || (p as any).city || (p as any).district || '—'}{p.area ? `, ${p.area}` : ''}
                   </p>
                   <div className="flex items-center justify-between mt-3">
-                    <p className="font-bold text-primary">UGX {(p.rent_amount || 0).toLocaleString()}<span className="text-xs text-muted-foreground font-normal">/{p.rent_period || 'mo'}</span></p>
-                    <p className="text-xs text-muted-foreground">{p.bedrooms} bed · {p.bathrooms} bath</p>
+                    <p className="font-bold text-primary">{(p as any).rent_currency === 'USD' || !(p as any).rent_currency ? '$' : (p as any).rent_currency} {(p.rent_amount || 0).toLocaleString()}<span className="text-xs text-muted-foreground font-normal">/{p.rent_period || 'mo'}</span></p>
+                    <p className="text-xs text-muted-foreground">{(p as any).property_type === 'Office Space' ? [(p as any).square_feet ? `${Number((p as any).square_feet).toLocaleString()} sq ft` : '', `${p.bathrooms} washroom${p.bathrooms === 1 ? '' : 's'}`].filter(Boolean).join(' · ') : `${p.bedrooms} bed · ${p.bathrooms} bath`}</p>
                   </div>
                   {p.amenities && p.amenities.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-3">

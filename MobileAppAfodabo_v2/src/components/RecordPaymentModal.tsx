@@ -111,7 +111,7 @@ export function RecordPaymentModal({ visible, tenancy, onClose, onRecord }: Reco
             </View>
 
             <InputField
-              label="Amount (UGX)"
+              label="Amount (USD)"
               value={amount}
               onChangeText={setAmount}
               placeholder="0"

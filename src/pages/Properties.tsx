@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { DEFAULT_CURRENCY } from '@/utils/currencies';
 import { useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import PageHero from '@/components/PageHero';
@@ -28,16 +27,6 @@ interface Property {
 
 interface Region { id: string; name: string; country_id: string; }
 interface Country { id: string; name: string; iso2: string; }
-
-const CURRENCY_MAP: Record<string, string> = {
-  UG: 'UGX', KE: 'KES', TZ: 'TZS', NG: 'NGN', GH: 'GHS', ZA: 'ZAR',
-  RW: 'RWF', ET: 'ETB', SD: 'SDG', CD: 'CDF', CM: 'XAF', MZ: 'MZN',
-  ZM: 'ZMW', MW: 'MWK', SS: 'SSP', US: 'USD', GB: 'GBP', EU: 'EUR',
-};
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  UGX: 'UGX', KES: 'KES', NGN: '₦', GHS: 'GH₵', TZS: 'TSh', ZAR: 'R', USD: '$', GBP: '£', EUR: '€',
-};
 
 export default function PropertiesPage() {
   useSeo({
@@ -70,7 +59,6 @@ export default function PropertiesPage() {
 
   const [countries, setCountries] = useState<Country[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
-  const [selectedCurrency, setSelectedCurrency] = useState(DEFAULT_CURRENCY);
 
   const [priceFilters, setPriceFilters] = useState({ min: minPrice, max: maxPrice });
   useEffect(() => {
@@ -93,12 +81,6 @@ export default function PropertiesPage() {
       .then(r => r.json())
       .then((data: Region[]) => setRegions(data.filter(r => !r.id.startsWith('deprecated-'))))
       .catch(() => {});
-  }, [country]);
-
-  // Sync currency when country changes
-  useEffect(() => {
-    if (!country) { setSelectedCurrency(DEFAULT_CURRENCY); return; }
-    setSelectedCurrency(CURRENCY_MAP[country] || 'USD');
   }, [country]);
 
   useEffect(() => {
@@ -261,7 +243,7 @@ export default function PropertiesPage() {
 
                 <div>
                   <Label className="text-sm mb-2 block">
-                    Price Range ({CURRENCY_SYMBOLS[selectedCurrency] || selectedCurrency})
+                    Price Range ($)
                   </Label>
                   <div className="flex gap-2">
                     <Input

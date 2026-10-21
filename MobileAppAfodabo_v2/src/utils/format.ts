@@ -16,7 +16,7 @@ export function formatMoney(
 ): string {
   const n = typeof amount === "string" ? Number(amount) : (amount ?? 0);
   const code = (currency || "USD").toUpperCase();
-  return `${code} ${n.toLocaleString("en-UG")}`;
+  return `${code} ${n.toLocaleString("en-US")}`;
 }
 
 /**
@@ -57,7 +57,7 @@ export function formatMoneyShort(
     const k = n / 1_000;
     return `${code} ${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
   }
-  return `${code} ${n.toLocaleString("en-UG")}`;
+  return `${code} ${n.toLocaleString("en-US")}`;
 }
 
 export function formatDate(dateStr: string | null): string {
@@ -168,10 +168,8 @@ export function formatPlanDuration(days: number): string {
 
 /** Subscription price in the currency the manager chose to pay in. */
 export function formatPlanPrice(
-  plan: { price_ugx: number; price_usd: number },
-  currency: string | null | undefined,
+  plan: { price_usd: number },
+  _currency?: string | null,
 ): string {
-  return currency === "USD"
-    ? `$${Number(plan.price_usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-    : `UGX ${Number(plan.price_ugx).toLocaleString()}`;
+  return `$${Number(plan.price_usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }

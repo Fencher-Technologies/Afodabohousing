@@ -488,9 +488,93 @@ class MockTableBuilder:
         return []
 
 
+class UniqueViolationError(Exception):
+    """What PostgREST raises for a duplicate primary key (SQLSTATE 23505)."""
+
+    code = "23505"
+
+    def __init__(self):
+        super().__init__("duplicate key value violates unique constraint (23505)")
+
+
+class InMemoryEvents:
+    """A stateful stand-in for public.webhook_events.
+
+    The generic mock table is stateless, which is fine for ordinary reads but
+    cannot show an idempotency claim holding. This keeps rows and enforces the
+    (provider, event_key) primary key, so a second insert really fails.
+    """
+
+    def __init__(self, store):
+        self._store = store
+        self._op = None
+        self._payload = None
+        self._filters = []
+        self._limit = None
+
+    def insert(self, payload):
+        self._op, self._payload = "insert", payload
+        return self
+
+    def select(self, *_a, **_k):
+        self._op = "select"
+        return self
+
+    def update(self, payload):
+        self._op, self._payload = "update", payload
+        return self
+
+    def delete(self):
+        self._op = "delete"
+        return self
+
+    def eq(self, column, value):
+        self._filters.append(("eq", column, value))
+        return self
+
+    def lt(self, column, value):
+        self._filters.append(("lt", column, value))
+        return self
+
+    def limit(self, n):
+        self._limit = n
+        return self
+
+    def _matching(self):
+        def ok(row):
+            for op, column, value in self._filters:
+                if op == "eq" and row.get(column) != value:
+                    return False
+                if op == "lt" and not (str(row.get(column)) < str(value)):
+                    return False
+            return True
+
+        return [row for row in self._store.values() if ok(row)]
+
+    def execute(self):
+        if self._op == "insert":
+            key = (self._payload["provider"], self._payload["event_key"])
+            if key in self._store:
+                raise UniqueViolationError()
+            self._store[key] = dict(self._payload)
+            return MockResponse(data=[dict(self._payload)])
+        rows = self._matching()
+        if self._op == "update":
+            for row in rows:
+                row.update(self._payload)
+            return MockResponse(data=[dict(r) for r in rows])
+        if self._op == "delete":
+            for row in rows:
+                self._store.pop((row["provider"], row["event_key"]), None)
+            return MockResponse(data=[dict(r) for r in rows])
+        data = [dict(r) for r in rows]
+        return MockResponse(data=data[: self._limit] if self._limit else data)
+
+
 class MockSupabaseClient:
     def __init__(self, seeds=None):
         self._seeds = seeds or {}
+        self.webhook_events: dict = {}
         # Each test starts a fresh "database"; drop process-wide caches so a
         # prior test's reads can't leak stale rows into this one.
         from routers.payments import _reset_reconcile_cooldowns
@@ -501,6 +585,8 @@ class MockSupabaseClient:
         reset_plans_cache()
 
     def table(self, name):
+        if name == "webhook_events":
+            return InMemoryEvents(self.webhook_events)
         return MockTableBuilder(name, self._seeds)
 
     def rpc(self, name, params=None):

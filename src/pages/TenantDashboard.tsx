@@ -17,6 +17,7 @@ import {
   X, Download, Upload, ThumbsUp, ThumbsDown, FileUp, Sidebar, Camera
 } from 'lucide-react';
 import { format, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from 'date-fns';
+import { imageFileProblem, PHOTO_TYPES, PHOTO_ACCEPT } from '@/lib/upload-limits';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -513,10 +514,12 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                             className="w-full h-44 object-cover rounded-lg mb-4" />
                         )}
                         <div className="grid grid-cols-2 gap-3">
+                          {property.property_type !== 'Office Space' && (
                           <div className="bg-muted/50 rounded-lg p-3 text-center">
                             <p className="text-xs text-muted-foreground">Bedrooms</p>
                             <p className="font-bold text-xl">{property.bedrooms}</p>
                           </div>
+                          )}
                           <div className="bg-muted/50 rounded-lg p-3 text-center">
                             <p className="text-xs text-muted-foreground">Bathrooms</p>
                             <p className="font-bold text-xl">{property.bathrooms}</p>
@@ -1059,7 +1062,7 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Unit</span>
-                        <span className="font-semibold">{property?.property_type} · {property?.bedrooms} bed</span>
+                        <span className="font-semibold">{property?.property_type}{property?.property_type !== 'Office Space' ? ` · ${property?.bedrooms} bed` : ''}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Address</span>
@@ -1160,8 +1163,18 @@ const [sendingMaintenance, setSendingMaintenance] = useState(false);
             <div>
               <p className="text-sm font-semibold mb-2">Photo (optional)</p>
               <label className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border cursor-pointer hover:border-primary/50 transition-colors">
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={e => setMaintenancePhoto(e.target.files?.[0] ?? null)} />
+                <input type="file" accept={PHOTO_ACCEPT} className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0] ?? null;
+                    const problem = file ? imageFileProblem(file, PHOTO_TYPES) : null;
+                    if (problem) {
+                      toast({ title: 'Cannot use this photo', description: problem, variant: 'destructive' });
+                      e.target.value = '';
+                      setMaintenancePhoto(null);
+                      return;
+                    }
+                    setMaintenancePhoto(file);
+                  }} />
                 <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
                   <Camera className="h-5 w-5 text-muted-foreground" />
                 </div>

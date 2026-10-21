@@ -15,8 +15,7 @@ async function authHeaders() {
  *
  * Through the API rather than the table: the backend inherits the property's
  * rent_currency onto the lease, which every payment and receipt under it then
- * inherits in turn. A direct insert took the UGX column default, so a lease on
- * a property listed in another currency silently reported the wrong one.
+ * inherits in turn.
  */
 export async function createLease(
   payload: Record<string, unknown>,

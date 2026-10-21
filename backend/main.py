@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 import uuid
 from collections import defaultdict
@@ -52,6 +53,7 @@ from services.observability import (
     init_sentry,
     set_sentry_request_context,
 )
+from services.upload_validation import MAX_UPLOAD_REQUEST_BYTES
 
 settings = get_settings()
 logging.basicConfig(
@@ -109,6 +111,35 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class UploadSizeLimitMiddleware:
+    """Refuse oversized /uploads requests before their body is read.
+
+    The handlers cap what they hold in memory, but by then the framework has
+    already received and spooled the whole multipart body. Checking the
+    declared Content-Length up front turns a multi-gigabyte upload into an
+    immediate 413 instead of minutes of wasted transfer and disk.
+    """
+
+    def __init__(self, app, max_bytes: int):
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"].startswith("/uploads"):
+            declared = dict(scope["headers"]).get(b"content-length", b"")
+            if declared.isdigit() and int(declared) > self.max_bytes:
+                response = JSONResponse(
+                    status_code=413,
+                    content={
+                        "detail": f"Upload is too large. The limit is {self.max_bytes // (1024 * 1024)} MB.",
+                        "error": "payload_too_large",
+                    },
+                )
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
@@ -128,12 +159,33 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.payment_requests = payment_requests
         self.payment_window = payment_window_seconds
         self._clients: dict[str, dict[str, list[float]]] = {}
+        self._last_sweep = time.monotonic()
 
     def _client_key(self, request: Request) -> str:
+        """The caller's address, without trusting what the caller says it is.
+
+        X-Forwarded-For is a list each proxy appends to. The left-most entry is
+        whatever the client chose to send, so reading it let anyone pick a new
+        rate-limit bucket per request. Only the entry our own proxy added (the
+        trusted_proxy_hops-th from the right) is believed.
+        """
+        hops = settings.trusted_proxy_hops
         forwarded_for = request.headers.get("x-forwarded-for")
-        if forwarded_for:
-            return forwarded_for.split(",", 1)[0].strip()
+        if hops > 0 and forwarded_for:
+            parts = [p.strip() for p in forwarded_for.split(",") if p.strip()]
+            if len(parts) >= hops:
+                return parts[-hops]
         return request.client.host if request.client else "unknown"
+
+    def _sweep(self, now: float) -> None:
+        """Drop clients with no request inside any window, so memory stays bounded."""
+        horizon = now - max(self.window, self.auth_window, self.payment_window)
+        for key in [
+            k for k, buckets in self._clients.items()
+            if not any(ts > horizon for stamps in buckets.values() for ts in stamps)
+        ]:
+            del self._clients[key]
+        self._last_sweep = now
 
     def _policy_for_path(self, path: str) -> tuple[str, int, int]:
         auth_paths = {
@@ -177,6 +229,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         policy, limit, window = self._policy_for_path(request.url.path)
         client_ip = self._client_key(request)
         now = time.monotonic()
+        if now - self._last_sweep > 60 or len(self._clients) > settings.rate_limit_max_clients:
+            self._sweep(now)
+        if client_ip not in self._clients and len(self._clients) >= settings.rate_limit_max_clients:
+            # Still full after sweeping (a flood of distinct addresses): share
+            # one bucket rather than let the table grow without bound.
+            client_ip = "__overflow__"
         cutoff = now - window
         client_buckets = self._clients.setdefault(client_ip, {})
         bucket = [timestamp for timestamp in client_buckets.get(policy, []) if timestamp > cutoff]
@@ -269,17 +327,10 @@ def _validate_required_settings():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _scheduler_started
-    try:
-        import inspect as _inspect
-        import subprocess as _sp
-        _app_file = _inspect.getfile(app)
-        try:
-            _git_sha = _sp.check_output(["git", "rev-parse", "HEAD"], cwd="/home/joel/Documents/GitHub/Afodabohousing", timeout=2).decode().strip()[:7]
-        except Exception:
-            _git_sha = "unknown"
-        logger.info(dumps({"event": "startup", "app_file": _app_file, "git_sha": _git_sha, "version": app.version}))
-    except Exception:
-        pass
+    # The deploy platform injects the commit (Render sets RENDER_GIT_COMMIT);
+    # shelling out to git would fail inside the container, which has no repo.
+    _git_sha = (os.getenv("RENDER_GIT_COMMIT") or os.getenv("GIT_SHA") or "unknown")[:7]
+    logger.info(dumps({"event": "startup", "git_sha": _git_sha, "version": app.version}))
     logger.info(f"Starting Rental Management API v{app.version}")
     _validate_required_settings()
     if settings.environment != "test" and not _scheduler_started:
@@ -316,10 +367,11 @@ app = FastAPI(
 logger.info("CORS origins configured: %s", settings.cors_origins)
 
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(UploadSizeLimitMiddleware, max_bytes=MAX_UPLOAD_REQUEST_BYTES)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_origin_regex=r"https?://.*\.vercel\.app",
+    allow_origin_regex=settings.cors_origin_regex or None,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Client-Info", "X-Request-ID"],

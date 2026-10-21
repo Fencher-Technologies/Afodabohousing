@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   LayoutDashboard, Users, Building2, LogOut, Menu,
   RefreshCcw, Mail, Shield, Plus, DollarSign, Copy, CheckCircle2,
-  TrendingUp, AlertTriangle, Home, UserCheck, Calendar, Activity,
+  TrendingUp, AlertTriangle, Home, UserCheck, Calendar,
   ChevronRight, ArrowUp, ArrowDown, BarChart3, Search, Crown,
   MoreHorizontal, X, Download, ArrowUpDown, ChevronLeft, ChevronsLeft, ChevronsRight,
   KeyRound, Trash2, XCircle, Eye,
@@ -26,8 +27,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
+  LineChart, Line, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Legend
 } from 'recharts';
 import { PhoneInput } from '@/components/ui/phone-input';
@@ -108,11 +109,14 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'text-amber-700 bg-amber-50 border-amber-200',
 };
 
-type TrendData = { month: string; amount: number; property?: string; manager?: string };
-type RevenueShare = { name: string; value: number; color: string };
-type ActivityRow = { id: string; name: string; action: string; status: 'completed' | 'pending' | 'overdue'; timestamp: string; };
-type AuditEntry = { id: string; icon: React.ReactNode; description: string; time: string; };
-type BarFilter = 'today' | 'week' | 'month';
+/** Real month-by-month series from /admin/stats/trends, oldest first. */
+type DashboardTrends = {
+  months: string[];
+  rent_recorded: number[];
+  new_tenants: number[];
+  new_managers: number[];
+  subscription_revenue: number[];
+};
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -125,31 +129,7 @@ const CHART_COLORS = ['#1A2332', '#0F1A2A', '#D32F2F', '#15202B', '#6366F5', '#1
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function formatAmount(amount: number): string {
-  return `${(amount || 0).toLocaleString()}`;
-}
-
-function MiniSparkline({ data, color = '#10b981' }: { data: number[]; color?: string }) {
-  const w = 60; const h = 28;
-  if (!data.length) return null;
-  const max = Math.max(...data, 1);
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / max) * h}`).join(' ');
-  return (
-    <svg width={w} height={h} className="shrink-0" viewBox={`0 0 ${w} ${h}`}>
-      <polyline fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={pts} />
-    </svg>
-  );
-}
-
-function SparklineBar({ data, color = '#10b981' }: { data: number[]; color?: string }) {
-  if (!data.length) return null;
-  const max = Math.max(...data, 1);
-  return (
-    <div className="flex items-end gap-[2px] h-8">
-      {data.map((v, i) => (
-        <div key={i} className="w-1.5 rounded-t-sm transition-all" style={{ height: `${(v / max) * 100}%`, background: color, opacity: 0.3 + 0.7 * (v / max) }} />
-      ))}
-    </div>
-  );
+  return `$${(amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
 function TrendBadge({ value, label }: { value: number; label?: string }) {
@@ -161,25 +141,6 @@ function TrendBadge({ value, label }: { value: number; label?: string }) {
     </span>
   );
 }
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-card border border-border rounded-xl shadow-lg px-3 py-2 text-xs space-y-1">
-      <p className="font-semibold text-foreground">{label}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color }}>{p.name}: {formatAmount(p.value)}</p>
-      ))}
-    </div>
-  );
-};
-
-const CenterLabel = ({ total }: { total: number }) => (
-  <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
-    <tspan x="50%" dy="-0.5em" className="text-2xl font-bold fill-foreground">{formatAmount(total)}</tspan>
-    <tspan x="50%" dy="1.5em" className="text-xs fill-muted-foreground">Total</tspan>
-  </text>
-);
 
 export default function SuperAdminDashboard({ initialTab = 'overview' }: { initialTab?: Tab }) {
   const { user, signOut } = useAuth();
@@ -193,6 +154,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
     : initialTab;
   const setTab = (t: Tab) => navigate(`/dashboard/super-admin${t === 'overview' ? '' : `/${t}`}`);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [trends, setTrends] = useState<DashboardTrends | null>(null);
   const [boostStats, setBoostStats] = useState<{ total_revenue: number; active_boosts: number } | null>(null);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [pendingManagers, setPendingManagers] = useState<Manager[]>([]);
@@ -286,10 +248,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
     clearSelection();
   };
 
-  // Bar chart filters
-  const [registrationsFilter, setRegistrationsFilter] = useState<BarFilter>('month');
-  const [leasesFilter, setLeasesFilter] = useState<BarFilter>('month');
-
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'invite' | 'create'>('create');
@@ -320,14 +278,16 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
     setLoading(true);
     try {
       const headers = await getHeaders();
-      const [statsRes, usersRes, boostRes, pendingRes, propsRes] = await Promise.all([
+      const [statsRes, usersRes, boostRes, pendingRes, propsRes, trendsRes] = await Promise.all([
         fetch(`${apiBase}/admin/stats`, { headers }),
         fetch(`${apiBase}/admin/users?role=house_manager`, { headers }),
         fetch(`${apiBase}/boosts/stats`, { headers }),
         fetch(`${apiBase}/admin/pending-managers`, { headers }),
         fetch(`${apiBase}/admin/properties/pending`, { headers }),
+        fetch(`${apiBase}/admin/stats/trends?months=6`, { headers }),
       ]);
       if (statsRes.ok) setStats(await statsRes.json());
+      if (trendsRes.ok) setTrends(await trendsRes.json());
       if (usersRes.ok) setManagers(await usersRes.json());
       if (boostRes.ok) setBoostStats(await boostRes.json());
       if (pendingRes.ok) setPendingManagers(await pendingRes.json());
@@ -346,83 +306,23 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
     fetchData();
   }, [user]);
 
-  // ─── Derived / Mock Data ────────────────────────────────────
+  // ─── Chart data (real, from /admin/stats/trends) ────────────
 
-  const now = new Date();
-  const curMonth = now.getMonth();
-
-  // Stat card trend percentages (mock)
-  const propertyTrend = 12;
-  const managerTrend = -3;
-  const tenantTrend = 8;
-  const rentTrend = 15;
-
-  // Sparkline data for stat cards (mock — last 8 periods)
-  const propertySparkline = [12, 14, 13, 15, 16, 15, 17, 18];
-  const managerSparkline = [8, 9, 9, 10, 10, 9, 10, 10];
-  const tenantSparkline = [24, 26, 28, 30, 32, 35, 38, 42];
-  const rentSparkline = [18000000, 19500000, 21000000, 20500000, 22000000, 21500000, 23000000, 25000000];
-  const subSparkline = [3, 3, 4, 4, 5, 5, 6, 8];
-  const subRevenueSparkline = [150000, 150000, 200000, 200000, 250000, 250000, 300000, 400000];
-
-  // Rent Collection Trend — multi-line per property/manager
-  const rentTrendLines = [
-    { name: 'Ntinda Apts', data: MONTHS.slice(0, curMonth + 1).map((_, i) => 3000000 + Math.random() * 2000000) },
-    { name: 'Bukoto Heights', data: MONTHS.slice(0, curMonth + 1).map((_, i) => 2500000 + Math.random() * 1500000) },
-    { name: 'Muyenga Villas', data: MONTHS.slice(0, curMonth + 1).map((_, i) => 2000000 + Math.random() * 2500000) },
-  ];
-  const collectionTrendData = MONTHS.slice(0, curMonth + 1).map((month, i) => ({
-    month,
-    ...Object.fromEntries(rentTrendLines.map(l => [l.name, l.data[i]])),
+  const monthLabel = (key: string) => {
+    const [y, m] = key.split('-').map(Number);
+    return format(new Date(y, m - 1, 1), 'MMM');
+  };
+  const trendRows = (trends?.months ?? []).map((key, i) => ({
+    month: monthLabel(key),
+    rent: trends!.rent_recorded[i] ?? 0,
+    subscriptions: trends!.subscription_revenue[i] ?? 0,
+    tenants: trends!.new_tenants[i] ?? 0,
+    managers: trends!.new_managers[i] ?? 0,
   }));
-  const rangeLabel = `${MONTHS[Math.max(0, curMonth - 5)]} – ${MONTHS[curMonth]} ${now.getFullYear()}`;
-
-  // Revenue Breakdown — donut
-  const revenueShares: RevenueShare[] = [
-    { name: 'Ntinda Apts', value: 45000000, color: CHART_COLORS[0] },
-    { name: 'Bukoto Heights', value: 32000000, color: CHART_COLORS[1] },
-    { name: 'Muyenga Villas', value: 28000000, color: CHART_COLORS[2] },
-    { name: 'Kololo Residency', value: 15000000, color: CHART_COLORS[3] },
-    { name: 'Other', value: 8000000, color: CHART_COLORS[4] },
-  ];
-  const totalRevenue = revenueShares.reduce((s, r) => s + r.value, 0);
-
-  // Bar chart — New Tenant Registrations
-  const genBarData = (len: number) => Array.from({ length: len }, (_, i) => ({
-    label: len <= 7 ? `Day ${i + 1}` : MONTHS[i] || `M${i + 1}`,
-    value: Math.floor(Math.random() * 20 + 5),
-  }));
-  const registrationsData = registrationsFilter === 'today' ? genBarData(7)
-    : registrationsFilter === 'week' ? genBarData(7)
-    : genBarData(curMonth + 1);
-
-  // Bar chart — Active Leases
-  const leasesData = leasesFilter === 'today' ? genBarData(7)
-    : leasesFilter === 'week' ? genBarData(7)
-    : genBarData(curMonth + 1);
-
-  // Pending Manager Invites
-  const pendingInvitesData = [{ label: 'Pending', value: 3 }, { label: 'Accepted', value: 7 }, { label: 'Expired', value: 1 }];
-
-  // Recent Activity
-  const recentActivity: ActivityRow[] = [
-    { id: '1', name: 'Sarah Nakato', action: 'Lease Signed — Ntinda Apts', status: 'completed', timestamp: '2 hours ago' },
-    { id: '2', name: 'John Mukasa', action: 'Payment Made — 450,000', status: 'completed', timestamp: '4 hours ago' },
-    { id: '3', name: 'Grace Akello', action: 'Maintenance Request — Plumbing', status: 'pending', timestamp: '1 day ago' },
-    { id: '4', name: 'Peter Ssali', action: 'Rent Overdue — Bukoto Heights', status: 'overdue', timestamp: '2 days ago' },
-    { id: '5', name: 'Amina Wasso', action: 'Lease Renewed — Muyenga Villas', status: 'completed', timestamp: '3 days ago' },
-    { id: '6', name: 'David Okello', action: 'Payment Pending — 320,000', status: 'pending', timestamp: '4 days ago' },
-  ];
-
-  // Audit Log
-  const auditLog: AuditEntry[] = [
-    { id: '1', icon: <Shield className="h-3.5 w-3.5" />, description: 'Role changed: John Mukasa → house_manager', time: '1 hour ago' },
-    { id: '2', icon: <Mail className="h-3.5 w-3.5" />, description: 'Invite sent to grace@example.com', time: '3 hours ago' },
-    { id: '3', icon: <Building2 className="h-3.5 w-3.5" />, description: 'Property added: Kololo Residency by Sarah', time: '1 day ago' },
-    { id: '4', icon: <Users className="h-3.5 w-3.5" />, description: 'Tenant registered: Peter Ssali', time: '1 day ago' },
-    { id: '5', icon: <AlertTriangle className="h-3.5 w-3.5" />, description: 'Account suspended: mike@example.com', time: '2 days ago' },
-    { id: '6', icon: <CheckCircle2 className="h-3.5 w-3.5" />, description: 'Manager approved: Grace Akello', time: '3 days ago' },
-  ];
+  const rangeLabel = trends && trends.months.length
+    ? `${monthLabel(trends.months[0])} – ${monthLabel(trends.months[trends.months.length - 1])} ${trends.months[trends.months.length - 1].slice(0, 4)}`
+    : '';
+  const hasData = (key: 'rent' | 'subscriptions' | 'tenants' | 'managers') => trendRows.some(r => r[key] > 0);
 
   // ── Manager dialogs ──
 
@@ -609,13 +509,6 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
     }
   };
 
-  // ── Status badge helper ──
-  const statusBadge = (s: string) => ({
-    completed: 'bg-emerald-50 text-emerald-700',
-    pending: 'bg-amber-50 text-amber-700',
-    overdue: 'bg-rose-50 text-rose-700',
-  }[s] ?? 'bg-muted text-muted-foreground');
-
   // ── Render ──
 
   return (
@@ -641,261 +534,116 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
           {tab === 'overview' && (
             <div className="space-y-6 max-w-7xl">
 
-              {/* ── TOP STAT CARDS ── */}
+              {/* ── TOP STAT CARDS ──
+                  Every figure here is a real count. There are deliberately no
+                  sparklines or percentage arrows except subscription growth,
+                  which the API computes; the charts below use real history. */}
               <div className="grid grid-cols-2 xl:grid-cols-6 gap-3 md:gap-4">
                 {[
                   {
                     label: 'Total Properties', icon: <Building2 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-muted',
                     val: String(stats?.total_properties ?? 0), sub: `${stats?.occupied_properties ?? 0} occupied · ${stats?.vacant_properties ?? 0} vacant`,
-                    trend: propertyTrend, spark: propertySparkline, sparkColor: '#6366f1',
                   },
                   {
                     label: 'House Managers', icon: <Users className="h-5 w-5" />, color: 'text-accent', bg: 'bg-muted',
-                    val: String(stats?.active_managers ?? 0), sub: `${(stats?.total_managers ?? 0) - (stats?.active_managers ?? 0)} pending invite`,
-                    trend: managerTrend, spark: managerSparkline, sparkColor: '#10b981',
+                    val: String(stats?.active_managers ?? 0), sub: `${(stats?.total_managers ?? 0) - (stats?.active_managers ?? 0)} not active`,
                   },
                   {
                     label: 'Active Tenants', icon: <UserCheck className="h-5 w-5" />, color: 'text-sky-600', bg: 'bg-sky-50',
-                    val: String(stats?.active_tenants ?? 0), sub: `+${stats?.new_this_month ?? 0} this month`,
-                    trend: tenantTrend, spark: tenantSparkline, sparkColor: '#06b6d4',
+                    val: String(stats?.active_tenants ?? 0), sub: `${stats?.new_this_month ?? 0} new accounts this month`,
                   },
                   {
                     label: 'Active Subs', icon: <Crown className="h-5 w-5" />, color: 'text-gold', bg: 'bg-muted',
-                    val: String(stats?.active_subscriptions ?? 0), sub: `${stats?.subscription_growth_pct ?? 0}% growth`,
-                    trend: stats?.subscription_growth_pct ?? 0, spark: subSparkline, sparkColor: '#f59e0b',
+                    val: String(stats?.active_subscriptions ?? 0), sub: 'Currently running plans',
+                    trend: stats?.subscription_growth_pct || 0,
                   },
                   {
                     label: 'Sub Revenue (MTD)', icon: <DollarSign className="h-5 w-5" />, color: 'text-emerald-600', bg: 'bg-emerald-50',
                     val: formatAmount(stats?.subscription_revenue_this_month ?? 0), sub: `Total: ${formatAmount(stats?.subscription_revenue_total ?? 0)}`,
-                    trend: 0, spark: subRevenueSparkline, sparkColor: '#10b981',
                   },
                   {
-                    label: 'Monthly Rent Collected', icon: <BarChart3 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-muted',
-                    val: formatAmount(stats?.total_collected ?? 0), sub: `${stats?.recent_payments_count ?? 0} payments this period`,
-                    trend: rentTrend, spark: rentSparkline, sparkColor: '#6366f1',
+                    label: 'Rent Recorded', icon: <BarChart3 className="h-5 w-5" />, color: 'text-primary', bg: 'bg-muted',
+                    val: formatAmount(stats?.total_collected ?? 0), sub: `${stats?.recent_payments_count ?? 0} confirmed payments, all time`,
                   },
                 ].map(card => (
                   <div key={card.label} className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-sm relative overflow-hidden">
                     <div className="flex items-start justify-between mb-3">
                       <div className={`${card.bg} ${card.color} w-9 h-9 rounded-xl flex items-center justify-center`}>{card.icon}</div>
-                      <MiniSparkline data={card.spark} color={card.sparkColor} />
                     </div>
                     <div className="text-xl md:text-2xl font-display font-bold">
                       {loading ? <div className="h-6 w-24 bg-muted animate-pulse rounded" /> : card.val}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-sm font-semibold text-foreground">{card.label}</span>
-                      <TrendBadge value={card.trend} />
+                      {card.trend ? <TrendBadge value={card.trend} /> : null}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">{card.sub}</p>
                   </div>
                 ))}
               </div>
 
-              {/* ── MAIN CHART ROW ── */}
-              <div className="grid lg:grid-cols-2 gap-4">
-
-                {/* Rent Collection Trend — Multi-line */}
-                <div className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-display font-semibold text-base">Rent Collection Trend</h3>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-4">{rangeLabel}</p>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={collectionTrendData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                        <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v: number) => `${(v / 1000000).toFixed(1)}M`} />
-                        <Tooltip content={<CustomTooltip />} />
-                        {rentTrendLines.map((l, i) => (
-                          <Line key={l.name} type="monotone" dataKey={l.name} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                        ))}
-                        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-3">Showing collection activity from {rangeLabel}</p>
-                </div>
-
-                {/* Revenue Breakdown — Donut */}
-                <div className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-display font-semibold text-base">Revenue Breakdown</h3>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-4">Split by property</p>
-                  <div className="h-64 flex items-center justify-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={revenueShares} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" paddingAngle={2}>
-                          {revenueShares.map((entry, i) => (
-                            <Cell key={entry.name} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="fill-foreground">
-                          <tspan x="50%" dy="-0.5em" className="text-lg font-bold">{formatAmount(totalRevenue)}</tspan>
-                          <tspan x="50%" dy="1.3em" className="text-xs fill-muted-foreground">Total</tspan>
-                        </text>
-                        <Tooltip formatter={(v: number) => formatAmount(v)} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                    {revenueShares.map(s => (
-                      <div key={s.name} className="flex items-center gap-1.5 text-xs">
-                        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: s.color }} />
-                        <span className="text-muted-foreground">{s.name}</span>
-                        <span className="font-semibold text-foreground">{((s.value / totalRevenue) * 100).toFixed(0)}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* ── SECONDARY ROW (Filterable Bar Charts) ── */}
-              <div className="grid md:grid-cols-3 gap-4">
-                {/* New Tenant Registrations */}
-                <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-display font-semibold text-sm">New Tenant Registrations</h4>
-                    <div className="flex gap-1">
-                      {(['today', 'week', 'month'] as BarFilter[]).map(f => (
-                        <button key={f} onClick={() => setRegistrationsFilter(f)}
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${registrationsFilter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
-                          {f === 'today' ? 'Today' : f === 'week' ? 'Week' : 'Month'}
-                        </button>
-                      ))}
+              {/* ── TRENDS (real history; empty months are shown as empty) ── */}
+              {(() => {
+                const panel = (
+                  title: string, note: string, icon: React.ReactNode, hasAny: boolean, chart: React.ReactNode,
+                ) => (
+                  <div className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-display font-semibold text-base">{title}</h3>
+                      {icon}
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-4">{note}{rangeLabel ? ` · ${rangeLabel}` : ''}</p>
+                    <div className="h-64">
+                      {!trends ? (
+                        <div className="h-full bg-muted/40 animate-pulse rounded-xl" />
+                      ) : !hasAny ? (
+                        <div className="h-full flex items-center justify-center text-sm text-muted-foreground text-center px-6">
+                          Nothing recorded in this period yet. It will appear here as activity comes in.
+                        </div>
+                      ) : chart}
                     </div>
                   </div>
-                  <div className="h-32">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={registrationsData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                        <XAxis dataKey="label" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                        <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip contentStyle={{ fontSize: 12 }} />
-                        <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Active Leases */}
-                <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-display font-semibold text-sm">Active Leases</h4>
-                    <div className="flex gap-1">
-                      {(['today', 'week', 'month'] as BarFilter[]).map(f => (
-                        <button key={f} onClick={() => setLeasesFilter(f)}
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${leasesFilter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
-                          {f === 'today' ? 'Today' : f === 'week' ? 'Week' : 'Month'}
-                        </button>
-                      ))}
+                );
+                const axis = { tick: { fontSize: 11 }, stroke: 'hsl(var(--muted-foreground))' };
+                return (
+                  <div className="grid lg:grid-cols-2 gap-4">
+                    {panel('Rent recorded per month', 'Confirmed payments, US$', <TrendingUp className="h-4 w-4 text-muted-foreground" />, hasData('rent'),
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={trendRows} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="month" {...axis} />
+                          <YAxis {...axis} tickFormatter={(v: number) => `$${v.toLocaleString()}`} />
+                          <Tooltip formatter={(v: number) => formatAmount(v)} />
+                          <Line type="monotone" dataKey="rent" name="Rent recorded" stroke={CHART_COLORS[0]} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                        </LineChart>
+                      </ResponsiveContainer>)}
+                    {panel('Subscription revenue per month', 'Paid plans, US$', <DollarSign className="h-4 w-4 text-muted-foreground" />, hasData('subscriptions'),
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={trendRows} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis dataKey="month" {...axis} />
+                          <YAxis {...axis} tickFormatter={(v: number) => `$${v.toLocaleString()}`} />
+                          <Tooltip formatter={(v: number) => formatAmount(v)} />
+                          <Bar dataKey="subscriptions" name="Subscription revenue" fill={CHART_COLORS[5]} radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>)}
+                    <div className="lg:col-span-2">
+                      {panel('New sign-ups per month', 'Accounts created', <Users className="h-4 w-4 text-muted-foreground" />, hasData('tenants') || hasData('managers'),
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={trendRows} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                            <XAxis dataKey="month" {...axis} />
+                            <YAxis {...axis} allowDecimals={false} />
+                            <Tooltip />
+                            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                            <Bar dataKey="tenants" name="Tenants" fill={CHART_COLORS[4]} radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="managers" name="House managers" fill={CHART_COLORS[6]} radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>)}
                     </div>
                   </div>
-                  <div className="h-32">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={leasesData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                        <XAxis dataKey="label" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                        <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip contentStyle={{ fontSize: 12 }} />
-                        <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Pending Manager Invites */}
-                <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-display font-semibold text-sm">Pending Manager Invites</h4>
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div className="h-32">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={pendingInvitesData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                        <XAxis type="number" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                        <YAxis type="category" dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" width={70} />
-                        <Tooltip contentStyle={{ fontSize: 12 }} />
-                        <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                          {pendingInvitesData.map((entry, i) => (
-                            <Cell key={entry.label} fill={[CHART_COLORS[2], CHART_COLORS[0], CHART_COLORS[3]][i]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── TABLES ROW ── */}
-              <div className="grid lg:grid-cols-2 gap-4">
-
-                {/* Recent Activity Table */}
-                <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-                  <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                    <h3 className="font-display font-semibold text-base flex items-center gap-2">
-                      <Activity className="h-4 w-4 text-primary" /> Recent Activity
-                    </h3>
-                    <button className="text-xs text-primary hover:underline flex items-center gap-1">
-                      View all <ChevronRight className="h-3 w-3" />
-                    </button>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-muted/50">
-                          <th className="text-left py-2.5 px-4 font-semibold text-xs text-muted-foreground">Person</th>
-                          <th className="text-left py-2.5 px-4 font-semibold text-xs text-muted-foreground">Action</th>
-                          <th className="text-left py-2.5 px-4 font-semibold text-xs text-muted-foreground">Status</th>
-                          <th className="text-right py-2.5 px-4 font-semibold text-xs text-muted-foreground">When</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recentActivity.map(row => (
-                          <tr key={row.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                            <td className="py-3 px-4 font-semibold text-foreground text-xs">{row.name}</td>
-                            <td className="py-3 px-4 text-muted-foreground text-xs">{row.action}</td>
-                            <td className="py-3 px-4">
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${statusBadge(row.status)}`}>{row.status}</span>
-                            </td>
-                            <td className="py-3 px-4 text-right text-muted-foreground text-xs">{row.timestamp}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Audit Log Feed */}
-                <div className="bg-card border border-border rounded-2xl shadow-sm">
-                  <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                    <h3 className="font-display font-semibold text-base flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-primary" /> Audit Log
-                    </h3>
-                    <button className="text-xs text-primary hover:underline flex items-center gap-1">
-                      View all <ChevronRight className="h-3 w-3" />
-                    </button>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto divide-y divide-border/50">
-                    {auditLog.map(entry => (
-                      <div key={entry.id} className="flex items-start gap-3 px-5 py-3 hover:bg-muted/20 transition-colors">
-                        <div className="h-7 w-7 rounded-lg bg-muted/60 text-primary flex items-center justify-center shrink-0 mt-0.5">
-                          {entry.icon}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-foreground">{entry.description}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">{entry.time}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
             </div>
           )}
@@ -990,7 +738,7 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
                               {p.monthly_rent != null
                                 ? `${p.currency || 'USD'} ${Number(p.monthly_rent).toLocaleString()}/month`
                                 : 'No rent set'}
-                              {p.bedrooms != null && ` · ${p.bedrooms} bed`}
+                              {p.bedrooms != null && p.bedrooms > 0 && ` · ${p.bedrooms} bed`}
                               {p.bathrooms != null && ` · ${p.bathrooms} bath`}
                             </p>
                             <p className="text-xs text-muted-foreground mt-1.5">

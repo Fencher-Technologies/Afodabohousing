@@ -2,7 +2,7 @@
  * PropertyCard — reusable card for property listings.
  */
 
-import { MapPin, BedDouble, Bath, Star } from "lucide-react-native";
+import { MapPin, BedDouble, Bath, Star, Ruler, Layers, Car } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Colors, FontSize, FontWeight, Radii, Spacing } from "@/constants/theme";
@@ -67,7 +67,27 @@ export function PropertyCard({ property, onPress, occupiedUnits, totalUnits, sho
           {property.baths > 0 && (
             <View style={styles.detailItem}>
               <Bath size={15} color={Colors.textMuted} />
-              <Text style={styles.detailText}>{property.baths} bath</Text>
+              <Text style={styles.detailText}>
+                {property.baths} {property.is_commercial ? "washroom" : "bath"}
+              </Text>
+            </View>
+          )}
+          {!!property.square_feet && (
+            <View style={styles.detailItem}>
+              <Ruler size={15} color={Colors.textMuted} />
+              <Text style={styles.detailText}>{Number(property.square_feet).toLocaleString()} sq ft</Text>
+            </View>
+          )}
+          {!!property.floors && (
+            <View style={styles.detailItem}>
+              <Layers size={15} color={Colors.textMuted} />
+              <Text style={styles.detailText}>{property.floors} floor{property.floors === 1 ? "" : "s"}</Text>
+            </View>
+          )}
+          {!!property.parking_spaces && (
+            <View style={styles.detailItem}>
+              <Car size={15} color={Colors.textMuted} />
+              <Text style={styles.detailText}>{property.parking_spaces} parking</Text>
             </View>
           )}
           {totalUnits !== undefined && totalUnits > 0 && (

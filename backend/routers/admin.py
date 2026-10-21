@@ -1101,6 +1101,26 @@ def review_property(
     }
 
 
+_PAGE = 1000
+
+
+def _fetch_all(build, max_pages: int = 100) -> list[dict]:
+    """Every row of a query, not just the first page.
+
+    PostgREST returns at most 1000 rows per request and does so silently, so a
+    plain .execute() under-counts as soon as a table passes that size.
+    `build` is called afresh for each page and must return a new query.
+    """
+    rows: list[dict] = []
+    for page in range(max_pages):
+        start = page * _PAGE
+        chunk = build().range(start, start + _PAGE - 1).execute().data or []
+        rows.extend(chunk)
+        if len(chunk) < _PAGE:
+            break
+    return rows
+
+
 _STATS_CACHE: dict[str, object] = {"at": 0.0, "data": None}
 _STATS_TTL = 60.0
 
@@ -1148,10 +1168,9 @@ def get_dashboard_stats(
     collection_rate = 0
 
     try:
-        paid = supabase.table("payments").select("amount", count="exact").eq("status", "completed").execute()
-        if paid.data:
-            total_collected = sum(p.get("amount", 0) or 0 for p in paid.data)
-            recent_count = paid.count if hasattr(paid, "count") else len(paid.data)
+        paid = _fetch_all(lambda: supabase.table("payments").select("amount").eq("status", "completed"))
+        total_collected = sum(float(p.get("amount") or 0) for p in paid)
+        recent_count = len(paid)
     except Exception:
         pass
 
@@ -1173,7 +1192,7 @@ def get_dashboard_stats(
     sub_growth = 0.0
 
     try:
-        subs = supabase.table("manager_subscriptions").select("plan_id, status, created_at, expires_at").execute()
+        subs = supabase.table("manager_subscriptions").select("plan_id, status, payment_status, created_at, expires_at").execute()
         all_subs = subs.data or []
         now = datetime.now(UTC)
         active_subs = sum(1 for s in all_subs if s.get("status") == "active" and s.get("expires_at") and parse_timestamp(s["expires_at"]) > now)
@@ -1191,9 +1210,13 @@ def get_dashboard_stats(
         )
 
         # Revenue from plans — joins via plan_id
-        plans = supabase.table("subscription_plans").select("id, price_ugx").execute()
-        plan_prices = {p["id"]: float(p.get("price_ugx", 0)) for p in (plans.data or [])}
+        # US$ price of each plan; only subscriptions that were actually paid
+        # count (pending, failed and never-paid cancelled rows are not revenue).
+        plans = supabase.table("subscription_plans").select("id, price_usd").execute()
+        plan_prices = {p["id"]: float(p.get("price_usd") or 0) for p in (plans.data or [])}
         for s in all_subs:
+            if s.get("payment_status") != "completed":
+                continue
             price = plan_prices.get(s.get("plan_id", ""), 0)
             sub_revenue_total += price
             if (
@@ -1226,3 +1249,80 @@ def get_dashboard_stats(
     _STATS_CACHE["data"] = result
     _STATS_CACHE["at"] = now_mono
     return result
+
+
+class DashboardTrends(BaseModel):
+    """Month-by-month series for the Overview charts, oldest first.
+
+    Every value is computed from real rows. A month with no activity is 0, and
+    the dashboard says so instead of drawing an invented curve.
+    """
+
+    months: list[str]  # "YYYY-MM"
+    rent_recorded: list[float]
+    new_tenants: list[int]
+    new_managers: list[int]
+    subscription_revenue: list[float]
+
+
+def _month_keys(now: datetime, count: int) -> list[str]:
+    keys: list[str] = []
+    year, month = now.year, now.month
+    for _ in range(count):
+        keys.append(f"{year:04d}-{month:02d}")
+        month -= 1
+        if month == 0:
+            year, month = year - 1, 12
+    return list(reversed(keys))
+
+
+@router.get("/stats/trends", response_model=DashboardTrends)
+def get_dashboard_trends(
+    months: int = Query(6, ge=1, le=24),
+    current_user: CurrentUser = Depends(require_super_admin),
+    supabase: Client = Depends(get_service_client),
+) -> DashboardTrends:
+    keys = _month_keys(datetime.now(UTC), months)
+    index = {k: i for i, k in enumerate(keys)}
+
+    def bucket(value: object) -> int | None:
+        return index.get(str(value or "")[:7])
+
+    rent = [0.0] * months
+    for p in _fetch_all(
+        lambda: supabase.table("payments").select("amount, paid_date, created_at").eq("status", "completed")
+    ):
+        i = bucket(p.get("paid_date") or p.get("created_at"))
+        if i is not None:
+            rent[i] += float(p.get("amount") or 0)
+
+    tenants = [0] * months
+    managers = [0] * months
+    for row in _fetch_all(
+        lambda: supabase.table("profiles").select("role, created_at").in_("role", ["tenant", "house_manager"])
+    ):
+        i = bucket(row.get("created_at"))
+        if i is None:
+            continue
+        if row.get("role") == "tenant":
+            tenants[i] += 1
+        else:
+            managers[i] += 1
+
+    revenue = [0.0] * months
+    plans = supabase.table("subscription_plans").select("id, price_usd").execute().data or []
+    prices = {p["id"]: float(p.get("price_usd") or 0) for p in plans}
+    for sub in _fetch_all(
+        lambda: supabase.table("manager_subscriptions").select("plan_id, created_at").eq("payment_status", "completed")
+    ):
+        i = bucket(sub.get("created_at"))
+        if i is not None:
+            revenue[i] += prices.get(sub.get("plan_id", ""), 0.0)
+
+    return DashboardTrends(
+        months=keys,
+        rent_recorded=[round(v, 2) for v in rent],
+        new_tenants=tenants,
+        new_managers=managers,
+        subscription_revenue=[round(v, 2) for v in revenue],
+    )

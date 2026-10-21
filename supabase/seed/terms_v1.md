@@ -50,7 +50,7 @@ Digital tenancy agreements created on Axis are binding between the tenant and ho
 
 Online rent payments are processed via PesaPal. Payment proof uploads are reviewed by the house manager, not Axis. We do not guarantee the receipt of funds or the accuracy of payment confirmations provided by house managers.
 
-Axis only receives money for the services charged which includes subscriptions and property boosting. Rent paid through the platform belongs to the house manager or property owner. Axis is not liable for payment disputes between tenants and house managers. All rent amounts are in Ugandan Shillings (UGX) unless otherwise stated.
+Axis only receives money for the services charged which includes subscriptions and property boosting. Rent paid through the platform belongs to the house manager or property owner. Axis is not liable for payment disputes between tenants and house managers. All amounts on the platform, including rent, deposits, subscriptions and boosts, are in United States Dollars (USD) unless otherwise stated. Where a payment is made by mobile money, the payment provider may bill the equivalent amount in local currency at the prevailing exchange rate.
 
 ## 8. Subscriptions
 
