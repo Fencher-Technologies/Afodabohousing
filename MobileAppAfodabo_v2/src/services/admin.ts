@@ -47,6 +47,27 @@ export interface BoostStats {
   total_revenue?: number;
 }
 
+/** A listing waiting on a quality decision before it can go public. */
+export interface PendingProperty {
+  id: string;
+  title: string | null;
+  description: string | null;
+  images: string[] | null;
+  address: string | null;
+  city: string | null;
+  monthly_rent: number | null;
+  currency: string | null;
+  property_type: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  created_at: string | null;
+  submitted_for_review_at: string | null;
+  review_status: string;
+  manager_name: string | null;
+  manager_email: string | null;
+  manager_phone: string | null;
+}
+
 export const adminService = {
   /** Platform-wide counts for the overview screen. */
   stats: () => api.get<AdminStats>("/admin/stats"),
@@ -59,6 +80,16 @@ export const adminService = {
 
   /** Managers awaiting approval. */
   pendingManagers: () => api.get<AdminUser[]>("/admin/pending-managers"),
+
+  /** Listings awaiting review, oldest submission first. */
+  pendingProperties: async () => {
+    const res = await api.get<{ items?: PendingProperty[] } | PendingProperty[]>("/admin/properties/pending");
+    return Array.isArray(res) ? res : res.items ?? [];
+  },
+
+  /** Approve a listing, or reject it with the reason the manager will see. */
+  reviewProperty: (propertyId: string, decision: "approved" | "rejected", notes?: string) =>
+    api.post<{ message: string }>(`/admin/properties/${propertyId}/review`, { decision, notes }),
 
   getUser: (userId: string) => api.get<AdminUser>(`/admin/users/${userId}`),
 

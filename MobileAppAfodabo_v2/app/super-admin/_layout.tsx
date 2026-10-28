@@ -1,5 +1,5 @@
 /**
- * Super Admin Tab Layout — 4 tabs: Overview, Managers, Browse, Account.
+ * Super Admin Tab Layout — 5 tabs: Overview, Managers, Listings, Browse, Account.
  *
  * The mobile app previously had no super-admin role: platform administration
  * was only possible from the web dashboard. These screens call the same
@@ -7,7 +7,7 @@
  */
 
 import { Tabs } from "expo-router";
-import { LayoutDashboard, Search, Settings, Users } from "lucide-react-native";
+import { ClipboardCheck, LayoutDashboard, Search, Settings, Users } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors, FontSize, FontWeight } from "@/constants/theme";
@@ -50,6 +50,13 @@ export default function SuperAdminTabLayout() {
         options={{
           title: "Managers",
           tabBarIcon: ({ color }) => <Users size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="listings"
+        options={{
+          title: "Listings",
+          tabBarIcon: ({ color }) => <ClipboardCheck size={24} color={color} />,
         }}
       />
       <Tabs.Screen

@@ -293,7 +293,11 @@ export default function SuperAdminDashboard({ initialTab = 'overview' }: { initi
       if (pendingRes.ok) setPendingManagers(await pendingRes.json());
       if (propsRes.ok) {
         const payload = await propsRes.json();
-        setPendingProperties(payload?.items ?? []);
+        // Accept both {items: [...]} and a bare array.
+        setPendingProperties(Array.isArray(payload) ? payload : payload?.items ?? []);
+      } else {
+        console.error('Could not load listings awaiting review:', propsRes.status);
+        toast({ title: 'Could not load listings awaiting review', description: `Server error ${propsRes.status}`, variant: 'destructive' });
       }
     } catch (err: any) {
       console.error('Failed to fetch admin data:', err);

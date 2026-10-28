@@ -973,8 +973,8 @@ def list_properties_for_review(
 
     columns = (
         "id, title, description, images, address, city, state, country, "
-        "monthly_rent, currency, property_type, bedrooms, bathrooms, "
-        "manager_id, owner_id, created_at, review_status, review_notes, "
+        "monthly_rent, property_type, bedrooms, bathrooms, "
+        "owner_id, created_at, review_status, review_notes, "
         "submitted_for_review_at, reviewed_at, is_active"
     )
     query = (

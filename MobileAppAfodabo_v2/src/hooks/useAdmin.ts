@@ -34,6 +34,24 @@ export function usePendingManagers() {
   });
 }
 
+export function usePendingProperties() {
+  return useQuery({
+    queryKey: ["admin", "pending-properties"],
+    queryFn: () => adminService.pendingProperties(),
+  });
+}
+
+export function useReviewProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ propertyId, decision, notes }: { propertyId: string; decision: "approved" | "rejected"; notes?: string }) =>
+      adminService.reviewProperty(propertyId, decision, notes),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin"] });
+    },
+  });
+}
+
 export function useSetUserStatus() {
   const qc = useQueryClient();
   return useMutation({

@@ -20,7 +20,7 @@ import { Card } from "@/src/components/Card";
 import { Button } from "@/src/components/Button";
 import { LoadingState } from "@/src/components/LoadingState";
 import { ErrorState } from "@/src/components/ErrorState";
-import { useAdminStats, useBoostStats, usePendingManagers } from "@/src/hooks/useAdmin";
+import { useAdminStats, useBoostStats, usePendingManagers, usePendingProperties } from "@/src/hooks/useAdmin";
 import { formatMoney } from "@/src/utils/format";
 
 function Stat({
@@ -45,6 +45,7 @@ export default function SuperAdminHome() {
   const stats = useAdminStats();
   const boosts = useBoostStats();
   const pending = usePendingManagers();
+  const pendingListings = usePendingProperties();
 
   if (stats.isLoading) return <LoadingState message="Loading platform stats…" />;
   if (stats.isError) {
@@ -53,6 +54,7 @@ export default function SuperAdminHome() {
 
   const s = stats.data;
   const pendingCount = pending.data?.length ?? 0;
+  const pendingListingCount = pendingListings.data?.length ?? 0;
 
   return (
     <ScrollView
@@ -65,6 +67,7 @@ export default function SuperAdminHome() {
             stats.refetch();
             boosts.refetch();
             pending.refetch();
+            pendingListings.refetch();
           }}
         />
       }
@@ -83,6 +86,23 @@ export default function SuperAdminHome() {
             label="Review now"
             variant="outline"
             onPress={() => router.push("/super-admin/managers?filter=pending")}
+            fullWidth
+          />
+        </Card>
+      )}
+
+      {pendingListingCount > 0 && (
+        <Card padding="md" style={styles.pendingCard}>
+          <View style={styles.pendingHeader}>
+            <AlertCircle size={18} color={Colors.warning} />
+            <Text style={styles.pendingTitle}>
+              {pendingListingCount} listing{pendingListingCount === 1 ? "" : "s"} awaiting review
+            </Text>
+          </View>
+          <Button
+            label="Review listings"
+            variant="outline"
+            onPress={() => router.push("/super-admin/listings")}
             fullWidth
           />
         </Card>
