@@ -9,7 +9,6 @@ import { Component, ErrorInfo, ReactNode, Suspense, lazy, useEffect } from "reac
 import { usePageViewTracking } from "@/services/tracking";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
-import MobileAppBanner from "./components/MobileAppBanner";
 import WhatsAppButton from "./components/WhatsAppButton";
 
 const Index = lazy(() => import("./pages/Index"));
@@ -194,7 +193,6 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>
-            <MobileAppBanner />
           </ErrorBoundary>
         </BrowserRouter>
       </AuthProvider>

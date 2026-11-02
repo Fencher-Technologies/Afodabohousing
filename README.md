@@ -45,7 +45,6 @@ docker build \
   --build-arg VITE_API_URL=https://afodabohousing.onrender.com \
   --build-arg VITE_SUPABASE_URL \
   --build-arg VITE_SUPABASE_PUBLISHABLE_KEY \
-  --build-arg VITE_MOBILE_APK_URL \
   -t axis-web .
 
 # Run

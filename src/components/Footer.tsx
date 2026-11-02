@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import logoImg from '@/assets/axis-logo-official.png';
 import type { ComponentType, SVGProps } from 'react';
-import { Mail, Phone, MapPin, MessageCircle, Clock, Globe, Facebook, Instagram, Youtube, Smartphone, Apple } from 'lucide-react';
+import { Mail, Phone, MapPin, MessageCircle, Clock, Globe, Facebook, Instagram, Youtube, Smartphone } from 'lucide-react';
 import {
   SUPPORT_EMAIL,
   SUPPORT_PHONE_DISPLAY,
@@ -193,8 +193,7 @@ export default function Footer() {
             <div className="space-y-2.5">
               <a
                 href={APP_LINKS.android}
-                target="_blank"
-                rel="noopener noreferrer"
+                download="axis-housing.apk"
                 className="flex items-center gap-3 rounded-lg border border-primary-foreground/20 bg-primary-foreground/10 px-3.5 py-2.5 hover:bg-gold hover:text-primary hover:border-gold transition-colors group"
               >
                 <Smartphone className="h-6 w-6 shrink-0 text-gold-light group-hover:text-primary transition-colors" />
@@ -203,18 +202,9 @@ export default function Footer() {
                   <span className="block text-sm font-semibold">Android</span>
                 </span>
               </a>
-              <a
-                href={APP_LINKS.ios}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-lg border border-primary-foreground/20 bg-primary-foreground/10 px-3.5 py-2.5 hover:bg-gold hover:text-primary hover:border-gold transition-colors group"
-              >
-                <Apple className="h-6 w-6 shrink-0 text-gold-light group-hover:text-primary transition-colors" />
-                <span className="leading-tight">
-                  <span className="block text-[11px] uppercase tracking-wide text-primary-foreground/60 group-hover:text-primary/70 transition-colors">Download for</span>
-                  <span className="block text-sm font-semibold">iOS</span>
-                </span>
-              </a>
+              <p className="text-primary-foreground/50 text-xs leading-relaxed">
+                After downloading, open the file and allow "install unknown apps" if your phone asks.
+              </p>
             </div>
           </div>
         </div>

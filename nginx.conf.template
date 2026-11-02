@@ -9,6 +9,14 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
+    location /downloads/ {
+        try_files $uri =404;
+        types { application/vnd.android.package-archive apk; }
+        default_type application/octet-stream;
+        add_header Content-Disposition "attachment";
+        add_header Cache-Control "public, max-age=0, must-revalidate";
+    }
+
     location /assets/ {
         try_files $uri =404;
         expires 1y;

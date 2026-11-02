@@ -9,10 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { isMobileDevice } from '@/lib/utils';
 import {
   Search, MapPin, Shield, Home, MessageSquare, ArrowRight, ArrowUpRight,
-  CreditCard, Star, Smartphone, Download, Building2,
+  CreditCard, Star, Building2,
   Wallet, MapPinned, BellRing, User, Users,
 } from 'lucide-react';
 import heroMain from '@/assets/hero-main.jpg';
@@ -688,27 +687,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* APK DOWNLOAD */}
-      {isMobileDevice() && <section className="max-w-6xl mx-auto px-5 sm:px-8 py-16">
-        <div className="relative bg-primary rounded-3xl overflow-hidden">
-            <div className="relative p-8 md:p-12 flex flex-col md:flex-row items-center gap-8">
-            <div className="bg-cream/10 text-cream rounded-2xl p-5 shrink-0">
-              <Smartphone className="h-12 w-12" />
-            </div>
-            <div className="flex-1 text-center md:text-left">
-              <h2 className="font-display text-3xl text-cream mb-2">Get the Axis App</h2>
-              <p className="text-cream/70 text-sm max-w-lg">
-                Download our Android app for a faster experience. Browse properties, record rent payments, message managers, and manage your tenancy on the go.
-              </p>
-            </div>
-            <Button size="lg" className="bg-gold text-gold-foreground hover:bg-gold/90 font-semibold shrink-0 gap-2"
-              onClick={() => window.open(import.meta.env.VITE_MOBILE_APK_URL || '#', '_blank')}>
-              <Download className="h-5 w-5" /> Download APK
-            </Button>
-          </div>
-        </div>
-      </section>}
 
       {/* ============================================================
           CTA — burgundy, beams, gold action

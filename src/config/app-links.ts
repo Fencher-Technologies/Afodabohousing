@@ -1,28 +1,25 @@
 /**
  * Where the mobile app can be downloaded.
  *
- * The Play Store listing is the destination the business wants every share
- * and every download button to point at. Until the listing is live the
- * package URL still resolves to the store page, which shows "not found"
- * rather than a broken link, and the Drive fallback stays available for
- * testers, so set PLAY_STORE_LIVE to true the day the listing is published.
+ * The Android APK is served by the website itself from /downloads, so no
+ * third-party storage is involved. To release a new build, replace
+ * public/downloads/axis-housing.apk (keep the file name) and redeploy.
+ *
+ * Android only: there is no iOS build.
  */
 
 export const ANDROID_PACKAGE = 'com.fenchertechnologies.axishousing';
 
-export const PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`;
+/** Path of the APK on this site. */
+export const APK_PATH = '/downloads/axis-housing.apk';
 
-/** Flip to true once the Play Store listing is published. */
-export const PLAY_STORE_LIVE = false;
-
-/** Direct APK / TestFlight builds used while the stores are pending. */
-const DRIVE_ANDROID = 'https://drive.google.com/drive/folders/1rWCINlslmwcj0sphOExgVSfg4i2dGZsq?usp=sharing';
-const DRIVE_IOS = 'https://drive.google.com/drive/folders/14wuFtQkrOrRtoH2lr0D1QK3bnQL64VPq?usp=sharing';
+/** The public site, used to build absolute links for sharing. */
+const SITE_URL = 'https://axishousings.com';
 
 export const APP_LINKS = {
-  android: PLAY_STORE_LIVE ? PLAY_STORE_URL : DRIVE_ANDROID,
-  ios: DRIVE_IOS,
+  /** Relative, so the button works on any deployment of the site. */
+  android: APK_PATH,
 };
 
-/** The single link shared publicly to get the app. */
-export const GET_APP_URL = APP_LINKS.android;
+/** The single absolute link shared publicly to get the app. */
+export const GET_APP_URL = `${SITE_URL}${APK_PATH}`;
