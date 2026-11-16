@@ -10,6 +10,7 @@ from math import ceil
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -53,6 +54,7 @@ from services.observability import (
     init_sentry,
     set_sentry_request_context,
 )
+from services.pesapal import close_http_client
 from services.upload_validation import MAX_UPLOAD_REQUEST_BYTES
 
 settings = get_settings()
@@ -352,6 +354,10 @@ async def lifespan(app: FastAPI):
             stop_scheduler()
         except Exception:
             pass
+    try:
+        await close_http_client()
+    except Exception:
+        pass
     logger.info("Shutting down Rental Management API")
 
 
@@ -368,6 +374,7 @@ logger.info("CORS origins configured: %s", settings.cors_origins)
 
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(UploadSizeLimitMiddleware, max_bytes=MAX_UPLOAD_REQUEST_BYTES)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from config import get_settings
+from dependencies.database import get_service_client
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,64 @@ _TOKEN_TTL = 600.0
 _TOKEN_RENEW_GRACE = 60.0
 _token_cache: dict[str, object] = {"token": "", "expires_at": 0.0}
 
+# Shared HTTP client configuration. A new AsyncClient is created per Pesapal
+# call (token, IPN, submit order, status) because the token cache (above) already
+# prevents repeated token fetches, so each endpoint typically makes only 1-2
+# Pesapal calls. httpx's default transport still reuses TCP connections where
+# the OS allows keep-alive. The client is intentionally not cached at module
+# level so tests can patch httpx.AsyncClient per invocation.
+#
+# To share one client across many calls in a single request lifecycle, callers
+# can pass their own httpx.AsyncClient instead of using _http_client().
+def _http_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(timeout=20)
+
+
+async def close_http_client() -> None:
+    """No-op kept for API compatibility; clients are short-lived now."""
+
+
+_CACHE_TABLE = "cache"
+
+
+def _cache_get(supabase: Any, key: str) -> Any | None:
+    """Best-effort read from a shared Supabase cache table.
+
+    Falls back to None if the table doesn't exist yet (ops can create it with
+    `CREATE TABLE public.cache (key TEXT PRIMARY KEY, value JSONB NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL)`). Never raises.
+    """
+    try:
+        result = (
+            supabase.table(_CACHE_TABLE)
+            .select("value, expires_at")
+            .eq("key", key)
+            .gt("expires_at", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+            .limit(1)
+            .execute()
+        )
+        rows = result.data or []
+        if rows:
+            return rows[0].get("value")
+    except Exception:
+        # Table may not exist yet; caller falls back to in-memory cache.
+        pass
+    return None
+
+
+def _cache_set(supabase: Any, key: str, value: Any, ttl_seconds: float) -> None:
+    """Best-effort write to the shared Supabase cache table. Never raises."""
+    try:
+        expires_at = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + ttl_seconds)
+        )
+        supabase.table(_CACHE_TABLE).upsert(
+            {"key": key, "value": value, "expires_at": expires_at},
+            on_conflict="key",
+        ).execute()
+    except Exception:
+        pass
+
 
 def _get_base_url() -> str:
     s = get_settings()
@@ -43,30 +102,44 @@ def _check_credentials():
         )
 
 
-async def get_auth_token() -> str:
+async def get_auth_token(supabase: Any | None = None) -> str:
+    """Fetch or reuse the Pesapal auth token.
+
+    The token is cached in-process and, when ``supabase`` is provided, also
+    persisted to a shared Supabase ``cache`` table so multiple workers and
+    restarts reuse the same token instead of each hitting
+    ``/Auth/RequestToken``.
+    """
     cached = _token_cache.get("token") or ""
-    if cached and time.monotonic() < (float(_token_cache.get("expires_at", 0.0))) - _TOKEN_RENEW_GRACE:
+    now = time.monotonic()
+    if cached and now < (float(_token_cache.get("expires_at", 0.0))) - _TOKEN_RENEW_GRACE:
         return cached
+
+    # Try the shared Supabase cache first (survives restarts, shared across workers).
+    if supabase is not None:
+        shared = _cache_get(supabase, "pesapal_auth_token")
+        if shared and isinstance(shared, dict):
+            token = shared.get("token")
+            expires_at = shared.get("expires_at", 0)
+            if token and now < float(expires_at) - _TOKEN_RENEW_GRACE:
+                _token_cache["token"] = token
+                _token_cache["expires_at"] = float(expires_at)
+                return token
 
     s = get_settings()
     _check_credentials()
     base = _get_base_url()
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(
-                f"{base}/Auth/RequestToken",
-                headers={"Accept": "application/json", "Content-Type": "application/json"},
-                json={
-                    "consumer_key": s.pesapal_consumer_key,
-                    "consumer_secret": s.pesapal_consumer_secret,
-                },
-            )
-            resp.raise_for_status()
-            payload = resp.json()
-        token = payload.get("token")
-        if not token:
-            api_error = (payload.get("error") or {}).get("message") or (payload.get("error") or {}).get("code") or "unknown"
-            raise RuntimeError(f"Pesapal authentication failed: {api_error}")
+        resp = await _http_client().post(
+            f"{base}/Auth/RequestToken",
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            json={
+                "consumer_key": s.pesapal_consumer_key,
+                "consumer_secret": s.pesapal_consumer_secret,
+            },
+        )
+        resp.raise_for_status()
+        payload = resp.json()
     except Exception as e:
         # Refresh failed but a cached token may still be accepted by Pesapal;
         # reuse it so an upstream blip doesn't cascade into 503s/retries.
@@ -75,26 +148,35 @@ async def get_auth_token() -> str:
             return cached
         raise
 
+    token = payload.get("token")
+    if not token:
+        api_error = (payload.get("error") or {}).get("message") or (payload.get("error") or {}).get("code") or "unknown"
+        raise RuntimeError(f"Pesapal authentication failed: {api_error}")
+
+    expires_at = now + _TOKEN_TTL
     _token_cache["token"] = token
-    _token_cache["expires_at"] = time.monotonic() + _TOKEN_TTL
+    _token_cache["expires_at"] = expires_at
+
+    if supabase is not None:
+        _cache_set(supabase, "pesapal_auth_token", {"token": token, "expires_at": expires_at}, _TOKEN_TTL)
+
     return token
 
 
 async def register_ipn(token: str, ipn_url: str) -> str:
     _check_credentials()
     base = _get_base_url()
-    async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.post(
-            f"{base}/URLSetup/RegisterIPN",
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {token}",
-            },
-            json={"url": ipn_url, "ipn_notification_type": "POST"},
-        )
-        resp.raise_for_status()
-        payload = resp.json()
+    resp = await _http_client().post(
+        f"{base}/URLSetup/RegisterIPN",
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+        json={"url": ipn_url, "ipn_notification_type": "POST"},
+    )
+    resp.raise_for_status()
+    payload = resp.json()
     ipn_id = payload.get("ipn_id")
     if not ipn_id:
         raise RuntimeError("Pesapal IPN registration failed")
@@ -104,13 +186,12 @@ async def register_ipn(token: str, ipn_url: str) -> str:
 async def get_ipn_list(token: str) -> list[dict[str, Any]]:
     """Fetch already-registered IPN URLs. Each entry: {"ipn_id", "url", ...}."""
     base = _get_base_url()
-    async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.get(
-            f"{base}/URLSetup/GetIpnList",
-            headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
-        )
-        resp.raise_for_status()
-        return resp.json() or []
+    resp = await _http_client().get(
+        f"{base}/URLSetup/GetIpnList",
+        headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
+    )
+    resp.raise_for_status()
+    return resp.json() or []
 
 
 PESAPAL_CONFIG_TABLE = "pesapal_config"
@@ -186,31 +267,30 @@ async def submit_order(
 ) -> dict[str, Any]:
     _check_credentials()
     base = _get_base_url()
-    async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.post(
-            f"{base}/Transactions/SubmitOrderRequest",
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {token}",
+    resp = await _http_client().post(
+        f"{base}/Transactions/SubmitOrderRequest",
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "id": order_id,
+            "currency": currency,
+            "amount": amount,
+            "description": description,
+            "callback_url": callback_url,
+            "notification_id": ipn_id,
+            "billing_address": {
+                "email_address": email,
+                "phone_number": phone,
+                "first_name": first_name,
+                "last_name": last_name,
             },
-            json={
-                "id": order_id,
-                "currency": currency,
-                "amount": amount,
-                "description": description,
-                "callback_url": callback_url,
-                "notification_id": ipn_id,
-                "billing_address": {
-                    "email_address": email,
-                    "phone_number": phone,
-                    "first_name": first_name,
-                    "last_name": last_name,
-                },
-            },
-        )
-        resp.raise_for_status()
-        return resp.json()
+        },
+    )
+    resp.raise_for_status()
+    return resp.json()
 
 
 def verify_webhook(payload: bytes, signature: str | None) -> bool:
@@ -237,14 +317,13 @@ async def get_transaction_status(token: str, order_tracking_id: str) -> dict[str
     currency, merchant_reference, confirmation_code, etc.
     """
     base = _get_base_url()
-    async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.get(
-            f"{base}/Transactions/GetTransactionStatus",
-            params={"orderTrackingId": order_tracking_id},
-            headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
-        )
-        resp.raise_for_status()
-        return resp.json()
+    resp = await _http_client().get(
+        f"{base}/Transactions/GetTransactionStatus",
+        params={"orderTrackingId": order_tracking_id},
+        headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
+    )
+    resp.raise_for_status()
+    return resp.json()
 
 
 def make_order_id(prefix: str, unique_id: str) -> str:

@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 import logging
@@ -113,7 +114,7 @@ async def pesapal_webhook(
         # source of truth. If it fails, return 503: Pesapal retries the IPN and
         # the payment still gets confirmed later.
         try:
-            token = await get_auth_token()
+            token = await get_auth_token(supabase)
             status_data = await get_transaction_status(token, tracking_id)
         except Exception as e:
             logger.error("GetTransactionStatus failed for txn=%s: %s", tracking_id, str(e))
@@ -242,7 +243,7 @@ class SendReminderResponse(BaseModel):
 
 
 @router.post("/sms/send-reminder", response_model=SendReminderResponse)
-def send_rent_reminder(
+async def send_rent_reminder(
     data: SendReminderRequest,
     current_user: CurrentUser = Depends(require_super_admin_or_manager),
     supabase: Client = Depends(get_service_client),
@@ -266,8 +267,8 @@ def send_rent_reminder(
             idempotency_key = f"sms:{hashlib.sha256(f'{tenant_phone}:{data.message}'.encode()).hexdigest()}"
             cached = _check_idempotency(idempotency_key)
             if not cached:
-                with httpx.Client(timeout=15) as client:
-                    resp = client.post(
+                async with httpx.AsyncClient(timeout=15) as client:
+                    resp = await client.post(
                         settings.sms_provider_url,
                         json={
                             "to": tenant_phone,
@@ -283,7 +284,10 @@ def send_rent_reminder(
 
     notification_created = False
     if tenant_user_id:
-        notify(
+        # notify() does blocking Supabase + provider I/O; run it off the event
+        # loop so the HTTP response isn't delayed by push/email delivery.
+        await asyncio.to_thread(
+            notify,
             supabase,
             recipient_id=tenant_user_id,
             type="rent_reminder",

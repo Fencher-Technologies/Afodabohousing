@@ -33,6 +33,12 @@ settings = get_settings()
 _RECONCILE_COOLDOWN_SECONDS = 60.0
 _reconcile_checked_at: dict[str, float] = {}
 
+# Short-lived cache of Pesapal GetTransactionStatus results so rapid mobile
+# polls (every few seconds) don't hammer the gateway with identical requests.
+# TTL of 20s balances freshness vs. gateway load.
+_RECONCILE_RESULT_TTL = 20.0
+_reconcile_result_cache: dict[str, tuple[float, dict | None]] = {}
+
 
 def _reconcile_allowed(key: str) -> bool:
     global _reconcile_checked_at
@@ -49,6 +55,20 @@ def _reconcile_allowed(key: str) -> bool:
 
 def _reset_reconcile_cooldowns() -> None:
     _reconcile_checked_at.clear()
+
+
+def _get_cached_reconcile(key: str) -> dict | None:
+    entry = _reconcile_result_cache.get(key)
+    if not entry:
+        return None
+    fetched_at, data = entry
+    if time.monotonic() - fetched_at < _RECONCILE_RESULT_TTL:
+        return data
+    return None
+
+
+def _set_cached_reconcile(key: str, data: dict | None) -> None:
+    _reconcile_result_cache[key] = (time.monotonic(), data)
 
 
 class PaginatedResponse(BaseModel):
@@ -525,8 +545,14 @@ async def _reconcile_pesapal_order(supabase, row: dict, kind: str) -> bool:
     from services.pesapal import PESAPAL_STATUS_MAP
 
     try:
-        token = await pesapal.get_auth_token()
-        status_data = await pesapal.get_transaction_status(token, tracking_id)
+        cache_key = f"{kind}:{row.get('id')}:{tracking_id}"
+        cached = _get_cached_reconcile(cache_key)
+        if cached is not None:
+            status_data = cached
+        else:
+            token = await pesapal.get_auth_token(supabase)
+            status_data = await pesapal.get_transaction_status(token, tracking_id)
+            _set_cached_reconcile(cache_key, status_data)
     except Exception as e:
         logger.warning("Reconcile status lookup failed for %s %s: %s", kind, row.get("id"), e)
         return False

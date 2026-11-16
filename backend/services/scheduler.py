@@ -543,13 +543,36 @@ async def process_tenancy_expiry_reminders(
     dispatcher = dispatcher or NotificationDispatcher(supabase)
     attempted = 0
 
-    for lease in response.data or []:
+    # Batch-fetch tenants and properties once instead of per-lease (N+1).
+    lease_rows = response.data or []
+    tenant_ids = [str(l["tenant_id"]) for l in lease_rows if l.get("tenant_id")]
+    property_ids = [str(l["property_id"]) for l in lease_rows if l.get("property_id")]
+    tenants_by_id: dict[str, dict] = {}
+    props_by_id: dict[str, dict] = {}
+    if tenant_ids:
+        tr = (
+            supabase.table("tenants")
+            .select("*")
+            .in_("id", tenant_ids)
+            .execute()
+        )
+        tenants_by_id = {str(t["id"]): t for t in (tr.data or []) if t.get("id")}
+    if property_ids:
+        pr = (
+            supabase.table("properties")
+            .select("*")
+            .in_("id", property_ids)
+            .execute()
+        )
+        props_by_id = {str(p["id"]): p for p in (pr.data or []) if p.get("id")}
+
+    for lease in lease_rows:
         days_left = _days_until(lease["end_date"], today)
         if days_left not in TENANCY_EXPIRY_REMINDER_DAYS:
             continue
 
-        tenant = _fetch_single(supabase, "tenants", lease["tenant_id"])
-        prop = _fetch_single(supabase, "properties", lease["property_id"])
+        tenant = tenants_by_id.get(str(lease.get("tenant_id")), {}) or {}
+        prop = props_by_id.get(str(lease.get("property_id")), {}) or {}
         attempted += await _deliver_tenancy_expiry_reminder(
             dispatcher=dispatcher,
             lease=lease,

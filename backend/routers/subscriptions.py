@@ -108,7 +108,7 @@ async def get_current_subscription(
         if last is None or now - last >= _SUB_RECONCILE_COOLDOWN:
             _sub_reconcile_checked_at[sub_id] = now
             try:
-                token = await get_auth_token()
+                token = await get_auth_token(supabase)
                 status_data = await get_transaction_status(token, sub["pesapal_tracking_id"])
                 ps = PESAPAL_STATUS_MAP.get(
                     (status_data.get("payment_status_description") or "").upper(),
@@ -223,7 +223,7 @@ async def create_subscription(
     callback_url = base_url if base_url.endswith(SUBSCRIPTION_CALLBACK_URL) else f"{base_url}{SUBSCRIPTION_CALLBACK_URL}"
 
     try:
-        token = await get_auth_token()
+        token = await get_auth_token(supabase)
         ipn_id = get_ipn_id(supabase)
         order_id = reference
         pay_resp = await submit_order(

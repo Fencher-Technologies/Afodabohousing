@@ -355,7 +355,7 @@ async def initiate_boost(
     callback_url = base_url if base_url.endswith(BOOST_CALLBACK_URL) else f"{base_url}{BOOST_CALLBACK_URL}"
 
     try:
-        token = await get_auth_token()
+        token = await get_auth_token(supabase)
         ipn_id = get_ipn_id(supabase)
         order_id = reference
         pay_resp = await submit_order(
