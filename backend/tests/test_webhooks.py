@@ -62,7 +62,7 @@ class TestPesapalWebhook:
 
         with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
             "routers.webhooks.get_transaction_status",
-            return_value={"payment_status_description": "COMPLETED", "amount": 500},
+            return_value={"merchant_reference": json.loads(body)["OrderMerchantReference"], "currency": "UGX", "payment_status_description": "COMPLETED", "amount": 500},
         ) as gts, patch("routers.webhooks.get_boost_service", return_value=boost_svc):
             resp = client.post(
                 "/payments/webhook/pesapal",
@@ -97,7 +97,7 @@ class TestPesapalWebhook:
 
         with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
             "routers.webhooks.get_transaction_status",
-            return_value={"payment_status_description": "COMPLETED", "amount": 10000},
+            return_value={"merchant_reference": json.loads(body)["OrderMerchantReference"], "currency": "UGX", "payment_status_description": "COMPLETED", "amount": 10000},
         ) as gts, patch("routers.webhooks.get_boost_service", return_value=boost_svc), patch(
             "routers.webhooks.get_subscription_service", return_value=sub_svc
         ):
@@ -109,7 +109,7 @@ class TestPesapalWebhook:
 
         assert resp.status_code == 200
         assert resp.json()["payment_status"] == "completed"
-        sub_svc.confirm_subscription.assert_called_once_with("ref-sub", 10000)
+        sub_svc.confirm_subscription.assert_called_once_with("ref-sub", 10000, "UGX", "txn-sub")
 
     def test_pending_does_not_activate(self, client, pesapal_secret):
         body = self._ipn("txn-pending", "ref-pending")
@@ -117,7 +117,7 @@ class TestPesapalWebhook:
 
         with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
             "routers.webhooks.get_transaction_status",
-            return_value={"payment_status_description": "PENDING"},
+            return_value={"merchant_reference": json.loads(body)["OrderMerchantReference"], "currency": "UGX", "payment_status_description": "PENDING"},
         ) as gts, patch("routers.webhooks.get_boost_service") as gbs:
             resp = client.post(
                 "/payments/webhook/pesapal",
@@ -150,14 +150,14 @@ class TestPesapalWebhook:
         body = self._ipn("txn-002", "ref-002")
         with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
             "routers.webhooks.get_transaction_status",
-            return_value={"payment_status_description": "PENDING"},
+            return_value={"merchant_reference": json.loads(body)["OrderMerchantReference"], "currency": "UGX", "payment_status_description": "PENDING"},
         ):
             resp = client.post(
                 "/payments/webhook/pesapal",
                 content=body,
                 headers={"Content-Type": "application/json"},
             )
-        assert resp.status_code == 401
+        assert resp.status_code == 200
 
     def test_rejects_bad_signature(self, client, pesapal_secret):
         body = self._ipn("txn-003", "ref-003")
@@ -185,7 +185,7 @@ class TestPesapalWebhook:
 
         with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
             "routers.webhooks.get_transaction_status",
-            return_value={"payment_status_description": desc},
+            return_value={"merchant_reference": json.loads(body)["OrderMerchantReference"], "currency": "UGX", "payment_status_description": desc},
         ):
             resp = client.post(
                 "/payments/webhook/pesapal",
@@ -203,14 +203,14 @@ class TestPesapalWebhook:
         body = self._ipn("txn-no-secret", "ref-no-secret")
         with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
             "routers.webhooks.get_transaction_status",
-            return_value={"payment_status_description": "PENDING"},
+            return_value={"merchant_reference": json.loads(body)["OrderMerchantReference"], "currency": "UGX", "payment_status_description": "PENDING"},
         ):
             resp = client.post(
                 "/payments/webhook/pesapal",
                 content=body,
                 headers={"Content-Type": "application/json"},
             )
-        assert resp.status_code == 401
+        assert resp.status_code == 200
 
         get_settings().pesapal_consumer_secret = secret
 
@@ -220,7 +220,7 @@ class TestPesapalWebhook:
 
         with patch("routers.webhooks.get_auth_token", return_value="tok"), patch(
             "routers.webhooks.get_transaction_status",
-            return_value={"payment_status_description": "COMPLETED"},
+            return_value={"merchant_reference": json.loads(body)["OrderMerchantReference"], "currency": "UGX", "payment_status_description": "COMPLETED"},
         ) as gts:
             resp1 = client.post(
                 "/payments/webhook/pesapal",
@@ -303,3 +303,16 @@ class TestSmsAuthorization:
         service-role client, which bypasses RLS entirely."""
         assert anonymous_client.get("/admin/regions/pending").status_code in (401, 403)
         assert anonymous_client.post("/admin/regions/sync", json={}).status_code in (401, 403)
+
+def test_ipn_cannot_pair_paid_tracking_with_another_reference(client):
+    with patch("routers.webhooks.get_auth_token",return_value="token"), patch(
+        "routers.webhooks.get_transaction_status",
+        return_value={"merchant_reference":"actual-order","payment_status_description":"COMPLETED","amount":10,"currency":"USD"}
+    ), patch("routers.webhooks._apply_pesapal_result") as apply:
+        resp=client.post("/payments/webhook/pesapal",json={
+            "OrderTrackingId":"paid-tracking","OrderMerchantReference":"forged-order"})
+    assert resp.status_code==400
+    apply.assert_not_called()
+
+def test_invalid_ipn_is_a_client_error(client):
+    assert client.post("/payments/webhook/pesapal",content="not-json").status_code==400

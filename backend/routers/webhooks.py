@@ -82,13 +82,18 @@ async def pesapal_webhook(
     body = await request.body()
     signature = request.headers.get("X-Pesapal-Signature")
 
-    if not verify_pesapal(body, signature):
+    # Pesapal API 3 IPNs do not require this legacy optional header.
+    # The authoritative status + merchant reference are verified below.
+    if signature and not verify_pesapal(body, signature):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid signature",
         )
 
-    payload = PesapalWebhookPayload.model_validate(json.loads(body))
+    try:
+        payload = PesapalWebhookPayload.model_validate(json.loads(body))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid payment notification")
     tracking_id = payload.order_tracking_id
     merchant_ref = payload.order_merchant_reference
 
@@ -122,6 +127,8 @@ async def pesapal_webhook(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Status verification pending, retry IPN",
             )
+        if status_data.get("merchant_reference") != merchant_ref:
+            raise HTTPException(status_code=400, detail="Gateway merchant reference mismatch")
         paid_amount = status_data.get("amount")
         payment_status = PESAPAL_STATUS_MAP.get(
             (status_data.get("payment_status_description") or "").upper(),
@@ -132,14 +139,14 @@ async def pesapal_webhook(
             tracking_id, status_data.get("payment_status_description"), payment_status,
         )
 
-        _apply_pesapal_result(supabase, tracking_id, merchant_ref, payment_status, paid_amount)
+        _apply_pesapal_result(supabase, tracking_id, merchant_ref, payment_status, paid_amount, status_data.get("currency"))
     except BaseException:
         # Nothing was recorded as done, so let the retry run.
         events.release(claim, tracking_id)
         raise
 
     response = {"status": "received", "payment_status": payment_status}
-    if payment_status in ("completed", "failed"):
+    if payment_status == "completed":
         events.complete(claim, tracking_id, response)
     else:
         # Not final yet. Pesapal re-sends the IPN when the status changes;
@@ -154,6 +161,7 @@ def _apply_pesapal_result(
     merchant_ref: str,
     payment_status: str,
     paid_amount: Any,
+    paid_currency: str | None = None,
 ) -> None:
     if payment_status == "completed":
         boost_svc = get_boost_service(supabase)
@@ -164,13 +172,9 @@ def _apply_pesapal_result(
                 boost_svc.table.update({"pesapal_tracking_id": tracking_id}).eq("id", activated["id"]).execute()
         else:
             sub_svc = get_subscription_service(supabase)
-            sub_activated = sub_svc.confirm_subscription(merchant_ref, paid_amount)
+            sub_activated = sub_svc.confirm_subscription(merchant_ref, paid_amount, paid_currency, tracking_id)
             if sub_activated:
                 logger.info("Subscription %s activated via Pesapal webhook", sub_activated.id)
-                if tracking_id:
-                    sub_svc.supabase.table("manager_subscriptions").update(
-                        {"pesapal_tracking_id": tracking_id}
-                    ).eq("id", sub_activated.id).execute()
             else:
                 result = (
                     supabase.table("payments")

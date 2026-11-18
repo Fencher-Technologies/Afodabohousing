@@ -122,7 +122,7 @@ def _post_ipn(secret, tracking="txn-9", ref="ref-9"):
 def _gateway(description, amount=500):
     return patch(
         "routers.webhooks.get_transaction_status",
-        return_value={"payment_status_description": description, "amount": amount},
+        return_value={"merchant_reference": "ref-9", "currency": "UGX", "payment_status_description": description, "amount": amount},
     )
 
 
@@ -191,8 +191,8 @@ class TestPesapalEndpoint:
         assert resp.json()["payment_status"] == "processing"
         gts.assert_not_called()
 
-    def test_failed_payments_are_recorded_as_final(self, db, pesapal_secret):
+    def test_failed_payments_remain_recoverable(self, db, pesapal_secret):
         with patch("routers.webhooks.get_auth_token", return_value="t"), _gateway("FAILED") as gts:
             assert _post_ipn(pesapal_secret).json()["payment_status"] == "failed"
             assert _post_ipn(pesapal_secret).json()["payment_status"] == "failed"
-        assert gts.call_count == 1
+        assert gts.call_count == 2

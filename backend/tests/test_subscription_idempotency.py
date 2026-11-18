@@ -1,298 +1,64 @@
-# mypy: ignore-errors
+"""Python/RPC boundary tests; transaction behavior is tested in sql/subscription_activation.sql."""
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+import pytest
+from services.subscriptions import SubscriptionService, reset_plans_cache, derive_subscription
 
-from services.subscriptions import SubscriptionService
+@pytest.fixture(autouse=True)
+def reset_cache():
+    reset_plans_cache()
+    yield
+    reset_plans_cache()
 
-REF = "ref-sub-001"
-PLAN_ID = "plan-monthly"
-MANAGER_ID = "00000000-0000-0000-0000-000000000001"
+def row(**changes):
+    return dict(id="sub-1", manager_id="manager-1", plan_id="3mo",
+        status="active", payment_status="completed", payment_reference="ref",
+        started_at=datetime.now(UTC).isoformat(),
+        expires_at=(datetime.now(UTC)+timedelta(days=90)).isoformat(), **changes)
 
+def service(payload):
+    db = MagicMock()
+    db.rpc.return_value.execute.return_value = SimpleNamespace(data=payload)
+    db.table.return_value.select.return_value.execute.return_value = SimpleNamespace(
+        data=[{"id":"3mo","name":"Essential","duration_days":90,"price_ugx":40000,"price_usd":10}])
+    return SubscriptionService(db), db
 
-class FakeTable:
-    def __init__(self, name):
-        self._name = name
-        self._rows = []
-        self._conditions = []
-        self._payload = None
-        self._update_calls = 0
+def test_gateway_evidence_is_forwarded_to_transaction():
+    svc, db = service({"subscription":row(), "activated":False})
+    result = svc.confirm_subscription("ref", 41500, "UGX", "tracking")
+    assert result.status == "active"
+    db.rpc.assert_called_once_with("activate_verified_subscription", {
+        "p_reference":"ref","p_tracking_id":"tracking","p_amount":41500,"p_currency":"UGX"})
 
-    def select(self, *_):
-        return self
+def test_unknown_reference_is_not_confirmed():
+    svc, db = service(None)
+    assert svc.confirm_subscription("missing", 10, "USD", "tracking") is None
 
-    def eq(self, column, value):
-        self._conditions.append((column, value))
-        return self
+def test_database_rejection_propagates_for_retry():
+    svc, db = service(None)
+    db.rpc.return_value.execute.side_effect = RuntimeError("amount mismatch")
+    with pytest.raises(RuntimeError, match="amount mismatch"):
+        svc.confirm_subscription("ref", 1, "UGX", "tracking")
 
-    def limit(self, _):
-        return self
+def test_success_notification_only_for_new_activation():
+    svc, db = service({"subscription":row(), "activated":False})
+    with patch("services.notifications.notify_admins") as notify:
+        svc.confirm_subscription("ref",10,"USD","tracking")
+    notify.assert_not_called()
 
-    def order(self, *_args, **_kwargs):
-        return self
+def test_notification_failure_does_not_undo_success():
+    svc, db = service({"subscription":row(), "activated":True})
+    with patch("services.notifications.notify_admins",side_effect=RuntimeError("offline")):
+        assert svc.confirm_subscription("ref",10,"USD","tracking").status=="active"
 
-    def update(self, payload):
-        self._update_calls += 1
-        self._payload = payload
-        return self
+def test_expired_consumed_order_stays_expired():
+    expired=row()
+    expired.update(status="expired",expires_at=(datetime.now(UTC)-timedelta(days=1)).isoformat())
+    svc, db = service({"subscription":expired,"activated":False})
+    assert svc.confirm_subscription("ref",10,"USD","tracking").status=="expired"
 
-    def execute(self):
-        if self._payload is not None:
-            self._apply_payload()
-            return SimpleNamespace(data=self._rows)
-        return SimpleNamespace(data=list(self._rows))
-
-    def _apply_payload(self):
-        for row in self._rows:
-            for key, value in self._payload.items():
-                row[key] = value
-
-
-class FakeSupabase:
-    def __init__(self):
-        self.tables = {}
-
-    def table(self, name):
-        if name not in self.tables:
-            self.tables[name] = FakeTable(name)
-        return self.tables[name]
-
-    def seed(self, name, rows):
-        self.table(name)._rows = rows
-        if name in ("subscription_plans", "boost_packages"):
-            from services.boost import reset_packages_cache
-            from services.subscriptions import reset_plans_cache
-            reset_plans_cache()
-            reset_packages_cache()
-
-
-def make_pending_sub(extra=None):
-    row = {
-        "id": "sub-1",
-        "manager_id": MANAGER_ID,
-        "plan_id": PLAN_ID,
-        "status": "pending",
-        "payment_reference": REF,
-        "payment_status": "pending",
-        "started_at": None,
-        "expires_at": None,
-        "auto_renew": True,
-        "created_at": "2026-01-01T00:00:00Z",
-    }
-    if extra:
-        row.update(extra)
-    return row
-
-
-def make_plan():
-    return {
-        "id": PLAN_ID,
-        "name": "Monthly",
-        "duration_days": 30,
-        "price_ugx": 15000,
-        "is_active": True,
-        "sort_order": 1,
-    }
-
-
-class TestConfirmSubscriptionIdempotency:
-    def test_first_confirm_activates_with_status_pending_guard(self):
-        sb = FakeSupabase()
-        sb.seed("manager_subscriptions", [make_pending_sub()])
-        sb.seed("subscription_plans", [make_plan()])
-
-        result = SubscriptionService(sb).confirm_subscription(REF)
-
-        assert result is not None
-        assert result.status == "active"
-        assert result.payment_status == "completed"
-
-        subs_table = sb.tables["manager_subscriptions"]
-        assert subs_table._update_calls == 1
-        assert ("status", "pending") in subs_table._conditions
-        assert ("id", "sub-1") in subs_table._conditions
-        assert subs_table._payload["status"] == "active"
-
-        expected_expiry = datetime.now(UTC) + timedelta(days=30)
-        actual = datetime.fromisoformat(subs_table._payload["expires_at"])
-        assert abs((actual - expected_expiry).total_seconds()) < 60
-
-    def test_duplicate_confirm_does_not_re_extend_expiry(self):
-        sb = FakeSupabase()
-        first_expiry = (datetime.now(UTC) + timedelta(days=30)).isoformat()
-        sb.seed("manager_subscriptions", [
-            make_pending_sub(
-                {
-                    "status": "active",
-                    "payment_status": "completed",
-                    "started_at": (datetime.now(UTC) - timedelta(days=10)).isoformat(),
-                    "expires_at": first_expiry,
-                }
-            )
-        ])
-        sb.seed("subscription_plans", [make_plan()])
-
-        result = SubscriptionService(sb).confirm_subscription(REF)
-
-        assert result is not None
-        assert result.status == "active"
-        assert sb.tables["manager_subscriptions"]._update_calls == 0
-        assert result.expires_at == first_expiry
-
-    def test_unknown_reference_returns_none(self):
-        sb = FakeSupabase()
-        sb.seed("subscription_plans", [make_plan()])
-
-        result = SubscriptionService(sb).confirm_subscription("ref-unknown")
-
-        assert result is None
-        assert sb.tables["manager_subscriptions"]._update_calls == 0
-
-    def test_wrong_amount_marks_failed(self):
-        sb = FakeSupabase()
-        sb.seed("manager_subscriptions", [make_pending_sub()])
-        sb.seed("subscription_plans", [make_plan()])
-
-        result = SubscriptionService(sb).confirm_subscription(REF, paid_amount=5000)
-
-        assert result is None
-        subs_table = sb.tables["manager_subscriptions"]
-        assert subs_table._payload["status"] == "failed"
-        assert subs_table._payload["payment_status"] == "failed"
-
-    def test_correct_amount_activates(self):
-        sb = FakeSupabase()
-        sb.seed("manager_subscriptions", [make_pending_sub()])
-        sb.seed("subscription_plans", [make_plan()])
-
-        result = SubscriptionService(sb).confirm_subscription(REF, paid_amount=15000)
-
-        assert result is not None
-        assert result.status == "active"
-
-class TestConfirmSubscriptionExtend:
-    def test_extends_existing_active_subscription(self):
-        """A purchase with an active subscription extends its expiry, not resets."""
-        sb = FakeSupabase()
-        existing_expiry = (datetime.now(UTC) + timedelta(days=60)).isoformat()
-        # Put the pending row FIRST so FakeTable returns it as result.data[0]
-        # (FakeTable does not filter by eq conditions in execute())
-        sb.seed("manager_subscriptions", [
-            make_pending_sub(
-                {
-                    "status": "pending",
-                    "payment_reference": REF,
-                    "payment_status": "pending",
-                    "manager_id": MANAGER_ID,
-                    "id": "sub-2",
-                }
-            ),
-            make_pending_sub(
-                {
-                    "status": "active",
-                    "payment_status": "completed",
-                    "started_at": (datetime.now(UTC) - timedelta(days=10)).isoformat(),
-                    "expires_at": existing_expiry,
-                    "manager_id": MANAGER_ID,
-                    "payment_reference": "existing-ref",
-                }
-            ),
-        ])
-        sb.seed("subscription_plans", [make_plan()])
-
-        result = SubscriptionService(sb).confirm_subscription(REF)
-
-        assert result is not None
-        assert result.status == "active"
-        new_expiry_dt = datetime.fromisoformat(result.expires_at)
-        expected_expiry_dt = datetime.now(UTC) + timedelta(days=90)
-        assert abs((new_expiry_dt - expected_expiry_dt).total_seconds()) < 120
-
-    def test_no_active_sub_creates_fresh(self):
-        """A purchase with no active subscription starts fresh."""
-        sb = FakeSupabase()
-        sb.seed("manager_subscriptions", [
-            make_pending_sub(
-                {
-                    "status": "pending",
-                    "payment_reference": REF,
-                    "manager_id": MANAGER_ID,
-                }
-            ),
-        ])
-        sb.seed("subscription_plans", [make_plan()])
-
-        result = SubscriptionService(sb).confirm_subscription(REF, paid_amount=15000)
-
-        assert result is not None
-        assert result.status == "active"
-        expected_expiry = datetime.now(UTC) + timedelta(days=30)
-        actual_expiry = datetime.fromisoformat(result.expires_at)
-        assert abs((actual_expiry - expected_expiry).total_seconds()) < 60
-
-    def test_days_remaining_rounds_up(self):
-        from services.subscriptions import derive_subscription
-
-        now = datetime.now(UTC)
-        sub = {
-            "id": "sub-1",
-            "manager_id": MANAGER_ID,
-            "plan_id": PLAN_ID,
-            "status": "active",
-            "expires_at": (now + timedelta(hours=4)).isoformat(),
-        }
-        derived = derive_subscription(sub, "Monthly")
-        assert derived["days_remaining"] == 1
-
-    def test_expired_status_not_active(self):
-        from services.subscriptions import derive_subscription
-
-        now = datetime.now(UTC)
-        sub = {
-            "id": "sub-1",
-            "manager_id": MANAGER_ID,
-            "plan_id": PLAN_ID,
-            "status": "active",
-            "expires_at": (now - timedelta(days=1)).isoformat(),
-        }
-        derived = derive_subscription(sub, "Monthly")
-        assert derived["is_active"] is False
-        assert derived["days_remaining"] == 0
-
-    def test_duplicate_active_returns_furthest_expiry(self):
-        from services.subscriptions import get_current_subscription_raw
-
-        now = datetime.now(UTC)
-        sb = FakeSupabase()
-        sb.seed("manager_subscriptions", [
-            {
-                "id": "sub-a",
-                "manager_id": MANAGER_ID,
-                "plan_id": PLAN_ID,
-                "status": "active",
-                "expires_at": (now + timedelta(days=30)).isoformat(),
-            },
-            {
-                "id": "sub-b",
-                "manager_id": MANAGER_ID,
-                "plan_id": PLAN_ID,
-                "status": "active",
-                "expires_at": (now + timedelta(days=90)).isoformat(),
-            },
-        ])
-        sb.seed("subscription_plans", [make_plan()])
-
-        raw = get_current_subscription_raw(sb, MANAGER_ID)
-        assert raw is not None
-        assert raw["id"] == "sub-b"
-
-    def test_failed_payment_grants_no_time(self):
-        sb = FakeSupabase()
-        sb.seed("manager_subscriptions", [make_pending_sub()])
-        sb.seed("subscription_plans", [make_plan()])
-
-        result = SubscriptionService(sb).confirm_subscription(REF, paid_amount=1)
-
-        assert result is None
-        subs_table = sb.tables["manager_subscriptions"]
-        assert subs_table._payload["status"] == "failed"
-
+def test_days_remaining_rounds_up():
+    sub=row()
+    sub["expires_at"]=(datetime.now(UTC)+timedelta(hours=4)).isoformat()
+    assert derive_subscription(sub,"Essential")["days_remaining"]==1

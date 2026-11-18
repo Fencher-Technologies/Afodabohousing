@@ -241,124 +241,37 @@ class SubscriptionService:
             "has_active_subscription": True,
         }
 
-    def confirm_subscription(self, payment_reference: str, paid_amount: float | None = None) -> dict | None:
-        result = (
-            self.supabase.table("manager_subscriptions")
-            .select("*")
-            .eq("payment_reference", payment_reference)
-            .limit(1)
-            .execute()
-        )
-        if not result.data:
+    def confirm_subscription(
+        self, payment_reference: str, paid_amount: float | None = None,
+        paid_currency: str | None = None, tracking_id: str | None = None,
+    ) -> ManagerSubscriptionResponse | None:
+        """Only call after a server-to-server COMPLETED gateway response.
+
+        The database validates the stored quote and activates under a manager
+        lock in one transaction. Errors propagate so callbacks can retry.
+        """
+        result = self.supabase.rpc("activate_verified_subscription", {
+            "p_reference": payment_reference,
+            "p_tracking_id": tracking_id,
+            "p_amount": paid_amount,
+            "p_currency": paid_currency,
+        }).execute()
+        payload = result.data
+        if not payload:
             return None
-
-        sub = result.data[0]
-
-        # Idempotency: a replayed webhook must not re-extend the subscription.
-        if sub.get("status") == "active":
-            existing_expires = _parse_iso(sub.get("expires_at"))
-            if existing_expires and existing_expires > _now():
-                return self.get_current_subscription(sub["manager_id"])
-            # Active but expired — treat as no active sub, extend below
-
-        plan = self._get_plan(sub["plan_id"])
-        if not plan:
-            return None
-
-        if paid_amount is not None:
-            ugx = float(plan["price_ugx"])
-            usd = float(plan.get("price_usd") or 0)
-            if abs(float(paid_amount) - ugx) > 1.0 and abs(float(paid_amount) - usd) > 0.05:
-                now = _now()
-                logger.warning(
-                    "Subscription %s amount mismatch: paid=%s expected UGX=%s USD=%s",
-                    sub["id"], paid_amount, ugx, usd,
+        row = payload["subscription"]
+        if payload.get("activated"):
+            try:
+                from services.notifications import notify_admins, profile_label
+                notify_admins(
+                    self.supabase, type="admin_subscription_paid",
+                    title="Subscription activated",
+                    body=f"{profile_label(self.supabase, row['manager_id'])}'s subscription is active until {row['expires_at']}.",
+                    metadata={"subscription_id": str(row["id"]), "manager_id": str(row["manager_id"])},
                 )
-                self.supabase.table("manager_subscriptions").update(
-                    {"status": "failed", "payment_status": "failed", "updated_at": now.isoformat()}
-                ).eq("id", sub["id"]).eq("status", "pending").execute()
-                return None
-
-        duration_days = plan["duration_days"]
-        now = _now()
-
-        # EXTEND logic: if there is an active (non-expired) subscription,
-        # add duration_days to its existing expires_at. Otherwise start fresh.
-        raw_rows = (
-            self.supabase.table("manager_subscriptions")
-            .select("*")
-            .eq("manager_id", sub["manager_id"])
-            .execute()
-        )
-        current_active = None
-        for row in (raw_rows.data or []):
-            expires_dt = _parse_iso(row.get("expires_at"))
-            if row.get("status") == "active" and expires_dt and expires_dt > now:
-                if current_active is None or expires_dt > _parse_iso(current_active.get("expires_at")):
-                    current_active = row
-
-        # Renewal / upgrade / downgrade while a plan is still running:
-        # the NEW row becomes current (so the new plan's limits and perks,
-        # e.g. Elite's free boosting, apply immediately) and the remaining
-        # days of the old plan are carried over onto it.
-        #
-        # Previously this extended the old row with a `status = 'pending'`
-        # filter, which never matched an active row: the payment was taken
-        # but nothing changed, and an upgrade kept the old plan.
-        #
-        # idx_one_active_subscription_per_manager allows one active row per
-        # manager, so the old row is retired first.
-        if current_active and str(current_active["id"]) != str(sub["id"]):
-            new_expires = _parse_iso(current_active["expires_at"]) + timedelta(days=duration_days)
-        else:
-            new_expires = now + timedelta(days=duration_days)
-
-        # Retire every other 'active' row, including stale ones whose
-        # expires_at has already passed, or the unique index rejects the
-        # activation below.
-        for row in (raw_rows.data or []):
-            if row.get("status") != "active" or str(row.get("id")) == str(sub["id"]):
-                continue
-            row_expires = _parse_iso(row.get("expires_at"))
-            retire = {"status": "expired", "updated_at": now.isoformat()}
-            if row_expires is None or row_expires > now:
-                retire["expires_at"] = now.isoformat()
-            self.supabase.table("manager_subscriptions").update(retire).eq(
-                "id", row["id"]
-            ).eq("status", "active").execute()
-
-        sub_payload = {
-            "status": "active",
-            "payment_status": "completed",
-            "started_at": now.isoformat(),
-            "expires_at": new_expires.isoformat(),
-            "updated_at": now.isoformat(),
-        }
-        self.supabase.table("manager_subscriptions").update(sub_payload).eq(
-            "id", sub["id"]
-        ).eq("status", "pending").execute()
-
-        try:
-            from services.notifications import notify_admins, profile_label
-            plan = self._get_plan(sub.get("plan_id")) or {}
-            # Always quote the plan's US$ price: paid_amount may be shillings.
-            amount = f"USD {float(plan.get('price_usd') or 0):,.2f}" if paid_amount else ""
-            notify_admins(
-                self.supabase,
-                type="admin_subscription_paid",
-                title=f"Subscription paid: {plan.get('name') or sub.get('plan_id')}",
-                body=(
-                    f"{profile_label(self.supabase, sub['manager_id'])} paid for the "
-                    f"{plan.get('name') or sub.get('plan_id')} plan"
-                    + (f" ({amount})" if amount else "")
-                    + f". Active until {new_expires.date().isoformat()}."
-                ),
-                metadata={"subscription_id": str(sub["id"]), "manager_id": str(sub["manager_id"])},
-            )
-        except Exception:
-            logger.warning("Admin subscription notification failed", exc_info=True)
-
-        return self.get_current_subscription(sub["manager_id"])
+            except Exception:
+                logger.warning("Admin subscription notification failed", exc_info=True)
+        return self.to_response(row)
 
     def expire_subscriptions(self) -> int:
         return 0

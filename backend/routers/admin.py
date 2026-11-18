@@ -817,44 +817,35 @@ async def confirm_subscription_payment(
     current_user: CurrentUser = Depends(require_super_admin),
     supabase: Client = Depends(get_service_client),
 ) -> ManagerSubscriptionResponse:
-    """Super-admin: confirm via paid_amount OR Pesapal confirmation_code.
-
-    If confirmation_code (orderTrackingId) is supplied, the amount is fetched
-    from Pesapal GetTransactionStatus so the admin does not need to type it.
-    """
-    sub = (
-        supabase.table("manager_subscriptions")
-        .select("payment_reference")
-        .eq("id", subscription_id)
-        .limit(1)
-        .execute()
-    )
-    if not sub.data:
+    """Reconcile a subscription using the gateway, never a typed amount."""
+    rows = (supabase.table("manager_subscriptions").select("*")
+        .eq("id", subscription_id).limit(1).execute()).data
+    if not rows:
         raise HTTPException(status_code=404, detail="Subscription not found")
-
-    reference = sub.data[0].get("payment_reference")
-    paid_amount = data.paid_amount
-    if data.confirmation_code and data.confirmation_code.strip():
-        try:
-            from services.pesapal import get_auth_token, get_transaction_status
-            token = await get_auth_token()
-            td = await get_transaction_status(token, data.confirmation_code.strip())
-            # Pesapal returns amount as float; use it as authoritative paid_amount
-            paid_amount = td.get("amount", paid_amount)
-            if td.get("payment_status_description", "").upper() not in ("COMPLETED",):
-                raise HTTPException(status_code=400, detail=f"Pesapal status is {td.get('payment_status_description')}, not COMPLETED")
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Pesapal verification failed: {e}")
-    if paid_amount is None:
-        raise HTTPException(status_code=400, detail="Provide paid_amount or confirmation_code")
-    result = get_subscription_service(supabase).confirm_subscription(reference, float(paid_amount))
-    if not result:
-        raise HTTPException(
-            status_code=400,
-            detail="Payment verification failed: amount mismatch or subscription not pending",
+    sub = rows[0]
+    tracking_id = sub.get("pesapal_tracking_id")
+    if not tracking_id:
+        raise HTTPException(status_code=400, detail="No payment tracking ID recorded; manual reconciliation required")
+    if data.confirmation_code and data.confirmation_code.strip() != tracking_id:
+        raise HTTPException(status_code=400, detail="Tracking ID does not match this subscription")
+    try:
+        from services.pesapal import get_auth_token, get_transaction_status
+        token = await get_auth_token(supabase)
+        td = await get_transaction_status(token, tracking_id)
+        if td.get("merchant_reference") != sub["payment_reference"]:
+            raise HTTPException(status_code=400, detail="Gateway merchant reference mismatch")
+        if (td.get("payment_status_description") or "").upper() != "COMPLETED":
+            raise HTTPException(status_code=400, detail="Payment is not confirmed completed by the gateway")
+        result = get_subscription_service(supabase).confirm_subscription(
+            sub["payment_reference"], td.get("amount"), td.get("currency"), tracking_id,
         )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.warning("Admin subscription reconciliation deferred for %s", subscription_id, exc_info=True)
+        raise HTTPException(status_code=502, detail="Payment could not be reconciled. No subscription time was removed.")
+    if not result:
+        raise HTTPException(status_code=400, detail="Payment could not be matched to a subscription")
     return result
 
 

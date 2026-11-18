@@ -99,21 +99,15 @@ def test_elite_has_no_tenant_limit():
     assert q["max_tenants"] is None and q["can_add_tenant"] is True
 
 
-def test_upgrade_switches_plan_and_carries_over_days():
-    pending = {"id": "sub-new", "manager_id": MANAGER, "plan_id": "12mo", "status": "pending",
-               "payment_status": "pending", "payment_reference": "ref-new"}
-    sb = FakeSupabase(subscription_plans=PLANS,
-                      manager_subscriptions=[_active_sub("3mo", days_left=30), pending])
-
-    result = SubscriptionService(sb).confirm_subscription("ref-new", paid_amount=1000000)
-
-    assert result is not None
-    assert result.plan_id == "12mo"
-    assert result.status == "active"
-    expires = datetime.fromisoformat(result.expires_at)
-    expected = datetime.now(UTC) + timedelta(days=30 + 365)
-    assert abs((expires - expected).total_seconds()) < 120
-
-    rows = {r["id"]: r for r in sb.store["manager_subscriptions"]}
-    assert rows["sub-old"]["status"] == "expired"
-    assert sum(1 for r in rows.values() if r["status"] == "active") == 1
+def test_upgrade_uses_transaction_response():
+    from unittest.mock import MagicMock
+    old = _active_sub("3mo", days_left=30)
+    activated = _active_sub("12mo", days_left=395, sid="sub-new")
+    sb = FakeSupabase(subscription_plans=PLANS, manager_subscriptions=[old, activated])
+    sb.rpc = MagicMock()
+    sb.rpc.return_value.execute.return_value = SimpleNamespace(data={"subscription":activated,"activated":False})
+    result = SubscriptionService(sb).confirm_subscription("ref-new",1000000,"UGX","tracking")
+    assert result.plan_id=="12mo"
+    assert result.days_remaining==395
+    sb.rpc.assert_called_once_with("activate_verified_subscription", {
+        "p_reference":"ref-new","p_tracking_id":"tracking","p_amount":1000000,"p_currency":"UGX"})

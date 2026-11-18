@@ -33,6 +33,7 @@ def _seeds():
         "manager_subscriptions": [
             {
                 "id": "sub-mgr",
+                "pesapal_tracking_id": "tracking-test",
                 "manager_id": MANAGER_ID,
                 "plan_id": "12mo",
                 "status": "pending",
@@ -190,18 +191,33 @@ def test_admin_user_detail_full(seeded_client):
 
 
 def test_admin_confirm_subscription_activates(seeded_client):
+    from unittest.mock import patch, MagicMock
+    from models.subscription import ManagerSubscriptionResponse
     client = seeded_client(user=ADMIN, seeds=_seeds())
-    resp = client.post("/admin/subscriptions/sub-mgr/confirm", json={"paid_amount": 100000})
+    svc = MagicMock()
+    svc.confirm_subscription.return_value = ManagerSubscriptionResponse(
+        id="sub-mgr",manager_id=MANAGER_ID,plan_id="12mo",plan_name="1 Year",
+        status="active",payment_status="completed",auto_renew=True,days_remaining=365)
+    ref = _seeds()["manager_subscriptions"][0]["payment_reference"]
+    with patch("services.pesapal.get_auth_token",return_value="token"), patch(
+        "services.pesapal.get_transaction_status",
+        return_value={"merchant_reference":ref,"payment_status_description":"COMPLETED","amount":100000,"currency":"UGX"}
+    ), patch("routers.admin.get_subscription_service",return_value=svc):
+        resp = client.post("/admin/subscriptions/sub-mgr/confirm", json={"paid_amount":1})
     assert resp.status_code == 200
-    data = resp.json()
-    assert data["status"] == "active"
-    assert data["payment_status"] == "completed"
-    assert data["days_remaining"] > 0
+    assert resp.json()["status"]=="active"
+    # The admin's typed amount cannot override the gateway evidence.
+    svc.confirm_subscription.assert_called_once_with(ref,100000,"UGX","tracking-test")
 
 
-def test_admin_confirm_subscription_amount_mismatch(seeded_client):
+def test_admin_confirm_subscription_rejects_unpaid_gateway_status(seeded_client):
+    from unittest.mock import patch
     client = seeded_client(user=ADMIN, seeds=_seeds())
-    resp = client.post("/admin/subscriptions/sub-mgr/confirm", json={"paid_amount": 5000})
+    ref = _seeds()["manager_subscriptions"][0]["payment_reference"]
+    with patch("services.pesapal.get_auth_token",return_value="token"), patch(
+        "services.pesapal.get_transaction_status",
+        return_value={"merchant_reference":ref,"payment_status_description":"FAILED","amount":100000,"currency":"UGX"}):
+        resp = client.post("/admin/subscriptions/sub-mgr/confirm", json={"paid_amount":100000})
     assert resp.status_code == 400
 
 

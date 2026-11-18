@@ -389,7 +389,7 @@ def test_pending_boost_reconciled_with_gateway(seeded_client):
     )
     with patch("services.pesapal.get_auth_token", return_value="tok"), patch(
         "services.pesapal.get_transaction_status",
-        return_value={"payment_status_description": "COMPLETED", "amount": 10000},
+        return_value={"merchant_reference": "ref-reconcile", "currency": "UGX", "payment_status_description": "COMPLETED", "amount": 10000},
     ):
         resp = client.get(f"/payments/pesapal/status?property_id={PID_PROP}")
     assert resp.status_code == 200
@@ -421,7 +421,7 @@ def test_reconcile_cooldown_limits_gateway_calls_to_once_per_minute(seeded_clien
     )
     with patch("services.pesapal.get_auth_token", return_value="tok"), patch(
         "services.pesapal.get_transaction_status",
-        return_value={"payment_status_description": "PENDING"},
+        return_value={"merchant_reference": "ref-cooldown", "payment_status_description": "PENDING"},
     ) as gts:
         for _ in range(3):
             resp = client.get(f"/payments/pesapal/status?property_id={PID_PROP}")

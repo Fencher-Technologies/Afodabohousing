@@ -1,5 +1,4 @@
 import logging
-import time
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -19,10 +18,8 @@ from models.subscription import (
 )
 from phone import normalize_phone
 from services.pesapal import (
-    PESAPAL_STATUS_MAP,
     get_auth_token,
     get_ipn_id,
-    get_transaction_status,
     submit_order,
 )
 from services.subscriptions import SubscriptionService, get_subscription_service, get_current_subscription_raw
@@ -52,12 +49,9 @@ def _checkout_failure_detail(error: Exception, currency: str) -> str:
         )
     return "Payment initiation failed. Please try again."
 
-_SUB_RECONCILE_COOLDOWN = 60.0
-_sub_reconcile_checked_at: dict[str, float] = {}
 
-
-def get_sub_svc() -> SubscriptionService:
-    return get_subscription_service(get_service_client())
+def get_sub_svc(supabase: Client = Depends(get_service_client)) -> SubscriptionService:
+    return get_subscription_service(supabase)
 
 
 SUBSCRIPTION_CALLBACK_URL = "/payment/status"
@@ -97,35 +91,19 @@ async def get_current_subscription(
     if role not in ("house_manager", "super_admin"):
         return None
 
+    # Active entitlement and unsettled payments are separate queries. A newer
+    # pending checkout must neither hide active access nor escape reconciliation.
+    candidates = (supabase.table("manager_subscriptions").select("*")
+        .eq("manager_id", current_user.id).in_("status", ["pending", "failed"])
+        .in_("payment_status", ["pending", "failed"])
+        .order("created_at", desc=True).limit(10).execute()).data or []
+    from routers.payments import _reconcile_pesapal_order
+    for candidate in candidates:
+        try:
+            await _reconcile_pesapal_order(supabase, candidate, "subscription")
+        except Exception:
+            logger.warning("Subscription recovery deferred for %s", candidate["id"], exc_info=True)
     sub = get_current_subscription_raw(supabase, current_user.id)
-
-    # If the subscription is pending and has a tracking ID, reconcile against
-    # Pesapal so a missed IPN doesn't strand the user in "pending" forever.
-    if sub and sub.get("status") == "pending" and sub.get("pesapal_tracking_id"):
-        sub_id = sub["id"]
-        now = time.monotonic()
-        last = _sub_reconcile_checked_at.get(sub_id)
-        if last is None or now - last >= _SUB_RECONCILE_COOLDOWN:
-            _sub_reconcile_checked_at[sub_id] = now
-            try:
-                token = await get_auth_token(supabase)
-                status_data = await get_transaction_status(token, sub["pesapal_tracking_id"])
-                ps = PESAPAL_STATUS_MAP.get(
-                    (status_data.get("payment_status_description") or "").upper(),
-                    "pending",
-                )
-                if ps == "completed":
-                    service.confirm_subscription(sub["payment_reference"], status_data.get("amount"))
-                    sub = get_current_subscription_raw(supabase, current_user.id)
-                elif ps == "failed":
-                    from datetime import datetime, timezone
-                    supabase.table("manager_subscriptions").update(
-                        {"status": "failed", "payment_status": "failed",
-                         "updated_at": datetime.now(timezone.utc).isoformat()}
-                    ).eq("id", sub_id).eq("status", "pending").execute()
-                    sub = service.get_current_subscription_raw(current_user.id)
-            except Exception as e:
-                logger.warning("Subscription reconcile failed for %s: %s", sub_id, e)
 
     if sub is None:
         return None
@@ -215,6 +193,9 @@ async def create_subscription(
         "status": "pending",
         "payment_reference": reference,
         "payment_status": "pending",
+        "checkout_amount": amount,
+        "checkout_currency": cur,
+        "checkout_duration_days": plan["duration_days"],
     }
     result = supabase.table("manager_subscriptions").insert(sub_payload).execute()
     subscription_id = str(result.data[0]["id"])

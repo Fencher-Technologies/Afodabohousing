@@ -55,6 +55,7 @@ def _reconcile_allowed(key: str) -> bool:
 
 def _reset_reconcile_cooldowns() -> None:
     _reconcile_checked_at.clear()
+    _reconcile_result_cache.clear()
 
 
 def _get_cached_reconcile(key: str) -> dict | None:
@@ -521,8 +522,11 @@ async def pesapal_payment_status(
     if not row:
         return {"type": "unknown", "status": "pending"}
 
+    if str(row.get("manager_id")) != str(current_user.id) and current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
     status = row.get("status")
-    if not status or status == "pending":
+    if not status or status in ("pending", "failed"):
         if await _reconcile_pesapal_order(supabase, row, kind):
             row = _refresh_row(supabase, kind, row)
 
@@ -552,10 +556,14 @@ async def _reconcile_pesapal_order(supabase, row: dict, kind: str) -> bool:
         else:
             token = await pesapal.get_auth_token(supabase)
             status_data = await pesapal.get_transaction_status(token, tracking_id)
-            _set_cached_reconcile(cache_key, status_data)
     except Exception as e:
         logger.warning("Reconcile status lookup failed for %s %s: %s", kind, row.get("id"), e)
         return False
+
+    reference = row["payment_reference"] if kind == "subscription" else row["transaction_id"]
+    if status_data.get("merchant_reference") != reference:
+        raise ValueError("Gateway merchant reference does not match order")
+    _set_cached_reconcile(cache_key, status_data)
 
     status = PESAPAL_STATUS_MAP.get(
         (status_data.get("payment_status_description") or "").upper(),
@@ -578,7 +586,8 @@ async def _reconcile_pesapal_order(supabase, row: dict, kind: str) -> bool:
             return activated is not None
         from services.subscriptions import get_subscription_service
         activated = get_subscription_service(supabase).confirm_subscription(
-            row["payment_reference"], status_data.get("amount")
+            row["payment_reference"], status_data.get("amount"),
+            status_data.get("currency"), tracking_id
         )
         return activated is not None
     result = supabase.table(table).update(payload).eq("id", row["id"]).eq("status", "pending").execute()
