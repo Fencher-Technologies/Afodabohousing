@@ -161,9 +161,35 @@ class BoostService(BaseService):
                 )
                 self.table.update({"status": "failed"}).eq("id", boost["id"]).eq("status", "pending").execute()
                 return None
-        elif boost.get("payment_method") == "pesapal":
-            logger.warning("Boost %s missing gateway amount — refusing to activate", boost["id"])
-            return None
+        # For pesapal payments, verify the amount matches what was expected
+        # The paid_amount comes from the webhook reconciliation (GetTransactionStatus)
+        if paid_amount is not None:
+            expected = float(boost.get("amount_paid") or 0)
+            if not expected:
+                expected = float(
+                    calculate_boost_price(
+                        self.supabase,
+                        int(boost["duration_days"]),
+                        str(boost.get("currency") or DEFAULT_CURRENCY),
+                    )
+                )
+            # A flat tolerance of one currency unit was fine for shillings and
+            # far too loose for dollars, where it would wave through a $1 boost
+            # paid as $0.01. Scale it instead.
+            tolerance = max(0.01, expected * 0.01)
+            matches_usd = abs(float(paid_amount) - expected) <= tolerance
+            # The stored amount is always US$, but the gateway may have billed
+            # the shilling equivalent (mobile money). Accept that too, within
+            # 5% for rate movement between checkout and confirmation.
+            ugx_expected = charge_amount(expected, "UGX")
+            matches_ugx = abs(float(paid_amount) - ugx_expected) <= max(100.0, ugx_expected * 0.05)
+            if not (matches_usd or matches_ugx):
+                logger.warning(
+                    "Boost %s amount mismatch: paid=%s expected=%s",
+                    boost["id"], paid_amount, expected,
+                )
+                self.table.update({"status": "failed"}).eq("id", boost["id"]).eq("status", "pending").execute()
+                return None
 
         # Keep transaction_id as the merchant reference — the status poll
         # looks boosts up by it. The Pesapal tracking id goes nowhere (the
