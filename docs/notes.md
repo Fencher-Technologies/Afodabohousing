@@ -202,6 +202,105 @@ Fewer redundant GetTransactionStatus calls for payments stuck in pending.
 ---
 
 ## 10. HTTP client not closed on shutdown (MEDIUM)
+### What it was
+No cleanup of the shared Pesapal HTTP client when the app shuts down.
+
+### Analogy
+Leaving the tap running when you leave the house. It works until something overflows.
+
+### File(s)
+- `backend/main.py`
+- `backend/services/pesapal.py`
+
+### Fix applied
+Added `close_http_client()` and wired it into the FastAPI `lifespan` shutdown block.
+
+### Why it matters
+Clean resource release; no socket leaks on redeploy.
+
+---
+
+## 11. Pesapal payment webhook configuration (HIGH) **NEW**
+### What it was
+Three interrelated issues prevented payment webhooks from working:
+
+1. **`.env` file not loaded**: Backend had `Afodabohousing.env` but the config system (`config.py:109`) searches for `.env` or `backend/.env`. This meant `PESAPAL_CONSUMER_SECRET` was empty, causing the webhook handler to reject all incoming IPNs with `401 Unauthorized` (fail-closed).
+
+2. **IPN not registered with Pesapal**: Even with correct credentials, Pesapal didn't have the webhook URL configured, so payment notifications went nowhere. The `register_ipn.py` script must be run to tell Pesapal where to send payment notifications.
+
+3. **`activate_by_reference` bug**: `backend/services/boost.py:164-166` explicitly refused to activate boosts with `payment_method == "pesapal"`, even when the amount was valid. This meant completed Pesapal boost payments would never activate the boost.
+
+### Analogy
+A mailroom where:
+- The address label was printed wrong (`.env` file naming)
+- The recipients didn't know where to deliver the mail (IPN not registered)
+- The staff automatically refused any mail from that sender (activate_by_reference refusal)
+
+All three had to be fixed simultaneously for payments to work.
+
+### File(s)
+- `backend/.env` (was `backend/Afodabohousing.env`)
+- `backend/services/boost.py` (lines 164-166 removed, amount verification added)
+- `backend/scripts/register_ipn.py` (run once to register IPN with Pesapal)
+
+### Fix applied
+1. **Renamed** `backend/Afodabohousing.env` → `backend/.env` so the config system loads Pesapal credentials
+2. **Ran** `python3 scripts/register_ipn.py https://afodabohousing.onrender.com/payments/webhook/pesapal` to register the IPN URL with Pesapal's system (result: `ipn_id = 1107f68e-26a1-49f8-b8f4-da17ccf0a23f`)
+3. **Fixed** `activate_by_reference` to verify amount for Pesapal payments instead of refusing them outright (added USD/UGX amount checking with tolerance, matching the pattern used by `confirm_subscription` for subscriptions)
+
+### Why it matters
+Payment webhooks now successfully complete, boosting and subscription payments activate correctly, and the frontend can poll `/payments/pesapal/status` to get accurate payment status. Without all three fixes, payments would stay permanently "pending" regardless of actual payment completion.
+
+---
+
+## 11. Safe Guards to Prevent Recurrence (HIGH)
+### 1. `.env` File Naming Convention
+- **Guard**: Add a startup check in `config.py` or `main.py` that validates required env vars exist and alerts if missing
+- **Command**: `python3 -c "from config import get_settings; s = get_settings(); assert s.pesapal_consumer_secret, 'PESAPAL_CONSUMER_SECRET missing'"`
+- **Documentation**: Add `.env` filename to onboarding checklist and deployment README
+
+### 2. IPN Registration Workflow
+- **Guard**: Add a startup health check that verifies the IPN ID is registered in the database
+- **Command**: Add a periodic check or deployment hook: `python3 backend/scripts/register_ipn.py https://afodabohousing.onrender.com/payments/webhook/pesapal`
+- **Documentation**: Add IPN registration step to deployment checklist (already in `README.md` and `docs/pesapal-setup.md`)
+
+### 3. Boost Activation Amount Verification
+- **Guard**: The fixed `activate_by_reference` now checks amounts for ALL payment methods, not just Pesapal. This prevents future bugs where specific payment types are unjustly refused.
+- **Test**: Ensure test coverage includes Pesapal boost payment activation scenarios
+- **Code review**: Add lint rule or review checklist that prevents adding `payment_method` special-cases without corresponding amount verification
+
+### 4. Deployment Checklist Integration
+Add to `README.md` deployment section:
+```
+- [ ] Run: `python backend/scripts/register_ipn.py https://<your-url>/payments/webhook/pesapal`
+- [ ] Verify `PESAPAL_CONSUMER_SECRET` is set in Render dashboard
+- [ ] Verify `backend/.env` exists with Pesapal credentials (even if Render provides vars)
+- [ ] Test boost/subscription payment end-to-end in staging environment
+```
+
+### 5. Environment Variable Validation
+Add to `backend/config.py` `_find_env_file()` validation:
+```python
+def _find_env_file() -> str:
+    """Resolve .env path whether running from repo root or backend/ directory."""
+    candidates = ["backend/.env", ".env"]
+    for p in candidates:
+        if os.path.exists(p):
+            # Validate required Pesapal vars are present
+            import os
+            load_dotenv(p)
+            from . import get_settings
+            s = get_settings()
+            if not s.pesapal_consumer_key or not s.pesapal_consumer_secret:
+                raise RuntimeError(
+                    "Pesapal credentials missing from env file. "
+                    "Set PESAPAL_CONSUMER_KEY and PESAPAL_CONSUMER_SECRET."
+                )
+            return p
+    return ".env"
+```
+
+---
 
 ### What it was
 No cleanup of the shared Pesapal HTTP client when the app shuts down.
