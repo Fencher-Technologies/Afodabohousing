@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080", "http://localhost:3000", "http://localhost:8081", "https://axishousings.com", "https://www.axishousings.com", "https://afodabohousing.vercel.app"]
+    # Vercel preview deployments match pattern: afodabohousing-<slug>-<random>.vercel.app
+    # Use regex to allow all preview deployments without updating config each time
+    cors_origin_regex: str = r"^https://afodabohousing-.+\\.vercel\\.app$"
     # Optional regex for extra origins such as Vercel preview deployments. Empty
     # (the default) allows only cors_origins. Never use a bare *.vercel.app
     # pattern: that admits every project on Vercel, not just this one. Pin it to
