@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import get_settings
+from config import validate_pesapal_config
 from dependencies.database import get_service_client
 from routers import (
     admin_regions_router,
