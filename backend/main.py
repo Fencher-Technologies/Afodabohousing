@@ -335,6 +335,7 @@ async def lifespan(app: FastAPI):
     logger.info(dumps({"event": "startup", "git_sha": _git_sha, "version": app.version}))
     logger.info(f"Starting Rental Management API v{app.version}")
     _validate_required_settings()
+    validate_pesapal_config()
     if settings.environment != "test" and not _scheduler_started:
         try:
             from services.scheduler import start_scheduler, stop_scheduler

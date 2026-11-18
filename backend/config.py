@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     pesapal_consumer_secret: str = ""
     pesapal_environment: str = "sandbox"
     pesapal_ipn_url: str = ""
+    # Tolerances for payment amount verification (in US$ or shillings)
+    # Used by activate_by_reference to match paid amounts against expected
+    pesapal_amount_tolerance_usd: float = 0.01
+    pesapal_amount_tolerance_ugx_percent: float = 5.0
     # Currency a checkout uses when the caller does not name one. Axis prices
     # in US$, but a Pesapal merchant account only settles the currencies it has
     # been enabled for. If card payments in USD are rejected, set
@@ -114,3 +118,24 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def validate_pesapal_config() -> None:
+    """Validate that Pesapal configuration is complete at startup.
+    
+    Raises RuntimeError if required credentials are missing.
+    This should be called during app initialization to fail fast
+    rather than discovering missing credentials at runtime (e.g. webhook rejection).
+    """
+    s = get_settings()
+    missing = []
+    if not s.pesapal_consumer_key:
+        missing.append("PESAPAL_CONSUMER_KEY")
+    if not s.pesapal_consumer_secret:
+        missing.append("PESAPAL_CONSUMER_SECRET")
+    if missing:
+        raise RuntimeError(
+            f"Pesapal configuration incomplete at startup. "
+            f"Missing: {', '.join(missing)}. "
+            "Set these in the backend .env or Render environment variables."
+        )
